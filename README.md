@@ -19,7 +19,7 @@ The names follow the real coalification sequence: peat → lignite → anthracit
 
 **Pre-release.** Nothing is downloadable yet. This repository is the product's public face — documentation, releases, and community — in the same shape as [`anthropics/claude-code`](https://github.com/anthropics/claude-code): the kitchen is not here.
 
-- Built on an open-weight base (Qwen family, Apache-2.0) — base attribution ships with every release.
+- Built on Qwen (Apache-2.0 base) — base attribution ships with every release.
 - Model weights, when released, carry their own license per release.
 - Issues and discussion welcome once the first release lands.
 

@@ -17,9 +17,9 @@ No trademark rights are granted. "Kolwen", "Kolwen Peat", "Kolwen Lignite",
 "Kolwen Anthracite", "CoalKiln", and "TheColliery" are names claimed by the
 copyright holder.
 
-Kolwen models are built on the Qwen open-weight model family (Apache-2.0,
-Alibaba Cloud); base-model attribution and the Apache-2.0 notice ship with
-every weights release.
+Kolwen models are built on Qwen (Alibaba Cloud) base models; the specific
+base model used for each release is Apache-2.0, and base-model attribution
+plus the Apache-2.0 notice ship with every weights release.
 
 THE CONTENTS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. IN NO EVENT
 SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
