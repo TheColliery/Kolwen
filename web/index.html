@@ -6,6 +6,10 @@
 <title>Kolwen — โคลเวน</title>
 <meta name="description" content="Kolwen (โคลเวน) — ผู้ช่วย AI ที่ตรวจสอบได้ ทุกคำตอบมีที่มาและระดับความมั่นใจ · Thai-born, verifiable AI assistant.">
 <link rel="canonical" href="https://kolwen.com/">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#15130f">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://kolwen.com">
 <meta property="og:title" content="Kolwen — โคลเวน">
@@ -38,7 +42,7 @@
   body{background:radial-gradient(circle at 20% 0%,rgba(232,131,58,.07),transparent 55%),var(--bg);color:var(--txt);font-family:'IBM Plex Sans Thai',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px;line-height:1.6}
   main{max-width:560px;width:100%;display:flex;flex-direction:column;gap:28px}
   .mark{display:flex;align-items:center;gap:12px}
-  .dot{width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 35% 30%,var(--accent2),var(--accent) 60%,#a85a26);box-shadow:0 0 10px rgba(232,131,58,.5)}
+  .glyph{flex:none;display:block}
   .name{font-size:34px;font-weight:700;letter-spacing:.01em}
   .thai{font-size:15px;color:var(--quiet);font-weight:500}
   h1{font-size:21px;font-weight:600;line-height:1.5}
@@ -61,7 +65,11 @@
 <body>
 <main>
   <div class="mark" role="img" aria-label="Kolwen">
-    <span class="dot" aria-hidden="true"></span>
+    <svg class="glyph" viewBox="0 0 100 100" width="34" height="34" aria-hidden="true" fill="#e8833a">
+      <rect x="8.5" y="9.1" width="64.3" height="25"/>
+      <rect x="17.85" y="46.25" width="64.3" height="19.66"/>
+      <rect x="27.2" y="75.46" width="64.3" height="15.45"/>
+    </svg>
     <span class="name">Kolwen</span>
     <span class="thai">โคลเวน</span>
   </div>
