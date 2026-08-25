@@ -1,6 +1,6 @@
 // Generator for every Kolwen brand asset. The mark is three axis-aligned
 // rectangles, so rasterising it here is exact - no renderer, no font, nothing
-// to install. Run: node Kolwen/brand/make-brand.mjs
+// to install. Run: node make-brand.mjs
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 import { dirname } from 'node:path';
@@ -10,7 +10,7 @@ import { strict as assert } from 'node:assert';
 const OUT = dirname(fileURLToPath(import.meta.url));
 mkdirSync(OUT, { recursive: true });
 
-// V4, framed so the mark fills 83% of its box - Material's 20-of-24dp live area.
+// Framed so the mark fills 83% of its box - Material's 20-of-24dp live area.
 const BARS = [
   { x: 8.5,   y: 9.1,   w: 64.3, h: 25.0  },
   { x: 17.85, y: 46.25, w: 64.3, h: 19.66 },
@@ -35,7 +35,7 @@ const AVATAR_BARS = BARS.map(b => ({
 }));
 
 const AMBER_DARK_GROUND  = '#e8833a';  // 6.84:1 on #15130f
-const AMBER_LIGHT_GROUND = '#A65A19';  // 5.1:1 on white
+const AMBER_LIGHT_GROUND = '#A65A19';  // 5.125:1 on white; 3.620:1 on charcoal = large/non-text only
 const CHARCOAL           = '#15130f';
 
 const rects = (fill, bars) => bars.map(b =>

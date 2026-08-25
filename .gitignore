@@ -21,8 +21,7 @@ dist/
 *.safetensors
 models/
 
-# THIS REPO IS PUBLIC. Nothing about the kiln belongs here —
-# pipelines, corpus, recipes and model internals live in the private repo, never here.
+# THIS REPO IS PUBLIC. Training and model-production material never belongs here.
 corpus/
 recipes/
 pipelines/
