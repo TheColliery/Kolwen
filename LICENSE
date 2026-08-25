@@ -13,9 +13,9 @@ MODEL WEIGHTS ARE LICENSED SEPARATELY. Any Kolwen model weights are released
 under their own license, stated in and shipped with each release. Nothing in
 this file grants or restricts rights to model weights.
 
-No trademark rights are granted. "Kolwen", "Kolwen Peat", "Kolwen Lignite",
-"Kolwen Anthracite", "Bankfire", and "TheColliery" are names claimed by the
-copyright holder.
+No trademark rights are granted. "Kolwen", "โคลเวน", "Kolwen Peat",
+"Kolwen Lignite", "Kolwen Anthracite", "Bankfire", and "TheColliery" are
+names claimed by the copyright holder.
 
 Kolwen models are built on Qwen (Alibaba Cloud) base models; the specific
 base model used for each release is Apache-2.0, and base-model attribution

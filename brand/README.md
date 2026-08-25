@@ -111,8 +111,8 @@ rasterise ที่ 4× supersampling แล้วนับว่ายังเ
 ## English summary
 
 **Two marks, different legal standing.** The word mark `Kolwen` is filed with the Thai DIP
-(filed 2026-08-24, classes 9 and 42, pending). The three-bar device is **not
-filed** — copyright only, no trademark rights.
+(filed 2026-08-24, classes 9 and 42, pending — not yet registered). The three-bar
+device is **not filed** — copyright only, no trademark rights.
 
 **Colours.** `#e8833a` on dark grounds (6.84:1 on `#15130f`); `#A65A19` on light grounds
 (5.1:1 on white). Never put `#e8833a` on white — it measures ~2.4:1 and fails WCAG AA.
