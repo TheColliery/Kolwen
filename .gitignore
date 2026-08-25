@@ -1,0 +1,28 @@
+# machine-local governance / agent state — never pushed (flock rule)
+.claude/
+.agents/
+.coal*
+CLAUDE.md
+AGENTS.md
+MEMORY.md
+
+# secrets — this repo is public and permanent; a leaked key cannot be un-pushed
+.env
+.env.*
+.dev.vars
+.dev.vars.*
+
+# local scratch + artifacts
+scratchpad/
+node_modules/
+dist/
+.wrangler/
+*.gguf
+*.safetensors
+models/
+
+# THIS REPO IS PUBLIC. Nothing about the kiln belongs here —
+# pipelines, corpus, recipes and model internals live in the private repo, never here.
+corpus/
+recipes/
+pipelines/
