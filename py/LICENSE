@@ -1,0 +1,26 @@
+Kolwen — Repository License
+
+Copyright (c) 2026 HetCreep / TheColliery. All rights reserved.
+
+The contents of this repository — documentation, text, images, and any other
+materials — are the proprietary property of the copyright holder. Without the
+copyright holder's prior written permission, you may not copy, reproduce,
+modify, distribute, sublicense, sell, or create derivative works from this
+repository's contents, except as permitted by applicable law (fair use /
+quotation with attribution).
+
+MODEL WEIGHTS ARE LICENSED SEPARATELY. Any Kolwen model weights are released
+under their own license, stated in and shipped with each release. Nothing in
+this file grants or restricts rights to model weights.
+
+No trademark rights are granted. "Kolwen", "Kolwen Peat", "Kolwen Lignite",
+"Kolwen Anthracite", "CoalKiln", and "TheColliery" are names claimed by the
+copyright holder.
+
+Kolwen models are built on Qwen (Alibaba Cloud) base models; the specific
+base model used for each release is Apache-2.0, and base-model attribution
+plus the Apache-2.0 notice ship with every weights release.
+
+THE CONTENTS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. IN NO EVENT
+SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+LIABILITY ARISING FROM THE CONTENTS OR THEIR USE.
