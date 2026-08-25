@@ -2,7 +2,7 @@
 
 > ทุกตัวเลขในเอกสารนี้ **วัดจริง** ไม่ใช่ค่าที่ตั้งขึ้น — เรขาคณิตกับขนาดต่ำสุดสร้างใหม่ได้ด้วย
 > `node make-brand.mjs` · อัตราส่วน contrast คำนวณจากค่า hex ด้วยสูตร relative luminance ของ WCAG 2.x
-> ปรับปรุง 2026-08-25
+> ปรับปรุง 2026-08-26
 
 ## 1. เครื่องหมายมีสองชิ้น และสถานะทางกฎหมายต่างกัน
 
@@ -21,14 +21,47 @@
 | Amber deep | `#A65A19` | พื้นขาว/อ่อนมาก | **5.125:1** บนขาว |
 | Charcoal | `#15130f` | พื้นหลัง / icon tile | — |
 
-**ห้ามใช้ `#e8833a` บนพื้นขาว** — วัดได้ 2.714:1 ตกเกณฑ์ WCAG AA ทุกกรณี ใช้ `#A65A19` แทน
+### เกณฑ์ที่ยึด — WCAG 2.2 (ดึงจาก w3.org 2026-08-25)
 
-**`#A65A19` บนพื้นเข้ม `#15130f` วัดได้ 3.620:1** — ตกเกณฑ์ AA สำหรับข้อความปกติ (4.5:1) แต่ผ่านเกณฑ์ 3:1
-จึงจำกัดไว้ที่ข้อความขนาดใหญ่ กับตัวเครื่องหมายหรือองค์ประกอบที่ไม่ใช่ข้อความเท่านั้น
-ข้อความปกติบนพื้นเข้มใช้ `#e8833a`
+**กฎ contrast ทุกข้อในเอกสารนี้ติดป้ายว่ามาจากไหน** (ตัวเลขอื่น — เรขาคณิต ขนาด ระยะ — ไม่ใช้ป้ายนี้):
+**[บังคับ]** = มาตรฐานกำหนดตัวเลขนี้ · **[บ้านเรา]** = มาตรฐานไม่เอื้อมถึงกรณีนี้ เราตั้งเกณฑ์เอง ·
+**[แนะนำ]** = มาตรฐานเสนอ *วิธี* ทำให้ผ่าน ไม่ได้บังคับตัวเลข
 
-**`#A65A19` ผ่าน AA (4.5:1) เฉพาะพื้นที่อ่อนกว่า `#f1f1f1`** — วัดได้ 5.125:1 บนขาว แต่ร่วงเหลือ
-4.067:1 บนครีมของโปรเจกต์เอง `#ece4d9` ตกเกณฑ์ข้อความปกติ พื้นอ่อนที่ไม่ใช่ขาวล้วนต้องวัดก่อนใช้
+- **SC 1.4.3 Contrast (Minimum) — ระดับ AA** ข้อความและภาพของข้อความต้องได้ **4.5:1**
+  ยกเว้น *Large Text* ได้ **3:1** (18pt ขึ้นไป หรือ 14pt ตัวหนา) และยกเว้น *Logotypes*:
+  "Text that is part of a logo or brand name has no contrast requirement."
+  ขอบเขตของ SC นี้คือ "text and images of text" เท่านั้น — **อุปกรณ์สามแถบไม่ใช่ข้อความ 1.4.3 จึงไม่
+  เอื้อมถึงมันตั้งแต่แรก (out of scope) ไม่ใช่ "ได้รับยกเว้น"** ส่วนคำว่า Kolwen ที่เป็นตัวอักษรอยู่ใน
+  ขอบเขต แต่เข้าข้อยกเว้น *Logotypes* ตรงตัว
+- **SC 1.4.11 Non-text Contrast — ระดับ AA** ต้องได้ **3:1** สำหรับสองอย่าง: (ก) ข้อมูลภาพที่จำเป็น
+  ต่อการระบุ UI component และสถานะของมัน — มีข้อยกเว้นของตัวเองสำหรับ component ที่ inactive และ
+  กรณีที่หน้าตาถูกกำหนดโดย user agent · (ข) "Parts of graphics required to understand the
+  content" — ส่วนของกราฟิกที่จำเป็นต่อการเข้าใจเนื้อหา ยกเว้นเมื่อการนำเสนอแบบนั้นเป็นสาระสำคัญเสียเอง
+  ตัวบทของ SC นี้ไม่มีข้อยกเว้นเรื่องโลโก้ และ **ตามปกติก็ไม่ต้องมี** — เครื่องหมายการค้าไม่ใช่กราฟิกที่
+  จำเป็นต่อการเข้าใจเนื้อหา ข้อ (ข) จึงไม่เอื้อมถึง (กรณีที่ตัวเครื่องหมายเองคือเนื้อหา เช่น ตารางเทียบยี่ห้อ
+  ต้องคิดใหม่เป็นราย ๆ)
+- เอกสาร Understanding ของ 1.4.11 พูดถึงโลโก้ไว้ด้วย แต่มันระบุตัวเองว่า **informative ไม่ใช่
+  normative** จึงใช้เป็นฐานของกฎไม่ได้ ที่อ้างได้คือตัวบทข้างบน — และตัวบทไม่เอื้อมถึงเครื่องหมายอยู่แล้ว
+  ส่วนที่ Understanding มีประโยชน์จริงคือ *วิธี* จัดการกรณีเครื่องหมายเป็นตัวควบคุม (ดูข้อ 6)
+
+### กฎการใช้สี
+
+**ห้ามใช้ `#e8833a` บนพื้นขาว** — วัดได้ 2.714:1 ใช้ `#A65A19` แทน กฎข้อนี้มีสองที่มา แล้วแต่ใช้กับอะไร:
+
+- **ข้อความ** สี `#e8833a` บนขาว **[บังคับ]** — ตก 1.4.3 ทั้ง 4.5:1 และ 3:1 ไม่ผ่านเกณฑ์ไหนเลย
+- **ตัวเครื่องหมาย** สี `#e8833a` บนขาว **[บ้านเรา]** — 1.4.3 ไม่เอื้อมถึงอุปกรณ์ และ 1.4.11 ข้อ (ข)
+  ก็ไม่เอื้อม (ตราบใดที่ไม่ได้เป็นลิงก์/ปุ่ม) ห้ามข้อนี้จึงเป็นเกณฑ์ของเราเอง เหตุผลเดียวกับพื้นภาพถ่าย
+
+**`#A65A19` บนพื้นเข้ม `#15130f` วัดได้ 3.620:1** — ตกเกณฑ์ 1.4.3 สำหรับข้อความปกติ (4.5:1)
+แต่ผ่าน 3:1 ของ 1.4.3 *Large Text* จึงแยกเป็นสองกรณี:
+
+- **ข้อความ** ใช้ได้เฉพาะข้อความขนาดใหญ่ **[บังคับ]** ข้อความปกติบนพื้นเข้มใช้ `#e8833a`
+- **ตัวเครื่องหมาย** ใช้ได้ **[บ้านเรา]** — ไม่มีเกณฑ์ของมาตรฐานมาบังคับ (1.4.3 ไม่เอื้อมถึง 1.4.11 ข้อ (ข)
+  ก็ไม่เอื้อม) ที่ยอมให้ใช้เพราะ 3.620 ยังอ่านออกจริงบนพื้นนี้ ไม่ใช่เพราะผ่านเกณฑ์ไหน
+
+**`#A65A19` ผ่าน 1.4.3 ข้อความปกติ (4.5:1) เฉพาะพื้น `#f1f1f1` หรืออ่อนกว่า** **[บังคับ]** —
+วัดได้ 5.125:1 บนขาว แต่ร่วงเหลือ 4.067:1 บนครีมของโปรเจกต์เอง `#ece4d9` ซึ่งตกเกณฑ์ข้อความปกติ
+พื้นอ่อนที่ไม่ใช่ขาวล้วนต้องวัดก่อนใช้
 
 **สีเดียวล้วน (mono)** ใช้ `kolwen-mark-mono.svg` ซึ่งรับสีจาก `currentColor` — วางในบริบทไหนก็ได้สีนั้น
 
@@ -78,11 +111,26 @@ rasterise ที่ 4× supersampling แล้วนับว่ายังเ
 **ทำได้** — ย่อขยายตามสัดส่วน · เปลี่ยนเป็น mono สีเดียว · วางบนพื้นเข้มหรือพื้นอ่อนโดยเลือกสีให้ถูก
 
 **ห้าม** — บิดสัดส่วน (ย่อด้านเดียว) · หมุนหรือเอียง · ใส่เงา ไล่เฉด ขอบเส้น หรือมุมโค้ง ·
-เปลี่ยนสีเป็นสีอื่นนอกจากที่ระบุหรือ mono · ขยับ/เพิ่ม/ลดจำนวนแถบ · วาง `#e8833a` บนพื้นขาว ·
-วางบนภาพถ่ายที่ทำให้ contrast ต่ำกว่า 4.5:1 (เกณฑ์ WCAG ของตัวเครื่องหมายคือ 3:1 เพราะไม่ใช่ข้อความ
-แต่ภาพถ่ายไม่ได้สีเดียวสม่ำเสมอ ค่าเดียวจึงประเมินความเสี่ยงต่ำเกินจริง บ้านเราใช้ 4.5:1 เป็นเกณฑ์เอง) · ใส่เครื่องหมายไว้ในกล่องที่บีบจน clear space ไม่พอ
+เปลี่ยนสีเป็นสีอื่นนอกจากที่ระบุหรือ mono · ขยับ/เพิ่ม/ลดจำนวนแถบ ·
+วาง `#e8833a` บนพื้นขาว (สองที่มา ดูข้อ 2) ·
+ใส่เครื่องหมายไว้ในกล่องที่บีบจน clear space ไม่พอ ·
+วางเครื่องหมายบนภาพถ่ายที่ contrast ต่ำกว่า 4.5:1 (เกณฑ์ของเราเอง ดูย่อหน้าถัดไป)
 
-**จำกัด (ไม่ใช่ห้าม)** — `#A65A19` บนพื้นเข้ม ใช้ได้เฉพาะข้อความใหญ่/ตัวเครื่องหมาย ไม่ใช่ข้อความปกติ (3.620:1)
+**เกณฑ์ของเราเอง [บ้านเรา]** — วางเครื่องหมายบนภาพถ่ายต้องได้ **อย่างน้อย 4.5:1**
+มาตรฐานไม่ได้บังคับตัวเลขนี้ — 1.4.3 คุมเฉพาะข้อความ อุปกรณ์สามแถบอยู่นอกขอบเขต (คำว่า Kolwen ที่เป็น
+ตัวอักษรเข้าข้อยกเว้น *Logotypes*) ส่วน 1.4.11 ข้อ (ข) คุมกราฟิกที่จำเป็นต่อการเข้าใจเนื้อหา ซึ่ง
+เครื่องหมายการค้าไม่ใช่ **4.5 จึงเป็นเกณฑ์ของเราเอง** เหตุผล: ภาพถ่ายไม่ใช่พื้นสีเดียวสม่ำเสมอ
+ค่า contrast ค่าเดียวจึงประเมินกรณีแย่สุดจริงต่ำเกินไป (ถ้าเครื่องหมายนั้นเป็นลิงก์ด้วย ดูข้อถัดไป —
+กรณีนั้น 3:1 เป็นข้อบังคับซ้อนเข้ามา)
+
+**ถ้าเครื่องหมายถูกใช้เป็นลิงก์หรือปุ่ม [บังคับ]** — ตอนนั้นมันเป็น UI component และ 1.4.11 ข้อ (ก)
+เข้ามาเกี่ยว ข้อ (ก) บังคับ 3:1 กับ *ข้อมูลภาพที่จำเป็นต่อการระบุตัว component* ซึ่งอาจไม่ใช่ตัวเครื่องหมาย
+เสมอไป (ถ้ามีข้อความกำกับ ขอบ หรือตำแหน่งเป็นตัวบอกอยู่แล้ว) **เราตัดสินให้ถือ 3:1 เป็นข้อบังคับไว้ก่อน**
+เพราะเป็นการอ่านที่ปลอดภัยกว่า · **[แนะนำ]** คือ *วิธี* ทำให้ผ่าน ซึ่ง Understanding เสนอสองทาง —
+เลือกแบบเครื่องหมายที่ contrast สูงพอ หรือมี UI อีกตัวที่ทำหน้าที่เดียวกันและผ่านเกณฑ์
+วันนี้เครื่องหมายบนหน้าเว็บเป็น `role="img"` ไม่ได้อยู่ใน `<a>` ข้อนี้จึงยังไม่มีผล เขียนไว้เผื่อวันที่เปลี่ยน
+
+**จำกัด (ไม่ใช่ห้าม) [บังคับ]** — `#A65A19` บนพื้นเข้ม ใช้ได้เฉพาะข้อความใหญ่/ตัวเครื่องหมาย ไม่ใช่ข้อความปกติ (3.620:1)
 
 ## 7. ไฟล์
 
@@ -127,10 +175,36 @@ rasterise ที่ 4× supersampling แล้วนับว่ายังเ
 device is **not filed** — copyright only, no trademark rights.
 
 **Colours.** `#e8833a` on dark grounds (6.84:1 on `#15130f`); `#A65A19` on light grounds
-(5.125:1 on white). `#A65A19` on `#15130f` measures 3.620:1 — it fails AA for normal text
-(4.5:1) but clears the 3:1 bar, so it is limited to large text and to the mark or other
-non-text elements; for normal text on dark use `#e8833a`. Never put `#e8833a` on white —
-it measures 2.714:1 and fails WCAG AA at every level.
+(5.125:1 on white). Never put `#e8833a` on white — it measures 2.714:1.
+
+**Every contrast rule states its source.** `[required]` = WCAG sets this number ·
+`[ours]` = WCAG does not reach this case, so the number is the project's · `[advisory]` =
+WCAG suggests a *method*, not a number. WCAG 2.2, fetched from w3.org 2026-08-25.
+
+- `#A65A19` for normal text holds 1.4.3's 4.5:1 only at `#f1f1f1` or lighter — on the
+  project's own cream `#ece4d9` it drops to 4.067:1 **[required]**.
+- `#A65A19` on `#15130f` is 3.620:1: for text it is limited to large text, which clears
+  1.4.3's 3:1 **[required]**; for the mark it is allowed **[ours]**, because it reads
+  clearly there, not because it meets any criterion.
+- `#e8833a` on white clears no bar of 1.4.3, so for text the prohibition is **[required]**;
+  for the mark the same prohibition is **[ours]**.
+
+**Which bars are the standard's, and which are ours.** SC 1.4.3 governs "text and images of
+text", so the three-bar device is **out of its scope** rather than exempt — the *Logotypes*
+exception is what covers the word mark. SC 1.4.11 requires 3:1 for information identifying
+UI components and for "Parts of graphics required to understand the content"; a brand mark
+is not ordinarily required to understand content, so that clause does not reach it either.
+
+**So our 4.5:1 minimum for the mark over a photograph is OUR rule [ours]**, and the reason
+is ours too: a photograph is not a flat ground, so a single contrast value understates the
+real worst case. The text bars above are the standard's and are unchanged.
+
+**One case flips it back.** A mark used as a link or control is a user interface component,
+and 1.4.11 then applies to the visual information that identifies the control — which may or
+may not be the mark itself. We treat 3:1 as required there **[required]**, as the safer
+reading. Its Understanding offers methods, not permission to skip: a higher-contrast variant,
+or a conforming control alongside **[advisory]**. The mark on our page is `role="img"` and is
+not inside an `<a>`, so this does not yet apply here.
 
 **Clear space.** X = the height of the bottom bar = 15.45% of the box height. Keep at least
 X clear on all four sides. The unit is a part of the mark, so it scales with it.
