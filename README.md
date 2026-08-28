@@ -23,6 +23,11 @@ The names follow the real coalification sequence: peat → lignite → anthracit
 - Model weights, when released, carry their own license per release.
 - Issues and discussion welcome once the first release lands.
 
+## Contact
+
+<contact@kolwen.com> — for anything that does not belong in a public issue.
+Once the first release lands, bugs and feature discussion belong in Issues.
+
 ## License
 
 Repository contents: all rights reserved — see [LICENSE](LICENSE). Released model weights carry their own per-release license.
