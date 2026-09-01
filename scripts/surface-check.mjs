@@ -1,8 +1,8 @@
 // Kolwen surface check — the room's own laws, mechanised.
 //
-// This repo's risk is not broken code, it is a FALSE PUBLIC CLAIM: every incident it has had
-// was a truth defect in published text. Each assertion below is a rule the room already holds
-// and has already caught a violation of. Zero dependencies, Node built-ins only.
+// This repo's risk is not broken code: one zero-dependency generator is the only executable of
+// consequence. Its risk is a FALSE PUBLIC CLAIM. Every assertion below is a rule the room
+// already holds and has already caught a violation of. Zero dependencies, Node built-ins only.
 import { readFileSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 
@@ -10,43 +10,50 @@ const fail = [];
 const note = (f, msg) => fail.push(`${f}: ${msg}`);
 
 const tracked = execSync('git ls-files', { encoding: 'utf8' }).split('\n').filter(Boolean);
-const isText = f => !/.(png|svg|ico|woff2?|ttf)$/i.test(f);
 
-// SCOPE. These checks police PUBLISHED CLAIMS — what a reader of the site, the README, the
-// brand doc or the PyPI page actually sees. Two exclusions, both load-bearing:
-//   SELF  — a checker must be able to NAME the strings it forbids. Scanning itself makes
-//           every rule its own violation, which is how this check first went red.
-//   .github/** and scripts/** are CI machinery, not claims about the product. They stay in
-//           scope for the leak checks below (an internal path can leak from anywhere) but
-//           not for the claim checks.
+// Binary only. SVG is TEXT — hand-editable XML, tracked, and served at kolwen.com/favicon.svg,
+// so it is exactly the kind of file a path or a private name gets pasted into. The dot is
+// escaped: unescaped, the class also swallowed any name merely ENDING in those letters.
+const isBinary = f => /\.(png|ico|woff2?|ttf)$/i.test(f);
+
+// SCOPE. These rules police PUBLISHED CLAIMS — what a reader of the site, the README, the brand
+// doc or the PyPI page sees. One exclusion, load-bearing: a checker must be able to NAME the
+// strings it forbids, and scanning itself makes every rule its own violation.
 const SELF = 'scripts/surface-check.mjs';
+const isText = f => !isBinary(f);
 const PUBLISHED = f => isText(f) && f !== SELF && !f.startsWith('.github/') && !f.startsWith('scripts/');
-const SCANNABLE = f => isText(f) && f !== SELF;
+const SCANNABLE = f => isText(f) && f !== SELF;   // leak rules run wider than claim rules
 const read = f => readFileSync(f, 'utf8');
 
 // ── 1. Trademark: FILED, never registered ────────────────────────────────────
-// The word mark is filed and pending. "®" or "registered" asserts a status we do not hold.
 for (const f of tracked.filter(PUBLISHED)) {
   const s = read(f);
-  if (s.includes('®')) note(f, 'contains ® — the mark is FILED, not registered');
+  if (s.includes('®')) note(f, 'contains the registered-trademark symbol — the mark is FILED');
   // "not yet registered" is the CORRECT claim — flag an AFFIRMATIVE assertion only.
   for (const m of s.matchAll(/(.{0,24})\bregistered\b/gi)) {
-    if (!/(not|never|yet|un)\s*(yet\s*)?$/i.test(m[1])) note(f, 'asserts the mark is registered — it is FILED');
+    if (!/(not|never|yet)\s*(yet\s*)?$/i.test(m[1])) note(f, 'asserts the mark is registered — it is FILED');
   }
-  if (/จดทะเบียนแล้ว/.test(s)) note(f, 'claims the mark is already registered');
+  // Thai gets a PATTERN, not one literal: several phrasings assert the same false status.
+  if (/จดทะเบียน(แล้ว|เรียบร้อย|สมบูรณ์)|ได้รับการจดทะเบียน/.test(s)) note(f, 'claims in Thai that the mark is already registered');
 }
 
-// ── 2. No filing identifier on a public surface ──────────────────────────────
-// Owner deferral: an identifier a reader cannot look up costs the same trust as a false one.
+// ── 2. No trademark filing identifier on a published surface ─────────────────
+// STRUCTURAL, and deliberately so: naming the identifiers here would publish them in this very
+// file, in a public permanent repo — the defect this rule exists to prevent. A long digit run
+// has no legitimate use on any published surface in this repo (verified: zero occurrences), so
+// the shape is the rule. It also catches identifiers nobody thought to tell this checker about.
 for (const f of tracked.filter(PUBLISHED)) {
-  if (/\b(69082400283315|260145727)\b/.test(read(f))) note(f, 'publishes a trademark filing identifier (owner-deferred)');
+  const runs = read(f).match(/\d{9,}/g);
+  if (runs) note(f, `contains a ${runs[0].length}-digit identifier-shaped number — filing identifiers are owner-deferred from every public surface`);
 }
 
 // ── 3. No kitchen leakage ────────────────────────────────────────────────────
-// The private side's name, paths and process vocabulary never reach this repo.
-// LICENSE files are EXEMPT for the brand-name check only: their trademark-reservation
-// clause must name the names it reserves, which is the whole point of such a clause.
-const KITCHEN = /\b(coalkiln|LLMWorks\/|_work\/|\.claude\/|scratchpad\/)/i;
+// NO leading \b: it is a word-boundary assertion, and against a branch beginning with "." it can
+// never hold at a whitespace or line start — which silently disabled the .claude/ branch, the
+// single most common internal prefix in this flock. Each branch is distinctive on its own.
+const KITCHEN = /(coalkiln|LLMWorks\/|_work\/|\.claude\/|scratchpad\/|agent-memory\/)/i;
+// LICENSE files are EXEMPT for the brand-name rule ONLY: a trademark-reservation clause must
+// name the names it reserves. That is the clause's whole function.
 const RESERVATION_EXEMPT = new Set(['LICENSE', 'py/LICENSE']);
 // .gitignore must NAME the paths it fences — the fence is not a leak.
 const PATH_EXEMPT = new Set(['.gitignore']);
@@ -54,7 +61,7 @@ for (const f of tracked.filter(SCANNABLE)) {
   const s = read(f);
   if (!PATH_EXEMPT.has(f) && KITCHEN.test(s)) note(f, 'contains an internal path or private-repo reference');
   if (!RESERVATION_EXEMPT.has(f) && /\bBankfire\b/.test(s)) note(f, 'names the private repo outside a licence reservation clause');
-  if (/[A-Za-z]:\\Users\\|\/Users\/[a-z0-9]+\//i.test(s)) note(f, 'contains an absolute local path');
+  if (/[A-Za-z]:\Users\|\/Users\/[a-z0-9]+\//i.test(s)) note(f, 'contains an absolute local path');
 }
 
 // ── 4. Thai orthography ──────────────────────────────────────────────────────
@@ -67,7 +74,10 @@ for (const f of tracked.filter(PUBLISHED)) {
   if (s.includes('…')) note(f, 'U+2026 ellipsis — use three ASCII dots');
 }
 
-// ── 5. web/index.html integrity ──────────────────────────────────────────────
+// ── 5. web/index.html integrity + bilingual STRUCTURE ────────────────────────
+// Named "structure", not "parity": these assert that both language blocks exist and that the
+// right one is default-visible. They do NOT compare the two blocks claim-for-claim. A real
+// parity assertion is a separate unit; until it exists the weaker name is the true one.
 if (existsSync('web/index.html')) {
   const s = read('web/index.html');
   for (const t of ['html','head','body','main','nav','footer','div','span','p','h1','h2','a','button','script','style','noscript','svg']) {
@@ -78,8 +88,6 @@ if (existsSync('web/index.html')) {
   const ld = s.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
   if (!ld) note('web/index.html', 'structured-data block missing');
   else { try { JSON.parse(ld[1]); } catch (e) { note('web/index.html', 'ld+json does not parse: ' + e.message); } }
-
-  // Bilingual parity: English is the default view, Thai exists and is hidden until asked for.
   if (!/<html lang="en">/.test(s)) note('web/index.html', 'default document language is not English');
   if (!/id="doc-th"[^>]*\shidden/.test(s)) note('web/index.html', 'Thai block is not hidden by default');
   if (/id="doc-en"[^>]*\shidden/.test(s)) note('web/index.html', 'English block is hidden by default');
@@ -87,18 +95,18 @@ if (existsSync('web/index.html')) {
 }
 
 // ── 6. Every contrast ratio in the brand doc recomputes from its own hex pair ─
-// WCAG 2.x relative luminance. A ratio stated beside a colour must be derivable from it.
 if (existsSync('brand/README.md')) {
   const lin = c => { const s = c / 255; return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4); };
   const L = h => { const [r, g, b] = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b); };
   const ratio = (a, b) => { const [x, y] = [L(a), L(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
   const PAIRS = [['#e8833a','#15130f'],['#A65A19','#ffffff'],['#e8833a','#ffffff'],['#A65A19','#15130f'],['#A65A19','#ece4d9'],['#A65A19','#f1f1f1']];
+  const THRESHOLDS = new Set(['3', '4.5', '7']);   // WCAG's own bars, not measurements of a pair
   const doc = read('brand/README.md');
-  // WCAG's own bars are thresholds, not measurements of a pair — exclude them.
-  const THRESHOLDS = new Set(['3', '4.5', '7']);
   const stated = [...new Set(doc.match(/\b\d+(?:\.\d+)?:1/g) || [])].map(t => t.slice(0, -2)).filter(t => !THRESHOLDS.has(t));
   for (const t of stated) {
-    const ok = PAIRS.some(([a, b]) => Math.abs(ratio(a, b) - Number(t)) < 0.005);
+    // <= : a correctly-rounded 2-decimal figure sits at most 0.005 from its true value, so a
+    // strict < reds a correct document at exactly the rounding boundary.
+    const ok = PAIRS.some(([a, b]) => Math.abs(ratio(a, b) - Number(t)) <= 0.005);
     if (!ok) note('brand/README.md', `states ${t}:1, which no documented colour pair produces`);
   }
 }
@@ -107,4 +115,4 @@ if (fail.length) {
   console.error('surface check FAILED:\n' + fail.map(f => '  - ' + f).join('\n'));
   process.exit(1);
 }
-console.log(`surface check passed — ${tracked.length} tracked files, ${tracked.filter(isText).length} text`);
+console.log(`surface check passed — ${tracked.length} tracked files, ${tracked.filter(SCANNABLE).length} scanned`);

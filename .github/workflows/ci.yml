@@ -9,14 +9,10 @@ on:
       # brand doc, the README), and the surface job checks exactly those claims.
       # NOTE the inversion vs the usual reflex: brand/**.png and brand/**.svg are NOT ignored —
       # a hand-edited asset is precisely what the assets job exists to catch.
-      - 'LICENSE'
-      - 'py/LICENSE'
       - '.gitignore'
   pull_request:
     branches: [main]
     paths-ignore:
-      - 'LICENSE'
-      - 'py/LICENSE'
       - '.gitignore'
 
 permissions:
@@ -36,7 +32,7 @@ jobs:
       # ubuntu-latest ONLY, single Node major, deliberately: byte-identity depends on
       # zlib.deflateSync(level 9) producing identical output, and whether that holds across
       # platform and Node major is UNMEASURED here. A matrix would risk reddening a correct
-      # repo. Widen it once measured — see .claude/design/CI-DESIGN.md Q1.
+      # repo. Widen it once the Node-major and macOS axes are measured too.
       - run: node brand/make-brand.mjs
       - run: git diff --exit-code -- brand/
 
@@ -50,7 +46,7 @@ jobs:
           node-version: 24
       # The room's own laws, mechanised: trademark FILED-never-registered · no filing
       # identifier · no kitchen leakage · Thai orthography · HTML + ld+json integrity ·
-      # bilingual parity · every stated contrast ratio recomputed from its own hex pair.
+      # bilingual structure · every stated contrast ratio recomputed from its own hex pair.
       - run: node scripts/surface-check.mjs
 
   # A single STABLE required-check context (job names drift; this does not).
