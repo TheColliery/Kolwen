@@ -1,0 +1,21 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: ci
+    assignees:
+      - HetCreep
+    # Group every github/codeql-action/* path (init/analyze/upload-sarif) into ONE PR so they
+    # bump together — a split bump skews init against analyze and reds CodeQL.
+    groups:
+      codeql-action:
+        patterns:
+          - "github/codeql-action*"
+    # NO pip ecosystem, deliberately: py/pyproject.toml declares hatchling as a build backend
+    # and zero runtime dependencies, so a pip block would watch an empty set. Add it the day
+    # the package gains a dependency.

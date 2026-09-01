@@ -1,0 +1,43 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      # CodeQL analyses js/ts only. Docs and binary assets cannot carry a code vulnerability,
+      # so a doc-only or asset-only commit must not start an analysis. Published-claim
+      # correctness in those files is ci.yml's surface job, not CodeQL's.
+      - '**.md'
+      - 'LICENSE'
+      - '**/*.png'
+      - '**/*.svg'
+      - '**/*.xml'
+      - '**/*.txt'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - '**/*.png'
+      - '**/*.svg'
+      - '**/*.xml'
+      - '**/*.txt'
+  schedule:
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: analyze (javascript)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4
+        with:
+          languages: javascript-typescript
+          config-file: ./.github/codeql/codeql-config.yml
+      - uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4

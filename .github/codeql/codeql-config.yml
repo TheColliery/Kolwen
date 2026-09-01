@@ -1,0 +1,10 @@
+# Kolwen CodeQL config.
+# Ported from the flock's shape (one-flock law). The js/automatic-semicolon-insertion
+# exclusion is carried over verbatim: it is a style/quality rule (security_severity: none),
+# not a security finding. All security queries and the rest of the quality suite are kept.
+name: "Kolwen CodeQL config"
+queries:
+  - uses: security-and-quality
+query-filters:
+  - exclude:
+      id: js/automatic-semicolon-insertion

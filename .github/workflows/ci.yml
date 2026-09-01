@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      # Only genuinely non-participating paths. This set is deliberately TINY: nearly every
+      # tracked file here is a published surface (the page, the PyPI long-description, the
+      # brand doc, the README), and the surface job checks exactly those claims.
+      # NOTE the inversion vs the usual reflex: brand/**.png and brand/**.svg are NOT ignored —
+      # a hand-edited asset is precisely what the assets job exists to catch.
+      - 'LICENSE'
+      - 'py/LICENSE'
+      - '.gitignore'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - 'LICENSE'
+      - 'py/LICENSE'
+      - '.gitignore'
+
+permissions:
+  contents: read
+
+jobs:
+  assets:
+    name: assets (byte-identity)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      # Zero-dependency: no install step. Regenerate every brand asset and fail if a committed
+      # file differs — catches a hand-edited PNG and generator drift in one check.
+      # ubuntu-latest ONLY, single Node major, deliberately: byte-identity depends on
+      # zlib.deflateSync(level 9) producing identical output, and whether that holds across
+      # platform and Node major is UNMEASURED here. A matrix would risk reddening a correct
+      # repo. Widen it once measured — see .claude/design/CI-DESIGN.md Q1.
+      - run: node brand/make-brand.mjs
+      - run: git diff --exit-code -- brand/
+
+  surface:
+    name: surface (published claims)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      # The room's own laws, mechanised: trademark FILED-never-registered · no filing
+      # identifier · no kitchen leakage · Thai orthography · HTML + ld+json integrity ·
+      # bilingual parity · every stated contrast ratio recomputed from its own hex pair.
+      - run: node scripts/surface-check.mjs
+
+  # A single STABLE required-check context (job names drift; this does not).
+  # Rulesets require `all-green`, never the per-job names.
+  all-green:
+    name: all-green
+    needs: [assets, surface]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: gate result
+        run: |
+          for r in "${{ needs.assets.result }}" "${{ needs.surface.result }}"; do
+            case "$r" in
+              success|skipped) ;;
+              *) echo "gate result: $r"; exit 1 ;;
+            esac
+          done
+          echo "assets=${{ needs.assets.result }} surface=${{ needs.surface.result }}"
