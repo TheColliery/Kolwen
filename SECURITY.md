@@ -11,13 +11,23 @@ A public GitHub issue remains the right channel for an ordinary, non-security bu
 unsure which you have, use private reporting — it is easy to move a report into the open later,
 and impossible to take one back.
 
+**If you do not have a GitHub account**, `contact@kolwen.com` reaches the maintainer. It is
+listed here as a fallback rather than the primary channel for a reason worth stating: that
+address forwards but cannot send, so a reply arrives from a personal mailbox rather than from
+Kolwen. Private reporting keeps the exchange in one place and is preferred wherever possible.
+
+**One-person project, no second pair of hands.** Your report will be read, but if the maintainer
+is unavailable there is no backup route — that is a real limitation, not an oversight, and it is
+stated so nobody plans around a responsiveness this project cannot guarantee.
+
 ## Scope
 
 This repository is the public face of Kolwen. What ships from it:
 
 **In scope**
-- `web/` — the static page served by the Cloudflare Worker at `kolwen.com`, and `wrangler.jsonc`
-  which configures it.
+- `web/` — the static page and `wrangler.jsonc` which configures it. The same deployment is
+  reachable at `kolwen.com` and at the Worker origin `kolwen.hetcreep.workers.dev`; **both are
+  in scope**, and CI verifies the served bytes against this repo via whichever one answers.
 - `py/` — the `kolwen` package published to PyPI, and `.github/workflows/publish-pypi.yml`,
   which publishes it via OIDC Trusted Publishing.
 - `brand/` — `make-brand.mjs` and the committed image assets it generates. Several are served
