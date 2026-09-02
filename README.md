@@ -31,3 +31,5 @@ Once the first release lands, bugs and feature discussion belong in Issues.
 ## License
 
 Repository contents: all rights reserved — see [LICENSE](LICENSE). Released model weights carry their own per-release license.
+
+Portions generated with AI assistance, reviewed by the maintainer. Copyright (c) 2026 HetCreep — see [NOTICE](NOTICE).
