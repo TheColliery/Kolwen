@@ -8,12 +8,18 @@ name: deploy-check
 # must never appear as a PR context. It is deliberately NOT in the required set — it reports on
 # the deploy, it does not gate the merge that caused it.
 on:
+  # Manual trigger: the gate must be runnable on demand, both to read its verdict after a
+  # change to the checker and because the head runs it by hand when CI cannot see the origin.
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
       # Only a change to what is served can make the live page wrong.
       - 'web/**'
       - 'wrangler.jsonc'
+      # A change to the checker itself must re-verify: otherwise the commit that fixes the
+      # gate is the one commit the gate never runs on.
+      - 'scripts/post-deploy-check.mjs'
 
 permissions:
   contents: read
