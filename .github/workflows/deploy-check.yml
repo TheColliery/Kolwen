@@ -1,0 +1,33 @@
+name: deploy-check
+
+# Closes LWK-077 O1-O3: Workers Builds deploys on push to main OUTSIDE Actions, and has silently
+# produced no build at all before (acf684f served stale content until a human curled it). Nothing
+# in CI could see what was actually served. This job watches the live page after a deploy.
+#
+# PUSH ONLY, and a separate workflow on purpose: no deploy happens for a pull_request, so this
+# must never appear as a PR context. It is deliberately NOT in the required set — it reports on
+# the deploy, it does not gate the merge that caused it.
+on:
+  push:
+    branches: [main]
+    paths:
+      # Only a change to what is served can make the live page wrong.
+      - 'web/**'
+      - 'wrangler.jsonc'
+
+permissions:
+  contents: read
+
+jobs:
+  live:
+    name: live page matches main
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      # Zero-dependency. Waits for Workers Builds to publish, then compares the served body to
+      # the committed page. A red here means the deploy did not run or did not publish — the
+      # exact failure that went unnoticed at acf684f.
+      - run: node scripts/post-deploy-check.mjs --wait 300

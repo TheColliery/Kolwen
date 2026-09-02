@@ -33,3 +33,10 @@ jobs:
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: py/dist
+          # A PRE-RELEASE tag (py-v0.0.1a0, py-v1.2.3rc1, py-v0.2.0b1) publishes to TestPyPI;
+          # a plain release tag goes to real PyPI. This exists so the release path can be
+          # EXERCISED before it is trusted: it has never run once — this repo has zero tags,
+          # and the 0.0.0 currently on PyPI was hand-built and uploaded outside this workflow.
+          # An empty repository-url is the action's default (real PyPI), so the plain-tag
+          # path is unchanged by this addition.
+          repository-url: ${{ (contains(github.ref_name, 'a') || contains(github.ref_name, 'b') || contains(github.ref_name, 'rc')) && 'https://test.pypi.org/legacy/' || '' }}
