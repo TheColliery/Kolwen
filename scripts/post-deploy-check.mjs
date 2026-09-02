@@ -29,7 +29,14 @@ const ORIGINS = ['https://kolwen.com/', 'https://kolwen.hetcreep.workers.dev/'];
 // __CF$cv$params global — rather than by a byte-prefix of today's minified output. A literal
 // prefix breaks the day the edge changes its bundler, reddening a correct deploy.
 const CF_INJECT = /<script\b[^>]*>(?:(?!<\/script>)[\s\S])*?(?:\/cdn-cgi\/|__CF\$cv\$params)(?:(?!<\/script>)[\s\S])*?<\/script>/g;
-const normHtml = s => s.replace(/\r\n/g, '\n').replace(CF_INJECT, '').replace(/\n{2,}/g, '\n').trim();
+// Applied to a FIXED POINT, not once. This closes the ITERATE-ONCE case, where removing one
+// match reveals another (CodeQL js/incomplete-multi-character-sanitization). It does NOT close
+// the reassembly case: stripping a match can weld "<scr" to "ipt>" into a fresh "<script" that
+// carries no /cdn-cgi/ marker and so is never matched again. That is survivable here for the
+// reason on the line above and only for that reason — this output is compared for equality and
+// never re-served as HTML. The loop is an improvement, not a sanitizer.
+const stripEdge = t => { let prev; do { prev = t; t = t.replace(CF_INJECT, ''); } while (t !== prev); return t; };
+const normHtml = t => stripEdge(t.replace(/\r\n/g, '\n')).replace(/\n{2,}/g, '\n').trim();
 const sha = b => createHash('sha256').update(b).digest('hex').slice(0, 16);
 
 // R3: the trigger covers web/**, so the assertion must too. Checking only index.html would have

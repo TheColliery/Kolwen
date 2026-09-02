@@ -30,6 +30,10 @@ jobs:
       # Patch + minor auto-merge; a major bump waits for a human.
       - name: Enable auto-merge (patch/minor)
         if: ${{ steps.meta.outputs.update-type != 'version-update:semver-major' }}
-        run: gh pr merge --squash --auto "${{ github.event.pull_request.html_url }}"
         env:
+          # Through the environment, not interpolated into the shell string — the same pattern
+          # publish-pypi.yml uses. html_url is GitHub-generated and not attacker-controllable,
+          # so this is not a live injection; it makes SECURITY.md's claim unarguable.
+          PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr merge --squash --auto "$PR_URL"
