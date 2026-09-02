@@ -29,14 +29,35 @@ jobs:
           python -m pip install --upgrade build
           python -m build
 
+      # WHERE THIS PUBLISHES, decided fail-safe: ONLY a clean release tag (py-vX.Y.Z, digits
+      # only) reaches real PyPI. Everything else — a PEP 440 pre-release or .devN, a tag with
+      # a word in it, and every workflow_dispatch, where ref_name is a BRANCH and not a
+      # version at all — goes to TestPyPI.
+      #
+      # The direction matters more than the cleverness: a wrong TestPyPI upload is harmless,
+      # a wrong PyPI upload is PERMANENT and can never be re-uploaded or reclaimed. The
+      # previous expression tested the whole ref for the letters a/b/rc, which sent
+      # py-v0.1.0.dev1 to real PyPI and every dispatch from `main` (it contains an 'a') to
+      # TestPyPI — wrong in both directions.
+      - name: Decide publish target
+        id: target
+        env:
+          # Never interpolate a ref into a shell string: that is the script-injection shape the
+          # flock's dangerous-workflow rule bans. Through the environment it is data, not code.
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$REF_TYPE" = "tag" ] && printf '%s' "$REF_NAME" | grep -Eq '^py-v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo 'url=' >> "$GITHUB_OUTPUT"
+            echo "release tag $REF_NAME -> real PyPI"
+          else
+            echo 'url=https://test.pypi.org/legacy/' >> "$GITHUB_OUTPUT"
+            echo "$REF_TYPE $REF_NAME is not a clean release tag -> TestPyPI"
+          fi
+
+
       - name: Publish
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: py/dist
-          # A PRE-RELEASE tag (py-v0.0.1a0, py-v1.2.3rc1, py-v0.2.0b1) publishes to TestPyPI;
-          # a plain release tag goes to real PyPI. This exists so the release path can be
-          # EXERCISED before it is trusted: it has never run once — this repo has zero tags,
-          # and the 0.0.0 currently on PyPI was hand-built and uploaded outside this workflow.
-          # An empty repository-url is the action's default (real PyPI), so the plain-tag
-          # path is unchanged by this addition.
-          repository-url: ${{ (contains(github.ref_name, 'a') || contains(github.ref_name, 'b') || contains(github.ref_name, 'rc')) && 'https://test.pypi.org/legacy/' || '' }}
+          repository-url: ${{ steps.target.outputs.url }}
