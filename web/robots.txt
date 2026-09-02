@@ -2,3 +2,5 @@ User-agent: *
 Allow: /
 
 Sitemap: https://kolwen.com/sitemap.xml
+
+# probe: LWK-080 F1 measurement, reverted immediately
