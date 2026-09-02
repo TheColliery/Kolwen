@@ -12,8 +12,13 @@ on:
       - '.gitignore'
   pull_request:
     branches: [main]
-    paths-ignore:
-      - '.gitignore'
+    # NO paths-ignore here, deliberately: `all-green` and `analyze (javascript)` are REQUIRED
+    # contexts on main. A paths-ignore on pull_request means the context never reports, and a
+    # required context that never reports leaves the PR permanently unmergeable — measured on
+    # PR #4, which touched only web/robots.txt and sat at mergeable_state=blocked. The push
+    # filter below keeps owner rail 1's discipline where it actually saves work and gates
+    # nothing. Divergence from the Coal* shape, named: the seniors carry the same latent
+    # defect and have not hit it because their heads push directly rather than through PRs.
 
 permissions:
   contents: read
