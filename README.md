@@ -13,7 +13,9 @@ Kolwen carries TheColliery's engineering discipline—measured-not-trusted, hone
 | **Kolwen Lignite** | the workhorse |
 | **Kolwen Anthracite** | the top—highest-grade coal, hottest and cleanest burn |
 
-The names follow the real coalification sequence: peat → lignite → anthracite.
+The names follow the coalification series: peat → lignite → (sub-bituminous) → bituminous →
+(semi-)anthracite. Kolwen names four ranks; the bracketed grades are seams, not tiers. Bituminous
+is a named rank with no model behind it yet—reserved, not shipped.
 
 ## Status
 
