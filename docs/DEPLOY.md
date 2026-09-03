@@ -7,8 +7,15 @@ application.
 ## Production: Workers Builds, on push to main
 
 **Pushing to `main` is the deploy.** Cloudflare's Workers Builds integration watches the
-repository, and a push that touches `web/` or `wrangler.jsonc` republishes the site. Nobody runs a
-deploy command by hand, and nobody needs credentials on their machine to ship.
+repository and republishes the site. Nobody runs a deploy command by hand, and nobody needs
+credentials on their machine to ship.
+
+**Which pushes trigger a build is NOT decided in this repository.** Cloudflare's default is
+*"a change to any file in the repository will trigger a build"*—includes `[*]`, excludes `[]`.
+Narrowing that is a dashboard setting (Settings → Build → Build watch paths) that leaves no trace
+here, so no file in this repo can tell you what is configured. **And even once narrowed, path
+matching is bypassed** for a push with 0 file changes, 3000+ changed files, or 20+ commits. Read
+this as: assume any push may deploy.
 
 Two checks report on it:
 
@@ -31,7 +38,7 @@ to be cleaned up later.
 
 ```bash
 npx wrangler@4.128.0 dev            # serve web/ locally
-npx wrangler@4.128.0 deploy --dry-run   # print the asset list without publishing
+npx wrangler@4.128.0 deploy --dry-run   # compile without publishing
 ```
 
 **Always pin the version.** An unpinned `npx wrangler` silently takes whatever is newest on the
@@ -61,3 +68,8 @@ live URL.
 exist returns **200 OK with `index.html`** rather than a 404. Measured 2026-09-03: `/wp-admin` and
 `/en/pricing` both answer 200 with the home page. This is a deliberate Cloudflare setting rather
 than a fault, but it is worth knowing before reading logs or analytics, and it is under review.
+
+**This paragraph expires the day this Worker gains a script.** With a `main` and a
+`compatibility_date` at or after 2025-04-01—ours is 2026-08-01, so the flag is already on—the
+`index.html` fallback applies only to NAVIGATION requests; anything else unmatched invokes the
+script instead. Whoever adds `/chat` re-reads this section rather than trusting it.
