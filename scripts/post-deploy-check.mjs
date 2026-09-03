@@ -63,29 +63,39 @@ async function probe(origin) {
   return misses;
 }
 
+// The wait is for PUBLICATION, not merely for reachability. Measured at fc02a93: this job
+// finished in 5 s while Workers Builds published 18 s later, so the gate compared against the
+// PREVIOUS page and went red on a commit that was in fact fine. The old loop set `reached` on
+// the first origin that ANSWERED and broke out — so `--wait 300` could only ever wait out a site
+// that was down, never a deploy still in flight, which is the one case the wait exists for.
+// A mismatch now RETRIES until the budget runs out, and only the final state is reported.
 const started = Date.now();
-let reached = null, lastErr = {};
-while ((Date.now() - started) / 1000 < budget) {
+let matched = false, lastMisses = null, lastErr = {};
+while (!matched && (Date.now() - started) / 1000 < budget) {
   for (const origin of ORIGINS) {
     try {
       const misses = await probe(origin);
-      reached = origin;
       if (misses.length === 0) {
         console.log(`all ${files.length} deployed files match what is committed, via ${origin}`);
-        process.exitCode = 0;
+        matched = true;
       } else {
-        console.error(`post-deploy check FAILED via ${origin} — the deploy did not publish this commit:`);
-        misses.forEach(m => console.error('  - ' + m));
-        process.exitCode = 1;
+        lastMisses = { origin, misses };
       }
       break;
     } catch (e) { lastErr[origin] = e.message; }
   }
-  if (reached) break;
+  if (matched) break;
   await new Promise(r => setTimeout(r, 15000));
 }
 
-if (!reached) {
+if (matched) {
+  process.exitCode = 0;
+} else if (lastMisses) {
+  const waited = Math.round((Date.now() - started) / 1000);
+  console.error(`post-deploy check FAILED via ${lastMisses.origin} — still not published after ${waited}s:`);
+  lastMisses.misses.forEach(m => console.error('  - ' + m));
+  process.exitCode = 1;
+} else {
   console.error(`post-deploy check could not OBSERVE anything after ${budget}s — this is a reachability failure, not a staleness one:`);
   for (const o of ORIGINS) console.error(`  ${o} -> ${lastErr[o] || 'no attempt completed'}`);
   console.error('  A gate that cannot see must not report success. Failing.');
