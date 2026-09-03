@@ -1,4 +1,4 @@
-# Kolwen — brand assets & usage
+# Kolwen—brand assets & usage
 
 > ทุกตัวเลขในเอกสารนี้ **วัดจริง** ไม่ใช่ค่าที่ตั้งขึ้น — เรขาคณิตกับขนาดต่ำสุดสร้างใหม่ได้ด้วย
 > `node make-brand.mjs` · อัตราส่วน contrast คำนวณจากค่า hex ด้วยสูตร relative luminance ของ WCAG 2.x
@@ -171,17 +171,17 @@ rasterise ที่ 4× supersampling แล้วนับว่ายังเ
 ## English summary
 
 **Two marks, different legal standing.** The word mark `Kolwen` is filed with the Thai DIP
-(filed 2026-08-24, classes 9 and 42, pending — not yet registered). The three-bar
-device is **not filed** — copyright only, no trademark rights.
+(filed 2026-08-24, classes 9 and 42, pending—not yet registered). The three-bar
+device is **not filed**—copyright only, no trademark rights.
 
 **Colours.** `#e8833a` on dark grounds (6.84:1 on `#15130f`); `#A65A19` on light grounds
-(5.125:1 on white). Never put `#e8833a` on white — it measures 2.714:1.
+(5.125:1 on white). Never put `#e8833a` on white—it measures 2.714:1.
 
 **Every contrast rule states its source.** `[required]` = WCAG sets this number ·
 `[ours]` = WCAG does not reach this case, so the number is the project's · `[advisory]` =
 WCAG suggests a *method*, not a number. WCAG 2.2, fetched from w3.org 2026-08-25.
 
-- `#A65A19` for normal text holds 1.4.3's 4.5:1 only at `#f1f1f1` or lighter — on the
+- `#A65A19` for normal text holds 1.4.3's 4.5:1 only at `#f1f1f1` or lighter—on the
   project's own cream `#ece4d9` it drops to 4.067:1 **[required]**.
 - `#A65A19` on `#15130f` is 3.620:1: for text it is limited to large text, which clears
   1.4.3's 3:1 **[required]**; for the mark it is allowed **[ours]**, because it reads
@@ -190,7 +190,7 @@ WCAG suggests a *method*, not a number. WCAG 2.2, fetched from w3.org 2026-08-25
   for the mark the same prohibition is **[ours]**.
 
 **Which bars are the standard's, and which are ours.** SC 1.4.3 governs "text and images of
-text", so the three-bar device is **out of its scope** rather than exempt — the *Logotypes*
+text", so the three-bar device is **out of its scope** rather than exempt—the *Logotypes*
 exception is what covers the word mark. SC 1.4.11 requires 3:1 for information identifying
 UI components and for "Parts of graphics required to understand the content"; a brand mark
 is not ordinarily required to understand content, so that clause does not reach it either.
@@ -200,7 +200,7 @@ is ours too: a photograph is not a flat ground, so a single contrast value under
 real worst case. The text bars above are the standard's and are unchanged.
 
 **One case flips it back.** A mark used as a link or control is a user interface component,
-and 1.4.11 then applies to the visual information that identifies the control — which may or
+and 1.4.11 then applies to the visual information that identifies the control—which may or
 may not be the mark itself. We treat 3:1 as required there **[required]**, as the safer
 reading. Its Understanding offers methods, not permission to skip: a higher-contrast variant,
 or a conforming control alongside **[advisory]**. The mark on our page is `role="img"` and is
@@ -209,7 +209,7 @@ not inside an `<a>`, so this does not yet apply here.
 **Clear space.** X = the height of the bottom bar = 15.45% of the box height. Keep at least
 X clear on all four sides. The unit is a part of the mark, so it scales with it.
 
-**Minimum size — measured, not assumed.** At 10px the three bars collapse into one solid
+**Minimum size—measured, not assumed.** At 10px the three bars collapse into one solid
 block; 8px survives only by pixel-grid luck. Absolute floor is **16px** (pre-rendered favicon
 only); **20px** is the recommended UI minimum (gaps ≥2px). In print, **6mm box height** minimum.
 
