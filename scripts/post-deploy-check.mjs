@@ -71,7 +71,7 @@ async function probe(origin) {
 // A mismatch now RETRIES until the budget runs out, and only the final state is reported.
 const started = Date.now();
 let matched = false, lastMisses = null, lastErr = {};
-while (!matched && (Date.now() - started) / 1000 < budget) {
+while ((Date.now() - started) / 1000 < budget) {
   for (const origin of ORIGINS) {
     try {
       const misses = await probe(origin);
