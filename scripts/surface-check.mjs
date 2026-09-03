@@ -111,6 +111,27 @@ if (existsSync('brand/README.md')) {
   }
 }
 
+// ── 7. The publish root ships only shipped assets ────────────────────────────
+// `wrangler.jsonc` publishes ./web wholesale as `assets.directory`, so EVERY path under web/
+// is a live URL on kolwen.com. A scratch tree once sat at web/scratchpad/design/kolwen-ds
+// (empty, so nothing ever leaked) — an invitation to save a working file into the publish root.
+//
+// HONEST SCOPE, because the two deploy paths differ and only one of them any CI can see:
+// Workers Builds clones the REPO, so it ships tracked files only — which is exactly what this
+// allowlist governs. A manual local `wrangler deploy` uploads the local DIRECTORY, untracked
+// files included, and no check running in CI can see those. That half is closed by the scratch
+// tree no longer existing under web/, not by this rule.
+const SHIPPED = new Set([
+  'web/index.html', 'web/robots.txt', 'web/sitemap.xml',
+  'web/favicon.svg', 'web/favicon-32.png', 'web/apple-touch-icon.png', 'web/og.png',
+]);
+for (const f of tracked.filter(f => f.startsWith('web/'))) {
+  if (!SHIPPED.has(f)) note(f, 'is tracked under the publish root but is not a declared shipped asset — every path under web/ is a live URL');
+}
+for (const f of SHIPPED) {
+  if (!existsSync(f)) note(f, 'is declared a shipped asset but is missing from the publish root');
+}
+
 if (fail.length) {
   console.error('surface check FAILED:\n' + fail.map(f => '  - ' + f).join('\n'));
   process.exit(1);
