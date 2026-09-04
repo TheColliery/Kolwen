@@ -1,3 +1,6 @@
+# Diverges from the flock template deliberately: the template’s component list is a skill repo’s
+# (conductor hook, installer, plugin packaging). This one lists the surfaces this repo actually
+# has, and opens with a note that nothing is downloadable yet.
 name: "Bug report"
 description: "Something on kolwen.com or in this repository is wrong"
 title: "[bug] <component>: <one-line summary>"

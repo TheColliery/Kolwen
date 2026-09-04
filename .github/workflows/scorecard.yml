@@ -10,6 +10,9 @@ on:
       - '**.md'
       - 'LICENSE'
 
+permissions:
+  contents: read
+
 # cancel-in-progress: FALSE, deliberately. Unlike the read-only workflows here, Scorecard
 # UPLOADS a SARIF to code scanning and (with publish_results) posts to the OpenSSF API --
 # outward writes, where a cancellation mid-publish is a partially-applied result rather than a
@@ -17,9 +20,6 @@ on:
 concurrency:
   group: scorecard-${{ github.ref }}
   cancel-in-progress: false
-
-permissions:
-  contents: read
 
 jobs:
   analysis:

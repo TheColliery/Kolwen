@@ -1,5 +1,9 @@
 name: CodeQL
 
+# Diverges from the flock template deliberately: the template's paths-ignore assumes docs can
+# never affect the scan, and it has no pull_request carve-out. This repo needs one, for the reason
+# in the comment below. The analysis steps themselves are the template's.
+
 on:
   push:
     branches: [main]

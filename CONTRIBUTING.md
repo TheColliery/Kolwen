@@ -1,5 +1,10 @@
 # Contributing to Kolwen
 
+<!-- Diverges from the flock published-code template by more than placeholders, deliberately: the
+     template is written for a Coal* skill repo and tells a contributor to run build-plugin.mjs,
+     verify.mjs and test.mjs against a plugin.json, none of which exist here. Its SHAPE is kept
+     (sections, ordering, closers); the gates, the layout table and the rules are this room's. -->
+
 Kolwen is the public face of a Thai-first verifiable AI assistant, part of the
 [TheColliery](https://github.com/TheColliery) series. Issues, bug reports, and pull requests are
 welcome.

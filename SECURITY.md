@@ -1,5 +1,10 @@
 # Security Policy
 
+<!-- Diverges from the flock published-code template deliberately: this is a superset written for
+     a repository with a real reporting channel and a live site, where the template is a minimal
+     skeleton. What the template lacks and this does not: the scope statement, what a reporter can
+     expect, and an explicit list of what is NOT claimed. -->
+
 ## Reporting a Vulnerability
 
 Report a security issue in this repository through GitHub's private vulnerability reporting —

@@ -1,5 +1,10 @@
 name: CI
 
+# Diverges from the flock template in its JOB SET, deliberately: the template ships one `gate` job
+# for a skill repo (build, verify, test). This repo has no build and no test suite, so it ships
+# `assets` (regenerate every brand file, fail on any byte difference) and `surface` (the room's
+# published-claim laws). `all-green` is the stable required context either way.
+
 on:
   push:
     branches: [main]

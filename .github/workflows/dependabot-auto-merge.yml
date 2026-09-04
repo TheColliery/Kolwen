@@ -1,5 +1,9 @@
 name: Dependabot auto-merge
 
+# Diverges from the flock template deliberately: this repo's branch ruleset is named
+# `dependabot-auto-merge-gate`, not the template's `main-guard`, and it carries required status
+# checks the template deliberately omits. Why, in the header comment below.
+
 # Auto-merge Dependabot PATCH/MINOR bumps AFTER the required checks pass, for the
 # maintainer's bot ONLY. A ruleset on `main` (require all-green + analyze, bypass
 # the owner) makes `--auto` WAIT for CI+CodeQL — without it `--auto` would merge

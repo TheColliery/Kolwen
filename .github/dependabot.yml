@@ -1,4 +1,8 @@
 version: 2
+
+# Diverges from the flock template in one way beyond comments, deliberately: no `assignees` block.
+# The template assigns every bump PR to the maintainer for the notification; here the auto-merge
+# workflow already reports, and a red check leaves the PR open where it is visible anyway.
 updates:
   - package-ecosystem: github-actions
     directory: /
