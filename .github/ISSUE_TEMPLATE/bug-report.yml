@@ -1,0 +1,43 @@
+name: "Bug report"
+description: "Something on kolwen.com or in this repository is wrong"
+title: "[bug] <component>: <one-line summary>"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Nothing is downloadable yet, so this is for the site, the brand kit, the packaging or the
+        docs — not for the model. Security issues go through private reporting, never here.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - "the site (kolwen.com)"
+        - "brand assets or the brand rules"
+        - "the Python package (name reservation)"
+        - "the npm package (name reservation)"
+        - "documentation"
+        - "repository tooling / CI"
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: "Where you saw it"
+      placeholder: "https://kolwen.com/ on Firefox 140, Windows 11 — or a file path in this repo"
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: What you did and what happened
+      description: "Exact steps and exact output. A screenshot helps for anything visual."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
