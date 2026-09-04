@@ -21,7 +21,8 @@ if (w >= 0) {
 
 // R1: kolwen.com refuses datacenter egress (HTTP 403 on every attempt from a GitHub runner,
 // 200 from a residential IP — measured). The workers.dev origin serves the same deployment and
-// may not carry the same edge rules, so both are tried and the reachable one is used. If
+// may not carry the same edge rules, so the second is tried when the first does not ANSWER --
+// a mismatching first origin is not second-guessed, by design. If
 // NEITHER answers, that is reported as an observation failure — never as a pass.
 const ORIGINS = ['https://kolwen.com/', 'https://kolwen.hetcreep.workers.dev/'];
 
@@ -39,8 +40,12 @@ const stripEdge = t => { let prev; do { prev = t; t = t.replace(CF_INJECT, ''); 
 const normHtml = t => stripEdge(t.replace(/\r\n/g, '\n')).replace(/\n{2,}/g, '\n').trim();
 const sha = b => createHash('sha256').update(b).digest('hex').slice(0, 16);
 
-// R3: the trigger covers web/**, so the assertion must too. Checking only index.html would have
+// R3: check every served file, not just index.html -- checking only index.html would have
 // printed "deploy confirmed" for a commit that changed sitemap.xml and never looked at it.
+// NOT recursive, and that is safe only because something else keeps web/ flat:
+// surface-check.mjs holds an allowlist of the files we ship and fails on any other tracked
+// path under web/, and it is a required CI context. If that allowlist ever admits a
+// subdirectory, this line must become recursive or a deployed file goes unchecked.
 const files = readdirSync('web').filter(f => statSync(`web/${f}`).isFile());
 const TEXT = /\.(html|xml|txt|svg|json)$/i;
 
@@ -72,6 +77,11 @@ async function probe(origin) {
 const started = Date.now();
 let matched = false, lastMisses = null, lastErr = {};
 while ((Date.now() - started) / 1000 < budget) {
+  // Per-ROUND state, cleared per round. Both were declared once outside the loop and never
+  // reset, so a round in which every origin THREW still reported the PREVIOUS round's
+  // staleness -- naming an origin that had not answered for minutes and calling an outage a
+  // stale deploy. Exit code was right either way; the diagnosis an operator reads was not.
+  lastMisses = null; lastErr = {};
   for (const origin of ORIGINS) {
     try {
       const misses = await probe(origin);
