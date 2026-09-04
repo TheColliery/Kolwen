@@ -21,6 +21,13 @@ on:
       # gate is the one commit the gate never runs on.
       - 'scripts/post-deploy-check.mjs'
 
+# cancel-in-progress: TRUE -- this job only FETCHES the live page and compares it to the commit.
+# It writes nothing anywhere. A superseded run is worse than useless: it is still waiting on an
+# older commit's deploy while a newer one is already publishing.
+concurrency:
+  group: deploy-check-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 

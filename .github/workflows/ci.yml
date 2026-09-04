@@ -20,6 +20,12 @@ on:
     # nothing. Divergence from the Coal* shape, named: the seniors carry the same latent
     # defect and have not hit it because their heads push directly rather than through PRs.
 
+# cancel-in-progress: TRUE -- ci.yml only reads, tests and compares; it publishes nothing and
+# touches no external state, so a superseded run has nothing to leave half-done.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 

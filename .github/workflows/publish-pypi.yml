@@ -7,6 +7,15 @@ on:
   push:
     tags: ["py-v*"]
 
+# cancel-in-progress: FALSE, and this is the strongest never-cancel in this repository.
+# PyPI refuses a re-upload of a version that already exists, so a publish killed midway is NOT
+# retryable at that version -- the only recovery is a version bump. Queue instead of cancel.
+# The group is deliberately CONSTANT, not per-ref: a tag push and a manual dispatch can target
+# the same version from different refs, and only one publish may be in flight repository-wide.
+concurrency:
+  group: publish-pypi
+  cancel-in-progress: false
+
 permissions:
   contents: read
 

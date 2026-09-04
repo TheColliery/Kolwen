@@ -11,6 +11,15 @@ on: pull_request
 
 # Minimal top-level token (Scorecard Token-Permissions best practice); only the
 # merge job escalates to the write scopes `gh pr merge` needs.
+# cancel-in-progress: FALSE -- enabling auto-merge on a PR is a one-shot, near-instant
+# outward state change on the PR; cancelling it mid-call buys nothing (the job is seconds long)
+# and could leave auto-merge un-enabled on a PR whose checks then go green with nobody watching.
+# Per-PR grouping, never per-ref: two different Dependabot PRs must not serialise behind each
+# other.
+concurrency:
+  group: dependabot-auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
