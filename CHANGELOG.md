@@ -19,6 +19,27 @@ edit the old text. Every shipped tag gets an entry, landed BEFORE the tag.
 
 ## [Unreleased]
 
+### Corrections
+
+Not one of Keep a Changelog's bump-mapped section types, deliberately: this corrects the project's
+own RECORD, not its software, so mapping it to a SemVer bump would be wrong. It applies this
+file's stated rule—add a forward-pointing note, never edit the old text—to a claim made in a
+commit body rather than to a released entry.
+
+- **Two commit messages state that this repository stores its text files with CRLF line endings.
+  They are wrong.** The commits are `220cc55` and `f632501`. The claim was already retracted in
+  `b54cf0f`'s message, but no file in this repository carried the correction, and nobody browsing
+  a repository reads commit bodies.
+- **The measured truth:** reading bytes straight out of the index—`git cat-file blob` on every
+  tracked path, counting `0x0D`—finds **41 text blobs, 13 binary, and zero CRLF pairs**. Not one
+  tracked text file contains a carriage return. `c8bf1c5`, the commit the other two set out to
+  correct, was right the first time.
+- **The `.gitattributes` added in `c8bf1c5` stands, on its own reason.** It pins a convention that
+  had never been declared, and its `/.githooks/** eol=lf` rule is what keeps the hooks executable
+  on a POSIX box—a hook checked out with CRLF fails as a bad interpreter, which is a gate that
+  is silently absent rather than loudly broken. It does not stand on "the repository was mixed",
+  because that was never true.
+
 ### Added
 
 - The public site at kolwen.com, bilingual, English default with Thai behind a toggle.
