@@ -22,8 +22,8 @@ if (w >= 0) {
 // R1: kolwen.com refuses datacenter egress (HTTP 403 on every attempt from a GitHub runner,
 // 200 from a residential IP — measured). The workers.dev origin serves the same deployment and
 // may not carry the same edge rules, so the second is tried when the first does not ANSWER --
-// a mismatching first origin is not second-guessed, by design. If
-// NEITHER answers, that is reported as an observation failure — never as a pass.
+// a mismatching first origin is not second-guessed, by design. If NEITHER answers, that is
+// reported as an observation failure — never as a pass.
 const ORIGINS = ['https://kolwen.com/', 'https://kolwen.hetcreep.workers.dev/'];
 
 // R4: strip Cloudflare's injected script STRUCTURALLY — any script mentioning /cdn-cgi/ or its
@@ -46,6 +46,7 @@ const sha = b => createHash('sha256').update(b).digest('hex').slice(0, 16);
 // surface-check.mjs holds an allowlist of the files we ship and fails on any other tracked
 // path under web/, and it is a required CI context. If that allowlist ever admits a
 // subdirectory, this line must become recursive or a deployed file goes unchecked.
+
 // SHIPPED BUT NOT FETCHABLE. Cloudflare parses `_headers` and, in its own words, the file
 // "will not itself be served as a static asset" — so fetching it returns the 404 page, the
 // comparison fails, and this gate would red on every deploy forever. Verified at the docs,
@@ -72,6 +73,11 @@ async function probe(origin) {
   for (const f of files) {
     const url = origin + (f === 'index.html' ? '' : f) + '?cb=' + Date.now();
     const r = await fetch(url, { headers: { 'Cache-Control': 'no-cache' } });
+    // A 404 on a file we SHIP is a missing deploy, not an unreachable site: report it as a
+    // MISS so the operator reads "this file is not there" instead of "I could not see".
+    // Anything else non-OK (403, 5xx, a redirect loop) is still a reachability problem and
+    // still throws, because those say nothing about whether the file exists.
+    if (r.status === 404) { misses.push(`${f}: served HTTP 404 — the file is not in the deploy`); continue; }
     if (!r.ok) throw new Error(`HTTP ${r.status} on ${f}`);
     if (TEXT.test(f)) {
       const live = normHtml(await r.text());

@@ -42,6 +42,12 @@ commit body rather than to a released entry.
 
 ### Added
 
+- A real 404 page, in both languages. An address with no page behind it now answers HTTP 404;
+  it used to answer 200 with the home page, so crawlers indexed pages that do not exist.
+- Cache-Control headers for the static assets. The page itself stays on must-revalidate, because
+  it carries the claims.
+- A publish gate: only a signed, annotated tag can release the Python package. A lightweight tag,
+  an unsigned one, or a signature that does not verify all stop before anything is built.
 - The public site at kolwen.com, bilingual, English default with Thai behind a toggle.
 - The brand kit, with the mark's geometry generated from a single zero-dependency script.
 - Name reservations on PyPI and npm.

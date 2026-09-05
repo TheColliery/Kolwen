@@ -82,8 +82,12 @@ here.
 ## Releasing
 
 Nothing has been released. When the first release lands, it follows the series release pattern:
-CHANGELOG entry, annotated tag, GitHub Release for stable tags only. A `py-v*` tag publishes to
-PyPI, so a tag here is an outward act.
+CHANGELOG entry, annotated tag, GitHub Release for stable tags only.
+
+**A `py-v*` tag publishes to PyPI, so a tag here is an outward act—and the workflow enforces
+that it was an intentional one.** Only a SIGNED, ANNOTATED tag passes: a lightweight tag has no
+tag object and nothing to attribute, an unsigned one proves nothing, and a signature that does not
+verify stops the run before anything is built. There is no override.
 
 ---
 
