@@ -3,7 +3,7 @@
 // Owner law: "Kolwen จะไม่เป็นร่างโคลนของใครทั้งนั้น." The decap ladder is a CLONE test, so we run
 // it on ourselves: the chip the ladder MEASURES must equal the label the product SHOWS.
 //
-// Fixtures live in the zone warehouse (LLMWorks/warehouse/decap-battery/blocks/); the runner
+// Fixtures live in the zone warehouse (../warehouse/decap-battery/blocks/); the runner
 // lives with the product. The socket is OpenAI-compatible by owner ruling, so two ICs stay
 // qualified at any time. Zero dependencies, Node built-ins only.
 //
@@ -118,7 +118,7 @@ if (import.meta.url.endsWith('decap-battery.mjs')) {
     if (lbl.status === 'no-ic-running') { fail(`no IC is labelled in ${LABEL_PATH}; there is nothing to decap. Use --self-test.`); }
     else if (!process.env.KOLWEN_IC_ENDPOINT) { fail('KOLWEN_IC_ENDPOINT is not set — refusing to report a pass without measuring.'); }
     else {
-      const out = `scratchpad/decap-runs/${new Date().toISOString().replace(/[:.]/g, '-')}`;
+      const out = `.decap-runs/${new Date().toISOString().replace(/[:.]/g, '-')}`;
       const v = assertChipMatchesLabel(await runBattery(askEndpoint, out), lbl);
       console.log(`raw replies saved to ${out}`);
       if (v.ok === false) fail(`SELF-DECAP FAILED: ${v.why}`); else console.log(`SELF-DECAP passed: ${v.why}`);

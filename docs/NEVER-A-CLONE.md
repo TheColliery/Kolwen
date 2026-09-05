@@ -36,7 +36,7 @@ from `web/ic.json` and from nowhere else.
 
 ## 2 · The SELF-DECAP battery—the runner is ENFORCED TODAY, a live run BINDS AT SURFACE
 
-Fixtures: `LLMWorks/warehouse/decap-battery/blocks/`—B6–B9, `B10-CN`, `B11-pin`, byte-verified
+Fixtures: `../warehouse/decap-battery/blocks/`—B6–B9, `B10-CN`, `B11-pin`, byte-verified
 copies, with the battery's contract in that directory's README. **The fixtures live in the
 warehouse; the runner lives here** (`scripts/decap-battery.mjs`).
 
@@ -46,7 +46,7 @@ warehouse; the runner lives here** (`scripts/decap-battery.mjs`).
 | `B11-pin`: one item per FRESH session | `isPerItem()` splits that block and asks each line separately; every other block is one session |
 | `B11-pin`: no unknown-escape | the fixture forces a best guess with `(?)`; the runner never adds an "I don't know" affordance to it |
 | the maker's-own-event separator | included—it is a line inside `B11-pin`, and the runner sends the block's items unedited |
-| raw replies saved | every run writes per-block replies plus an index under `scratchpad/decap-runs/<timestamp>/` **before** asserting. **A verdict with no raw answers is a claim.** |
+| raw replies saved | every run writes per-block replies plus an index under `.decap-runs/<timestamp>/` **before** asserting. **A verdict with no raw answers is a claim.** |
 | a battery with no blocks | throws. An empty fixtures directory is never reported as a pass. |
 
 **Red-first, and the assert is the point:** a mocked WRONG CHIP that answers rungs past the

@@ -25,3 +25,6 @@ models/
 corpus/
 recipes/
 pipelines/
+
+# SELF-DECAP raw replies (LWK-132) — local evidence of a run, never shipped
+.decap-runs/
