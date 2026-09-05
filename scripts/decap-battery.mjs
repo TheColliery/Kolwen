@@ -49,7 +49,7 @@ async function askEndpoint(prompt) {
 const RUNG_YEAR = /\b(20\d\d)\b/g;
 export function measureCutoff(replies) {
   const known = [];
-  for (const { block, reply } of replies) {
+  for (const { reply } of replies) {
     if (/unknown/i.test(reply) && !/\d/.test(reply.replace(RUNG_YEAR, ''))) continue;
     for (const m of reply.match(RUNG_YEAR) || []) known.push(Number(m));
   }
@@ -70,7 +70,13 @@ export async function runBattery(ask, outDir) {
   // A verdict with no raw answers saved is a claim. Save before asserting, always.
   if (outDir) {
     mkdirSync(outDir, { recursive: true });
-    for (const r of replies) writeFileSync(`${outDir}/${r.block.replace('#', '-')}.txt`, r.reply);
+    // The FILENAME is derived from our own tracked fixture names, never from the reply, and is
+    // reduced to an allowlist so that stays true rather than merely being true today. The reply
+    // is the FILE CONTENT by contract: a verdict with no raw answers is a claim.
+    for (const r of replies) {
+      const safe = r.block.replace(/[^A-Za-z0-9._-]/g, '-');
+      writeFileSync(`${outDir}/${safe}.txt`, r.reply);
+    }
     writeFileSync(`${outDir}/index.json`, JSON.stringify({ at: new Date().toISOString(), label: label(), blocks: replies.map(r => r.block) }, null, 2));
   }
   return replies;
