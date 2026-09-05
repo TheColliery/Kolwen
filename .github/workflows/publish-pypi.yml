@@ -4,6 +4,11 @@ name: Publish to PyPI
 # already exists, so a push trigger would turn every commit into a red run.
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "The py-v* tag to publish. Must be a signed annotated tag."
+        required: true
+        type: string
   push:
     tags: ["py-v*"]
 
@@ -26,7 +31,59 @@ jobs:
     permissions:
       id-token: write # Trusted Publishing — no API token stored anywhere
     steps:
+      # ── THE GATE: only a SIGNED ANNOTATED tag may publish. Fail-closed, every branch. ─────────
+      # LWK-135. A publish is irreversible at its version, so "who authorised this exact tree" is
+      # answered before anything is built, never after.
+      #
+      # A LIGHTWEIGHT tag is a ref pointing straight at a commit: no tag object, nothing signed,
+      # nobody attributable. It FAILS here.
+      # An ANNOTATED tag has an object of type `tag`, and GitHub reports whether its signature
+      # verifies. `verified: false` FAILS -- including reason `unsigned`, and `unknown_key`, which
+      # means the signing key is not registered on the account as a SIGNING key.
+      # Any API error FAILS. There is no "could not check, proceeding" branch, by design.
+      - name: Require a signed annotated tag
+        id: gate
+        env:
+          # Through the environment, never interpolated into the script: a workflow_dispatch input
+          # is attacker-influenced text, and inlining it is the script-injection shape we ban.
+          TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          REPO: ${{ github.repository }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$TAG" | grep -Eq '^py-v[A-Za-z0-9._-]+$' || {
+            echo "::error::refusing to publish: '$TAG' is not a py-v* tag name"; exit 1; }
+
+          api() { curl -sS --fail-with-body -H "Authorization: Bearer $TOKEN" \
+                    -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$REPO/$1"; }
+
+          ref_json=$(api "git/ref/tags/$TAG") || {
+            echo "::error::refusing to publish: cannot resolve tag $TAG at the API"; exit 1; }
+          obj_type=$(printf '%s' "$ref_json" | jq -r '.object.type')
+          obj_sha=$(printf '%s' "$ref_json" | jq -r '.object.sha')
+
+          if [ "$obj_type" != "tag" ]; then
+            echo "::error::refusing to publish: $TAG is a LIGHTWEIGHT tag -- no tag object, the ref points straight at a $obj_type. A release tag must be annotated and signed."
+            exit 1
+          fi
+
+          tag_json=$(api "git/tags/$obj_sha") || {
+            echo "::error::refusing to publish: cannot read the tag object for $TAG"; exit 1; }
+          verified=$(printf '%s' "$tag_json" | jq -r '.verification.verified')
+          reason=$(printf '%s' "$tag_json" | jq -r '.verification.reason')
+          commit=$(printf '%s' "$tag_json" | jq -r '.object.sha')
+
+          echo "tag=$TAG object=$obj_sha commit=$commit verified=$verified reason=$reason"
+          if [ "$verified" != "true" ]; then
+            echo "::error::refusing to publish: $TAG is annotated but its signature does not verify (reason: $reason). If that reads unknown_key, register the signing key on the account as a SIGNING key, or re-sign the tag. The gate is not the thing to soften."
+            exit 1
+          fi
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          echo "$TAG is a signed annotated tag, verified. Publishing the tree at $commit."
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.gate.outputs.commit }}
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:

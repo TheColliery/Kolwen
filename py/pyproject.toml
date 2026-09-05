@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "kolwen"
-version = "0.0.0"
+version = "0.0.1.dev1"
 description = "Kolwen — Thai-first verifiable AI assistant. Name reservation; nothing is released yet."
 readme = "README.md"
 requires-python = ">=3.9"
