@@ -10,7 +10,16 @@ Unreleased section, and it stays that way until something ships.
 <!--
 Section types map to bump size (keepachangelog.com/en/1.1.0):
   ### Added / ### Deprecated          -> MINOR minimum
-  ### Removed / breaking ### Changed  -> MAJOR
+  ### Removed / breaking ### Added
+
+- `PRIVACY.md`, published as a DRAFT with legal gaps by the owner’s order. Four clauses that
+  need a lawyer carry a `[pending legal review]` marker instead of an answer. Not linked from the
+  site, and not yet reviewed by counsel.
+- `TERMS.md`, a draft with legal gaps, carrying the no-training covenant.
+- `docs/TRUST.md`, `docs/SUPPORT-AGENT-SPEC.md` and a `governance/` set with an ISO map. All of it
+  describes what is true today or is labelled a plan; no certification is held or claimed.
+
+### Changed  -> MAJOR
   ### Fixed / non-breaking ### Changed / ### Security -> PATCH
 Newest version first, each under `## [X.Y.Z] - YYYY-MM-DD`. A released entry is
 immutable -- to correct one, add a forward-pointing note in the NEW entry, never
