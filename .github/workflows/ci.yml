@@ -65,20 +65,35 @@ jobs:
       # bilingual structure · every stated contrast ratio recomputed from its own hex pair.
       - run: node scripts/surface-check.mjs
 
+  reply-language:
+    name: reply language (LWK-131)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      # The reply is in the language of the MESSAGE, on every path. No reply surface ships yet,
+      # so what runs today is the harness proving it DETECTS the failure (red fixture = the
+      # Synantic shape, a Thai template on an English message) and a tree scan for hard-coded
+      # single-language templates. The same harness takes the real endpoint via
+      # KOLWEN_CHAT_ENDPOINT the day /chat exists. Spec: docs/REPLY-LANGUAGE.md
+      - run: node scripts/reply-language-check.mjs --self-test
+      - run: node scripts/reply-language-check.mjs --scan
   # A single STABLE required-check context (job names drift; this does not).
   # Rulesets require `all-green`, never the per-job names.
   all-green:
     name: all-green
-    needs: [assets, surface]
+    needs: [assets, surface, reply-language]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: gate result
         run: |
-          for r in "${{ needs.assets.result }}" "${{ needs.surface.result }}"; do
+          for r in "${{ needs.assets.result }}" "${{ needs.surface.result }}" "${{ needs['reply-language'].result }}"; do
             case "$r" in
               success|skipped) ;;
               *) echo "gate result: $r"; exit 1 ;;
             esac
           done
-          echo "assets=${{ needs.assets.result }} surface=${{ needs.surface.result }}"
+          echo "assets=${{ needs.assets.result }} surface=${{ needs.surface.result }} reply-language=${{ needs['reply-language'].result }}"
