@@ -80,17 +80,40 @@ jobs:
       # KOLWEN_CHAT_ENDPOINT the day /chat exists. Spec: docs/REPLY-LANGUAGE.md
       - run: node scripts/reply-language-check.mjs --self-test
       - run: node scripts/reply-language-check.mjs --scan
+  clone-test:
+    name: never a clone (LWK-132)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      # The chip the ladder measures must equal the label the product shows. web/ic.json is the
+      # single source of truth for that label; a swap changes it and this job re-runs. Today no
+      # IC is labelled, so what runs is the runner proving it DETECTS a relabel (a mocked wrong
+      # chip must fail the assert). Fixtures live in the zone warehouse and are NOT in this
+      # checkout, so the self-test is skipped rather than faked when they are absent -- and it
+      # says so. Spec: docs/NEVER-A-CLONE.md
+      - name: label source of truth
+        run: node scripts/decap-battery.mjs --label
+      - name: battery self-test (skips loudly if the warehouse fixtures are absent)
+        run: |
+          if [ -d ../warehouse/decap-battery/blocks ]; then
+            node scripts/decap-battery.mjs --self-test
+          else
+            echo 'fixtures absent in this checkout (they live in the zone warehouse, outside this repo) -- self-test SKIPPED, not passed'
+          fi
   # A single STABLE required-check context (job names drift; this does not).
   # Rulesets require `all-green`, never the per-job names.
   all-green:
     name: all-green
-    needs: [assets, surface, reply-language]
+    needs: [assets, surface, reply-language, clone-test]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: gate result
         run: |
-          for r in "${{ needs.assets.result }}" "${{ needs.surface.result }}" "${{ needs['reply-language'].result }}"; do
+          for r in "${{ needs.assets.result }}" "${{ needs.surface.result }}" "${{ needs['reply-language'].result }}" "${{ needs['clone-test'].result }}"; do
             case "$r" in
               success|skipped) ;;
               *) echo "gate result: $r"; exit 1 ;;

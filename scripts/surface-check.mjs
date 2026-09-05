@@ -122,7 +122,7 @@ if (existsSync('brand/README.md')) {
 // files included, and no check running in CI can see those. That half is closed by the scratch
 // tree no longer existing under web/, not by this rule.
 const SHIPPED = new Set([
-  'web/index.html', 'web/robots.txt', 'web/sitemap.xml',
+  'web/index.html', 'web/robots.txt', 'web/sitemap.xml', 'web/ic.json',
   'web/favicon.svg', 'web/favicon-32.png', 'web/apple-touch-icon.png', 'web/og.png',
 ]);
 for (const f of tracked.filter(f => f.startsWith('web/'))) {

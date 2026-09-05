@@ -1,0 +1,9 @@
+{
+  "$comment": "THE LABEL — the single source of truth for the IC this product runs (LWK-132). The page reads it; the decap battery is keyed to it. Never retype these values anywhere: a swap changes this file and the label changes the same day. A placeholder is honest; a fake id is not.",
+  "status": "no-ic-running",
+  "model_id": null,
+  "cutoff": null,
+  "effort": null,
+  "label": "No model is running yet. This page is the product's public face; nothing answers here.",
+  "label_th": "ยังไม่มีโมเดลทำงานอยู่ หน้านี้เป็นหน้าสาธารณะของสินค้า ยังไม่มีอะไรตอบคุณที่นี่"
+}
