@@ -5,6 +5,9 @@
 	"compatibility_date": "2026-08-01",
 	"assets": {
 		"directory": "./web",
-		"not_found_handling": "single-page-application"
+		// 404-page (LWK-134a, owner-approved AM-6): an unmatched path returns 404 with web/404.html.
+		// It used to be single-page-application, which answered 200 with the home page for every
+		// wrong URL -- measured 2026-09-03 -- so crawlers indexed nonexistent pages as real ones.
+		"not_found_handling": "404-page"
 	}
 }

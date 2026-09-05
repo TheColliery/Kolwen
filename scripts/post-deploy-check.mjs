@@ -46,11 +46,29 @@ const sha = b => createHash('sha256').update(b).digest('hex').slice(0, 16);
 // surface-check.mjs holds an allowlist of the files we ship and fails on any other tracked
 // path under web/, and it is a required CI context. If that allowlist ever admits a
 // subdirectory, this line must become recursive or a deployed file goes unchecked.
-const files = readdirSync('web').filter(f => statSync(`web/${f}`).isFile());
+// SHIPPED BUT NOT FETCHABLE. Cloudflare parses `_headers` and, in its own words, the file
+// "will not itself be served as a static asset" — so fetching it returns the 404 page, the
+// comparison fails, and this gate would red on every deploy forever. Verified at the docs,
+// 2026-09-05. Anything else with that property joins this list; nothing else is exempt.
+const NOT_SERVED = new Set(['_headers', '_redirects']);
+const files = readdirSync('web')
+  .filter(f => statSync(`web/${f}`).isFile())
+  .filter(f => !NOT_SERVED.has(f));
 const TEXT = /\.(html|xml|txt|svg|json)$/i;
 
 async function probe(origin) {
   const misses = [];
+
+  // not_found_handling: 404-page — an unmatched path must answer 404, not 200 with the home
+  // page. Measured 2026-09-03: it used to answer 200, so crawlers indexed pages that do not
+  // exist. A cache-buster keeps this off any edge copy.
+  {
+    const miss = `no-such-page-${Date.now()}`;
+    const r404 = await fetch(origin + miss, { headers: { 'Cache-Control': 'no-cache' } });
+    if (r404.status !== 404) {
+      misses.push(`/${miss}: served HTTP ${r404.status}, expected 404 (assets.not_found_handling is 404-page)`);
+    }
+  }
   for (const f of files) {
     const url = origin + (f === 'index.html' ? '' : f) + '?cb=' + Date.now();
     const r = await fetch(url, { headers: { 'Cache-Control': 'no-cache' } });

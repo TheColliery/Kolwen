@@ -123,6 +123,12 @@ if (existsSync('brand/README.md')) {
 // tree no longer existing under web/, not by this rule.
 const SHIPPED = new Set([
   'web/index.html', 'web/robots.txt', 'web/sitemap.xml', 'web/ic.json',
+  // Added BY NAME, never by widening the glob — the point of the list is that a new path under
+  // web/ is a deliberate act. `404.html` is served for an unmatched request (not_found_handling:
+  // 404-page). `_headers` is PARSED by Workers and, per Cloudflare's own docs, "will not itself
+  // be served as a static asset" — shipped but never fetchable, which post-deploy-check must
+  // also know.
+  'web/404.html', 'web/_headers',
   'web/favicon.svg', 'web/favicon-32.png', 'web/apple-touch-icon.png', 'web/og.png',
 ]);
 for (const f of tracked.filter(f => f.startsWith('web/'))) {
@@ -130,6 +136,27 @@ for (const f of tracked.filter(f => f.startsWith('web/'))) {
 }
 for (const f of SHIPPED) {
   if (!existsSync(f)) note(f, 'is declared a shipped asset but is missing from the publish root');
+}
+
+
+// ── 8. The wrangler values this checker depends on are CONFIRMED, not assumed ─────────────
+// Rule 7 governs `web/` because wrangler publishes it, and post-deploy-check reads the same
+// directory. Until now both facts lived only in a COMMENT: a one-word config change could
+// falsify three artefacts with every gate still green (the r17 finding). Now the file is read.
+{
+  const w = read('wrangler.jsonc');
+  // JSONC: comments make JSON.parse unsafe here, so the two values are matched as TEXT. A
+  // duplicate key, or the same text inside a comment, would defeat this — stated rather than
+  // pretended away; this guards against silent drift, not against a hostile edit.
+  if (!/"directory"\s*:\s*"\.\/web"/.test(w)) {
+    note('wrangler.jsonc', 'assets.directory is not "./web" — surface-check rule 7 and post-deploy-check both assume it is');
+  }
+  const nf = w.match(/"not_found_handling"\s*:\s*"([^"]+)"/);
+  if (!nf) {
+    note('wrangler.jsonc', 'assets.not_found_handling is absent — the behaviour of an unmatched path is then undeclared');
+  } else if (!['404-page', 'single-page-application'].includes(nf[1])) {
+    note('wrangler.jsonc', `assets.not_found_handling is "${nf[1]}", which is not one of the two documented values`);
+  }
 }
 
 if (fail.length) {
