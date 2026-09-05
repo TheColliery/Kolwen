@@ -40,6 +40,12 @@ commit body rather than to a released entry.
   is silently absent rather than loudly broken. It does not stand on "the repository was mixed",
   because that was never true.
 
+### Changed
+
+- The favicon and touch icon are now generated from the brand icon rather than copied. The
+  generator writes both places from one call, and CI fails if either drifts, so the mark cannot
+  disagree with itself.
+
 ### Added
 
 - A real 404 page, in both languages. An address with no page behind it now answers HTTP 404;

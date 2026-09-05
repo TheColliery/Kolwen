@@ -10,6 +10,14 @@ import { strict as assert } from 'node:assert';
 const OUT = dirname(fileURLToPath(import.meta.url));
 mkdirSync(OUT, { recursive: true });
 
+// LWK-139 — A DUPLICATE KEEPS ONE PLACE. Three files under web/ are the same bytes as three
+// brand assets, and they used to be hand copies: a second book. They are now written HERE, by
+// the one writer that already owns the mark's geometry, so the copy cannot drift because nobody
+// writes it by hand. `brand/kolwen-icon.svg` is the BOOK for the favicon; web/favicon.svg is
+// derived from the same call, not copied from the file.
+const WEB_OUT = `${OUT}/../web`;
+mkdirSync(WEB_OUT, { recursive: true });   // reviewer, LWK-139: a build tool owns every path it writes
+
 // Framed so the mark fills 83% of its box - Material's 20-of-24dp live area.
 const BARS = [
   { x: 8.5,   y: 9.1,   w: 64.3, h: 25.0  },
@@ -50,7 +58,9 @@ ${bg ? `  <rect width="100" height="100" fill="${bg}"/>\n` : ''}${rects(fill, ba
 writeFileSync(`${OUT}/kolwen-mark.svg`,         svg(AMBER_DARK_GROUND, null));
 writeFileSync(`${OUT}/kolwen-mark-onlight.svg`, svg(AMBER_LIGHT_GROUND, null));
 writeFileSync(`${OUT}/kolwen-mark-mono.svg`,    svg('currentColor', null));
-writeFileSync(`${OUT}/kolwen-icon.svg`,         svg(AMBER_DARK_GROUND, CHARCOAL));
+const ICON_SVG = svg(AMBER_DARK_GROUND, CHARCOAL);
+writeFileSync(`${OUT}/kolwen-icon.svg`,         ICON_SVG);
+writeFileSync(`${WEB_OUT}/favicon.svg`,         ICON_SVG);   // LWK-139: derived, never copied
 
 const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 
@@ -115,6 +125,11 @@ const maxRadius = bars => Math.max(...bars.flatMap(b =>
 assert(maxRadius(BARS) > CENTRE, 'BARS should overflow the inscribed circle - that is the defect this variant answers');
 assert(maxRadius(AVATAR_BARS) <= CENTRE, 'AVATAR_BARS must fit inside the inscribed circle');
 
+// The only three files web/ shares with brand/. Anything not listed here is web/'s own.
+const WEB_COPIES = {
+  'kolwen-favicon-32.png': 'favicon-32.png',
+  'kolwen-icon-256.png': 'apple-touch-icon.png',
+};
 const made = [];
 for (const [name, size, fg, bg, bars] of [
   ['kolwen-mark-128.png',          128,  AMBER_DARK_GROUND,  null],
@@ -129,7 +144,11 @@ for (const [name, size, fg, bg, bars] of [
 ]) {
   const buf = png(size, fg, bg, bars);
   writeFileSync(`${OUT}/${name}`, buf);
-  made.push(`${name.padEnd(30)} ${size}x${size}  ${buf.length}B`);
+  // LWK-139: the two web/ PNGs are the SAME buffer, written once from the same call. A hand
+  // copy would be a second book; this is one writer with two destinations.
+  const webName = WEB_COPIES[name];
+  if (webName) { writeFileSync(`${WEB_OUT}/${webName}`, buf); }
+  made.push(`${name.padEnd(30)} ${size}x${size}  ${buf.length}B${webName ? `  -> web/${webName}` : ''}`);
 }
 console.log('svg: kolwen-mark / -onlight / -mono / kolwen-icon');
 console.log(made.join('\n'));

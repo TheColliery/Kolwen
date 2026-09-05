@@ -50,7 +50,10 @@ jobs:
       # platform and Node major is UNMEASURED here. A matrix would risk reddening a correct
       # repo. Widen it once the Node-major and macOS axes are measured too.
       - run: node brand/make-brand.mjs
-      - run: git diff --exit-code -- brand/
+      # LWK-139: web/ is in the diff too, because make-brand.mjs now WRITES three files
+      # there. A generator that owns a file and a gate that does not check it is half a rule --
+      # the copy could still be hand-edited between runs and nothing would say so.
+      - run: git diff --exit-code -- brand/ web/favicon.svg web/favicon-32.png web/apple-touch-icon.png
 
   surface:
     name: surface (published claims)
