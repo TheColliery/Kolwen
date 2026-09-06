@@ -31,6 +31,53 @@ export function blocks() {
 export const isPerItem = name => name === 'B11-pin';
 export const items = body => body.split('\n').filter(l => l.trim() && !l.trim().startsWith('#'));
 
+// LWK-157 — THE BATTERY WAS SENDING ITS OWN ANSWER KEY. `items()` drops a line that STARTS with
+// `#`, but B11-pin's format puts the key in a TRAILING inline comment, so every one of its six
+// prompts reached the chip with the answer attached ("# Moonshot, 6 Nov 2025"). A decap that
+// hands over the answers passes vacuously — the opposite of what this file is for.
+//
+// The fixture is NEVER edited; the runner respects its format. Strip from the FIRST inline `#`
+// to end of line. Checked 2026-09-06 against the live fixture: in all six items the first `#`
+// falls after a completed question, and no line carries a second one — a `#` inside prompt text
+// would be a fixture bug, and there is none today.
+//
+// The line terminator goes FIRST. `$` in a non-multiline regex is end-of-INPUT and `.` never
+// matches a CR, so on a CRLF line `/#.*$/` matched NOTHING and the key survived whole — found
+// by INSPECT, then reproduced on the live fixture with its newlines rewritten. The checkout is
+// LF today; it is one `core.autocrlf` away from not being.
+export const stripKey = line => line.replace(/[\r\n]+$/, '').replace(/#.*$/, '').trimEnd();
+
+// `<MODEL>` in item 1 was going out unsubstituted. It is filled from the SAME source of truth the
+// socket reads. When no model is labelled — today's placeholder label — the item is SKIPPED and
+// says so, because asking a chip when "null" was released measures nothing and a silent skip is
+// how a battery starts lying. Case-insensitive: a fixture written `<model>` must not slip past.
+export const MODEL_SLOT = /<model>/gi;
+export function fillModel(line, modelId) {
+  MODEL_SLOT.lastIndex = 0;
+  if (!MODEL_SLOT.test(line)) return line;
+  if (!modelId) return null;
+  return line.replace(MODEL_SLOT, () => modelId);
+}
+
+// The prompts the battery WOULD send, without sending them — what the hygiene test asserts on.
+export function outgoingPrompts(lbl = label()) {
+  const out = [];
+  for (const b of blocks()) {
+    if (isPerItem(b.name)) {
+      items(b.body).forEach((raw, i) => {
+        const filled = fillModel(stripKey(raw), lbl.model_id);
+        out.push({ block: `${b.name}#${i + 1}`, prompt: filled, skipped: filled === null });
+      });
+    } else {
+      // Whole-block bodies are sent as-is by design. Verified 2026-09-06: B6-B9 and B10-CN carry
+      // no `#` line at all, leading or inline, so there is nothing to strip and no header line
+      // that could be mistaken for prompt text.
+      out.push({ block: b.name, prompt: b.body, skipped: false });
+    }
+  }
+  return out;
+}
+
 // ── the socket: OpenAI-compatible, so a second IC qualifies without a rewrite ────────────────
 async function askEndpoint(prompt) {
   const r = await fetch(process.env.KOLWEN_IC_ENDPOINT, {
@@ -60,7 +107,12 @@ export async function runBattery(ask, outDir) {
   const replies = [];
   for (const b of blocks()) {
     if (isPerItem(b.name)) {
-      for (const [i, item] of items(b.body).entries()) {
+      for (const [i, raw] of items(b.body).entries()) {
+        const item = fillModel(stripKey(raw), label().model_id);
+        if (item === null) {
+          console.error(`  ${b.name}#${i + 1}: SKIPPED, not passed — <MODEL> has no labelled model id`);
+          continue;
+        }
         replies.push({ block: `${b.name}#${i + 1}`, prompt: item, reply: await ask(item, true) });
       }
     } else {
@@ -98,7 +150,7 @@ export function assertChipMatchesLabel(replies, lbl) {
     why: measured <= declared ? 'measured chip is within the label' : `measured ${measured} but the label says ${declared} — the chip is not what the label claims` };
 }
 
-if (import.meta.url.endsWith('decap-battery.mjs')) {
+if (process.argv[1] && process.argv[1].endsWith('decap-battery.mjs')) {
   const arg = process.argv[2];
   const fail = m => { console.error(m); process.exitCode = 1; };
   const lbl = label();
@@ -118,6 +170,23 @@ if (import.meta.url.endsWith('decap-battery.mjs')) {
     if (red.ok !== false) fail('  the wrong-chip fixture must FAIL the assert. The battery cannot detect a relabel.');
     else if (green.ok !== true) fail('  the conforming fixture must PASS.');
     else console.log('  battery proven: detects a relabel, passes a chip that matches its label.');
+    // The two ways the strip has already been measured to fail: a CRLF line, and a placeholder
+    // in another casing. Unit legs, because the live fixture is LF and uppercase and would
+    // never exercise either.
+    const stripCases = [['CR', 'Q? # 2025\r', 'Q?'], ['two #', 'Q? # a # b', 'Q?'], ['no key', 'Q?', 'Q?']];
+    const stripBad = stripCases.filter(c => stripKey(c[1]) !== c[2]).map(c => c[0]);
+    const slotBad = ['<MODEL>', '<model>', '<Model>'].filter(v => fillModel(`when was ${v}?`, 'X') !== 'when was X?');
+    console.log(`  strip/slot units: ${stripCases.length} strip, 3 slot casings, ${stripBad.length + slotBad.length} failing`);
+    if (stripBad.length || slotBad.length) fail(`  strip/slot unit FAILED: ${[...stripBad, ...slotBad].join(', ')}`);
+    // LWK-157 hygiene: not one prompt the battery would SEND may carry an answer key or an
+    // unsubstituted placeholder. Asserted on the outgoing text, not on the fixture.
+    const outgoing = outgoingPrompts(lbl);
+    const dirty = outgoing.filter(o => !o.skipped && (o.prompt.includes('#') || /<model>/i.test(o.prompt)));
+    console.log(`  prompt hygiene: ${outgoing.length} prompts, ${outgoing.filter(o => o.skipped).length} skipped, ${dirty.length} leaking`);
+    if (dirty.length) {
+      fail('  LEAKING PROMPTS — the battery would hand the chip its own answer key:\n    ' +
+        dirty.map(o => `${o.block}: ${o.prompt.slice(-70)}`).join('\n    '));
+    }
     if (lbl.status === 'no-ic-running') console.log(`  live IC: none (${LABEL_PATH} says no-ic-running) — the battery binds the day one is labelled.`);
 
   } else {
