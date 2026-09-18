@@ -1,0 +1,20 @@
+# Cache-Control for kolwen.com (LWK-134a). Parsed by Workers, NOT served as an asset.
+#
+# The assets here are NOT content-hashed, so the doc's `immutable, max-age=31556952` must never be
+# copied: a regenerated brand mark would stay stale in caches for a year. These are finite and
+# short enough that a redeploy is visible the same day.
+/*.png
+  Cache-Control: public, max-age=86400
+/*.svg
+  Cache-Control: public, max-age=86400
+/*.ico
+  Cache-Control: public, max-age=86400
+
+# The page itself must always be revalidated: it carries the claims, and a stale claim is the
+# failure this room exists to prevent.
+/
+  Cache-Control: public, max-age=0, must-revalidate
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+/404.html
+  Cache-Control: public, max-age=0, must-revalidate

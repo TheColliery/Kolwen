@@ -1,0 +1,17 @@
+#!/bin/sh
+# Repo gate — wired as BOTH pre-commit and pre-push (identical bytes).
+# Runs the same fail-loud check CI runs (.github/workflows/ci.yml, `surface` job).
+#
+# Enable once per clone — git deliberately refuses to let a repo configure its
+# own hooks, so the files travel with the clone but the pointer does not:
+#   git config core.hooksPath .githooks
+#
+# Fails CLOSED on purpose: a missing node or a missing script blocks the commit
+# instead of passing quietly.
+#
+# Only the surface check runs here, deliberately. CI's other two gates are wrong
+# for a hook: the brand byte-identity gate REGENERATES assets, so it would write
+# files in the middle of a commit, and the post-deploy check needs the network
+# and a deploy that has not happened yet. This hook moves the room's own laws
+# earlier; it does not try to be CI.
+node scripts/surface-check.mjs

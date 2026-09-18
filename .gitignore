@@ -1,0 +1,30 @@
+# machine-local governance / agent state — never pushed (flock rule)
+.claude/
+.agents/
+.coal*
+CLAUDE.md
+AGENTS.md
+MEMORY.md
+
+# secrets — this repo is public and permanent; a leaked key cannot be un-pushed
+.env
+.env.*
+.dev.vars
+.dev.vars.*
+
+# local scratch + artifacts
+scratchpad/
+node_modules/
+dist/
+.wrangler/
+*.gguf
+*.safetensors
+models/
+
+# THIS REPO IS PUBLIC. Training and model-production material never belongs here.
+corpus/
+recipes/
+pipelines/
+
+# SELF-DECAP raw replies (LWK-132) — local evidence of a run, never shipped
+.decap-runs/
