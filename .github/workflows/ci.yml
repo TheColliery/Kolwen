@@ -1,0 +1,125 @@
+name: CI
+
+# Diverges from the flock template in its JOB SET, deliberately: the template ships one `gate` job
+# for a skill repo (build, verify, test). This repo has no build and no test suite, so it ships
+# `assets` (regenerate every brand file, fail on any byte difference) and `surface` (the room's
+# published-claim laws). `all-green` is the stable required context either way.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      # Only genuinely non-participating paths. This set is deliberately TINY: nearly every
+      # tracked file here is a published surface (the page, the PyPI long-description, the
+      # brand doc, the README), and the surface job checks exactly those claims.
+      # NOTE the inversion vs the usual reflex: brand/**.png and brand/**.svg are NOT ignored —
+      # a hand-edited asset is precisely what the assets job exists to catch.
+      - '.gitignore'
+  pull_request:
+    branches: [main]
+    # NO paths-ignore here, deliberately: `all-green` and `analyze (javascript)` are REQUIRED
+    # contexts on main. A paths-ignore on pull_request means the context never reports, and a
+    # required context that never reports leaves the PR permanently unmergeable — measured on
+    # PR #4, which touched only web/robots.txt and sat at mergeable_state=blocked. The push
+    # filter below keeps owner rail 1's discipline where it actually saves work and gates
+    # nothing. Divergence from the Coal* shape, named: the seniors carry the same latent
+    # defect and have not hit it because their heads push directly rather than through PRs.
+
+# cancel-in-progress: TRUE -- ci.yml only reads, tests and compares; it publishes nothing and
+# touches no external state, so a superseded run has nothing to leave half-done.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  assets:
+    name: assets (byte-identity)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      # Zero-dependency: no install step. Regenerate every brand asset and fail if a committed
+      # file differs — catches a hand-edited PNG and generator drift in one check.
+      # ubuntu-latest ONLY, single Node major, deliberately: byte-identity depends on
+      # zlib.deflateSync(level 9) producing identical output, and whether that holds across
+      # platform and Node major is UNMEASURED here. A matrix would risk reddening a correct
+      # repo. Widen it once the Node-major and macOS axes are measured too.
+      - run: node brand/make-brand.mjs
+      # LWK-139: web/ is in the diff too, because make-brand.mjs now WRITES three files
+      # there. A generator that owns a file and a gate that does not check it is half a rule --
+      # the copy could still be hand-edited between runs and nothing would say so.
+      - run: git diff --exit-code -- brand/ web/favicon.svg web/favicon-32.png web/apple-touch-icon.png
+
+  surface:
+    name: surface (published claims)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      # The room's own laws, mechanised: trademark FILED-never-registered · no filing
+      # identifier · no kitchen leakage · Thai orthography · HTML + ld+json integrity ·
+      # bilingual structure · every stated contrast ratio recomputed from its own hex pair.
+      - run: node scripts/surface-check.mjs
+
+  reply-language:
+    name: reply language (LWK-131)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      # The reply is in the language of the MESSAGE, on every path. No reply surface ships yet,
+      # so what runs today is the harness proving it DETECTS the failure (red fixture = the
+      # Synantic shape, a Thai template on an English message) and a tree scan for hard-coded
+      # single-language templates. The same harness takes the real endpoint via
+      # KOLWEN_CHAT_ENDPOINT the day /chat exists. Spec: docs/REPLY-LANGUAGE.md
+      - run: node scripts/reply-language-check.mjs --self-test
+      - run: node scripts/reply-language-check.mjs --scan
+  clone-test:
+    name: never a clone (LWK-132)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      # The chip the ladder measures must equal the label the product shows. web/ic.json is the
+      # single source of truth for that label; a swap changes it and this job re-runs. Today no
+      # IC is labelled, so what runs is the runner proving it DETECTS a relabel (a mocked wrong
+      # chip must fail the assert). Fixtures live in the zone warehouse and are NOT in this
+      # checkout, so the self-test is skipped rather than faked when they are absent -- and it
+      # says so. Spec: docs/NEVER-A-CLONE.md
+      - name: label source of truth
+        run: node scripts/decap-battery.mjs --label
+      - name: battery self-test (skips loudly if the warehouse fixtures are absent)
+        run: |
+          if [ -d ../warehouse/decap-battery/blocks ]; then
+            node scripts/decap-battery.mjs --self-test
+          else
+            echo 'fixtures absent in this checkout (they live in the zone warehouse, outside this repo) -- self-test SKIPPED, not passed'
+          fi
+  # A single STABLE required-check context (job names drift; this does not).
+  # Rulesets require `all-green`, never the per-job names.
+  all-green:
+    name: all-green
+    needs: [assets, surface, reply-language, clone-test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: gate result
+        run: |
+          for r in "${{ needs.assets.result }}" "${{ needs.surface.result }}" "${{ needs['reply-language'].result }}" "${{ needs['clone-test'].result }}"; do
+            case "$r" in
+              success|skipped) ;;
+              *) echo "gate result: $r"; exit 1 ;;
+            esac
+          done
+          echo "assets=${{ needs.assets.result }} surface=${{ needs.surface.result }} reply-language=${{ needs['reply-language'].result }}"

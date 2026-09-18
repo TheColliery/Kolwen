@@ -1,0 +1,54 @@
+name: CodeQL
+
+# Diverges from the flock template deliberately: the template's paths-ignore assumes docs can
+# never affect the scan, and it has no pull_request carve-out. This repo needs one, for the reason
+# in the comment below. The analysis steps themselves are the template's.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      # CodeQL analyses js/ts only. Docs and binary assets cannot carry a code vulnerability,
+      # so a doc-only or asset-only commit must not start an analysis. Published-claim
+      # correctness in those files is ci.yml's surface job, not CodeQL's.
+      - '**.md'
+      - 'LICENSE'
+      - '**/*.png'
+      - '**/*.svg'
+      - '**/*.xml'
+      - '**/*.txt'
+  pull_request:
+    branches: [main]
+    # NO paths-ignore here, deliberately: `all-green` and `analyze (javascript)` are REQUIRED
+    # contexts on main. A paths-ignore on pull_request means the context never reports, and a
+    # required context that never reports leaves the PR permanently unmergeable — measured on
+    # PR #4, which touched only web/robots.txt and sat at mergeable_state=blocked. The push
+    # filter below keeps owner rail 1's discipline where it actually saves work and gates
+    # nothing. Divergence from the Coal* shape, named: the seniors carry the same latent
+    # defect and have not hit it because their heads push directly rather than through PRs.
+  schedule:
+    - cron: '0 6 * * 1'
+
+# cancel-in-progress: TRUE -- a superseded CodeQL run simply never uploads its SARIF, and the
+# previous analysis stands; nothing is left half-written. The newer push analyzes the newer tree,
+# which is the state anyone cares about.
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: analyze (javascript)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+        with:
+          languages: javascript-typescript
+          config-file: ./.github/codeql/codeql-config.yml
+      - uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9

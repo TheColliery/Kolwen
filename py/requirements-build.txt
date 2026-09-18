@@ -1,0 +1,23 @@
+# Hash-pinned build toolchain for .github/workflows/publish-pypi.yml.
+#
+# Installed with `pip install --require-hashes`, which is the only form Scorecard's
+# Pinned-Dependencies check accepts for a pip command — an exact version pin alone still scores
+# as unpinned, and splitting one unpinned command into two scored WORSE (8 -> 7), which is what
+# the first attempt at this did.
+#
+# Closure is the whole set pip resolves on the runner (linux, Python 3.12): build plus its two
+# runtime dependencies. colorama is Windows-only; importlib-metadata and tomli are gated below
+# Python 3.10.2 and 3.11; the keyring/uv/virtualenv extras are not installed. Both the wheel and
+# the sdist hash are given for each, so pip accepts whichever it selects.
+#
+# Regenerate when a version moves: read the sha256 digests from
+# https://pypi.org/pypi/<name>/<version>/json — never hand-copy them.
+build==1.6.0 \
+    --hash=sha256:f7aaf1ebbb79178a02ba248bb524f2176b256017e17e8e4bd4289c7b38cc2bad \
+    --hash=sha256:bd2c8afc603e7a2e0ce70e2ea85f0a6d02043bafbd307f5bada0f98669eca5af
+packaging==26.3 \
+    --hash=sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c \
+    --hash=sha256:94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79
+pyproject-hooks==1.2.0 \
+    --hash=sha256:9e5c6bfa8dcc30091c74b0cf803c81fdd29d94f01992a7707bc97babb1141913 \
+    --hash=sha256:1e859bd5c40fae9448642dd871adf459e5e2084186e8d2c2a79a824c970da1f8
