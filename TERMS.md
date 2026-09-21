@@ -28,12 +28,16 @@ confidential information. Whether Kolwen adopts that allocation verbatim is coun
 
 ## Retention
 
-Conversation content, once a conversational service exists, is retained for **[90 days]** and then
-deleted or anonymised. The number is bracketed because it is a product and legal decision, not a
-figure any statute supplies — Thailand's PDPA requires that a period be stated, recorded and
-enforced by a deletion mechanism, never a specific length.
+Nothing is retained today, because no conversational service exists. When one does, conversation
+content is retained for **[N days]** and then deleted or anonymised. N is set before launch, stated
+here, recorded, and enforced by a deletion mechanism — §23(3), §37(3) and §39(4) require that a
+period be stated, recorded and enforced, and no statute supplies the number.
 
-**Nothing is retained today, because no conversational service exists.** See `docs/TRUST.md`.
+> ปัจจุบันยังไม่มีการเก็บข้อมูลใด เพราะยังไม่มีบริการสนทนา เมื่อมี เนื้อหาการสนทนาจะถูกเก็บไว้
+> **[N วัน]** แล้วลบหรือทำให้ไม่สามารถระบุตัวบุคคลได้ โดย N จะถูกกำหนดก่อนเปิดใช้ ระบุไว้ที่นี่
+> บันทึกไว้ และบังคับใช้ด้วยกลไกการลบ ซึ่งกฎหมายไม่ได้กำหนดตัวเลขไว้
+
+N is the owner's and counsel's to set; this document does not choose it. See `docs/TRUST.md`.
 
 ## Status of this document
 

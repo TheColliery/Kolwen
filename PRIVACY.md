@@ -55,9 +55,26 @@ a fact this repository can measure ahead of the feature existing. Not asserted h
 >
 > No advertising cookies, no trackers—one necessary cookie so chat works.
 
-Conversations will be **session-only**: they last for that session and are not kept afterwards.
+**Interim position (not legal advice), pending the review above:** until a non-essential cookie
+exists, Kolwen sets none and shows no banner, because there is nothing to consent to. The one
+session cookie the chat will need is INTENDED to be strictly necessary, and Kolwen will not lean on
+that characterisation to skip a banner for any cookie that is not: the day a non-essential cookie
+is added, a banner ships with it.
 
-**This paragraph is a commitment about a thing that does not exist yet.** It is written here now so
+> จุดยืนชั่วคราว (ไม่ใช่คำแนะนำทางกฎหมาย) ระหว่างรอการตรวจข้างต้น — ตราบที่ยังไม่มี cookie
+> ที่ไม่จำเป็น Kolwen จะไม่ตั้ง cookie ใดและไม่แสดงแบนเนอร์ เพราะไม่มีอะไรให้ขอความยินยอม
+> วันที่เพิ่ม cookie ที่ไม่จำเป็น จะมีแบนเนอร์มาพร้อมกันในวันนั้น
+
+**Retention.** Nothing is retained today, because no conversational service exists. When one does,
+conversation content is retained for **[N days]** and then deleted or anonymised. N is set before
+launch, stated here, recorded, and enforced by a deletion mechanism — §23(3), §37(3) and §39(4)
+require that a period be stated, recorded and enforced, and no statute supplies the number.
+
+> ปัจจุบันยังไม่มีการเก็บข้อมูลใด เพราะยังไม่มีบริการสนทนา เมื่อมี เนื้อหาการสนทนาจะถูกเก็บไว้
+> **[N วัน]** แล้วลบหรือทำให้ไม่สามารถระบุตัวบุคคลได้ โดย N จะถูกกำหนดก่อนเปิดใช้ ระบุไว้ที่นี่
+> บันทึกไว้ และบังคับใช้ด้วยกลไกการลบ ซึ่งกฎหมายไม่ได้กำหนดตัวเลขไว้
+
+**This section is a commitment about a thing that does not exist yet.** It is written here now so
 that the claim and the feature ship together rather than the page quietly going out of date.
 
 ## Who else sees your request
@@ -93,7 +110,11 @@ configuration outside this repository.** Not measurable here; returned rather th
 
 - No advertising, no ad networks, no third-party analytics on this page.
 - No account, no sign-up, and nothing to log in to.
-- No sale or sharing of anything, for the simple reason that nothing is collected.
+- Kolwen's own systems—the site and its Worker—collect and store nothing, so there is nothing
+  there to sell or share. **Three parties outside those systems do handle data, as this notice
+  already says:** Cloudflare handles every request; Google Fonts receives your IP address when the
+  page loads; and the mailbox behind the contact address holds what you send to it. What each
+  retains cannot be measured from this repository.
 
 ## When the assistant ships
 
@@ -113,6 +134,18 @@ launch has to answer before this document can describe it:
     applying the statute to Kolwen's own facts.** The general shape of these sections is described
     accurately at an internal record of the primary Gazette text; whether they apply to this
     product is counsel's call, not asserted here as settled.
+
+    **Interim position (not legal advice), pending the review above:** Kolwen intends to rely on
+    §24(3) (necessity for performance of a contract the data subject is party to), or failing that
+    §24(5) (legitimate interest, with the balancing test), read with §21's same-purpose rule, for
+    retrieving a user's own message to answer it inside the same conversation—and will state that
+    basis in this notice, as §23 requires. Any use beyond answering that conversation is governed
+    by the next item.
+
+    > จุดยืนชั่วคราว (ไม่ใช่คำแนะนำทางกฎหมาย) ระหว่างรอการตรวจข้างต้น — Kolwen ตั้งใจอาศัย
+    > มาตรา 24(3) (จำเป็นเพื่อปฏิบัติตามสัญญา) หรือหากไม่ได้ ก็มาตรา 24(5) (ประโยชน์โดยชอบด้วยกฎหมาย
+    > พร้อมการชั่งน้ำหนัก) ประกอบมาตรา 21 สำหรับการนำข้อความของผู้ใช้มาตอบในการสนทนาเดียวกัน
+    > และจะระบุฐานนี้ไว้ในประกาศนี้
   - **Any use beyond that purpose (training an AI model on conversation content, for example)
     is a NEW purpose under §21 and needs its own explicit, separately-obtained, written or
     electronic consent under §19** — opt-in by construction, never opt-out. *(This states the
@@ -125,6 +158,18 @@ launch has to answer before this document can describe it:
     outside those instructions becomes a controller for that processing, §40 para 2) is accurately
     described at an internal record of the primary Gazette text; which category any specific
     provider falls into, and what the written agreement must say, is counsel's determination.
+
+    **Interim position (not legal advice), pending the review above:** Kolwen will treat any
+    provider it routes conversations through as a PROCESSOR under §40, and will route no user
+    content to any provider until a written agreement binding it to Kolwen's documented
+    instructions is in place. If a provider's own terms let it use that content for its own
+    purposes, it is a controller for that processing and Kolwen will not route user content to it.
+
+    > จุดยืนชั่วคราว (ไม่ใช่คำแนะนำทางกฎหมาย) ระหว่างรอการตรวจข้างต้น — Kolwen จะถือว่าผู้ให้บริการ
+    > ที่ส่งการสนทนาผ่านเป็นผู้ประมวลผลข้อมูลตามมาตรา 40 และจะไม่ส่งเนื้อหาของผู้ใช้ไปยังผู้ให้บริการรายใด
+    > จนกว่าจะมีข้อตกลงเป็นลายลักษณ์อักษรที่ผูกมัดให้ทำตามคำสั่งที่บันทึกไว้ของ Kolwen
+    > หากเงื่อนไขของผู้ให้บริการเปิดให้ใช้เนื้อหานั้นเพื่อวัตถุประสงค์ของตนเอง
+    > ผู้ให้บริการนั้นเป็นผู้ควบคุมข้อมูลในการประมวลผลดังกล่าว และ Kolwen จะไม่ส่งเนื้อหาของผู้ใช้ไปให้
   - **Retention has no PDPA-fixed number** — §37(3) requires an erasure/anonymization system once
     the (self-set) retention period lapses; §23(3) requires the period to be stated in the
     notice; §39(4) requires it be recorded. The NUMBER is Kolwen's own product/legal decision,
@@ -140,6 +185,17 @@ launch has to answer before this document can describe it:
     sensitive data, each per Committee-set thresholds) are accurately described at
     an internal record of the primary Gazette text; whether Kolwen's own processing crosses
     any threshold is counsel's determination, not asserted here.
+
+    **Interim position (not legal advice), pending the review above:** Kolwen's own assessment,
+    made today and not confirmed by counsel, finds it BELOW the threshold—Kolwen processes no
+    conversation content, performs no regular or systematic monitoring, and handles no §26
+    sensitive data—so no DPO is appointed. The assessment is re-run before the assistant launches,
+    and again if scale or data class changes.
+
+    > จุดยืนชั่วคราว (ไม่ใช่คำแนะนำทางกฎหมาย) ระหว่างรอการตรวจข้างต้น — Kolwen ประเมินเองในวันนี้
+    > (ยังไม่ผ่านการยืนยันโดยทนายความ) และพบว่าอยู่ต่ำกว่าเกณฑ์ เพราะไม่ได้ประมวลผลเนื้อหาการสนทนา
+    > ไม่ได้ติดตามตรวจสอบอย่างสม่ำเสมอหรือเป็นระบบ และไม่มีข้อมูลอ่อนไหวตามมาตรา 26 จึงยังไม่แต่งตั้ง DPO
+    > จะประเมินซ้ำก่อนเปิดตัวผู้ช่วย และอีกครั้งหากขนาดหรือประเภทข้อมูลเปลี่ยน
   - **The PDPA's "small enterprise" exemption (PDPC Notification B.E. 2565) excuses ONLY the
     §39 record-of-processing-activities requirement, and loses even that once processing is
     non-occasional or touches §26 data — a chat product processing messages continuously is not
