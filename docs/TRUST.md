@@ -12,7 +12,7 @@ Measured facts, each traceable to something in this repository or to a live chec
 |---|---|
 | The site is served over TLS by Cloudflare | the live site answers on HTTPS; the Worker config is `wrangler.jsonc` |
 | **No customer data store exists** | there is no database, no account system and no conversational service in this repository — `py/` is a name reservation and `web/` is a static page |
-| A named list of published-claim failures is machine-checked; every other claim is held by review, not by a checker | `scripts/surface-check.mjs`, a required CI context; the list is in `governance/policies.md` |
+| The failures `scripts/surface-check.mjs` has a rule for are machine-checked; every other published claim is held by review, not by a checker | `scripts/surface-check.mjs`, a required CI context; its numbered rules are the list, summarised in `governance/policies.md` |
 | The files under `web/` are compared to what the site serves, on the pushes that can change them, at the first origin the check can reach | `scripts/post-deploy-check.mjs`, run by `deploy-check.yml` only after a push touching `web/`, `wrangler.jsonc` or the checker itself. Every push to `main` deploys, so a push touching none of those deploys without this check. From a CI runner `kolwen.com` refuses the request (measured), so the check reads the Worker's `workers.dev` address; what `kolwen.com` itself serves is not compared there, and a difference added at the edge in front of it would not be caught |
 | Only a signed, annotated tag can publish the package | the gate in `.github/workflows/publish-pypi.yml` |
 | Package publishing uses Trusted Publishing | no API token is stored anywhere; the workflow uses OIDC |

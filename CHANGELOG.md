@@ -100,6 +100,13 @@ the pointer to it.
   that processing") while the gap it sits under reserves that characterisation to counsel. It is
   now phrased as Kolwen's own undertaking, in English and Thai alike ("Kolwen will treat it as a
   controller for that processing"). The gap and its marker are unchanged.
+- **A correction to the correction to `governance/policies.md`: its list of what the surface check
+  fails the build on was closed ("a named list of failures only") and the check outgrew it.** The
+  list named eight classes; the check has ten rules. It left out the legal-gap marker rule, which
+  had been extended to `TERMS.md` in the same batch, and a new half of the IC-label rule (a
+  required-text key left empty or undeclared). The sentence no longer claims to be the complete
+  list: it says the script's numbered rules are, summarises the classes that guard a published
+  claim, and says the script wins where the two disagree. `docs/TRUST.md` now points at the script.
 
 ### Changed
 
