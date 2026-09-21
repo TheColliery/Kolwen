@@ -19,6 +19,9 @@ updates:
       codeql-action:
         patterns:
           - "github/codeql-action*"
-    # NO pip ecosystem, deliberately: py/pyproject.toml declares hatchling as a build backend
-    # and zero runtime dependencies, so a pip block would watch an empty set. Add it the day
-    # the package gains a dependency.
+    # NO pip ecosystem, deliberately: the package has zero runtime dependencies. The only pinned
+    # Python packages are the release build toolchain in py/requirements-build.txt, a GENERATED,
+    # hash-pinned file (edit py/requirements-build.in and regenerate; the command is in that
+    # file's header, and hatchling's pin in py/pyproject.toml moves with it). Whether Dependabot
+    # should watch that file has not been decided or tested, so it is bumped by hand for now.
+    # Add a pip block the day the package gains a runtime dependency or that is decided.
