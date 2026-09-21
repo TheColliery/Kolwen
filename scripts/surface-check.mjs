@@ -107,12 +107,19 @@ if (existsSync('brand/README.md')) {
   const THRESHOLDS = new Set(['3', '4.5', '7']);   // WCAG's own bars, not measurements of a pair
   const doc = read('brand/README.md');
   const stated = [...new Set(doc.match(/\b\d+(?:\.\d+)?:1/g) || [])].map(t => t.slice(0, -2)).filter(t => !THRESHOLDS.has(t));
+  // LWK-168: a doc that states no measured ratio (the figures deleted, or written in a shape the
+  // pattern above no longer reads) made this loop run over nothing and the rule pass silently.
+  if (stated.length === 0) note('brand/README.md', 'states no measured contrast ratio (n:1), so rule 6 recomputed nothing — if the doc really has none, retire the rule instead of letting it pass empty');
   for (const t of stated) {
     // <= : a correctly-rounded 2-decimal figure sits at most 0.005 from its true value, so a
     // strict < reds a correct document at exactly the rounding boundary.
     const ok = PAIRS.some(([a, b]) => Math.abs(ratio(a, b) - Number(t)) <= 0.005);
     if (!ok) note('brand/README.md', `states ${t}:1, which no documented colour pair produces`);
   }
+} else {
+  // The brand authority doc is this room's own law (CLAUDE.md); a missing one used to switch the
+  // whole contrast rule off without a word.
+  note('brand/README.md', 'is missing — rule 6 (contrast ratios) would silently check nothing');
 }
 
 // ── 7. The publish root ships only shipped assets ────────────────────────────
@@ -172,6 +179,10 @@ if (existsSync('web/ic.json')) {
   let ic = null;
   try { ic = JSON.parse(read('web/ic.json')); } catch (e) { note('web/ic.json', 'does not parse: ' + e.message); }
   const labels = ic ? ['label', 'label_th'].map(k => ic[k]).filter(v => typeof v === 'string' && v.trim()) : [];
+  // An EMPTY label set is not a clean bill: the loop below would compare against nothing and the
+  // rule would pass while enforcing nothing -- the same published-as-enforced-but-cannot-fire
+  // defect as rule 3's old pattern. (An unparseable file is already a finding, above.)
+  if (ic && labels.length === 0) note('web/ic.json', 'has no non-empty label or label_th, so rule 9 has nothing to compare against — the product would also show no label');
   for (const f of tracked.filter(f => isText(f) && f !== 'web/ic.json')) {
     const s = read(f);
     if (labels.some(v => s.includes(v))) note(f, 'retypes the IC label from web/ic.json — read it from that file, never copy it');
