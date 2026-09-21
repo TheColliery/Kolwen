@@ -42,8 +42,16 @@ for (const f of tracked.filter(PUBLISHED)) {
 // file, in a public permanent repo — the defect this rule exists to prevent. A long digit run
 // has no legitimate use on any published surface in this repo (verified: zero occurrences), so
 // the shape is the rule. It also catches identifiers nobody thought to tell this checker about.
+// A content digest is not an identifier: a sha256 is 64 hex characters and, by chance, carries a run
+// of nine or more decimal digits in roughly one digest in four (3 of the 16 in the pinned requirements
+// file, LWK-177, had one, of 10, 14 and 15 digits). Publishing that file reddened the required
+// surface job on a hash, and every re-pin would have done it again.
+// So a digest is removed BEFORE the digit-run test, and only a digest: an algorithm prefix plus at
+// least 32 hex characters. A bare 9+ digit run anywhere else, including one glued to a short
+// "sha256:" prefix, still trips the rule.
+const DIGEST = /\b(?:sha(?:1|224|256|384|512)|md5):[0-9a-f]{32,}/gi;
 for (const f of tracked.filter(PUBLISHED)) {
-  const runs = read(f).match(/\d{9,}/g);
+  const runs = read(f).replace(DIGEST, '').match(/\d{9,}/g);
   if (runs) note(f, `contains a ${runs[0].length}-digit identifier-shaped number — filing identifiers are owner-deferred from every public surface`);
 }
 
