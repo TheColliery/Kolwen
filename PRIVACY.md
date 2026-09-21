@@ -62,17 +62,21 @@ that characterisation to skip a banner for any cookie that is not: the day a non
 is added, a banner ships with it.
 
 > จุดยืนชั่วคราว (ไม่ใช่คำแนะนำทางกฎหมาย) ระหว่างรอการตรวจข้างต้น — ตราบที่ยังไม่มี cookie
-> ที่ไม่จำเป็น Kolwen จะไม่ตั้ง cookie ใดและไม่แสดงแบนเนอร์ เพราะไม่มีอะไรให้ขอความยินยอม
-> วันที่เพิ่ม cookie ที่ไม่จำเป็น จะมีแบนเนอร์มาพร้อมกันในวันนั้น
+> ที่ไม่จำเป็น Kolwen จะไม่ตั้ง cookie ประเภทนั้นและไม่แสดงแบนเนอร์ เพราะไม่มีอะไรให้ขอความยินยอม
+> cookie ของแชทหนึ่งตัวที่ตั้งใจให้เป็น cookie ที่จำเป็นอย่างยิ่ง Kolwen จะไม่อ้างลักษณะดังกล่าว
+> เพื่อเลี่ยงการแสดงแบนเนอร์สำหรับ cookie ตัวใดที่ไม่ได้เป็นเช่นนั้น
+> และวันที่เพิ่ม cookie ที่ไม่จำเป็น จะมีแบนเนอร์มาพร้อมกันในวันนั้น
 
-**Retention.** Nothing is retained today, because no conversational service exists. When one does,
-conversation content is retained for **[N days]** and then deleted or anonymised. N is set before
-launch, stated here, recorded, and enforced by a deletion mechanism — §23(3), §37(3) and §39(4)
-require that a period be stated, recorded and enforced, and no statute supplies the number.
+**Retention.** No conversation content is retained today, because no conversational service exists.
+When one does, conversation content is retained for **[N days]** and then deleted or anonymised. N
+is set before launch, stated here, recorded, and enforced by a deletion mechanism — §23(3), §37(3)
+and §39(4) require that a period be stated, recorded and enforced, and no statute supplies the
+number.
 
-> ปัจจุบันยังไม่มีการเก็บข้อมูลใด เพราะยังไม่มีบริการสนทนา เมื่อมี เนื้อหาการสนทนาจะถูกเก็บไว้
+> ปัจจุบันไม่มีการเก็บเนื้อหาการสนทนา เพราะยังไม่มีบริการสนทนา เมื่อมี เนื้อหาการสนทนาจะถูกเก็บไว้
 > **[N วัน]** แล้วลบหรือทำให้ไม่สามารถระบุตัวบุคคลได้ โดย N จะถูกกำหนดก่อนเปิดใช้ ระบุไว้ที่นี่
-> บันทึกไว้ และบังคับใช้ด้วยกลไกการลบ ซึ่งกฎหมายไม่ได้กำหนดตัวเลขไว้
+> บันทึกไว้ และบังคับใช้ด้วยกลไกการลบ มาตรา 23(3) มาตรา 37(3) และมาตรา 39(4) กำหนดให้ต้องระบุ
+> บันทึก และบังคับใช้ระยะเวลาการเก็บ และไม่มีกฎหมายฉบับใดกำหนดตัวเลขไว้
 
 **This section is a commitment about a thing that does not exist yet.** It is written here now so
 that the claim and the feature ship together rather than the page quietly going out of date.
@@ -143,9 +147,11 @@ launch has to answer before this document can describe it:
     by the next item.
 
     > จุดยืนชั่วคราว (ไม่ใช่คำแนะนำทางกฎหมาย) ระหว่างรอการตรวจข้างต้น — Kolwen ตั้งใจอาศัย
-    > มาตรา 24(3) (จำเป็นเพื่อปฏิบัติตามสัญญา) หรือหากไม่ได้ ก็มาตรา 24(5) (ประโยชน์โดยชอบด้วยกฎหมาย
-    > พร้อมการชั่งน้ำหนัก) ประกอบมาตรา 21 สำหรับการนำข้อความของผู้ใช้มาตอบในการสนทนาเดียวกัน
-    > และจะระบุฐานนี้ไว้ในประกาศนี้
+    > มาตรา 24(3) (จำเป็นเพื่อปฏิบัติตามสัญญาที่เจ้าของข้อมูลเป็นคู่สัญญา) หรือหากไม่ได้
+    > ก็มาตรา 24(5) (ประโยชน์โดยชอบด้วยกฎหมาย พร้อมการชั่งน้ำหนัก) ประกอบหลักเรื่องวัตถุประสงค์
+    > เดียวกันตามมาตรา 21 สำหรับการนำข้อความของผู้ใช้มาตอบในการสนทนาเดียวกัน
+    > และจะระบุฐานนี้ไว้ในประกาศนี้ตามที่มาตรา 23 กำหนด การใช้เกินกว่าการตอบการสนทนานั้น
+    > เป็นไปตามข้อถัดไป
   - **Any use beyond that purpose (training an AI model on conversation content, for example)
     is a NEW purpose under §21 and needs its own explicit, separately-obtained, written or
     electronic consent under §19** — opt-in by construction, never opt-out. *(This states the

@@ -28,14 +28,16 @@ confidential information. Whether Kolwen adopts that allocation verbatim is coun
 
 ## Retention
 
-Nothing is retained today, because no conversational service exists. When one does, conversation
-content is retained for **[N days]** and then deleted or anonymised. N is set before launch, stated
-here, recorded, and enforced by a deletion mechanism — §23(3), §37(3) and §39(4) require that a
-period be stated, recorded and enforced, and no statute supplies the number.
+No conversation content is retained today, because no conversational service exists.
+When one does, conversation content is retained for **[N days]** and then deleted or anonymised. N
+is set before launch, stated here, recorded, and enforced by a deletion mechanism — §23(3), §37(3)
+and §39(4) require that a period be stated, recorded and enforced, and no statute supplies the
+number.
 
-> ปัจจุบันยังไม่มีการเก็บข้อมูลใด เพราะยังไม่มีบริการสนทนา เมื่อมี เนื้อหาการสนทนาจะถูกเก็บไว้
+> ปัจจุบันไม่มีการเก็บเนื้อหาการสนทนา เพราะยังไม่มีบริการสนทนา เมื่อมี เนื้อหาการสนทนาจะถูกเก็บไว้
 > **[N วัน]** แล้วลบหรือทำให้ไม่สามารถระบุตัวบุคคลได้ โดย N จะถูกกำหนดก่อนเปิดใช้ ระบุไว้ที่นี่
-> บันทึกไว้ และบังคับใช้ด้วยกลไกการลบ ซึ่งกฎหมายไม่ได้กำหนดตัวเลขไว้
+> บันทึกไว้ และบังคับใช้ด้วยกลไกการลบ มาตรา 23(3) มาตรา 37(3) และมาตรา 39(4) กำหนดให้ต้องระบุ
+> บันทึก และบังคับใช้ระยะเวลาการเก็บ และไม่มีกฎหมายฉบับใดกำหนดตัวเลขไว้
 
 N is the owner's and counsel's to set; this document does not choose it. See `docs/TRUST.md`.
 
