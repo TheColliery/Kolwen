@@ -109,7 +109,9 @@ if (existsSync('brand/README.md')) {
   const stated = [...new Set(doc.match(/\b\d+(?:\.\d+)?:1/g) || [])].map(t => t.slice(0, -2)).filter(t => !THRESHOLDS.has(t));
   // LWK-168: a doc that states no measured ratio (the figures deleted, or written in a shape the
   // pattern above no longer reads) made this loop run over nothing and the rule pass silently.
-  if (stated.length === 0) note('brand/README.md', 'states no measured contrast ratio (n:1), so rule 6 recomputed nothing — if the doc really has none, retire the rule instead of letting it pass empty');
+  // LWK-183: the message names what the READER of a red run can do. It used to tell them to
+  // "retire the rule", which a contributor who only edits docs cannot; the maintainer can.
+  if (stated.length === 0) note('brand/README.md', 'states no measured contrast ratio (n:1), so rule 6 recomputed nothing — this CHECK is now empty, not the brand doc\'s colours proven. Restore the ratio table in brand/README.md (each figure written as n:1); if the figures were removed on purpose, ask the maintainer to retire rule 6 in scripts/surface-check.mjs');
   for (const t of stated) {
     // <= : a correctly-rounded 2-decimal figure sits at most 0.005 from its true value, so a
     // strict < reds a correct document at exactly the rounding boundary.
@@ -119,7 +121,7 @@ if (existsSync('brand/README.md')) {
 } else {
   // The brand authority doc is this room's own law (CLAUDE.md); a missing one used to switch the
   // whole contrast rule off without a word.
-  note('brand/README.md', 'is missing — rule 6 (contrast ratios) would silently check nothing');
+  note('brand/README.md', 'is missing — rule 6 (contrast ratios) has nothing to check, so this CHECK is now empty, not the colours proven. Restore brand/README.md; if it was removed on purpose, ask the maintainer to retire rule 6 in scripts/surface-check.mjs');
 }
 
 // ── 7. The publish root ships only shipped assets ────────────────────────────
