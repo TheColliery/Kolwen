@@ -169,13 +169,14 @@ launch has to answer before this document can describe it:
     provider it routes conversations through as a PROCESSOR under §40, and will route no user
     content to any provider until a written agreement binding it to Kolwen's documented
     instructions is in place. If a provider's own terms let it use that content for its own
-    purposes, it is a controller for that processing and Kolwen will not route user content to it.
+    purposes, Kolwen will treat it as a controller for that processing and will not route user
+    content to it.
 
     > จุดยืนชั่วคราว (ไม่ใช่คำแนะนำทางกฎหมาย) ระหว่างรอการตรวจข้างต้น — Kolwen จะถือว่าผู้ให้บริการ
     > ที่ส่งการสนทนาผ่านเป็นผู้ประมวลผลข้อมูลตามมาตรา 40 และจะไม่ส่งเนื้อหาของผู้ใช้ไปยังผู้ให้บริการรายใด
     > จนกว่าจะมีข้อตกลงเป็นลายลักษณ์อักษรที่ผูกมัดให้ทำตามคำสั่งที่บันทึกไว้ของ Kolwen
     > หากเงื่อนไขของผู้ให้บริการเปิดให้ใช้เนื้อหานั้นเพื่อวัตถุประสงค์ของตนเอง
-    > ผู้ให้บริการนั้นเป็นผู้ควบคุมข้อมูลในการประมวลผลดังกล่าว และ Kolwen จะไม่ส่งเนื้อหาของผู้ใช้ไปให้
+    > Kolwen จะถือว่าผู้ให้บริการนั้นเป็นผู้ควบคุมข้อมูลในการประมวลผลดังกล่าว และจะไม่ส่งเนื้อหาของผู้ใช้ไปให้
   - **Retention has no PDPA-fixed number** — §37(3) requires an erasure/anonymization system once
     the (self-set) retention period lapses; §23(3) requires the period to be stated in the
     notice; §39(4) requires it be recorded. The NUMBER is Kolwen's own product/legal decision,
