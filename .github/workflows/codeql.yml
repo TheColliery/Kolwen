@@ -43,7 +43,13 @@ jobs:
   analyze:
     name: analyze (javascript)
     runs-on: ubuntu-latest
+    # A job-level `permissions:` block REPLACES the workflow-level one, it never merges with it
+    # (LWK-181), so without `contents: read` here `contents` is `none` inside this job. Harmless
+    # while the repo is public (it clones anonymously); the day it is made private the checkout
+    # loses its read, and this job feeds the REQUIRED `analyze (javascript)` context. Do not tidy
+    # this back to security-events alone.
     permissions:
+      contents: read
       security-events: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

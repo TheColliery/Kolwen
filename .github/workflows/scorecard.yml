@@ -25,7 +25,12 @@ jobs:
   analysis:
     name: Scorecard analysis
     runs-on: ubuntu-latest
+    # A job-level `permissions:` block REPLACES the workflow-level one, it never merges with it
+    # (LWK-181), so without `contents: read` here `contents` is `none` inside this job. Harmless
+    # while the repo is public (it clones anonymously); the day it is made private the checkout
+    # loses its read. Scorecard's own README lists `contents: read` at job level as expected.
     permissions:
+      contents: read
       security-events: write
       id-token: write
     steps:
