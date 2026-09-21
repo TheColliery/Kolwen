@@ -2,7 +2,7 @@
 
 **The language model family fired by [TheColliery](https://github.com/TheColliery).**
 
-Kolwen carries TheColliery's engineering discipline—measured-not-trusted, honesty over polish, safety rails by construction—into a model you can actually run.
+Kolwen carries TheColliery's engineering discipline—measured-not-trusted, honesty over polish, safety rails by construction—into models meant to be run by their users. None has shipped yet.
 
 ## The family
 
