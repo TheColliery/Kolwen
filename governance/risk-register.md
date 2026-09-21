@@ -1,8 +1,9 @@
 # Risk register
 
 > Part of Kolwen's control-family set. **Written from day one so that a future audit COLLECTS
-> EVIDENCE rather than builds it** (owner ruling AR-10, 2026-09-06). Everything under "Today" is a
-> present-tense fact with its backing named; everything under "Planned" is not yet true.
+> EVIDENCE rather than builds it** (owner ruling AR-10, 2026-09-06; what `AR-n` means is in
+> [the index](README.md)). Everything under "Today" is a present-tense fact with its backing
+> named; everything under "Planned" is not yet true.
 > **No certification is held or claimed** — see `ISO-MAP.md`.
 
 ## Today
