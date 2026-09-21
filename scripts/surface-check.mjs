@@ -178,11 +178,24 @@ for (const f of SHIPPED) {
 if (existsSync('web/ic.json')) {
   let ic = null;
   try { ic = JSON.parse(read('web/ic.json')); } catch (e) { note('web/ic.json', 'does not parse: ' + e.message); }
-  const labels = ic ? ['label', 'label_th'].map(k => ic[k]).filter(v => typeof v === 'string' && v.trim()) : [];
-  // An EMPTY label set is not a clean bill: the loop below would compare against nothing and the
-  // rule would pass while enforcing nothing -- the same published-as-enforced-but-cannot-fire
-  // defect as rule 3's old pattern. (An unparseable file is already a finding, above.)
-  if (ic && labels.length === 0) note('web/ic.json', 'has no non-empty label or label_th, so rule 9 has nothing to compare against — the product would also show no label');
+  // LWK-182: the SCHEMA is declared in the file, and this rule asserts what the file declares --
+  // never a key list of its own. `$required_text` names the keys that must always hold non-empty
+  // text. Before it existed the rule could only guard whichever keys happened to be non-empty, so
+  // emptying ONE label left the other guarding and the emptied one silently unguarded; and a rule
+  // enforcing a schema nobody had written down would have been an invention, not a check.
+  // An unparseable file is already a finding, above.
+  let labels = [];
+  if (ic) {
+    const req = ic.$required_text;
+    if (!Array.isArray(req) || req.length === 0 || !req.every(k => typeof k === 'string' && k)) {
+      note('web/ic.json', 'does not declare `$required_text` (a non-empty list of the keys that must hold text), so rule 9 has no schema to assert — an undeclared schema is a finding, not a pass');
+    } else {
+      for (const k of req) {
+        if (typeof ic[k] !== 'string' || !ic[k].trim()) note('web/ic.json', `declares "${k}" as required text, but it is empty or missing — the product would show no label, and a retype of the old one would pass unseen`);
+      }
+      labels = req.map(k => ic[k]).filter(v => typeof v === 'string' && v.trim());
+    }
+  }
   for (const f of tracked.filter(f => isText(f) && f !== 'web/ic.json')) {
     const s = read(f);
     if (labels.some(v => s.includes(v))) note(f, 'retypes the IC label from web/ic.json — read it from that file, never copy it');

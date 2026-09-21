@@ -1,5 +1,6 @@
 {
-  "$comment": "THE LABEL — the single source of truth for the IC this product runs (LWK-132). The page reads it; the decap battery is keyed to it. Never retype these values anywhere: a swap changes this file and the label changes the same day. A placeholder is honest; a fake id is not.",
+  "$comment": "THE LABEL — the single source of truth for the IC this product runs (LWK-132). The page reads it; the decap battery is keyed to it. Never retype these values anywhere: a swap changes this file and the label changes the same day. A placeholder is honest; a fake id is not. The keys named in $required_text must ALWAYS hold non-empty text, and scripts/surface-check.mjs asserts it.",
+  "$required_text": ["label", "label_th"],
   "status": "no-ic-running",
   "model_id": null,
   "cutoff": null,
