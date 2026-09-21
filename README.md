@@ -6,7 +6,10 @@ Kolwen carries TheColliery's engineering discipline—measured-not-trusted, hone
 
 ## The family
 
-| model | seat |
+**None of these models has shipped.** The table names the seat each is meant to fill; nothing is
+downloadable yet, as the Status section says.
+
+| model | intended seat |
 |---|---|
 | **Kolwen** | the free model—open weights, run it yourself |
 | **Kolwen Peat** | smallest of the fired line |
@@ -23,12 +26,13 @@ is a named rank with no model behind it yet—reserved, not shipped.
 
 - Built on Qwen (Apache-2.0 base)—base attribution ships with every release.
 - Model weights, when released, carry their own license per release.
-- Issues and discussion welcome once the first release lands.
+- Issues and pull requests are welcome now—see [CONTRIBUTING.md](CONTRIBUTING.md), which asks you
+  to open an issue first.
 
 ## Contact
 
 <contact@kolwen.com>—for anything that does not belong in a public issue.
-Once the first release lands, bugs and feature discussion belong in Issues.
+Bugs and feature discussion belong in Issues.
 
 ## License
 
