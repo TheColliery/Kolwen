@@ -46,10 +46,18 @@ for (const f of tracked.filter(PUBLISHED)) {
 // of nine or more decimal digits in roughly one digest in four (3 of the 16 in the pinned requirements
 // file, LWK-177, had one, of 10, 14 and 15 digits). Publishing that file reddened the required
 // surface job on a hash, and every re-pin would have done it again.
-// So a digest is removed BEFORE the digit-run test, and only a digest: an algorithm prefix plus at
-// least 32 hex characters. A bare 9+ digit run anywhere else, including one glued to a short
-// "sha256:" prefix, still trips the rule.
-const DIGEST = /\b(?:sha(?:1|224|256|384|512)|md5):[0-9a-f]{32,}/gi;
+// So a digest is removed BEFORE the digit-run test, and only a digest: an algorithm prefix followed
+// by EXACTLY that algorithm's length in hex characters, and nothing hex after it. Lengths are fixed
+// by the algorithms, not chosen here. The first version accepted "32 or more" behind any prefix,
+// which stripped a filing identifier padded with hex filler to 32+ characters, whole, before the
+// test ever saw it (LWK-184, final inspect R1). A bare 9+ digit run anywhere else, one glued to a
+// short prefix, and one behind the WRONG length for its prefix all still trip the rule.
+// HONEST LIMIT of any shape-based strip: a payload padded to exactly the algorithm's length is
+// indistinguishable from a real digest by shape alone. That needs deliberate construction, and the
+// accident this rule guards against never arrives dressed that way; it is named here rather than
+// left for the next reader to discover.
+const DIGEST_HEX = { md5: 32, sha1: 40, sha224: 56, sha256: 64, sha384: 96, sha512: 128 };
+const DIGEST = new RegExp('\\b(?:' + Object.entries(DIGEST_HEX).map(([a, n]) => `${a}:[0-9a-f]{${n}}`).join('|') + ')(?![0-9a-f])', 'gi');
 for (const f of tracked.filter(PUBLISHED)) {
   const runs = read(f).replace(DIGEST, '').match(/\d{9,}/g);
   if (runs) note(f, `contains a ${runs[0].length}-digit identifier-shaped number — filing identifiers are owner-deferred from every public surface`);
