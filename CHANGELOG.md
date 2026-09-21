@@ -92,9 +92,20 @@ the pointer to it.
   cookie interim position's Thai to say no cookie "of that kind" left its English saying Kolwen
   "sets none", which read back to a clause about the chat cookie and could be taken as "sets no
   cookie at all". The English now says Kolwen sets no non-essential cookie. The Thai is unchanged.
+- **`PRIVACY.md` cited the owner's rulings by their register id** in its draft header, in both
+  languages, and in its gapped note. That published the numbering of a decision log that is not
+  public. It now cites the ruling by its date. The governance documents keep their ids, and their
+  index now says in one line what such an id is.
+- **One interim clause in `PRIVACY.md` was phrased as a legal conclusion** ("it is a controller for
+  that processing") while the gap it sits under reserves that characterisation to counsel. It is
+  now phrased as Kolwen's own undertaking, in English and Thai alike ("Kolwen will treat it as a
+  controller for that processing"). The gap and its marker are unchanged.
 
 ### Changed
 
+- `TERMS.md`'s two legal gaps now carry numbered labels ("GAP 1", "GAP 2"), as `PRIVACY.md`'s do,
+  so a check can tell whether a counsel-pending marker still sits beside each. No gap's wording
+  changed beyond moving its marker to the front of its own sentence.
 - `PRIVACY.md` now carries an interim position beside each of its four `[pending legal review]`
   gaps, labelled as not legal advice. Every marker and the draft notice are unchanged: the gaps
   are still open for counsel, and the interim positions say only what Kolwen will do meanwhile.
