@@ -124,11 +124,17 @@ jobs:
         with:
           python-version: "3.12"
 
+      # The toolchain is installed from requirements-build.txt, generated with hashes for build AND
+      # the hatchling backend and its whole closure (LWK-177). --no-isolation makes the build use
+      # THAT installed, hashed backend: build isolation would resolve its own, unhashed one from
+      # pyproject's [build-system].requires, so the hash set would not cover what actually builds.
+      # The exact hatchling pin in pyproject must equal the one in requirements-build.in; if the two
+      # disagree the build stops with "Unmet dependencies" rather than building with another backend.
       - name: Build
         working-directory: py
         run: |
           python -m pip install --require-hashes -r requirements-build.txt
-          python -m build
+          python -m build --no-isolation
 
       # WHERE THIS PUBLISHES, decided fail-safe: ONLY a clean release tag (py-vX.Y.Z, digits
       # only) reaches real PyPI. Everything else — a PEP 440 pre-release or .devN, a tag with
