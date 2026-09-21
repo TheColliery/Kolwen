@@ -1,6 +1,6 @@
 # Privacy
 
-> **Published as a DRAFT with legal gaps by the owner's order of 2026-09-05 (AR-4).** The four
+> **Published as a DRAFT with legal gaps by the owner's order of 2026-09-05.** The four
 > `[pending legal review]` / `[รอที่ปรึกษากฎหมาย]` markers below are the clauses awaiting counsel.
 > **Not yet reviewed by a lawyer.** Every statement about this site's own behaviour was MEASURED
 > on 2026-09-04 and carries the command that produced it; every statement that could not be
@@ -8,11 +8,11 @@
 > guess. **A privacy notice is the last document that should contain an assumption** — which is
 > why the unanswered parts are marked rather than filled in.
 >
-> **เผยแพร่เป็นฉบับร่างที่ยังมีช่องว่างทางกฎหมาย ตามคำสั่งเจ้าของ 2026-09-05 (AR-4)** —
+> **เผยแพร่เป็นฉบับร่างที่ยังมีช่องว่างทางกฎหมาย ตามคำสั่งเจ้าของ 2026-09-05** —
 > เครื่องหมาย `[รอที่ปรึกษากฎหมาย]` สี่จุดคือข้อที่ยังรอทนายความ **ยังไม่ผ่านการตรวจโดยทนายความ**
-> **GAPPED 2026-09-06 (LWK-146, owner AR-4): every clause below that is a legal CONCLUSION —
-> a statutory duty asserted as met, a controller/processor characterisation, a DPO/representative
-> status determination, or any other class the lawyer must confirm — is now marked
+> **GAPPED 2026-09-06 (LWK-146, owner ruling of 2026-09-05): every clause below that is a legal
+> CONCLUSION — a statutory duty asserted as met, a controller/processor characterisation, a
+> DPO/representative status determination, or any other class the lawyer must confirm — is now marked
 > `[pending legal review]` at the exact spot, replacing an asserted sentence. Facts this
 > repository can already back (what the site does today, the cookies, the contact) stay asserted,
 > unchanged. Four gaps total; the numbered list with the exact question for the lawyer is at
@@ -57,10 +57,9 @@ a fact this repository can measure ahead of the feature existing. Not asserted h
 
 **Interim position (not legal advice), pending the review above:** until a non-essential cookie
 exists, Kolwen sets no non-essential cookie and shows no banner, because there is nothing to
-consent to. The one
-session cookie the chat will need is INTENDED to be strictly necessary, and Kolwen will not lean on
-that characterisation to skip a banner for any cookie that is not: the day a non-essential cookie
-is added, a banner ships with it.
+consent to. The one session cookie the chat will need is INTENDED to be strictly necessary, and
+Kolwen will not lean on that characterisation to skip a banner for any cookie that is not: the day
+a non-essential cookie is added, a banner ships with it.
 
 > จุดยืนชั่วคราว (ไม่ใช่คำแนะนำทางกฎหมาย) ระหว่างรอการตรวจข้างต้น — ตราบที่ยังไม่มี cookie
 > ที่ไม่จำเป็น Kolwen จะไม่ตั้ง cookie ประเภทนั้นและไม่แสดงแบนเนอร์ เพราะไม่มีอะไรให้ขอความยินยอม
