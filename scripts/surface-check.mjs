@@ -231,7 +231,11 @@ for (const doc of LEGAL_DRAFTS) {
   const gaps = [...new Set([...s.matchAll(/\bGAP\s+(\d+)\b/g)].map(m => m[1]))];
   if (gaps.length === 0) note(doc, `names no "GAP n", so rule 10 checked nothing — this CHECK is now empty, not the gaps proven. Restore the "GAP n" labels beside the counsel-pending clauses; if they were renumbered or reworded on purpose, ask the maintainer to update rule 10 in scripts/surface-check.mjs`);
   for (const n of gaps) {
-    if (!new RegExp('GAP\\s+' + n + '[\\s—–:*.-]*\\[pending\\s+legal\\s+review\\]').test(s)) {
+    // The class between label and marker admits a backtick: a literal token in markdown is
+    // written `[pending legal review]`, and this instrument must not dictate how a published legal
+    // sentence is typeset. (LWK-184 T1: without it a correct, backticked marker went red with a
+    // message claiming the marker was MISSING.)
+    if (!new RegExp('GAP\\s+' + n + '[\\s`—–:*.-]*\\[pending\\s+legal\\s+review\\]').test(s)) {
       note(doc, `GAP ${n} has no [pending legal review] marker beside it — counsel has not cleared it, and the document no longer says so`);
     }
   }
