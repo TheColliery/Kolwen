@@ -16,15 +16,17 @@ Terms §B uses (*"Anthropic may not train models on Customer Content from Servic
 
 **A tension named rather than hidden:** a separate consumer-facing mechanism is drafted elsewhere
 that would let an individual user opt IN to helping improve Kolwen. Those are two different tiers
-on purpose. **Whether the enterprise Terms carry this absolute sentence while a separate consumer
-document carries the opt-in, or whether one document must reconcile both, is
-`[pending legal review]` and the owner's decision.**
+on purpose.
+
+**GAP 1 — [pending legal review]: whether the enterprise Terms carry this absolute sentence while a
+separate consumer document carries the opt-in, or whether one document must reconcile both, is
+counsel's question and the owner's decision.**
 
 ## Rights in Inputs and Outputs
 
-`[pending legal review]` — the companion clauses in the same source Terms state that the customer
-retains rights to its Inputs and owns its Outputs, and that Customer Content is the customer's
-confidential information. Whether Kolwen adopts that allocation verbatim is counsel's call.
+**GAP 2 — [pending legal review]** — the companion clauses in the same source Terms state that the
+customer retains rights to its Inputs and owns its Outputs, and that Customer Content is the
+customer's confidential information. Whether Kolwen adopts that allocation verbatim is counsel's call.
 
 ## Retention
 
