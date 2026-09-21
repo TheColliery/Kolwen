@@ -61,7 +61,11 @@ for (const f of tracked.filter(SCANNABLE)) {
   const s = read(f);
   if (!PATH_EXEMPT.has(f) && KITCHEN.test(s)) note(f, 'contains an internal path or private-repo reference');
   if (!RESERVATION_EXEMPT.has(f) && /\bBankfire\b/.test(s)) note(f, 'names the private repo outside a licence reservation clause');
-  if (/[A-Za-z]:\Users\|\/Users\/[a-z0-9]+\//i.test(s)) note(f, 'contains an absolute local path');
+  // LWK-168: this was `[A-Za-z]:\Users\|...` — `\U` is an identity escape and `\|` a LITERAL pipe,
+  // so there was no alternation at all and the pattern matched a string no file contains. The rule
+  // was published as enforced and could never fire. Backslashes are doubled so the Windows branch
+  // means a real backslash, and the `|` is a real alternation between the Windows and macOS homes.
+  if (/[A-Za-z]:\\Users\\|\/Users\/[a-z0-9]+\//i.test(s)) note(f, 'contains an absolute local path');
 }
 
 // ── 4. Thai orthography ──────────────────────────────────────────────────────
@@ -156,6 +160,21 @@ for (const f of SHIPPED) {
     note('wrangler.jsonc', 'assets.not_found_handling is absent — the behaviour of an unmatched path is then undeclared');
   } else if (!['404-page', 'single-page-application'].includes(nf[1])) {
     note('wrangler.jsonc', `assets.not_found_handling is "${nf[1]}", which is not one of the two documented values`);
+  }
+}
+
+// ── 9. Nothing retypes the IC label ──────────────────────────────────────────
+// docs/NEVER-A-CLONE.md: `web/ic.json` is the ONE source of truth, and "nothing retypes these
+// values anywhere" — a retyped label can disagree with the file the day the IC is swapped. That
+// sentence had no machine behind it. The values are read from the file at run time, never pasted
+// here: a copy in this checker would be the very retype it forbids, and this file is scanned too.
+if (existsSync('web/ic.json')) {
+  let ic = null;
+  try { ic = JSON.parse(read('web/ic.json')); } catch (e) { note('web/ic.json', 'does not parse: ' + e.message); }
+  const labels = ic ? ['label', 'label_th'].map(k => ic[k]).filter(v => typeof v === 'string' && v.trim()) : [];
+  for (const f of tracked.filter(f => isText(f) && f !== 'web/ic.json')) {
+    const s = read(f);
+    if (labels.some(v => s.includes(v))) note(f, 'retypes the IC label from web/ic.json — read it from that file, never copy it');
   }
 }
 
