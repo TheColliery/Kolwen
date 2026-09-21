@@ -62,16 +62,35 @@ const files = readdirSync('web')
   .filter(f => !NOT_SERVED.has(f));
 const TEXT = /\.(html|xml|txt|svg|json)$/i;
 
-// Every request is bounded by what is LEFT of the deadline, and is not started once none is left.
-// An abort throws out of probe() into the round's own catch, so it is reported as an origin that
-// did not answer -- the reachability message -- and can never be read as a pass.
-async function get(url) {
-  const left = deadline - Date.now();
-  if (left <= 0) throw new Error(`--wait budget of ${budget}s used up before this request started`);
-  return fetch(url, { headers: { 'Cache-Control': 'no-cache' }, signal: AbortSignal.timeout(left) });
+// LWK-179: the deadline above bounds the JOB; it did not bound each origin's SHARE of it, so a first
+// origin that hung consumed the whole remaining --wait and the fallback origin was never tried --
+// the one thing the fallback exists for. Two guards, and they are not interchangeable:
+//   1. THE SPLIT (the cure). An origin may spend at most the remaining budget divided by the
+//      origins NOT YET TRIED this round, so the last origin is structurally always reached. A flat
+//      per-request timeout alone cannot do this: eleven requests at any ceiling can still outlast
+//      the wait before origin two is tried.
+//   2. THE CEILING (the secondary guard). No single request waits longer than 15 s. The live probe
+//      answers in well under a second, so 15 s is a wide margin over real latency and cannot
+//      false-red a slow-but-alive origin, while one HUNG request costs a small slice of a share.
+// Every request is bounded by min(what is left of ITS ORIGIN'S share, the ceiling), and is not
+// started once none is left. An abort throws out of probe() into the round's own catch, so it is
+// reported as an origin that did not answer -- the reachability message -- never read as a pass.
+const REQUEST_CEILING_MS = 15_000;
+async function get(url, until) {
+  const left = until - Date.now();
+  if (left <= 0) throw new Error(`this origin's share of the --wait budget was used up before this request started`);
+  // AbortSignal.timeout takes an INTEGER of milliseconds: a share divided by two is routinely
+  // fractional, and a fractional value throws a RangeError before any request is made.
+  const ms = Math.max(1, Math.floor(Math.min(left, REQUEST_CEILING_MS)));
+  try {
+    return await fetch(url, { headers: { 'Cache-Control': 'no-cache' }, signal: AbortSignal.timeout(ms) });
+  } catch (e) {
+    if (e?.name === 'TimeoutError') throw new Error(`no answer within ${(ms / 1000).toFixed(1)}s`);
+    throw e;
+  }
 }
 
-async function probe(origin) {
+async function probe(origin, until) {
   const misses = [];
 
   // not_found_handling: 404-page — an unmatched path must answer 404, not 200 with the home
@@ -79,14 +98,14 @@ async function probe(origin) {
   // exist. A cache-buster keeps this off any edge copy.
   {
     const miss = `no-such-page-${Date.now()}`;
-    const r404 = await get(origin + miss);
+    const r404 = await get(origin + miss, until);
     if (r404.status !== 404) {
       misses.push(`/${miss}: served HTTP ${r404.status}, expected 404 (assets.not_found_handling is 404-page)`);
     }
   }
   for (const f of files) {
     const url = origin + (f === 'index.html' ? '' : f) + '?cb=' + Date.now();
-    const r = await get(url);
+    const r = await get(url, until);
     // A 404 on a file we SHIP is a missing deploy, not an unreachable site: report it as a
     // MISS so the operator reads "this file is not there" instead of "I could not see".
     // Anything else non-OK (403, 5xx, a redirect loop) is still a reachability problem and
@@ -119,9 +138,11 @@ while (Date.now() < deadline) {
   // staleness -- naming an origin that had not answered for minutes and calling an outage a
   // stale deploy. Exit code was right either way; the diagnosis an operator reads was not.
   lastMisses = null; lastErr = {};
-  for (const origin of ORIGINS) {
+  for (const [i, origin] of ORIGINS.entries()) {
+    // This origin's share: what is left, divided by the origins not yet tried (this one included).
+    const until = Date.now() + (deadline - Date.now()) / (ORIGINS.length - i);
     try {
-      const misses = await probe(origin);
+      const misses = await probe(origin, until);
       if (misses.length === 0) {
         console.log(`all ${files.length} deployed files match what is committed, via ${origin}`);
         matched = true;
