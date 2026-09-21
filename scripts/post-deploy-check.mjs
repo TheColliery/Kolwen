@@ -18,6 +18,11 @@ if (w >= 0) {
   if (!Number.isFinite(v) || v <= 0) { console.error(`--wait needs a positive number, got ${JSON.stringify(args[w + 1])}`); process.exit(2); }
   budget = v;
 }
+// LWK-168: --wait is a promise about how long this job runs, so it is a DEADLINE, computed once.
+// `budget` used to be read only at the top of each round, and the fetch() calls below carried no
+// timeout, so a request that never answered held the job open long past `--wait 300`.
+const started = Date.now();
+const deadline = started + budget * 1000;
 
 // R1: kolwen.com refuses datacenter egress (HTTP 403 on every attempt from a GitHub runner,
 // 200 from a residential IP — measured). The workers.dev origin serves the same deployment and
@@ -57,6 +62,15 @@ const files = readdirSync('web')
   .filter(f => !NOT_SERVED.has(f));
 const TEXT = /\.(html|xml|txt|svg|json)$/i;
 
+// Every request is bounded by what is LEFT of the deadline, and is not started once none is left.
+// An abort throws out of probe() into the round's own catch, so it is reported as an origin that
+// did not answer -- the reachability message -- and can never be read as a pass.
+async function get(url) {
+  const left = deadline - Date.now();
+  if (left <= 0) throw new Error(`--wait budget of ${budget}s used up before this request started`);
+  return fetch(url, { headers: { 'Cache-Control': 'no-cache' }, signal: AbortSignal.timeout(left) });
+}
+
 async function probe(origin) {
   const misses = [];
 
@@ -65,14 +79,14 @@ async function probe(origin) {
   // exist. A cache-buster keeps this off any edge copy.
   {
     const miss = `no-such-page-${Date.now()}`;
-    const r404 = await fetch(origin + miss, { headers: { 'Cache-Control': 'no-cache' } });
+    const r404 = await get(origin + miss);
     if (r404.status !== 404) {
       misses.push(`/${miss}: served HTTP ${r404.status}, expected 404 (assets.not_found_handling is 404-page)`);
     }
   }
   for (const f of files) {
     const url = origin + (f === 'index.html' ? '' : f) + '?cb=' + Date.now();
-    const r = await fetch(url, { headers: { 'Cache-Control': 'no-cache' } });
+    const r = await get(url);
     // A 404 on a file we SHIP is a missing deploy, not an unreachable site: report it as a
     // MISS so the operator reads "this file is not there" instead of "I could not see".
     // Anything else non-OK (403, 5xx, a redirect loop) is still a reachability problem and
@@ -98,9 +112,8 @@ async function probe(origin) {
 // the first origin that ANSWERED and broke out — so `--wait 300` could only ever wait out a site
 // that was down, never a deploy still in flight, which is the one case the wait exists for.
 // A mismatch now RETRIES until the budget runs out, and only the final state is reported.
-const started = Date.now();
 let matched = false, lastMisses = null, lastErr = {};
-while ((Date.now() - started) / 1000 < budget) {
+while (Date.now() < deadline) {
   // Per-ROUND state, cleared per round. Both were declared once outside the loop and never
   // reset, so a round in which every origin THREW still reported the PREVIOUS round's
   // staleness -- naming an origin that had not answered for minutes and calling an outage a
@@ -119,7 +132,8 @@ while ((Date.now() - started) / 1000 < budget) {
     } catch (e) { lastErr[origin] = e.message; }
   }
   if (matched) break;
-  await new Promise(r => setTimeout(r, 15000));
+  // Never sleep past the deadline: the pause between rounds is inside the budget too.
+  await new Promise(r => setTimeout(r, Math.max(0, Math.min(15000, deadline - Date.now()))));
 }
 
 if (matched) {
