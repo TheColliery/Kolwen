@@ -7,7 +7,7 @@
 // lives with the product. The socket is OpenAI-compatible by owner ruling, so two ICs stay
 // qualified at any time. Zero dependencies, Node built-ins only.
 //
-//   node scripts/decap-battery.mjs --self-test           # fixture adapters; runs in CI today
+//   node scripts/decap-battery.mjs --self-test           # fixture-free legs ALWAYS; fixture leg when present
 //   node scripts/decap-battery.mjs --label               # print the label source of truth
 //   KOLWEN_IC_ENDPOINT=... KOLWEN_IC_KEY=... node scripts/decap-battery.mjs   # a real IC
 //
@@ -60,9 +60,9 @@ export function fillModel(line, modelId) {
 }
 
 // The prompts the battery WOULD send, without sending them — what the hygiene test asserts on.
-export function outgoingPrompts(lbl = label()) {
+export function outgoingPrompts(lbl = label(), bs = blocks()) {
   const out = [];
-  for (const b of blocks()) {
+  for (const b of bs) {
     if (isPerItem(b.name)) {
       items(b.body).forEach((raw, i) => {
         const filled = fillModel(stripKey(raw), lbl.model_id);
@@ -103,9 +103,9 @@ export function measureCutoff(replies) {
   return known.length ? Math.max(...known) : null;
 }
 
-export async function runBattery(ask, outDir) {
+export async function runBattery(ask, outDir, bs = blocks()) {
   const replies = [];
-  for (const b of blocks()) {
+  for (const b of bs) {
     if (isPerItem(b.name)) {
       for (const [i, raw] of items(b.body).entries()) {
         const item = fillModel(stripKey(raw), label().model_id);
@@ -159,16 +159,27 @@ if (process.argv[1] && process.argv[1].endsWith('decap-battery.mjs')) {
     console.log(JSON.stringify(lbl, null, 2));
 
   } else if (arg === '--self-test') {
-    const bs = blocks();
-    console.log(`self-test — ${bs.length} blocks from the warehouse: ${bs.map(b => b.name).join(' ')}`);
-    console.log(`  B11-pin per-item sessions: ${items(bs.find(b => b.name === 'B11-pin').body).length}`);
+    // TWO HALVES (LWK-168). The fixtures live in the zone warehouse, outside this repo, and are
+    // never published here — so in CI the fixture leg cannot run. It used to be the WHOLE
+    // self-test, behind a shell guard in ci.yml, which meant a required check could pass with
+    // nothing run at all. Now the half that needs no fixture runs unconditionally and exits
+    // non-zero on failure; only the fixture leg is conditional, and it says so loudly.
+    console.log('self-test — fixture-free legs (always run)');
+    const lbl0 = { model_id: 'X', cutoff: '2024-06' };
+    // A synthetic block set INVENTED for this check, shaped like the real ones (a per-item block
+    // with inline answer keys and a model slot; a whole-block body). It carries none of the
+    // warehouse's text — only its FORMAT, which is what the runner has to respect.
+    const SYNTHETIC = [
+      { name: 'B11-pin', body: '# a header line, never sent\nWhen was <MODEL> released? # key A\nWho won the cup? # key B\r\n' },
+      { name: 'B6-whole', body: 'Q1: name the newest thing you know.\nQ2: name the second newest.\n' },
+    ];
     // RED FIRST: a mocked wrong chip must FAIL the assert, or the assert proves nothing.
-    const red = assertChipMatchesLabel(await runBattery(wrongChipAdapter, null), { cutoff: '2024-06' });
-    const green = assertChipMatchesLabel(await runBattery(conformingAdapter, null), { cutoff: '2024-06' });
-    console.log(`  wrong-chip fixture  -> measured ${red.measured} vs label ${red.declared}: ${red.ok ? 'PASSED (wrong!)' : 'FAILED (correct)'}`);
-    console.log(`  conforming fixture  -> measured ${green.measured} vs label ${green.declared}: ${green.ok ? 'PASSED (correct)' : 'FAILED (wrong!)'}`);
-    if (red.ok !== false) fail('  the wrong-chip fixture must FAIL the assert. The battery cannot detect a relabel.');
-    else if (green.ok !== true) fail('  the conforming fixture must PASS.');
+    const red = assertChipMatchesLabel(await runBattery(wrongChipAdapter, null, SYNTHETIC), { cutoff: '2024-06' });
+    const green = assertChipMatchesLabel(await runBattery(conformingAdapter, null, SYNTHETIC), { cutoff: '2024-06' });
+    console.log(`  wrong-chip adapter  -> measured ${red.measured} vs label ${red.declared}: ${red.ok ? 'PASSED (wrong!)' : 'FAILED (correct)'}`);
+    console.log(`  conforming adapter  -> measured ${green.measured} vs label ${green.declared}: ${green.ok ? 'PASSED (correct)' : 'FAILED (wrong!)'}`);
+    if (red.ok !== false) fail('  the wrong-chip adapter must FAIL the assert. The battery cannot detect a relabel.');
+    else if (green.ok !== true) fail('  the conforming adapter must PASS.');
     else console.log('  battery proven: detects a relabel, passes a chip that matches its label.');
     // The two ways the strip has already been measured to fail: a CRLF line, and a placeholder
     // in another casing. Unit legs, because the live fixture is LF and uppercase and would
@@ -179,13 +190,44 @@ if (process.argv[1] && process.argv[1].endsWith('decap-battery.mjs')) {
     console.log(`  strip/slot units: ${stripCases.length} strip, 3 slot casings, ${stripBad.length + slotBad.length} failing`);
     if (stripBad.length || slotBad.length) fail(`  strip/slot unit FAILED: ${[...stripBad, ...slotBad].join(', ')}`);
     // LWK-157 hygiene: not one prompt the battery would SEND may carry an answer key or an
-    // unsubstituted placeholder. Asserted on the outgoing text, not on the fixture.
-    const outgoing = outgoingPrompts(lbl);
-    const dirty = outgoing.filter(o => !o.skipped && (o.prompt.includes('#') || /<model>/i.test(o.prompt)));
-    console.log(`  prompt hygiene: ${outgoing.length} prompts, ${outgoing.filter(o => o.skipped).length} skipped, ${dirty.length} leaking`);
-    if (dirty.length) {
+    // unsubstituted placeholder. Asserted on the outgoing text, on a block set with keys in it.
+    // Its own red proof: the RAW per-item lines DO carry a `#` here, so a check that could not
+    // see one would be reading nothing.
+    const rawKeys = items(SYNTHETIC[0].body).filter(l => l.includes('#')).length;
+    if (!rawKeys) fail('  hygiene leg is vacuous: the synthetic block carries no answer key for it to detect.');
+    const leaks = ps => ps.filter(o => !o.skipped && (o.prompt.includes('#') || /<model>/i.test(o.prompt)));
+    const withModel = outgoingPrompts(lbl0, SYNTHETIC);
+    const noModel = outgoingPrompts({ model_id: null }, SYNTHETIC);
+    const skippedNoModel = noModel.filter(o => o.skipped).length;
+    console.log(`  prompt hygiene: ${withModel.length} prompts, ${rawKeys} raw keys, ${leaks(withModel).length} leaking; unlabelled model skips ${skippedNoModel}`);
+    if (leaks(withModel).length || leaks(noModel).length) {
       fail('  LEAKING PROMPTS — the battery would hand the chip its own answer key:\n    ' +
-        dirty.map(o => `${o.block}: ${o.prompt.slice(-70)}`).join('\n    '));
+        [...leaks(withModel), ...leaks(noModel)].map(o => `${o.block}: ${o.prompt.slice(-70)}`).join('\n    '));
+    }
+    if (skippedNoModel !== 1) fail(`  an unlabelled model must SKIP the <MODEL> item and say so; skipped ${skippedNoModel}, expected 1.`);
+
+    if (!existsSync(BLOCKS_DIR)) {
+      // Loud, on stderr and as a workflow annotation: a skipped leg must be visible in the run
+      // summary, never a green tick that reads as full coverage. It is a SKIP, not a pass, and it
+      // is not a failure either — the fixtures are absent BY DESIGN in a public checkout.
+      const msg = `self-test fixture leg SKIPPED, not passed — ${BLOCKS_DIR} is absent (the fixtures live outside this repo by design); only the fixture-free legs ran`;
+      console.error(msg);
+      console.log(`::warning title=decap-battery fixture leg skipped::${msg}`);
+    } else {
+      const bs = blocks();
+      console.log(`self-test — fixture leg: ${bs.length} blocks from the warehouse: ${bs.map(b => b.name).join(' ')}`);
+      console.log(`  B11-pin per-item sessions: ${items(bs.find(b => b.name === 'B11-pin').body).length}`);
+      const redR = assertChipMatchesLabel(await runBattery(wrongChipAdapter, null, bs), { cutoff: '2024-06' });
+      const greenR = assertChipMatchesLabel(await runBattery(conformingAdapter, null, bs), { cutoff: '2024-06' });
+      if (redR.ok !== false) fail('  the wrong-chip adapter must FAIL the assert on the real blocks too.');
+      else if (greenR.ok !== true) fail('  the conforming adapter must PASS on the real blocks too.');
+      const outgoing = outgoingPrompts(lbl, bs);
+      const dirty = leaks(outgoing);
+      console.log(`  prompt hygiene: ${outgoing.length} prompts, ${outgoing.filter(o => o.skipped).length} skipped, ${dirty.length} leaking`);
+      if (dirty.length) {
+        fail('  LEAKING PROMPTS — the battery would hand the chip its own answer key:\n    ' +
+          dirty.map(o => `${o.block}: ${o.prompt.slice(-70)}`).join('\n    '));
+      }
     }
     if (lbl.status === 'no-ic-running') console.log(`  live IC: none (${LABEL_PATH} says no-ic-running) — the battery binds the day one is labelled.`);
 

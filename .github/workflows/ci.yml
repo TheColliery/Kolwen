@@ -94,18 +94,16 @@ jobs:
       # The chip the ladder measures must equal the label the product shows. web/ic.json is the
       # single source of truth for that label; a swap changes it and this job re-runs. Today no
       # IC is labelled, so what runs is the runner proving it DETECTS a relabel (a mocked wrong
-      # chip must fail the assert). Fixtures live in the zone warehouse and are NOT in this
-      # checkout, so the self-test is skipped rather than faked when they are absent -- and it
-      # says so. Spec: docs/NEVER-A-CLONE.md
+      # chip must fail the assert). The real fixtures live outside this repo and are never
+      # published here, so THIS checkout cannot run the fixture leg. The self-test is split for
+      # that reason (LWK-168): the legs that need no fixture run unconditionally and fail the job
+      # on any failure; only the fixture leg is conditional, and it says so in the log and as a
+      # workflow warning. The step is NOT guarded in shell: a required check that can pass with
+      # nothing run is worse than a red one. Spec: docs/NEVER-A-CLONE.md
       - name: label source of truth
         run: node scripts/decap-battery.mjs --label
-      - name: battery self-test (skips loudly if the warehouse fixtures are absent)
-        run: |
-          if [ -d ../warehouse/decap-battery/blocks ]; then
-            node scripts/decap-battery.mjs --self-test
-          else
-            echo 'fixtures absent in this checkout (they live in the zone warehouse, outside this repo) -- self-test SKIPPED, not passed'
-          fi
+      - name: battery self-test (fixture-free legs always; fixture leg skips loudly)
+        run: node scripts/decap-battery.mjs --self-test
   # A single STABLE required-check context (job names drift; this does not).
   # Rulesets require `all-green`, never the per-job names.
   all-green:
