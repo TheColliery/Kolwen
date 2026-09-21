@@ -123,13 +123,20 @@ jobs:
     needs: [assets, surface, reply-language, clone-test]
     if: always()
     runs-on: ubuntu-latest
+    # LWK-180. `if: always()` makes this job run whatever its needs did, so it must judge them: a
+    # needed job counts ONLY if its result is exactly `success`. `skipped` and `cancelled` are red,
+    # not a pass -- a required check that goes green because a job did not run is the row-1 defect
+    # again (a battery never run). It iterates the `needs` context itself instead of a hand-copied
+    # list of job names, so adding a job to `needs:` above gates it here with no second edit, and an
+    # empty context is a failure rather than a vacuous pass. The context arrives through the
+    # environment, never interpolated into the script.
+    env:
+      NEEDS: ${{ toJSON(needs) }}
     steps:
       - name: gate result
         run: |
-          for r in "${{ needs.assets.result }}" "${{ needs.surface.result }}" "${{ needs['reply-language'].result }}" "${{ needs['clone-test'].result }}"; do
-            case "$r" in
-              success|skipped) ;;
-              *) echo "gate result: $r"; exit 1 ;;
-            esac
-          done
-          echo "assets=${{ needs.assets.result }} surface=${{ needs.surface.result }} reply-language=${{ needs['reply-language'].result }}"
+          printf '%s' "$NEEDS" | jq -r 'to_entries[] | "\(.key)=\(.value.result)"'
+          printf '%s' "$NEEDS" | jq -e 'length > 0 and ([.[] | .result] | all(. == "success"))' > /dev/null || {
+            echo "::error::all-green: every needed job must be exactly 'success' -- a skipped, cancelled or failed job is not a pass"
+            exit 1
+          }
