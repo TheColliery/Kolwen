@@ -62,14 +62,14 @@ Everything under `web/`, and nothing else. `scripts/surface-check.mjs` holds an 
 files we ship and fails if anything else is tracked there, because every path under `web/` is a
 live URL.
 
-## Known behaviour: unmatched paths return the home page
+## Known behaviour: unmatched paths return 404
 
-`not_found_handling` is set to `single-page-application`, so a request for a path that does not
-exist returns **200 OK with `index.html`** rather than a 404. Measured 2026-09-03: `/wp-admin` and
-`/en/pricing` both answer 200 with the home page. This is a deliberate Cloudflare setting rather
-than a fault, but it is worth knowing before reading logs or analytics, and it is under review.
+`not_found_handling` is set to `404-page`, so a request for a path that does not exist
+returns **404 with `web/404.html`**. It used to be `single-page-application`, which answered 200
+with the home page for every wrong URL—measured 2026-09-03, when `/wp-admin` and `/en/pricing`
+both did—and crawlers indexed nonexistent pages as real ones. Measured again 2026-09-21 against
+the live site: `/wp-admin` and `/en/pricing` answer 404, and `/` answers 200.
 
-**This paragraph expires the day this Worker gains a script.** With a `main` and a
-`compatibility_date` at or after 2025-04-01—ours is 2026-08-01, so the flag is already on—the
-`index.html` fallback applies only to NAVIGATION requests; anything else unmatched invokes the
-script instead. Whoever adds `/chat` re-reads this section rather than trusting it.
+**This section describes a Worker with no script.** Whoever adds `/chat` gives this Worker a
+script, and re-reads this section and Cloudflare's current `not_found_handling` documentation
+rather than trusting it.

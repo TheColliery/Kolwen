@@ -19,9 +19,9 @@ Whichever AI provider Kolwen's support agent uses, the account or project it run
 configured for zero data retention where the provider offers it, and the retention tier must be a
 stated fact rather than a default nobody checked.
 
-The concrete shape, from AWS Bedrock's own documentation (`docs.aws.amazon.com/bedrock/latest/
-userguide/data-retention.html`, read 2026-09-06): retention modes run `none` (ZDR) < `default` <
-`aws_review`. Under `none`, *"No request or response data is written to durable storage by AWS or
+The concrete shape, from AWS Bedrock's own documentation, read 2026-09-06 at
+`docs.aws.amazon.com/bedrock/latest/userguide/data-retention.html`: retention modes run `none`
+(ZDR) < `default` < `aws_review`. Under `none`, *"No request or response data is written to durable storage by AWS or
 shared with the model provider."* **A model can require a higher tier than `none`** — Claude models
 on Bedrock require `aws_review`, under which requests are retained inside AWS for up to 30 days for
 AWS's own review and are still never forwarded to the model provider. If the account is pinned to
@@ -34,7 +34,8 @@ finding for the owner before it is used.
 
 ## Retention window
 
-**[90 days]** for conversation content, bracketed for the same reason `TERMS.md` brackets it.
+**[N days]** for conversation content, bracketed for the same reason `TERMS.md` brackets it: N is
+set before launch, and no statute supplies it.
 
 ## The start-of-chat notice and the end-of-chat consent button
 
