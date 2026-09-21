@@ -189,8 +189,38 @@ if (existsSync('web/ic.json')) {
   }
 }
 
+// ── 10. Every legal GAP in PRIVACY.md carries its counsel-pending marker ─────
+// LWK-168 (re-inspect M1). PRIVACY.md is published as a DRAFT precisely because clauses that need a
+// lawyer carry a `[pending legal review]` marker instead of an answer. The check every seat ran was
+// a single-line grep for that marker: it returned 5 against a real 6, because GAP 3's marker wraps
+// across a line break. Delete that marker and the grep still said 5 -- a legal gap lost the mark
+// saying counsel had not cleared it and every instrument reported clean.
+//
+// So this COUNTS AND ASSERTS, and it asserts against the document's own GAPs, never a fixed number
+// (which rots the day a gap is added or closed): every distinct `GAP n` the document names must
+// have the marker beside it, whitespace and line breaks inside the marker allowed. It names WHICH
+// gap lost one. A document that names no GAP is a finding, not a pass -- the rule would be empty.
+// The Thai marker is deliberately NOT asserted per gap (the Thai rides as short blockquotes, not a
+// parallel legal text); it is only counted wrap-aware and reported.
+let privacyNote = '';
+if (existsSync('PRIVACY.md')) {
+  const s = read('PRIVACY.md');
+  const gaps = [...new Set([...s.matchAll(/\bGAP\s+(\d+)\b/g)].map(m => m[1]))];
+  if (gaps.length === 0) note('PRIVACY.md', 'names no "GAP n", so rule 10 checked nothing — if the gaps were renumbered or reworded, update the rule, do not let it pass empty');
+  for (const n of gaps) {
+    if (!new RegExp('GAP\\s+' + n + '[\\s—–:*.-]*\\[pending\\s+legal\\s+review\\]').test(s)) {
+      note('PRIVACY.md', `GAP ${n} has no [pending legal review] marker beside it — counsel has not cleared it, and the page no longer says so`);
+    }
+  }
+  const en = (s.match(/\[pending\s+legal\s+review\]/g) || []).length;
+  const th = (s.match(/\[\s*รอ\s*ที่ปรึกษา\s*กฎหมาย\s*\]/g) || []).length;
+  privacyNote = ` · PRIVACY.md ${gaps.length} named GAPs (markers, wrap-aware: ${en} English, ${th} Thai)`;
+} else {
+  note('PRIVACY.md', 'is missing — rule 10 (legal-gap markers) would silently check nothing');
+}
+
 if (fail.length) {
   console.error('surface check FAILED:\n' + fail.map(f => '  - ' + f).join('\n'));
   process.exit(1);
 }
-console.log(`surface check passed — ${tracked.length} tracked files, ${tracked.filter(SCANNABLE).length} scanned`);
+console.log(`surface check passed — ${tracked.length} tracked files, ${tracked.filter(SCANNABLE).length} scanned${privacyNote}`);
