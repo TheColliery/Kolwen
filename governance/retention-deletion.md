@@ -18,6 +18,6 @@ repository. Measured, with the commands, in `PRIVACY.md`.
 - Conversation content: retained for **[N days]** and then deleted or anonymised. N is set before
   launch, stated in `PRIVACY.md` and `TERMS.md`, recorded, and enforced by a deletion mechanism; no
   statute supplies the number, and PDPA requires that a period be stated, recorded and actually
-  enforced. Nothing is retained today, because no conversational service exists.
+  enforced. No conversation content is retained today, because no conversational service exists.
 - A deletion mechanism that runs, rather than a policy that says one exists.
 - A deletion-request channel with an answer time, which `PRIVACY.md` currently marks as open.
