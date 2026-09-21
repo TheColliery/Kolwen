@@ -74,6 +74,20 @@ the pointer to it.
   copies the values of `web/ic.json`, and states which half of the battery's self-test CI can run.
 - **`README.md` presented the four unreleased models in the present tense and said issues were
   welcome only after a first release**, against a `CONTRIBUTING.md` that already invites them.
+- **Further corrections from the review of the above.** The README's opening sentence, the
+  one-line pitch, still said the discipline goes into "a model you can actually run"; it now says
+  no model has shipped. `docs/TRUST.md` said the served files are compared to what is committed
+  "after every deploy": the check runs only after a push touching `web/`, `wrangler.jsonc` or the
+  checker, and from CI it reads the Worker's `workers.dev` address because `kolwen.com` refuses
+  the request, so what `kolwen.com` itself serves is not compared there. The row now says both.
+  "Nothing is retained today" is scoped to conversation content in the four documents that carried
+  it, because the contact mailbox holds what a visitor sends it.
+- **Two Thai summaries said less than their English, in Kolwen's favour.** The cookie interim
+  position dropped the promise not to rely on the strictly-necessary characterisation to skip a
+  banner, and the retention sentence kept "no statute supplies the number" while dropping that a
+  period must be stated, recorded and enforced. Both Thai summaries, and the one for the retrieval
+  basis, now carry every obligation their English carries. The Thai has still not been read by a
+  native legal reviewer.
 
 ### Changed
 
