@@ -56,7 +56,8 @@ a fact this repository can measure ahead of the feature existing. Not asserted h
 > No advertising cookies, no trackers—one necessary cookie so chat works.
 
 **Interim position (not legal advice), pending the review above:** until a non-essential cookie
-exists, Kolwen sets none and shows no banner, because there is nothing to consent to. The one
+exists, Kolwen sets no non-essential cookie and shows no banner, because there is nothing to
+consent to. The one
 session cookie the chat will need is INTENDED to be strictly necessary, and Kolwen will not lean on
 that characterisation to skip a banner for any cookie that is not: the day a non-essential cookie
 is added, a banner ships with it.

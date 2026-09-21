@@ -88,6 +88,10 @@ the pointer to it.
   period must be stated, recorded and enforced. Both Thai summaries, and the one for the retrieval
   basis, now carry every obligation their English carries. The Thai has still not been read by a
   native legal reviewer.
+- **A correction to the correction above: the fix made the English the looser half.** Fixing the
+  cookie interim position's Thai to say no cookie "of that kind" left its English saying Kolwen
+  "sets none", which read back to a clause about the chat cookie and could be taken as "sets no
+  cookie at all". The English now says Kolwen sets no non-essential cookie. The Thai is unchanged.
 
 ### Changed
 
