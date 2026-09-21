@@ -49,8 +49,37 @@ commit body rather than to a released entry.
   is silently absent rather than loudly broken. It does not stand on "the repository was mixed",
   because that was never true.
 
+Documentation claims that did not match the code or the record, found by an external automated
+review of the repository and corrected in LWK-168. The earlier text is left in git history; this is
+the pointer to it.
+
+- **`governance/policies.md` and `docs/TRUST.md` said every published claim is machine-checked.**
+  The rule is universal, but `scripts/surface-check.mjs` covers a named list of failure classes
+  only. Both now say so. One of the classes the earlier sentence named, the absolute-local-path
+  rule, had never been able to fire; the rule is fixed and the sentence no longer overstates it.
+- **`PRIVACY.md` said nothing is sold or shared "because nothing is collected"**, in the same
+  document that discloses Cloudflare handling every request and Google Fonts receiving the visitor's
+  IP address. The statement is now scoped to Kolwen's own systems and names the three parties.
+- **`TERMS.md` stated a retention period of 90 days while `PRIVACY.md` said conversations are
+  session-only.** Both, and `docs/TRUST.md`, `docs/SUPPORT-AGENT-SPEC.md` and
+  `governance/retention-deletion.md`, now carry one bracketed `[N days]`: no period has been
+  chosen, and none is stated as fact.
+- **`governance/change-management.md` said a reviewer inspects every change before it is pushed.**
+  Dependabot patch and minor bumps auto-merge after the required checks pass; the exception and its
+  conditions are now written into that item.
+- **`docs/DEPLOY.md` still described unmatched paths answering 200 with the home page.** They have
+  answered 404 since the 404 page shipped.
+- **`docs/REPLY-LANGUAGE.md` said its scan proves no hard-coded single-language reply template
+  exists.** It flags non-Latin text only; the limit is now stated. `docs/NEVER-A-CLONE.md` no longer
+  copies the values of `web/ic.json`, and states which half of the battery's self-test CI can run.
+- **`README.md` presented the four unreleased models in the present tense and said issues were
+  welcome only after a first release**, against a `CONTRIBUTING.md` that already invites them.
+
 ### Changed
 
+- `PRIVACY.md` now carries an interim position beside each of its four `[pending legal review]`
+  gaps, labelled as not legal advice. Every marker and the draft notice are unchanged: the gaps
+  are still open for counsel, and the interim positions say only what Kolwen will do meanwhile.
 - The favicon and touch icon are now generated from the brand icon rather than copied. The
   generator writes both places from one call, and CI fails if either drifts, so the mark cannot
   disagree with itself.
