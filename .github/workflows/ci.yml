@@ -130,12 +130,17 @@ jobs:
     # list of job names, so adding a job to `needs:` above gates it here with no second edit, and an
     # empty context is a failure rather than a vacuous pass. The context arrives through the
     # environment, never interpolated into the script.
+    # jq: the runner ships 1.7.1; every construct used (to_entries, length, all, -e) predates 1.5,
+    # so this is not a version-sensitive step. Stated, not assumed (LWK-192 T4).
     env:
       NEEDS: ${{ toJSON(needs) }}
     steps:
       - name: gate result
         run: |
-          printf '%s' "$NEEDS" | jq -r 'to_entries[] | "\(.key)=\(.value.result)"'
+          printf '%s' "$NEEDS" | jq -r 'to_entries[] | "\(.key)=\(.value.result)"' || {
+            echo "::error::all-green: NEEDS did not parse as JSON -- the needs context itself is malformed, which is not a pass either"
+            exit 1
+          }
           printf '%s' "$NEEDS" | jq -e 'length > 0 and ([.[] | .result] | all(. == "success"))' > /dev/null || {
             echo "::error::all-green: every needed job must be exactly 'success' -- a skipped, cancelled or failed job is not a pass"
             exit 1
