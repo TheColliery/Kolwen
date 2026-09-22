@@ -261,6 +261,57 @@ for (const doc of LEGAL_DRAFTS) {
 }
 const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
 
+// ── 11. A job-level `permissions:` block that checks out states `contents` ───
+// LWK-190. A job-level `permissions:` block REPLACES the workflow-level one rather than merging
+// with it: a job that checks the repository out and declares its own block without `contents`
+// reads `contents: none` inside that job. This has hit three workflows so far (`publish-pypi.yml`,
+// `codeql.yml`, `scorecard.yml`), every one found and fixed by a HAND-RUN structural scan, which
+// is not a gate. This is that gate: a tiny structural reader, not a YAML library (a `jobs:`
+// top-level entry at 2-space indent starts a job; a `permissions:` key at 4-space indent under it
+// is that job's own block; its members sit at 6-space indent). A job with NO block of its own
+// inherits the workflow-level one and is not checked — that is correct, not a hole.
+//
+// Non-vacuity, the same discipline rules 6/9/10 already carry: no tracked workflow found, or
+// every one parsing to zero jobs, is a finding, never a silent pass.
+{
+  const WF_DIR = '.github/workflows';
+  const wfFiles = tracked.filter(f => f.startsWith(WF_DIR + '/') && f.endsWith('.yml'));
+  if (wfFiles.length === 0) {
+    note(WF_DIR, 'has no tracked *.yml workflow, so rule 11 (job-level permissions) checked nothing');
+  } else {
+    let anyJob = false;
+    for (const f of wfFiles) {
+      const lines = read(f).split('\n');
+      let inJobs = false, cur = null;
+      const jobs = [];
+      const flush = () => { if (cur) jobs.push(cur); };
+      for (let i = 0; i < lines.length; i++) {
+        const l = lines[i];
+        if (/^jobs:\s*$/.test(l)) { inJobs = true; continue; }
+        if (!inJobs) continue;
+        const j = l.match(/^  ([A-Za-z0-9_.-]+):\s*$/);
+        if (j) { flush(); cur = { name: j[1], hasBlock: false, checkout: false, contents: false }; continue; }
+        if (!cur) continue;
+        if (/^    permissions:\s*$/.test(l)) {
+          cur.hasBlock = true;
+          for (let k = i + 1; k < lines.length && /^      \S/.test(lines[k]); k++) {
+            if (/^      contents:/.test(lines[k])) cur.contents = true;
+          }
+        }
+        if (/uses:\s*actions\/checkout@/.test(l)) cur.checkout = true;
+      }
+      flush();
+      for (const j of jobs) {
+        anyJob = true;
+        if (j.hasBlock && j.checkout && !j.contents) {
+          note(f, `job "${j.name}" declares its own permissions: block and checks the repository out, but does not state contents: -- contents reads none inside that job`);
+        }
+      }
+    }
+    if (!anyJob) note(WF_DIR, 'every tracked workflow parsed to zero jobs, so rule 11 checked nothing');
+  }
+}
+
 if (fail.length) {
   console.error('surface check FAILED:\n' + fail.map(f => '  - ' + f).join('\n'));
   process.exit(1);

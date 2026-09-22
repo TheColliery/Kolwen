@@ -22,6 +22,11 @@
   labelled gap has lost the marker saying counsel has not cleared it. **Every claim outside the
   script's rules—what a document says a feature does, for one—is held by review, not by a
   checker.** The rule is not softened to fit the machine; the gap is stated.
+- **A workflow job's own permissions must say what it needs.** A job-level `permissions:` block
+  replaces the workflow-level one rather than merging with it, so a job that checks the repository
+  out and declares its own block without `contents` reads `contents: none`. This is CI hygiene, not
+  a published claim, so it is checked separately from the rule above: `scripts/surface-check.mjs`
+  rule 11 reads every tracked workflow for it.
 - **A public repository is a publication.** Every commit is treated as one.
 - **Nothing ships that a document cannot back** — the rule `docs/TRUST.md` is written under.
 - **The word mark is FILED, not registered**, and product names always read "Kolwen <Rank>"
