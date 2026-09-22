@@ -268,18 +268,32 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
 // `codeql.yml`, `scorecard.yml`), every one found and fixed by a HAND-RUN structural scan, which
 // is not a gate. This is that gate: a tiny structural reader, not a YAML library (a `jobs:`
 // top-level entry at 2-space indent starts a job; a `permissions:` key at 4-space indent under it
-// is that job's own block; its members sit at 6-space indent). A job with NO block of its own
+// is that job's own block; its members sit past 4-space indent). A job with NO block of its own
 // inherits the workflow-level one and is not checked — that is correct, not a hole.
 //
-// Non-vacuity, the same discipline rules 6/9/10 already carry: no tracked workflow found, or
-// every one parsing to zero jobs, is a finding, never a silent pass.
+// Non-vacuity, the same discipline rules 6/9/10 already carry, and PER FILE (LWK-190 F1): a
+// workflow with zero jobs is invalid to GitHub, so a file this reader parses to zero jobs is a
+// finding naming THAT file, never folded into one global note that a single parseable workflow
+// elsewhere would silence. `.yaml` is read alongside `.yml` (F2) — GitHub reads both, and a file
+// this reader never even opens cannot become an F1 finding either; the two cures are independent.
+// The block scan skips blank and comment lines while looking for `contents:` and a `#`-led line is
+// never read as a real `uses: actions/checkout@` (F4) — a checker must not flag a document for its
+// OWN formatting choices, the exact class this room already hardened rule 10 against. `{}` reads as
+// an empty block (no contents, same as the bare-word class); `read-all`/`write-all` read as
+// granting contents, per GitHub's own docs (F3).
+//
+// STATED LIMIT, not fixed here (a LOW unit does not grow this into a YAML parser): a job key at
+// other than 2-space indent, or a quoted job key, is not recognised as a job at all -- such a file
+// now surfaces as "parsed to zero jobs" (a finding, per F1) rather than silently passing, but its
+// jobs are still not individually checked. A composite or reusable workflow step
+// (`uses: ./.github/actions/x`) is never read as a checkout -- scoped to `actions/checkout@`
+// on purpose; this repo has no composite actions today.
 {
   const WF_DIR = '.github/workflows';
-  const wfFiles = tracked.filter(f => f.startsWith(WF_DIR + '/') && f.endsWith('.yml'));
+  const wfFiles = tracked.filter(f => f.startsWith(WF_DIR + '/') && (f.endsWith('.yml') || f.endsWith('.yaml')));
   if (wfFiles.length === 0) {
-    note(WF_DIR, 'has no tracked *.yml workflow, so rule 11 (job-level permissions) checked nothing');
+    note(WF_DIR, 'has no tracked *.yml or *.yaml workflow, so rule 11 (job-level permissions) checked nothing');
   } else {
-    let anyJob = false;
     for (const f of wfFiles) {
       const lines = read(f).split('\n');
       let inJobs = false, cur = null;
@@ -292,23 +306,37 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
         const j = l.match(/^  ([A-Za-z0-9_.-]+):\s*$/);
         if (j) { flush(); cur = { name: j[1], hasBlock: false, checkout: false, contents: false }; continue; }
         if (!cur) continue;
-        if (/^    permissions:\s*$/.test(l)) {
+        if (/^    permissions:\s*\{\s*\}\s*$/.test(l)) {
+          cur.hasBlock = true;                                  // `{}` -- nothing specified, contents: none
+        } else if (/^    permissions:\s*(read-all|write-all)\s*$/.test(l)) {
+          cur.hasBlock = true; cur.contents = true;             // the whole-set inline forms grant contents
+        } else if (/^    permissions:\s*$/.test(l)) {
+          // the multi-line block form: scan its members past this line
           cur.hasBlock = true;
-          for (let k = i + 1; k < lines.length && /^      \S/.test(lines[k]); k++) {
-            if (/^      contents:/.test(lines[k])) cur.contents = true;
+          for (let k = i + 1; k < lines.length; k++) {
+            const m = lines[k];
+            if (/^\s*$/.test(m)) continue;                     // blank line inside the block: keep scanning
+            const trimmed = m.replace(/^\s+/, '');
+            if (trimmed.startsWith('#')) continue;              // a comment at ANY indent: keep scanning
+            const indent = m.length - trimmed.length;
+            if (indent <= 4) break;                             // back to job level or the next key
+            if (/^contents:/.test(trimmed)) cur.contents = true;
           }
         }
-        if (/uses:\s*actions\/checkout@/.test(l)) cur.checkout = true;
+        const lineTrimmed = l.replace(/^\s+/, '');
+        if (!lineTrimmed.startsWith('#') && /uses:\s*actions\/checkout@/.test(l)) cur.checkout = true;
       }
       flush();
+      if (jobs.length === 0) {
+        note(f, 'parsed to zero jobs under this reader\'s narrow job-key shape (exactly 2-space indent, an unquoted key, nothing after the colon) -- rule 11 could not check any job in this file');
+        continue;
+      }
       for (const j of jobs) {
-        anyJob = true;
         if (j.hasBlock && j.checkout && !j.contents) {
           note(f, `job "${j.name}" declares its own permissions: block and checks the repository out, but does not state contents: -- contents reads none inside that job`);
         }
       }
     }
-    if (!anyJob) note(WF_DIR, 'every tracked workflow parsed to zero jobs, so rule 11 checked nothing');
   }
 }
 
