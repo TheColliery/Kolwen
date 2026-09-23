@@ -2,6 +2,9 @@
 	// Kolwen landing — Cloudflare Worker (static assets)
 	// Deployed automatically by Workers Builds on push to main.
 	"name": "kolwen",
+	// compatibility_date and assets stay TOP-LEVEL, never duplicated inside `previews` below --
+	// Cloudflare's own guidance: "Keep at the top level, even with an ASSETS binding." Both
+	// apply to previews automatically because they are not per-environment settings.
 	"compatibility_date": "2026-08-01",
 	"assets": {
 		"directory": "./web",
@@ -9,5 +12,15 @@
 		// It used to be single-page-application, which answered 200 with the home page for every
 		// wrong URL -- measured 2026-09-03 -- so crawlers indexed nonexistent pages as real ones.
 		"not_found_handling": "404-page"
-	}
+	},
+	// Workers Previews (LWK-198): public by owner ruling, 2026-09-23, with no Cloudflare Access.
+	// Deliberately EMPTY: this Worker has zero bindings, vars or secrets today
+	// (verified above -- name, compatibility_date, assets, nothing else), so there is nothing to
+	// diverge from production yet. The block's PRESENCE is what tells Cloudflare this Worker is
+	// preview-enabled; per Cloudflare's own docs an empty `previews` block is a documented, legal
+	// shape ("the `previews` block is required, but it can be empty"). It gains content the day a
+	// binding is added -- and every such binding is
+	// audited first: previews' service bindings call the bound Worker's PRODUCTION deployment, and
+	// nothing payment- or customer-facing may be reachable from a preview.
+	"previews": {}
 }

@@ -18,3 +18,23 @@
   Cache-Control: public, max-age=0, must-revalidate
 /404.html
   Cache-Control: public, max-age=0, must-revalidate
+
+# noindex on PREVIEW hosts, never on production (LWK-198, owner ruling 2026-09-23).
+# A rule keyed on PATH cannot express this -- `_headers` matches by absolute HOST when the
+# left-hand side is an absolute URL (Cloudflare's own docs), so the host itself is the scope.
+# This is Cloudflare's own documented example for exactly this need (the "search engines"
+# section of the same page): a placeholder matches one dot-delimited host label, whatever it
+# contains, so `:version.:subdomain.workers.dev` matches ANY two-label host ending in
+# `.workers.dev` -- both a Preview URL (`<preview-name>-kolwen.<subdomain>.workers.dev`) and a
+# Version URL (`<version-prefix>-kolwen.<subdomain>.workers.dev`) have exactly that shape.
+# PROVEN, not assumed: `kolwen.com` does not end in `.workers.dev`, so no placeholder binding
+# can make this rule match it -- verified by a local script re-implementing the documented
+# matching semantics against 8 cases, including kolwen.com and www.kolwen.com (no match).
+# NAMED RESIDUAL: this also matches kolwen.hetcreep.workers.dev, production's OWN bare
+# workers.dev alias (used as post-deploy-check.mjs's fallback origin) -- not kolwen.com, but a
+# production-adjacent surface. Left in rather than narrowed further: no documented `_headers`
+# syntax can express "ends with -kolwen" within one label (placeholders are whole-label-only,
+# `*` is unconditionally greedy to the end of the pattern) -- narrowing here would be a rule
+# whose scope cannot be proven, and an unprovable scope is not shipped.
+https://:version.:subdomain.workers.dev/*
+  X-Robots-Tag: noindex
