@@ -152,9 +152,6 @@ if (existsSync('brand/README.md')) {
 // tree no longer existing under web/, not by this rule.
 const SHIPPED = new Set([
   'web/index.html', 'web/robots.txt', 'web/sitemap.xml', 'web/ic.json',
-  // RFC 9116, served at /.well-known/security.txt. The first subdirectory under web/, and
-  // post-deploy-check.mjs is not recursive, so the live file is not compared to this one.
-  'web/.well-known/security.txt',
   // Added BY NAME, never by widening the glob — the point of the list is that a new path under
   // web/ is a deliberate act. `404.html` is served for an unmatched request (not_found_handling:
   // 404-page). `_headers` is PARSED by Workers and, per Cloudflare's own docs, "will not itself

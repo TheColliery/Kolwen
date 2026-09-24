@@ -1,7 +1,0 @@
-# Security contact for kolwen.com, per RFC 9116.
-# Reports about this repository: SECURITY.md, which prefers GitHub private vulnerability reporting.
-Contact: mailto:security@kolwen.com
-Expires: 2027-06-30T23:59:59Z
-Preferred-Languages: en, th
-Canonical: https://kolwen.com/.well-known/security.txt
-Policy: https://github.com/TheColliery/Kolwen/blob/main/SECURITY.md
