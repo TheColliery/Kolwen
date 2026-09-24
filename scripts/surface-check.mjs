@@ -340,6 +340,106 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
   }
 }
 
+// ── 12. The owner's private login address never returns to a published file ──
+// LWK-209. Since LWK-206 the address at this domain whose local part is not a role name is the
+// owner's PRIVATE login, not a published contact; the published channels are the role addresses.
+// Rule 5 only EXPECTS the page's info@ link, which proves nothing about the private address coming
+// back. This bans it outright, with ZERO allowlist: no published file has a legitimate reason to
+// carry it, so the ban itself is the proof it cannot return.
+//
+// SET: SCANNABLE, the same wide set rule 3 uses for leaks -- every tracked text file except this one,
+// so `.github/`, `scripts/`, `docs/`, `governance/`, the root documents and the text under `web/`
+// are all in scope. Wider than PUBLISHED on purpose: this is a leak, not a claim, and the repo is
+// public whatever folder a file sits in.
+//
+// The pattern is built from FRAGMENTS, and no message prints a match: this file is scanned by
+// nothing, but it is itself published, and a CI log is public.
+//
+// Spellings caught (case-insensitive): plain, full-width (U+FF20), percent-encoded, HTML numeric and
+// named entities, a JS/JSON escape, and the `[at]` / `(at)` word with spaces or tabs around it.
+//
+// NON-VACUITY, three parts, because this room's scar is a gate that lies: (a) every spelling above is
+// run through its own pattern AT RUN TIME, so a pattern that cannot fire fails the build by name;
+// (b) a set of near-misses must NOT match, so an over-broad pattern fails the same way; (c) an empty
+// scanned set, or one that lacks the three files a reader actually meets, is a finding, not a pass.
+//
+// STATED LIMITS, not fixed here: an IMAGE of the address (png/ico/font files are never read, og.png
+// included); an address split across two lines (the bracket form tolerates spaces and tabs only);
+// the local part or the domain obfuscated (`[dot]`, entity-encoded letters, a string assembled by
+// concatenation in script); double encoding (`%2540`); base64 or any other wrapper; and any surface
+// outside this repository (registry metadata, a dashboard, an edge rule). A different address at
+// another host, or a subdomain of this one, is a different address and is deliberately not matched.
+{
+  const LOCAL = 'con' + 'tact';
+  const HOST = 'kol' + 'wen\\.' + 'com';
+  const SEPARATORS = {
+    'plain @': '@',
+    'full-width @ (U+FF20)': '＠',
+    'percent-encoded @': '%40',
+    'HTML numeric entity for @': '&#0*64;?|&#x0*40;?',
+    'HTML named entity for @': '&commat;?',
+    'JS/JSON escape for @': '\\\\u0*40|\\\\x40',
+    '[at] / (at) word': '[ \\t]*[\\[(][ \\t]*at[ \\t]*[\\])][ \\t]*',
+  };
+  // The lookbehind stops a longer local part (a different address) matching; the lookahead stops a
+  // longer domain doing the same.
+  const FORMS = Object.entries(SEPARATORS).map(([label, sep]) => [
+    label,
+    new RegExp('(?<![A-Za-z0-9._%+-])' + LOCAL + '(?:' + sep + ')' + HOST + '(?![A-Za-z0-9-])', 'i'),
+  ]);
+
+  // Fixtures use their OWN fragments, not LOCAL/HOST above: a fixture derived from the same constant as the
+  // pattern would pass with the pattern wrong (a typo in both), which is the circular self-check this avoids.
+  const LF = 'cont' + 'act';
+  const H = 'kol' + 'wen.com';
+  const SHOULD_MATCH = [
+    ['plain @', `${LF}@${H}`],
+    ['plain @', `<a href="mailto:${LF}@${H}">`],
+    ['plain @', `${LF.toUpperCase()}@${H.toUpperCase()}`],
+    ['full-width @ (U+FF20)', `${LF}${String.fromCodePoint(0xFF20)}${H}`],
+    ['percent-encoded @', `mailto:${LF}%40${H}`],
+    ['HTML numeric entity for @', `${LF}&#64;${H}`],
+    ['HTML numeric entity for @', `${LF}&#x40;${H}`],
+    ['HTML numeric entity for @', `${LF}&#X0040;${H}`],
+    ['HTML named entity for @', `${LF}&commat;${H}`],
+    ['JS/JSON escape for @', `"${LF}\\u0040${H}"`],
+    ['[at] / (at) word', `${LF}[at]${H}`],
+    ['[at] / (at) word', `${LF} (at) ${H}`],
+    ['[at] / (at) word', `${LF}[ AT ]${H}`],
+  ];
+  const SHOULD_NOT_MATCH = [
+    `info@${H}`, `security@${H}`, `privacy@${H}`,
+    `${LF}@example.com`, `${LF}@${H}any`, `re${LF}@${H}`, `${LF}@mail.${H}`,
+    `${LF}${H}`, `hello (at) ${H}`, `${LF} at ${H}`,
+  ];
+  const cannotFire = new Set(), overBroad = new Set();
+  for (const [label, sample] of SHOULD_MATCH) {
+    const re = FORMS.find(([l]) => l === label)?.[1];
+    if (!re || !re.test(sample)) cannotFire.add(label);
+  }
+  for (const sample of SHOULD_NOT_MATCH) {
+    const hit = FORMS.find(([, re]) => re.test(sample));
+    if (hit) overBroad.add(hit[0]);
+  }
+  for (const label of cannotFire) note(SELF, `rule 12 self-check: the "${label}" pattern does not match its own fixture, so it could never fire — a ban that cannot fire is not a ban`);
+  for (const label of overBroad) note(SELF, `rule 12 self-check: the "${label}" pattern matches a near-miss that is not the banned address, so it is over-broad`);
+
+  const scanned = tracked.filter(SCANNABLE);
+  if (scanned.length === 0) {
+    note('git ls-files', 'lists no scannable text file, so rule 12 checked nothing — this CHECK is now empty, not the surface proven clean');
+  }
+  for (const anchor of ['web/index.html', 'README.md', 'CHANGELOG.md']) {
+    if (!scanned.includes(anchor)) note(anchor, 'is not among the files rule 12 scans (missing, untracked or excluded), so this CHECK does not cover a surface a reader meets');
+  }
+  for (const f of scanned) {
+    const s = read(f);
+    for (const [label, re] of FORMS) {
+      const m = re.exec(s);
+      if (m) note(f, `line ${s.slice(0, m.index).split('\n').length}: the owner's private login address appears (${label}) — it is not a published contact; use a role address`);
+    }
+  }
+}
+
 if (fail.length) {
   console.error('surface check FAILED:\n' + fail.map(f => '  - ' + f).join('\n'));
   process.exit(1);
