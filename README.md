@@ -31,7 +31,7 @@ is a named rank with no model behind it yet—reserved, not shipped.
 
 ## Contact
 
-<contact@kolwen.com>—for anything that does not belong in a public issue.
+<info@kolwen.com>—for anything that does not belong in a public issue.
 Bugs and feature discussion belong in Issues.
 
 ## License

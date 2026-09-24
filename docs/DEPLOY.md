@@ -22,8 +22,9 @@ Two checks report on it:
 
 - **`Workers Builds: kolwen`**—Cloudflare's own check, on the commit. It says the build ran.
 - **`deploy-check` / "live page matches main"**—ours (`scripts/post-deploy-check.mjs`). It
-  fetches every file under `web/` from the live origin and compares it to what is committed, so a
-  build that reports success but publishes nothing is still caught. It waits for publication
+  fetches every file at the top level of `web/` from the live origin and compares it to what is
+  committed, so a build that reports success but publishes nothing is still caught. It is not
+  recursive, so `web/.well-known/security.txt` is served but not compared. It waits for publication
   rather than for a reply, because the deploy lands after CI starts. It runs on a push touching
   `web/`, `wrangler.jsonc`, **or the checker itself**—otherwise the commit that changes the gate
   would be the one commit the gate never runs on—and can also be started by hand from the

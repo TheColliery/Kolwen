@@ -117,6 +117,15 @@ the pointer to it.
 
 ### Changed
 
+- Every published contact address moved from one shared address to a role address: `info@kolwen.com`
+  on the page (both language blocks and the structured data) and in the README,
+  `security@kolwen.com` in `SECURITY.md` and `governance/incident-response.md`, and
+  `privacy@kolwen.com` in `PRIVACY.md`. The surface check now looks for the page's `info@` link.
+  No `[pending legal review]` marker or draft notice in `PRIVACY.md` changed.
+- `SECURITY.md` and `governance/incident-response.md` no longer say the fallback address forwards
+  but cannot send. The domain now sends mail, so that limitation was removed rather than carried.
+- `docs/TRUST.md` and `docs/DEPLOY.md` now say the deploy check reads the top level of `web/` only.
+  That was already true of the script and had not mattered until a file sat in a subdirectory.
 - `docs/DEPLOY.md` no longer says the repository has no `package.json`, and no longer tells a
   reader to run `npx wrangler@4.128.0`. It now points at the pin in `package.json` and derives the
   version from there, so the number is written in one place.
@@ -132,6 +141,11 @@ the pointer to it.
 
 ### Added
 
+- `web/.well-known/security.txt`, per RFC 9116: `Contact: mailto:security@kolwen.com`, an `Expires`
+  date, and the optional `Preferred-Languages`, `Canonical` and `Policy` fields. `Expires` is
+  2027-06-30, so the file needs renewing before then or readers will treat it as stale. It is the
+  first subdirectory under `web/`, so the surface check's shipped-asset list names it. Served
+  locally with status 200 and `text/plain; charset=utf-8`; not yet observed on the live site.
 - Workers Previews for the site. An empty `previews` block in `wrangler.jsonc` prepares it. A
   pull request gets a preview URL only if Workers Builds built it after Previews was switched on
   for the Worker in Cloudflare (2026-09-24), and only while that Cloudflare-side setting stays on.

@@ -111,7 +111,7 @@ if (existsSync('web/index.html')) {
   if (!/<html lang="en">/.test(s)) note('web/index.html', 'default document language is not English');
   if (!/id="doc-th"[^>]*\shidden/.test(s)) note('web/index.html', 'Thai block is not hidden by default');
   if (/id="doc-en"[^>]*\shidden/.test(s)) note('web/index.html', 'English block is hidden by default');
-  if (!/mailto:contact@kolwen\.com/.test(s)) note('web/index.html', 'the published contact channel is missing');
+  if (!/mailto:info@kolwen\.com/.test(s)) note('web/index.html', 'the published contact channel is missing');
 }
 
 // ── 6. Every contrast ratio in the brand doc recomputes from its own hex pair ─
@@ -152,6 +152,9 @@ if (existsSync('brand/README.md')) {
 // tree no longer existing under web/, not by this rule.
 const SHIPPED = new Set([
   'web/index.html', 'web/robots.txt', 'web/sitemap.xml', 'web/ic.json',
+  // RFC 9116, served at /.well-known/security.txt. The first subdirectory under web/, and
+  // post-deploy-check.mjs is not recursive, so the live file is not compared to this one.
+  'web/.well-known/security.txt',
   // Added BY NAME, never by widening the glob — the point of the list is that a new path under
   // web/ is a deliberate act. `404.html` is served for an unmatched request (not_found_handling:
   // 404-page). `_headers` is PARSED by Workers and, per Cloudflare's own docs, "will not itself

@@ -16,10 +16,10 @@ A public GitHub issue remains the right channel for an ordinary, non-security bu
 unsure which you have, use private reporting—it is easy to move a report into the open later,
 and impossible to take one back.
 
-**If you do not have a GitHub account**, `contact@kolwen.com` reaches the maintainer. It is
-listed here as a fallback rather than the primary channel for a reason worth stating: that
-address forwards but cannot send, so a reply arrives from a personal mailbox rather than from
-Kolwen. Private reporting keeps the exchange in one place and is preferred wherever possible.
+**If you do not have a GitHub account**, `security@kolwen.com` reaches the maintainer. It is
+listed here as a fallback rather than the primary channel: private reporting keeps the exchange
+in one place and is preferred wherever possible. The same address is published for automated
+readers at `/.well-known/security.txt`, per RFC 9116.
 
 **One-person project, no second pair of hands.** Your report will be read, but if the maintainer
 is unavailable there is no backup route—that is a real limitation, not an oversight, and it is
