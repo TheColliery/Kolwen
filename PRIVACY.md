@@ -27,7 +27,7 @@ One static page, served by a Cloudflare Worker. **The Worker runs no code of our
 configured with an assets directory and nothing else, with no `main` entry point, so there is no
 request handler, no logging, and no storage on our side.
 
-*Measured: `grep -n 'main' wrangler.jsonc` returns nothing; the config declares only `assets`.*
+*Measured: `grep -nE '^[[:space:]]*"main"' wrangler.jsonc` returns nothing; the config declares a name, a compatibility date, the `assets` block and an empty `previews` block, and no binding, variable or secret.*
 
 ## Cookies
 

@@ -35,6 +35,13 @@ own RECORD, not its software, so mapping it to a SemVer bump would be wrong. It 
 file's stated rule—add a forward-pointing note, never edit the old text—to a claim made in a
 commit body rather than to a released entry.
 
+- **`PRIVACY.md` printed a measurement that was not true.** It said `grep -n 'main' wrangler.jsonc`
+  "returns nothing". The command matches a comment line that says the site deploys on a push to
+  main, so it returned a line, and did so before this sitting. The page now names the check that
+  does return nothing, `grep -nE '^[[:space:]]*"main"' wrangler.jsonc`, and states what the config
+  declares, which now includes an empty `previews` block. The claim itself, that the Worker has no
+  `main` entry point and so runs no code of ours, was and is true.
+
 - **Two commit messages state that this repository stores its text files with CRLF line endings.
   They are wrong.** The commits are `220cc55` and `f632501`. The claim was already retracted in
   `b54cf0f`'s message, but no file in this repository carried the correction, and nobody browsing
@@ -110,6 +117,9 @@ the pointer to it.
 
 ### Changed
 
+- `docs/DEPLOY.md` no longer says the repository has no `package.json`, and no longer tells a
+  reader to run `npx wrangler@4.128.0`. It now points at the pin in `package.json` and derives the
+  version from there, so the number is written in one place.
 - `TERMS.md`'s two legal gaps now carry numbered labels ("GAP 1", "GAP 2"), as `PRIVACY.md`'s do,
   so a check can tell whether a counsel-pending marker still sits beside each. No gap's wording
   changed beyond moving its marker to the front of its own sentence.
@@ -122,6 +132,20 @@ the pointer to it.
 
 ### Added
 
+- Workers Previews for the site. An empty `previews` block in `wrangler.jsonc` prepares it. A
+  pull request gets a preview URL only if Workers Builds built it after Previews was switched on
+  for the Worker in Cloudflare (2026-09-24), and only while that Cloudflare-side setting stays on.
+  Previews are public, with no Cloudflare Access in front of them: owner ruling, 2026-09-23. The
+  Worker has no binding, variable or secret, so a preview reaches nothing that is not already
+  public. Not yet observed live.
+- A `noindex` header for preview and version hosts only, as a host-pattern rule at the end of
+  `web/_headers`. `kolwen.com` never matches it. It also matches production's own `workers.dev`
+  alias, which is not `kolwen.com`; `docs/DEPLOY.md` names that residual. Checked by a local
+  re-implementation of Cloudflare's documented matching, not against a live preview.
+- Wrangler is pinned as a devDependency in a new `package.json` and `package-lock.json`, at
+  4.136.3 exactly. Dependabot's new `npm` entry checks daily; a patch or minor bump auto-merges
+  once CI is green, through the existing `dependabot-auto-merge.yml`, and a major bump waits for
+  the owner. No Dependabot `npm` pull request has been observed yet.
 - A real 404 page, in both languages. An address with no page behind it now answers HTTP 404;
   it used to answer 200 with the home page, so crawlers indexed pages that do not exist.
 - Cache-Control headers for the static assets. The page itself stays on must-revalidate, because

@@ -1,0 +1,8 @@
+{
+	"name": "kolwen",
+	"private": true,
+	"description": "Kolwen landing -- Cloudflare Worker (static assets). This manifest exists only to pin the Wrangler tool version; the site has no build step and no runtime dependency.",
+	"devDependencies": {
+		"wrangler": "4.136.3"
+	}
+}
