@@ -132,10 +132,12 @@ the pointer to it.
 
 ### Added
 
-- Workers Previews for the site. An empty `previews` block in `wrangler.jsonc` enables it, so a
-  pull request gets a preview URL through Workers Builds. Previews are public, with no Cloudflare
-  Access in front of them: owner ruling, 2026-09-23. The Worker has no binding, variable or
-  secret, so a preview reaches nothing that is not already public. Not yet observed live.
+- Workers Previews for the site. An empty `previews` block in `wrangler.jsonc` prepares it. A
+  pull request gets a preview URL only if Workers Builds built it after Previews was switched on
+  for the Worker in Cloudflare (2026-09-24), and only while that Cloudflare-side setting stays on.
+  Previews are public, with no Cloudflare Access in front of them: owner ruling, 2026-09-23. The
+  Worker has no binding, variable or secret, so a preview reaches nothing that is not already
+  public. Not yet observed live.
 - A `noindex` header for preview and version hosts only, as a host-pattern rule at the end of
   `web/_headers`. `kolwen.com` never matches it. It also matches production's own `workers.dev`
   alias, which is not `kolwen.com`; `docs/DEPLOY.md` names that residual. Checked by a local

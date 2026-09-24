@@ -31,13 +31,16 @@ Two checks report on it:
 
 A push is not finished until both have answered. Read the verdict; do not assume it.
 
-## Previews: a pull request gets a URL
+## Previews: a pull request can get a URL
 
 `wrangler.jsonc` carries an empty `previews` block, and that block is what makes this Worker
 preview-enabled: Cloudflare's configuration page says *"The `previews` block is required, but it
 can be empty"*, and says to keep `assets` and `compatibility_date` at the top level, where they
-stay. A pull request then gets a preview URL through Workers Builds, a copy of the site built from
-that branch. The URL has the shape `<preview-name>-kolwen.<subdomain>.workers.dev`.
+stay. A pull request gets a preview URL only if Workers Builds built it after Previews was switched
+on for the Worker in Cloudflare, which was done on 2026-09-24, and only while that Cloudflare-side
+setting stays on. A pull request built before then has no preview URL. That setting and the build
+credential behind it live in Cloudflare, not in this repository. A preview is a copy of the site
+built from the branch. The URL has the shape `<preview-name>-kolwen.<subdomain>.workers.dev`.
 
 - **Previews are public, with no access gate.** Owner ruling, 2026-09-23: there is no Cloudflare
   Access in front of them, so anyone holding a preview URL can load it. What they load is the
