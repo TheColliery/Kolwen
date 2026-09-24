@@ -341,8 +341,9 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
 }
 
 // ── 12. The owner's private login address never returns to a published file ──
-// LWK-209. Since LWK-206 the address at this domain whose local part is not a role name is the
-// owner's PRIVATE login, not a published contact; the published channels are the role addresses.
+// LWK-209. Once the role addresses were published, the address at this domain whose local part
+// is not a role name became the owner's PRIVATE login, not a published contact; the published
+// channels are the role addresses.
 // Rule 5 only EXPECTS the page's info@ link, which proves nothing about the private address coming
 // back. This bans it outright, with ZERO allowlist: no published file has a legitimate reason to
 // carry it, so the ban itself is the proof it cannot return.
