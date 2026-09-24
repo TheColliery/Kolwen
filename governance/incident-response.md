@@ -10,8 +10,9 @@
 
 - **Reporting channel:** GitHub private vulnerability reporting, with `SECURITY.md` as the public
   instruction. A private channel exists before an incident does.
-- **Backup channel:** `contact@kolwen.com`, with the known limitation that it forwards but cannot
-  send, stated in `SECURITY.md` rather than hidden.
+- **Backup channel:** `security@kolwen.com`, named in `SECURITY.md` and published at
+  `/.well-known/security.txt`. The earlier limitation, that the address could receive but not send,
+  no longer holds: the domain now sends mail.
 - **Recorded history:** none since 2026-08-22, the repository's first commit — see
   `docs/TRUST.md` §5.
 - **Rollback:** every deploy is a commit; reverting the commit redeploys the previous site, and

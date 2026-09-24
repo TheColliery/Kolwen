@@ -111,7 +111,7 @@ if (existsSync('web/index.html')) {
   if (!/<html lang="en">/.test(s)) note('web/index.html', 'default document language is not English');
   if (!/id="doc-th"[^>]*\shidden/.test(s)) note('web/index.html', 'Thai block is not hidden by default');
   if (/id="doc-en"[^>]*\shidden/.test(s)) note('web/index.html', 'English block is hidden by default');
-  if (!/mailto:contact@kolwen\.com/.test(s)) note('web/index.html', 'the published contact channel is missing');
+  if (!/mailto:info@kolwen\.com/.test(s)) note('web/index.html', 'the published contact channel is missing');
 }
 
 // ── 6. Every contrast ratio in the brand doc recomputes from its own hex pair ─

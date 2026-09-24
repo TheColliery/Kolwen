@@ -105,7 +105,7 @@ oversight.
 
 ## Contact
 
-`contact@kolwen.com` reaches the maintainer. Anything you send there is read by a person.
+`privacy@kolwen.com` reaches the maintainer. Anything you send there is read by a person.
 
 ⚠️ **Where that address forwards, and what the receiving mailbox retains, is account
 configuration outside this repository.** Not measurable here; returned rather than described.

@@ -117,6 +117,13 @@ the pointer to it.
 
 ### Changed
 
+- Every published contact address moved from one shared address to a role address: `info@kolwen.com`
+  on the page (both language blocks and the structured data) and in the README,
+  `security@kolwen.com` in `SECURITY.md` and `governance/incident-response.md`, and
+  `privacy@kolwen.com` in `PRIVACY.md`. The surface check now looks for the page's `info@` link.
+  No `[pending legal review]` marker or draft notice in `PRIVACY.md` changed.
+- `SECURITY.md` and `governance/incident-response.md` no longer say the fallback address forwards
+  but cannot send. The domain now sends mail, so that limitation was removed rather than carried.
 - `docs/DEPLOY.md` no longer says the repository has no `package.json`, and no longer tells a
   reader to run `npx wrangler@4.128.0`. It now points at the pin in `package.json` and derives the
   version from there, so the number is written in one place.
