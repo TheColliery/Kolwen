@@ -5,6 +5,9 @@
 // already holds and has already caught a violation of. Zero dependencies, Node built-ins only.
 import { readFileSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
+import { resolve } from 'node:path';
 
 const fail = [];
 const note = (f, msg) => fail.push(`${f}: ${msg}`);
@@ -101,11 +104,12 @@ for (const f of tracked.filter(PUBLISHED)) {
 if (existsSync('web/index.html')) {
   const s = read('web/index.html');
   for (const t of ['html','head','body','main','nav','footer','div','span','p','h1','h2','a','button','script','style','noscript','svg']) {
-    const o = (s.match(new RegExp('<' + t + '(?=[ >\n/])', 'g')) || []).length;
-    const c = (s.match(new RegExp('</' + t + '>', 'g')) || []).length;
+    // Case-insensitive, and the end tag may carry whitespace or attributes ("</script >", "</SCRIPT>"): HTML allows both.
+    const o = (s.match(new RegExp('<' + t + '(?=[ >\\t\\r\\n/])', 'gi')) || []).length;
+    const c = (s.match(new RegExp('</' + t + '(?=[ >\\t\\r\\n/])', 'gi')) || []).length;
     if (o !== c) note('web/index.html', `unbalanced <${t}>: ${o} open, ${c} close`);
   }
-  const ld = s.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+  const ld = s.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script\b[^>]*>/);
   if (!ld) note('web/index.html', 'structured-data block missing');
   else { try { JSON.parse(ld[1]); } catch (e) { note('web/index.html', 'ld+json does not parse: ' + e.message); } }
   if (!/<html lang="en">/.test(s)) note('web/index.html', 'default document language is not English');
@@ -469,8 +473,115 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
   }
 }
 
+// ── 13. The CSP admits exactly the inline code the served pages carry ───────
+// LWK-211. `web/_headers` admits the page's one inline script, and its inline styles, by `sha256-`
+// hash. A hash is a claim about bytes: change one byte of the script and the browser silently refuses
+// to run it, the language toggle dies, and every other check stays green. So the hashes are RECOMPUTED
+// here from the served HTML and compared, both ways: a missing hash breaks the page, and an extra one is
+// a stale hash that admits nothing, which reads as coverage.
+//
+// It also refuses a policy that has lost its floor: `'unsafe-inline'` or `'unsafe-eval'` in `script-src`
+// (or in `default-src`, which `script-src` falls back to if it is ever deleted), a missing
+// `default-src 'self'` / `object-src 'none'` / `base-uri 'self'` / `frame-ancestors 'none'`, the CSP on
+// more than one rule (Cloudflare JOINS a header set twice, so two policies would be served), the CSP on
+// any path but `/*` (the 404 served for an unmatched path is not `/404.html`), a Referrer-Policy other than
+// strict-origin-when-cross-origin, a missing Permissions-Policy, a CSP set in a `<meta>` tag, an origin
+// the HTML loads a stylesheet or script from that the policy does not name, and an inline event handler
+// or `style=` attribute, which this policy blocks silently. Cloudflare's caps on the file are checked too
+// (100 rules, 2,000 characters a line).
+//
+// NON-VACUITY: no `_headers`, no CSP in it, no inline script or no inline style found in the served HTML,
+// or a served page the rule was written around missing, is a finding, never a pass. The script and style
+// counts are printed in the pass line, so a run that hashed nothing cannot read as a run that did.
+//
+// STATED LIMITS, not fixed here: the HTML is read as text, not parsed, so a script or style inside an
+// HTML comment is counted (it fails safe, demanding a hash it does not need); `font-src` origins come from
+// the CSS a stylesheet loads, which this rule cannot see, so that directive is checked by hand against the
+// served stylesheet, not here; `style-src` carrying `'unsafe-inline'` is not refused (a hash makes browsers
+// ignore it); nothing the edge injects into the response is in the repo, so nothing here can see it (the
+// post-deploy check reads the served headers, and `_headers` says what the edge adds); and whether the
+// served response really carries these headers is the post-deploy check's job, not this rule's.
+const CSP_STATS = { scripts: 0, styles: 0 };
+{
+  const HEADERS = 'web/_headers';
+  const ANCHOR_PAGES = ['web/index.html', 'web/404.html'];
+  const DATA_TYPES = new Set(['application/ld+json', 'application/json']);
+  const EXEC_TYPES = new Set(['', 'text/javascript', 'application/javascript', 'module']);
+  const htmlFiles = tracked.filter(f => f.startsWith('web/') && f.endsWith('.html'));
+  for (const p of ANCHOR_PAGES) if (!htmlFiles.includes(p)) note(p, 'is not a tracked HTML page, so rule 13 has nothing to hash for it — this CHECK is now empty for that page, not the page proven covered');
+
+  const sha256 = text => "'sha256-" + createHash('sha256').update(text, 'utf8').digest('base64') + "'";
+  const want = { script: new Set(), style: new Set() };
+  const origins = { script: new Set(), style: new Set() };
+  for (const f of htmlFiles) {
+    const s = read(f).replace(/\r\n/g, '\n');
+    // End tags tolerate whitespace and attributes before ">" ("</script >", "</SCRIPT foo>"): the HTML parser closes the block on
+    // those too, so a pattern that stops at a bare "</script>" hashes the wrong text (CodeQL js/bad-tag-filter).
+    for (const m of s.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi)) {
+      const src = (m[1].match(/\bsrc\s*=\s*["']?([^"'\s>]+)/i) || [])[1];
+      if (src) { const o = src.match(/^https?:\/\/[^/]+/i); if (o) origins.script.add(o[0].toLowerCase()); continue; }
+      const type = ((m[1].match(/\btype\s*=\s*["']?([^"'\s>]+)/i) || [])[1] || '').toLowerCase();
+      if (DATA_TYPES.has(type)) continue;
+      if (!EXEC_TYPES.has(type)) { note(f, `has an inline <script type="${type}"> that rule 13 cannot classify as code or data, so its CSP admission is unchecked`); continue; }
+      want.script.add(sha256(m[2])); CSP_STATS.scripts++;
+    }
+    for (const m of s.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\b[^>]*>/gi)) { want.style.add(sha256(m[1])); CSP_STATS.styles++; }
+    for (const m of s.matchAll(/<link\b[^>]*>/gi)) {
+      if (!/\brel\s*=\s*["']?[^"'>]*\bstylesheet\b/i.test(m[0])) continue;
+      const o = (m[0].match(/\bhref\s*=\s*["']?(https?:\/\/[^/"'\s>]+)/i) || [])[1];
+      if (o) origins.style.add(o.toLowerCase());
+    }
+    if (/<[a-zA-Z][^>]*\s(?:on[a-z]+|style)\s*=/.test(s)) note(f, 'has an inline event handler or style="" attribute, which the CSP blocks without saying so — move it into the hashed script or style');
+    if (/<meta\b[^>]*http-equiv\s*=\s*["']?content-security-policy/i.test(s)) note(f, 'sets a CSP in a <meta> tag — headers are set at the host, and frame-ancestors has no meta form');
+  }
+  if (CSP_STATS.scripts === 0) note('web/index.html', 'has no inline script for rule 13 to hash, so this CHECK is now empty, not the CSP proven exact. If the page\'s script was removed on purpose, remove its hash from web/_headers and ask the maintainer to retire the script half of rule 13');
+  if (CSP_STATS.styles === 0) note('web/index.html', 'has no inline style for rule 13 to hash, so this CHECK is now empty for styles, not the CSP proven exact');
+
+  let lib = null;
+  try { lib = await import(pathToFileURL(resolve('scripts/lib/headers-file.mjs')).href); }
+  catch (e) { note('scripts/lib/headers-file.mjs', 'could not be loaded, so rule 13 could not read web/_headers (' + (e.code || 'import failed') + ')'); }
+  if (!existsSync(HEADERS)) note(HEADERS, 'is missing, so no response carries a CSP from this repo — rule 13 has nothing to check. Restore it; if it was removed on purpose, ask the maintainer to retire rule 13');
+  else if (lib) {
+    const text = read(HEADERS);
+    const rules = lib.parseHeadersFile(text);
+    if (rules.length > 100) note(HEADERS, `has ${rules.length} rules; Cloudflare allows 100`);
+    text.split(/\r?\n/).forEach((l, i) => { if (l.length > 2000) note(HEADERS, `line ${i + 1} is ${l.length} characters; Cloudflare allows 2,000 per line`); });
+    const csp = lib.declarations(rules, 'Content-Security-Policy');
+    if (csp.length === 0) note(HEADERS, 'declares no Content-Security-Policy, so rule 13 checked nothing — this CHECK is now empty, not the CSP proven');
+    else {
+      if (csp.length > 1) note(HEADERS, `sets Content-Security-Policy on ${csp.length} rules (lines ${csp.map(c => c.line).join(', ')}); Cloudflare joins a header set twice with a comma, so the served value would no longer be one policy`);
+      const { pattern, value, line } = csp[0];
+      if (pattern !== '/*') note(HEADERS, `line ${line}: the CSP is on "${pattern}", not "/*" — the 404 served for an unmatched path would not carry it`);
+      const { dirs, repeats } = lib.parsePolicy(value);
+      for (const r of new Set(repeats)) note(HEADERS, `line ${line}: the CSP names ${r} twice; a browser keeps only the first`);
+      const exact = { 'default-src': ["'self'"], 'object-src': ["'none'"], 'base-uri': ["'self'"], 'frame-ancestors': ["'none'"] };
+      for (const [d, toks] of Object.entries(exact)) {
+        const got = dirs.get(d);
+        if (!got || got.join(' ') !== toks.join(' ')) note(HEADERS, `line ${line}: the CSP floor needs ${d} ${toks.join(' ')}, found ${got ? got.join(' ') : 'nothing'}`);
+      }
+      for (const d of ['script-src', 'default-src']) {
+        for (const bad of ["'unsafe-inline'", "'unsafe-eval'"]) if ((dirs.get(d) || []).includes(bad)) note(HEADERS, `line ${line}: ${d} carries ${bad}`);
+      }
+      for (const [kind, dir] of [['script', 'script-src'], ['style', 'style-src']]) {
+        const toks = dirs.get(dir);
+        if (!toks) { if (want[kind].size) note(HEADERS, `line ${line}: the CSP has no ${dir}, but the served HTML has inline ${kind}s that need admitting`); continue; }
+        const have = new Set(toks.filter(t => /^'sha256-/.test(t)));
+        for (const t of toks) if (/^'sha(?:384|512)-/.test(t)) note(HEADERS, `line ${line}: ${dir} uses ${t.slice(0, 11)}…, which rule 13 does not recompute; use sha256`);
+        for (const h of want[kind]) if (!have.has(h)) note(HEADERS, `line ${line}: ${dir} does not admit the inline ${kind} whose hash is ${h} — the browser will refuse it`);
+        for (const h of have) if (!want[kind].has(h)) note(HEADERS, `line ${line}: ${dir} admits ${h}, which matches no inline ${kind} in the served HTML (a stale hash)`);
+        for (const o of origins[kind]) if (!toks.map(t => t.toLowerCase()).includes(o)) note(HEADERS, `line ${line}: the HTML loads a ${kind === 'style' ? 'stylesheet' : 'script'} from ${o}, which ${dir} does not name`);
+      }
+      const block = rules.find(r => r.pattern === pattern);
+      const ref = lib.declarations([block], 'Referrer-Policy')[0];
+      if (!ref || ref.value !== 'strict-origin-when-cross-origin') note(HEADERS, `the "${pattern}" rule needs Referrer-Policy: strict-origin-when-cross-origin, found ${ref ? ref.value : 'none'}`);
+      const pp = lib.declarations([block], 'Permissions-Policy')[0];
+      if (!pp || !/\w+=\(\)/.test(pp.value)) note(HEADERS, `the "${pattern}" rule needs a Permissions-Policy that disables features (name=()), found ${pp ? 'none that does' : 'none'}`);
+    }
+  }
+}
+
 if (fail.length) {
   console.error('surface check FAILED:\n' + fail.map(f => '  - ' + f).join('\n'));
   process.exit(1);
 }
-console.log(`surface check passed — ${tracked.length} tracked files, ${tracked.filter(SCANNABLE).length} scanned${gapNote}`);
+console.log(`surface check passed — ${tracked.length} tracked files, ${tracked.filter(SCANNABLE).length} scanned · CSP hashes recomputed for ${CSP_STATS.scripts} inline script(s) and ${CSP_STATS.styles} inline style(s)${gapNote}`);
