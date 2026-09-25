@@ -104,11 +104,12 @@ for (const f of tracked.filter(PUBLISHED)) {
 if (existsSync('web/index.html')) {
   const s = read('web/index.html');
   for (const t of ['html','head','body','main','nav','footer','div','span','p','h1','h2','a','button','script','style','noscript','svg']) {
-    const o = (s.match(new RegExp('<' + t + '(?=[ >\n/])', 'g')) || []).length;
-    const c = (s.match(new RegExp('</' + t + '>', 'g')) || []).length;
+    // Case-insensitive, and the end tag may carry whitespace or attributes ("</script >", "</SCRIPT>"): HTML allows both.
+    const o = (s.match(new RegExp('<' + t + '(?=[ >\\t\\r\\n/])', 'gi')) || []).length;
+    const c = (s.match(new RegExp('</' + t + '(?=[ >\\t\\r\\n/])', 'gi')) || []).length;
     if (o !== c) note('web/index.html', `unbalanced <${t}>: ${o} open, ${c} close`);
   }
-  const ld = s.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+  const ld = s.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script\b[^>]*>/);
   if (!ld) note('web/index.html', 'structured-data block missing');
   else { try { JSON.parse(ld[1]); } catch (e) { note('web/index.html', 'ld+json does not parse: ' + e.message); } }
   if (!/<html lang="en">/.test(s)) note('web/index.html', 'default document language is not English');
@@ -514,7 +515,9 @@ const CSP_STATS = { scripts: 0, styles: 0 };
   const origins = { script: new Set(), style: new Set() };
   for (const f of htmlFiles) {
     const s = read(f).replace(/\r\n/g, '\n');
-    for (const m of s.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
+    // End tags tolerate whitespace and attributes before ">" ("</script >", "</SCRIPT foo>"): the HTML parser closes the block on
+    // those too, so a pattern that stops at a bare "</script>" hashes the wrong text (CodeQL js/bad-tag-filter).
+    for (const m of s.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi)) {
       const src = (m[1].match(/\bsrc\s*=\s*["']?([^"'\s>]+)/i) || [])[1];
       if (src) { const o = src.match(/^https?:\/\/[^/]+/i); if (o) origins.script.add(o[0].toLowerCase()); continue; }
       const type = ((m[1].match(/\btype\s*=\s*["']?([^"'\s>]+)/i) || [])[1] || '').toLowerCase();
@@ -522,7 +525,7 @@ const CSP_STATS = { scripts: 0, styles: 0 };
       if (!EXEC_TYPES.has(type)) { note(f, `has an inline <script type="${type}"> that rule 13 cannot classify as code or data, so its CSP admission is unchecked`); continue; }
       want.script.add(sha256(m[2])); CSP_STATS.scripts++;
     }
-    for (const m of s.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)) { want.style.add(sha256(m[1])); CSP_STATS.styles++; }
+    for (const m of s.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\b[^>]*>/gi)) { want.style.add(sha256(m[1])); CSP_STATS.styles++; }
     for (const m of s.matchAll(/<link\b[^>]*>/gi)) {
       if (!/\brel\s*=\s*["']?[^"'>]*\bstylesheet\b/i.test(m[0])) continue;
       const o = (m[0].match(/\bhref\s*=\s*["']?(https?:\/\/[^/"'\s>]+)/i) || [])[1];
