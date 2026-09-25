@@ -118,6 +118,7 @@ async function get(url, until) {
 
 async function probe(origin, until) {
   const misses = [];
+  NOTES.clear(); // per round: a note from an earlier round must not colour a later, complete one
 
   // not_found_handling: 404-page — an unmatched path must answer 404, not 200 with the home
   // page. Measured 2026-09-03: it used to answer 200, so crawlers indexed pages that do not
@@ -184,7 +185,11 @@ while (Date.now() < deadline) {
     try {
       const misses = await probe(origin, until);
       if (misses.length === 0) {
-        console.log(`all ${files.length} deployed files match what is committed, and every HTML response (including the 404 page) carries the CSP, Referrer-Policy and Permissions-Policy that web/_headers declares, via ${origin}`);
+        // The pass line says only what ran. When the 404 header check was skipped (a non-production host with a
+        // platform 404), the line drops "including the 404 page" and the note prints beside it on the same stream.
+        const skipped404 = NOTES.size > 0;
+        for (const n of NOTES) console.log('note: ' + n);
+        console.log(`all ${files.length} deployed files match what is committed, and every HTML response ${skipped404 ? '(the unmatched-path 404 was NOT checked on this host, see the note above)' : '(including the 404 page)'} carries the CSP, Referrer-Policy and Permissions-Policy that web/_headers declares, via ${origin}`);
         matched = true;
       } else {
         lastMisses = { origin, misses };
@@ -197,7 +202,7 @@ while (Date.now() < deadline) {
   await new Promise(r => setTimeout(r, Math.max(0, Math.min(15000, deadline - Date.now()))));
 }
 
-for (const n of NOTES) console.error('note: ' + n);
+if (!matched) for (const n of NOTES) console.error('note: ' + n);
 if (matched) {
   process.exitCode = 0;
 } else if (lastMisses) {
