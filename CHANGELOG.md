@@ -156,6 +156,9 @@ the pointer to it.
   HTML response, the 404 page included, and checks that kolwen.com still carries the zone's
   Strict-Transport-Security and `X-Content-Type-Options`. It fails if kolwen.com ever sends
   `X-Robots-Tag`. `--origin <url>` points it at one host, so a preview URL can be checked before merge.
+  On kolwen.com an unmatched path must serve the committed `404.html` with those headers. A Workers
+  Preview answers such a path with its own bare 404, so there the check prints a note and skips the
+  404 page's headers instead of failing.
 - A ban on the retired contact address in every tracked text file, as rule 12 of
   `scripts/surface-check.mjs`, with no exceptions. It reads the plain address and six other
   spellings: full-width, percent-encoded, HTML numeric and named entities, a JS or JSON escape, and

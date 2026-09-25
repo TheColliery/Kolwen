@@ -10,7 +10,7 @@
 // server. Zone-only headers (HSTS, nosniff) and the production noindex rail apply to kolwen.com hosts alone.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { parseHeadersFile, declaredSecurityHeaders, servedHeaderMisses, robotsRailMisses } from './lib/headers-file.mjs';
+import { parseHeadersFile, declaredSecurityHeaders, servedHeaderMisses, robotsRailMisses, notFoundVerdict } from './lib/headers-file.mjs';
 
 const args = process.argv.slice(2);
 const w = args.indexOf('--wait');
@@ -49,6 +49,7 @@ try { DECLARED = declaredSecurityHeaders(parseHeadersFile(readFileSync('web/_hea
 catch (e) { console.error('post-deploy check cannot compare served headers: ' + e.message); process.exit(2); }
 // Per response: HTML must carry the declared headers (and, on a production host, the zone's HSTS and nosniff);
 // EVERY response from a production host must be free of X-Robots-Tag.
+const NOTES = new Set();
 const headerMisses = (origin, r, what, html) => {
   const host = new URL(origin).hostname;
   const out = robotsRailMisses(host, r.headers);
@@ -128,8 +129,17 @@ async function probe(origin, until) {
       misses.push(`/${miss}: served HTTP ${r404.status}, expected 404 (assets.not_found_handling is 404-page)`);
     }
     // The 404 page is an HTML response too, and the one a mistyped URL gets: it must carry the same headers.
-    // Only when it really is the 404 page: a 403 from an edge that refuses this client says nothing about our headers.
-    if (r404.status === 404) misses.push(...headerMisses(origin, r404, `/${miss} (the 404 page)`, true));
+    // Only when it really is a 404: a 403 from an edge that refuses this client says nothing about our headers.
+    // And only when the body IS web/404.html: a platform 404 is not an asset response, so no _headers rule
+    // reaches it (see notFoundVerdict). Production must serve the page; any other host is told, not failed.
+    if (r404.status === 404) {
+      const host = new URL(origin).hostname;
+      misses.push(...robotsRailMisses(host, r404.headers).map(m => `/${miss} (the 404 page): ${m}`));
+      const isOurs = normHtml(await r404.text()) === normHtml(readFileSync('web/404.html', 'utf8'));
+      const v = notFoundVerdict(host, isOurs, r404.headers, DECLARED);
+      misses.push(...v.misses.map(m => `/${miss} (the 404 page): ${m}`));
+      v.notes.forEach(n => NOTES.add(n));
+    }
   }
   for (const f of files) {
     const url = origin + (f === 'index.html' ? '' : f) + '?cb=' + Date.now();
@@ -187,6 +197,7 @@ while (Date.now() < deadline) {
   await new Promise(r => setTimeout(r, Math.max(0, Math.min(15000, deadline - Date.now()))));
 }
 
+for (const n of NOTES) console.error('note: ' + n);
 if (matched) {
   process.exitCode = 0;
 } else if (lastMisses) {

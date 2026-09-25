@@ -23,9 +23,14 @@
 #
 # ONE rule, on `/*`, and the only rule that may carry these headers. Two reasons.
 #  - Coverage: the 404 the platform serves for an UNMATCHED path (`assets.not_found_handling`) is a
-#    response to a request for THAT path, so a rule keyed only on `/404.html` may not reach it (not
-#    measured; the safe reading). Measured 2026-09-25 instead: the host rule at the foot of this file
-#    sets `x-robots-tag` on a missing path, so a `/*` rule does reach the fallback response.
+#    response to a request for THAT path, so a rule keyed only on `/404.html` may not reach it; a `/*`
+#    rule is keyed on the requested path and does. Measured 2026-09-25: on the production alias a
+#    missing `/x.svg` came back with the 86400 Cache-Control rule for `/*.svg`, i.e. the path rules
+#    are applied to the 404-page fallback. A Workers Preview does NOT serve the fallback at all: an
+#    unmatched path there gets a 9-byte platform "Not found" outside the asset pipeline, and no rule
+#    of this file (path or host) touches it. Its only header, `X-Robots-Tag: noindex`, is Cloudflare's
+#    own. So the preview's 404 is checked for nothing, and production's is checked for everything
+#    (scripts/post-deploy-check.mjs).
 #  - No duplicates: a header set by two matching rules is JOINED with a comma (Cloudflare's own headers
 #    page), which would serve two policies, or one policy twice, and no longer the string written here.
 #    surface-check rule 13 fails if a second rule carries the CSP.

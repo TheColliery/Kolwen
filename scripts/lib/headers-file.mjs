@@ -80,3 +80,27 @@ export function robotsRailMisses(hostname, headers) {
   const v = headers.get('X-Robots-Tag');
   return PRODUCTION_HOSTS.has(hostname.toLowerCase()) && v !== null ? [`X-Robots-Tag is "${v}" on a production host; noindex belongs to preview hosts only`] : [];
 }
+
+// What to make of the response to a request for a path that does not exist. `bodyIsOurPage` says whether
+// its body is the committed web/404.html, which is what `assets.not_found_handling: 404-page` promises
+// Cloudflare will serve (its SSG/404 page: "Workers will serve the contents of the nearest `404.html`
+// file with a `404 Not Found` status"), and only that response is an asset response `_headers` is applied to.
+//
+// Measured 2026-09-25, LWK-211. On the production hosts a `/*.svg` path rule reached the 404 for a missing
+// `/x.svg` (Cache-Control: max-age=86400 on kolwen.com and on the workers.dev alias), so a path rule DOES
+// reach the fallback there. On a Workers Preview the same request got a 9-byte "Not found", none of the
+// asset service's default headers, no `_headers` rule (neither the path rule nor the host rule) and a
+// capitalised X-Robots-Tag that Cloudflare's Previews page documents as its own: the preview never ran
+// the 404-page handling, so nothing in `_headers` can decorate that response. Production is therefore held
+// to the page AND the headers; any other host is told, not failed, because the repo cannot change what a
+// platform preview does.
+export function notFoundVerdict(hostname, bodyIsOurPage, headers, declared) {
+  if (bodyIsOurPage) return { misses: servedHeaderMisses(hostname, headers, declared), notes: [] };
+  if (PRODUCTION_HOSTS.has(hostname.toLowerCase())) {
+    return { misses: ['the 404 body is not the committed web/404.html (assets.not_found_handling is 404-page, so an unmatched path must serve that page)'], notes: [] };
+  }
+  return {
+    misses: [],
+    notes: [`${hostname} answers an unmatched path with a platform 404, not web/404.html, so the header check on the 404 page was skipped on this host (measured on a Workers Preview, 2026-09-25: a 9-byte body, no asset default headers, no _headers rule applied). Production is held to both.`],
+  };
+}
