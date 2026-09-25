@@ -3,13 +3,18 @@
 // Closes LWK-077 O1-O3: Workers Builds deploys on push, outside Actions, and has silently
 // produced no build at all before (acf684f served stale content until a human curled it).
 //
-// Usage: node scripts/post-deploy-check.mjs [--wait <seconds>]
-// Exit 0 = every deployed file matches. Exit 1 = a mismatch, or nothing could be observed.
+// Usage: node scripts/post-deploy-check.mjs [--wait <seconds>] [--origin <url>]
+// Exit 0 = every deployed file matches and the served security headers are the ones web/_headers declares.
+// Exit 1 = a mismatch, or nothing could be observed. Exit 2 = a bad argument, or nothing declared to compare.
+// --origin checks ONE host instead of the two production origins: a preview URL, a workers.dev host, or a local
+// server. Zone-only headers (HSTS, nosniff) and the production noindex rail apply to kolwen.com hosts alone.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { parseHeadersFile, declaredSecurityHeaders, servedHeaderMisses, robotsRailMisses } from './lib/headers-file.mjs';
 
 const args = process.argv.slice(2);
 const w = args.indexOf('--wait');
+const o = args.indexOf('--origin');
 // R5: --wait with no value yielded NaN, the loop never ran, and the script printed the exact
 // words of a real outage. The one message this must be incapable of faking.
 let budget = 240;
@@ -29,7 +34,27 @@ const deadline = started + budget * 1000;
 // may not carry the same edge rules, so the second is tried when the first does not ANSWER --
 // a mismatching first origin is not second-guessed, by design. If NEITHER answers, that is
 // reported as an observation failure — never as a pass.
-const ORIGINS = ['https://kolwen.com/', 'https://kolwen.hetcreep.workers.dev/'];
+let ORIGINS = ['https://kolwen.com/', 'https://kolwen.hetcreep.workers.dev/'];
+if (o >= 0) {
+  let u = null;
+  try { u = new URL(args[o + 1]); } catch { /* reported below */ }
+  if (!u || !/^https?:$/.test(u.protocol)) { console.error(`--origin needs an http(s) URL, got ${JSON.stringify(args[o + 1])}`); process.exit(2); }
+  ORIGINS = [u.origin + '/'];
+}
+
+// LWK-211: what web/_headers declares for every response. Read once; a file that declares none of it is a
+// finding, not a pass, because a served-header check with nothing to compare against would print success.
+let DECLARED;
+try { DECLARED = declaredSecurityHeaders(parseHeadersFile(readFileSync('web/_headers', 'utf8'))); }
+catch (e) { console.error('post-deploy check cannot compare served headers: ' + e.message); process.exit(2); }
+// Per response: HTML must carry the declared headers (and, on a production host, the zone's HSTS and nosniff);
+// EVERY response from a production host must be free of X-Robots-Tag.
+const headerMisses = (origin, r, what, html) => {
+  const host = new URL(origin).hostname;
+  const out = robotsRailMisses(host, r.headers);
+  if (html) out.push(...servedHeaderMisses(host, r.headers, DECLARED));
+  return out.map(m => `${what}: ${m}`);
+};
 
 // R4: strip Cloudflare's injected script STRUCTURALLY — any script mentioning /cdn-cgi/ or its
 // __CF$cv$params global — rather than by a byte-prefix of today's minified output. A literal
@@ -102,6 +127,9 @@ async function probe(origin, until) {
     if (r404.status !== 404) {
       misses.push(`/${miss}: served HTTP ${r404.status}, expected 404 (assets.not_found_handling is 404-page)`);
     }
+    // The 404 page is an HTML response too, and the one a mistyped URL gets: it must carry the same headers.
+    // Only when it really is the 404 page: a 403 from an edge that refuses this client says nothing about our headers.
+    if (r404.status === 404) misses.push(...headerMisses(origin, r404, `/${miss} (the 404 page)`, true));
   }
   for (const f of files) {
     const url = origin + (f === 'index.html' ? '' : f) + '?cb=' + Date.now();
@@ -112,6 +140,8 @@ async function probe(origin, until) {
     // still throws, because those say nothing about whether the file exists.
     if (r.status === 404) { misses.push(`${f}: served HTTP 404 — the file is not in the deploy`); continue; }
     if (!r.ok) throw new Error(`HTTP ${r.status} on ${f}`);
+    // After the reachability throw above, so a refused client is still tried on the next origin.
+    misses.push(...headerMisses(origin, r, f, /\.html$/i.test(f)));
     if (TEXT.test(f)) {
       const live = normHtml(await r.text());
       const want = normHtml(readFileSync(`web/${f}`, 'utf8'));
@@ -144,7 +174,7 @@ while (Date.now() < deadline) {
     try {
       const misses = await probe(origin, until);
       if (misses.length === 0) {
-        console.log(`all ${files.length} deployed files match what is committed, via ${origin}`);
+        console.log(`all ${files.length} deployed files match what is committed, and every HTML response (including the 404 page) carries the CSP, Referrer-Policy and Permissions-Policy that web/_headers declares, via ${origin}`);
         matched = true;
       } else {
         lastMisses = { origin, misses };

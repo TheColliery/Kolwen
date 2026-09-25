@@ -139,6 +139,23 @@ the pointer to it.
 
 ### Added
 
+- Security headers on every response from `web/_headers`: a Content-Security-Policy, a
+  Referrer-Policy of `strict-origin-when-cross-origin`, and a Permissions-Policy that disables the
+  23 standardized features the page does not use. The policy has no `'unsafe-inline'`: the page's
+  one inline script and its three inline styles are admitted by hash. Google Fonts is the named
+  exception, pinned by origin, because its stylesheet varies by browser and cannot carry a fixed
+  hash. On kolwen.com the edge appends an inline bot-detection script to the page; it has
+  per-request contents, so this policy blocks it. Strict-Transport-Security and
+  `X-Content-Type-Options` stay at the Cloudflare zone, and `_headers` says so.
+- Rule 13 of `scripts/surface-check.mjs` recomputes the hash of every inline script and style in
+  the served pages and fails if `web/_headers` does not admit exactly those, so a one-byte edit to
+  the page's script can no longer silently stop it running. It also fails on `'unsafe-inline'` in
+  `script-src`, a policy that has lost its floor, a second rule carrying the policy, and an inline
+  event handler or `style=` attribute, and it fails rather than passes when it finds nothing to hash.
+- The post-deploy check now compares the headers the site serves against `web/_headers` on every
+  HTML response, the 404 page included, and checks that kolwen.com still carries the zone's
+  Strict-Transport-Security and `X-Content-Type-Options`. It fails if kolwen.com ever sends
+  `X-Robots-Tag`. `--origin <url>` points it at one host, so a preview URL can be checked before merge.
 - A ban on the retired contact address in every tracked text file, as rule 12 of
   `scripts/surface-check.mjs`, with no exceptions. It reads the plain address and six other
   spellings: full-width, percent-encoded, HTML numeric and named entities, a JS or JSON escape, and

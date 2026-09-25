@@ -19,6 +19,48 @@
 /404.html
   Cache-Control: public, max-age=0, must-revalidate
 
+# Security headers on EVERY response (LWK-211): the CSP floor, Referrer-Policy, Permissions-Policy.
+#
+# ONE rule, on `/*`, and the only rule that may carry these headers. Two reasons.
+#  - Coverage: the 404 the platform serves for an UNMATCHED path (`assets.not_found_handling`) is a
+#    response to a request for THAT path, so a rule keyed only on `/404.html` may not reach it (not
+#    measured; the safe reading). Measured 2026-09-25 instead: the host rule at the foot of this file
+#    sets `x-robots-tag` on a missing path, so a `/*` rule does reach the fallback response.
+#  - No duplicates: a header set by two matching rules is JOINED with a comma (Cloudflare's own headers
+#    page), which would serve two policies, or one policy twice, and no longer the string written here.
+#    surface-check rule 13 fails if a second rule carries the CSP.
+# Caps (Cloudflare): 100 rules, 2,000 characters per line. surface-check rule 13 checks both.
+#
+# WHERE THE OTHER TWO ARE SET. Strict-Transport-Security and X-Content-Type-Options are set by the
+# Cloudflare ZONE, not by this file (measured 2026-09-25 on kolwen.com: `max-age=15552000;
+# includeSubDomains` and `nosniff`; the workers.dev host carries neither, it does not pass the zone).
+# They are deliberately NOT set here: the zone value is the one served on the production host, and a
+# second copy here would ride beside it as a joined value nobody can compare to a single declared
+# string. post-deploy-check asserts both are PRESENT on the production origin, so a zone setting that
+# is switched off is caught, not assumed.
+#
+# CSP. Every origin below was read from the page and from the served Google Fonts stylesheet
+# (2026-09-25), not written from memory: the page links one stylesheet from fonts.googleapis.com, and
+# that stylesheet's @font-face rules load font files from fonts.gstatic.com only.
+#  - script-src: NO 'unsafe-inline'. The one inline script in index.html is admitted by its hash; any
+#    byte change breaks it, and surface-check rule 13 recomputes it. 'self' stays for same-origin
+#    scripts and Cloudflare's own same-origin /cdn-cgi/ paths; web/ ships no .js file (rule 7).
+#  - style-src: the three inline <style> blocks (two in index.html, one of them inside <noscript>, one
+#    in 404.html) are admitted by hash too, so there is no 'unsafe-inline' anywhere. The Google Fonts
+#    stylesheet varies by user agent, so it cannot carry a fixed integrity hash; it is the named
+#    exception, pinned by origin. Self-hosting the two IBM Plex families would retire it.
+#  - The ld+json block in index.html is a DATA block, not script: CSP's script-src does not govern it.
+#  - NAMED CONSEQUENCE: on kolwen.com the edge appends an inline bot-detection script to the HTML. It
+#    has per-request contents, so no hash can admit it, and this policy blocks it (a console report,
+#    nothing on the page). Turning that zone feature off removes the report; allowing it would need
+#    'unsafe-inline', which this policy refuses.
+# Permissions-Policy: every standardized feature the page does not use, names from the W3C
+# webappsec-permissions-policy feature registry (read 2026-09-25). The page uses none of them.
+/*
+  Content-Security-Policy: default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; script-src 'self' 'sha256-loIfZEEZsGRc+OUW6Qn2FqqBy/dPc0m0OlkLDXwFryM='; style-src 'sha256-ISb4QdfsQOLp1M+Ovnc1EM7Q4RVP8HKyQeEoJd7VHKg=' 'sha256-Gq8k+8DNN4RStI9EUl5KO/5BmbVotx6ZB0JmUcZtYJE=' 'sha256-QoMFVwdguQ6oxyAfNLEvhGddY6ZXY7ZCFtszch64EW8=' https://fonts.googleapis.com; font-src https://fonts.gstatic.com
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: accelerometer=(), autoplay=(), bluetooth=(), camera=(), display-capture=(), encrypted-media=(), fullscreen=(), geolocation=(), gyroscope=(), hid=(), idle-detection=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), serial=(), sync-xhr=(), usb=(), web-share=(), xr-spatial-tracking=()
+
 # noindex on PREVIEW hosts, never on production (LWK-198, owner ruling 2026-09-23).
 # A rule keyed on PATH cannot express this -- `_headers` matches by absolute HOST when the
 # left-hand side is an absolute URL (Cloudflare's own docs), so the host itself is the scope.
