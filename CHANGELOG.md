@@ -139,6 +139,12 @@ the pointer to it.
 
 ### Added
 
+- A ban on the retired contact address in every tracked text file, as rule 12 of
+  `scripts/surface-check.mjs`, with no exceptions. It reads the plain address and six other
+  spellings: full-width, percent-encoded, HTML numeric and named entities, a JS or JSON escape, and
+  the `[at]` or `(at)` word. The rule runs its own patterns against fixtures on every run, so a
+  pattern that cannot fire fails the build. It reads the current files, not git history, and does
+  not read images or fonts, an address split across lines, or one obfuscated beyond those spellings.
 - Workers Previews for the site. An empty `previews` block in `wrangler.jsonc` prepares it. A
   pull request gets a preview URL only if Workers Builds built it after Previews was switched on
   for the Worker in Cloudflare (2026-09-24), and only while that Cloudflare-side setting stays on.

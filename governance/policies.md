@@ -14,7 +14,8 @@
   that guard a published claim, and where it and the script disagree the script is right and this
   page is stale. Those classes today: a false trademark claim (the registration symbol, or an
   affirmative registration claim, in English or Thai); a filing-identifier-shaped number on a public
-  surface; an internal path, a private-repo reference or an absolute local path; Thai orthography
+  surface; an internal path, a private-repo reference or an absolute local path; the retired
+  contact address, in the spellings the script lists, on a tracked text file; Thai orthography
   faults; a broken landing-page structure; a brand-document contrast ratio that its own colour pair
   does not produce; a tracked file under the publish root that is not a declared shipped asset; a
   retyped copy of the IC label, or an IC-label key that `web/ic.json` should declare as required
