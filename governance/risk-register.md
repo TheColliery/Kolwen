@@ -12,7 +12,7 @@
 |---|---|---|
 | A false public claim ships | machine-checked on every push | `scripts/surface-check.mjs` |
 | A deploy silently fails or serves stale bytes | the live site is compared to the commit | `scripts/post-deploy-check.mjs` |
-| A page's inline script stops running, or the CSP drifts from what the page carries | the CSP hashes are recomputed from the HTML on every push, and the served headers are compared to `web/_headers` after deploy | `scripts/surface-check.mjs`, `scripts/post-deploy-check.mjs` |
+| A page's inline script stops running, or the CSP drifts from what the page carries | the CSP hashes are recomputed from the HTML on every push, and the served headers, the 404 page included on `kolwen.com`, are compared to `web/_headers` after deploy | `scripts/surface-check.mjs`, `scripts/post-deploy-check.mjs` |
 | An unauthorised package release | only a signed annotated tag can publish | `.github/workflows/publish-pypi.yml` |
 | A stored publishing credential leaks | there is none — OIDC Trusted Publishing | same workflow |
 | A secret is committed | scanned and blocked at push | GitHub secret scanning, push protection |
