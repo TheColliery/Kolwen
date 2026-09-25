@@ -31,13 +31,14 @@ Clone, install nothing, run them.
 
 ## Developing and testing
 
-Kolwen ships **zero dependencies**—Node.js built-ins only, Node 22+. There is no `npm install`,
-no lockfile, and no build step.
+Kolwen ships **no runtime dependency**—the scripts use Node.js built-ins only, Node 22+. There is
+no build step. `package.json` and `package-lock.json` exist only to pin Wrangler, the deploy tool;
+nothing here needs an `npm install` to run.
 
 ```bash
 node scripts/surface-check.mjs      # the room's own laws: claims, leakage, orthography, contrast
 node brand/make-brand.mjs           # regenerate every brand asset; must leave git clean
-node scripts/post-deploy-check.mjs  # compare the live site to what is committed (needs network)
+node scripts/post-deploy-check.mjs  # compare the live site to what is committed (needs network); --origin <url> checks one host
 ```
 
 The first two run in CI on every push and both must pass. The third runs after a deploy.

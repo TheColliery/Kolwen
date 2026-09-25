@@ -23,7 +23,11 @@ Two checks report on it:
 - **`Workers Builds: kolwen`**—Cloudflare's own check, on the commit. It says the build ran.
 - **`deploy-check` / "live page matches main"**—ours (`scripts/post-deploy-check.mjs`). It
   fetches every file under `web/` from the live origin and compares it to what is committed, so a
-  build that reports success but publishes nothing is still caught. It waits for publication
+  build that reports success but publishes nothing is still caught. It also compares the security
+  headers each HTML response serves (the 404 page included) against the ones `web/_headers`
+  declares, and fails if `kolwen.com` ever sends `X-Robots-Tag`. `--origin <url>` checks one host
+  instead of the two production origins, so a preview, a `workers.dev` host or a local server can
+  be checked before merge. It waits for publication
   rather than for a reply, because the deploy lands after CI starts. It runs on a push touching
   `web/`, `wrangler.jsonc`, **or the checker itself**—otherwise the commit that changes the gate
   would be the one commit the gate never runs on—and can also be started by hand from the
@@ -78,6 +82,32 @@ which have that shape. **Production `kolwen.com` never carries it**: `kolwen.com
   so the rule was not narrowed by guesswork.
 - **Cloudflare's Previews page is silent** on whether previews already send `X-Robots-Tag`
   (read 2026-09-23), which is why the rule exists.
+
+## Security headers
+
+`web/_headers` carries one rule, on `/*`, that sets a Content-Security-Policy, a Referrer-Policy and a
+Permissions-Policy on every response. The policy has no `'unsafe-inline'`: the page's inline script
+and inline styles are admitted by `sha256-` hash, so an edit to any of them changes its hash and the
+policy must change with it. `scripts/surface-check.mjs` recomputes those hashes from the served
+HTML and fails the build if the two disagree. Google Fonts is the one origin named in the policy,
+because its stylesheet varies by browser and cannot carry a fixed hash. The CSP is on `/*` and on no
+other rule, because Cloudflare joins a header set by two matching rules with a comma, which would
+serve two policies instead of one.
+
+- **HSTS and nosniff are not set in `_headers`.** The Cloudflare zone sets `Strict-Transport-Security`
+  and `X-Content-Type-Options: nosniff` on `kolwen.com` (measured 2026-09-25). A preview or
+  `workers.dev` host does not pass through the zone, so it carries neither. `deploy-check` asserts
+  both are present on `kolwen.com` and does not ask for them elsewhere.
+- **Cloudflare's injected script is refused on `kolwen.com`.** The edge appends an inline
+  bot-detection script to the page. Its contents differ per request, so it cannot be admitted by
+  hash, and this policy refuses it; the browser console reports the refusal. Cloudflare's
+  JavaScript detections page (developers.cloudflare.com/cloudflare-challenges/challenge-types/javascript-detections/,
+  read 2026-09-25) says no enforcement happens unless a WAF rule uses the detection result. This is
+  a known and accepted effect, recorded for the owner; nothing in this repository can change it.
+- **The 404 page.** A request for a path that does not exist gets the 404 fallback, and the `/*`
+  rule is meant to cover it. That the served 404 carries the policy has not been observed live; the
+  first preview, checked with `node scripts/post-deploy-check.mjs --origin <preview URL>`, is the
+  first evidence.
 
 ## Wrangler is pinned
 
