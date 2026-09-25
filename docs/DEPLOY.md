@@ -27,7 +27,11 @@ Two checks report on it:
   headers each HTML response serves against the ones `web/_headers` declares, and fails if
   `kolwen.com` ever sends `X-Robots-Tag`. On `kolwen.com` an unmatched path must serve the
   committed `web/404.html` with those headers, or the check fails. On any other host a 404 that is
-  not that page is noted and skipped, not failed (see "The 404 page" below). `--origin <url>` checks one host
+  not that page is noted and skipped, not failed (see "The 404 page" below); the pass line then
+  says the unmatched-path 404 was NOT checked on that host. **Those production asserts (the
+  `kolwen.com` noindex rail, the 404 page, and the zone's HSTS and nosniff below) run only when the
+  check can reach `kolwen.com`. From a CI runner it cannot (`docs/TRUST.md`), so `deploy-check` in
+  CI reads the `workers.dev` alias and does not run them; they run when the check is run by hand.** `--origin <url>` checks one host
   instead of the two production origins, so a preview, a `workers.dev` host or a local server can
   be checked before merge. It waits for publication
   rather than for a reply, because the deploy lands after CI starts. It runs on a push touching
@@ -101,7 +105,8 @@ serve two policies instead of one.
 - **HSTS and nosniff are not set in `_headers`.** The Cloudflare zone sets `Strict-Transport-Security`
   and `X-Content-Type-Options: nosniff` on `kolwen.com` (measured 2026-09-25). A preview or
   `workers.dev` host does not pass through the zone, so it carries neither. `deploy-check` asserts
-  both are present on `kolwen.com` and does not ask for them elsewhere.
+  both are present on `kolwen.com` and does not ask for them elsewhere. That assert runs only when
+  the check can reach `kolwen.com`, which a CI runner cannot, so it runs on a hand run.
 - **Cloudflare's injected script is refused on `kolwen.com`.** The edge appends an inline
   bot-detection script to the page. Its contents differ per request, so it cannot be admitted by
   hash, and this policy refuses it; the browser console reports the refusal. Cloudflare's
@@ -112,7 +117,7 @@ serve two policies instead of one.
   - **Production.** `_headers` path rules are applied to the 404 fallback: a request for a missing
     `.svg` came back with the `Cache-Control` that `/*.svg` sets. So the `/*` rule covers the
     404 page there, and `deploy-check` requires `kolwen.com` to serve the committed `web/404.html`
-    with the declared headers.
+    with the declared headers, when it can reach `kolwen.com` (a hand run, not CI).
   - **A Workers Preview.** An unmatched path got a 9-byte platform "Not found" instead of
     `web/404.html`, with no `_headers` rule applied, not the path rules and not the host rule. Its
     `X-Robots-Tag: noindex` is Cloudflare's own. So a preview's 404 carries none of the policy.

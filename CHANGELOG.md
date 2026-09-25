@@ -157,8 +157,11 @@ the pointer to it.
   Strict-Transport-Security and `X-Content-Type-Options`. It fails if kolwen.com ever sends
   `X-Robots-Tag`. `--origin <url>` points it at one host, so a preview URL can be checked before merge.
   On kolwen.com an unmatched path must serve the committed `404.html` with those headers. A Workers
-  Preview answers such a path with its own bare 404, so there the check prints a note and skips the
-  404 page's headers instead of failing.
+  Preview answers such a path with its own bare 404, so there the check prints a note, skips the
+  404 page's headers instead of failing, and its pass line says the 404 was not checked. The
+  kolwen.com asserts (Strict-Transport-Security, `X-Content-Type-Options`, the `X-Robots-Tag` rail
+  and the 404 page) run only when the check can reach kolwen.com, which a CI runner cannot
+  (kolwen.com refuses it); they run when the check is run by hand.
 - A ban on the retired contact address in every tracked text file, as rule 12 of
   `scripts/surface-check.mjs`, with no exceptions. It reads the plain address and six other
   spellings: full-width, percent-encoded, HTML numeric and named entities, a JS or JSON escape, and
