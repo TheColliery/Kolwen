@@ -340,11 +340,10 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
   }
 }
 
-// ── 12. The owner's private login address never returns to a published file ──
-// LWK-209. Once the role addresses were published, the address at this domain whose local part
-// is not a role name became the owner's PRIVATE login, not a published contact; the published
-// channels are the role addresses.
-// Rule 5 only EXPECTS the page's info@ link, which proves nothing about the private address coming
+// ── 12. The retired contact address never returns to a published file ──────
+// LWK-209. The role addresses replaced one address at this domain as the published contact; that
+// address is retired, and the published channels are the role addresses.
+// Rule 5 only EXPECTS the page's info@ link, which proves nothing about the retired address coming
 // back. This bans it outright, with ZERO allowlist: no published file has a legitimate reason to
 // carry it, so the ban itself is the proof it cannot return.
 //
@@ -362,17 +361,35 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
 // NON-VACUITY, three parts, because this room's scar is a gate that lies: (a) every spelling above is
 // run through its own pattern AT RUN TIME, so a pattern that cannot fire fails the build by name;
 // (b) a set of near-misses must NOT match, so an over-broad pattern fails the same way; (c) an empty
-// scanned set, or one that lacks the three files a reader actually meets, is a finding, not a pass.
+// scanned set, or one that lacks any of five anchor files (three a reader meets, two outside the
+// PUBLISHED set), is a finding, not a pass.
 //
 // STATED LIMITS, not fixed here: an IMAGE of the address (png/ico/font files are never read, og.png
 // included); an address split across two lines (the bracket form tolerates spaces and tabs only);
 // the local part or the domain obfuscated (`[dot]`, entity-encoded letters, a string assembled by
-// concatenation in script); double encoding (`%2540`); base64 or any other wrapper; and any surface
-// outside this repository (registry metadata, a dashboard, an edge rule). A different address at
-// another host, or a subdomain of this one, is a different address and is deliberately not matched.
+// concatenation in script); double encoding (`%2540`); base64 or any other wrapper; any surface
+// outside this repository (registry metadata, a dashboard, an edge rule); and git HISTORY: the rule
+// reads the tree, and the address stays in commits made before it was retired. A different address
+// at another host, or a subdomain of this one, is a different address and is deliberately not matched.
+//
+// CODEQL (js/regex/missing-regexp-anchor, alert on the HOST fragment, LWK-209 bounce 1). The query
+// treats a constant string that ends in a top-level domain as a hostname pattern and fires when no
+// `^` or `$` appears anywhere in it; it reads each constant fragment that flows into a RegExp on its
+// own, and this fragment is a hostname by construction. This is a detector, not a URL validator, but
+// the alert is fixed rather than dismissed, by ANCHORING it in the form the query recognises: the
+// fragment now ends `(?:$|...)`. The `$|` branch is semantically redundant (a negative lookahead
+// already holds at the end of the input, and there is no `m` flag), and is there so the fragment
+// carries an explicit end anchor. Read at the query source (github/codeql main, 2026-09-25); NOT
+// verified by running CodeQL here, so the PR's own CodeQL run is the verification.
 {
   const LOCAL = 'con' + 'tact';
-  const HOST = 'kol' + 'wen\\.' + 'com';
+  // Start of the local part: not preceded by a character of an address's own alphabet (a longer
+  // local part is a different address), EXCEPT right after an escape, whose last character is
+  // alphanumeric: `%20`, `%3A`, a backslash then n, r or t, a backslash-u and four hex digits.
+  const START = '(?:(?<![A-Za-z0-9._%+-])|(?<=%[0-9A-Fa-f]{2})|(?<=\\\\[nrt])|(?<=\\\\u[0-9A-Fa-f]{4}))';
+  // End of the domain: the end of the input, or not followed by a longer domain (`-x`, `x`) and not
+  // followed by a dot and more label characters (`.au`), while a sentence-final dot is still a match.
+  const HOST = 'kol' + 'wen\\.' + 'com' + '(?:$|(?![A-Za-z0-9-])(?!\\.[A-Za-z0-9]))';
   const SEPARATORS = {
     'plain @': '@',
     'full-width @ (U+FF20)': '＠',
@@ -382,11 +399,11 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
     'JS/JSON escape for @': '\\\\u0*40|\\\\x40',
     '[at] / (at) word': '[ \\t]*[\\[(][ \\t]*at[ \\t]*[\\])][ \\t]*',
   };
-  // The lookbehind stops a longer local part (a different address) matching; the lookahead stops a
-  // longer domain doing the same.
+  // START stops a longer local part (a different address) matching; HOST's tail stops a longer
+  // domain doing the same.
   const FORMS = Object.entries(SEPARATORS).map(([label, sep]) => [
     label,
-    new RegExp('(?<![A-Za-z0-9._%+-])' + LOCAL + '(?:' + sep + ')' + HOST + '(?![A-Za-z0-9-])', 'i'),
+    new RegExp(START + LOCAL + '(?:' + sep + ')' + HOST, 'i'),
   ]);
 
   // Fixtures use their OWN fragments, not LOCAL/HOST above: a fixture derived from the same constant as the
@@ -407,11 +424,20 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
     ['[at] / (at) word', `${LF}[at]${H}`],
     ['[at] / (at) word', `${LF} (at) ${H}`],
     ['[at] / (at) word', `${LF}[ AT ]${H}`],
+    // After an escape whose last character is alphanumeric, and at a sentence end or end of input.
+    ['percent-encoded @', `mailto:%20${LF}%40${H}`],
+    ['plain @', `?body=Write%20to%20${LF}@${H}`],
+    ['plain @', `"x\\n${LF}@${H}"`],
+    ['plain @', `"x\\u0020${LF}@${H}"`],
+    ['plain @', `write to ${LF}@${H}.`],
+    ['plain @', `${LF}@${H}. Next sentence`],
   ];
   const SHOULD_NOT_MATCH = [
     `info@${H}`, `security@${H}`, `privacy@${H}`,
     `${LF}@example.com`, `${LF}@${H}any`, `re${LF}@${H}`, `${LF}@mail.${H}`,
     `${LF}${H}`, `hello (at) ${H}`, `${LF} at ${H}`,
+    // A longer domain behind a dot, and an escape-lookalike that is a longer local part.
+    `${LF}@${H}.au`, `${LF}@${H}.co.uk`, `%2${LF}@${H}`, `\\x${LF}@${H}`,
   ];
   const cannotFire = new Set(), overBroad = new Set();
   for (const [label, sample] of SHOULD_MATCH) {
@@ -429,14 +455,16 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
   if (scanned.length === 0) {
     note('git ls-files', 'lists no scannable text file, so rule 12 checked nothing — this CHECK is now empty, not the surface proven clean');
   }
-  for (const anchor of ['web/index.html', 'README.md', 'CHANGELOG.md']) {
+  // The first three are PUBLISHED files a reader meets. The last two sit OUTSIDE the PUBLISHED set
+  // (`.github/`, `scripts/`), so narrowing the scan to PUBLISHED fails here instead of passing silently.
+  for (const anchor of ['web/index.html', 'README.md', 'CHANGELOG.md', '.github/workflows/ci.yml', 'scripts/post-deploy-check.mjs']) {
     if (!scanned.includes(anchor)) note(anchor, 'is not among the files rule 12 scans (missing, untracked or excluded), so this CHECK does not cover a surface a reader meets');
   }
   for (const f of scanned) {
     const s = read(f);
     for (const [label, re] of FORMS) {
       const m = re.exec(s);
-      if (m) note(f, `line ${s.slice(0, m.index).split('\n').length}: the owner's private login address appears (${label}) — it is not a published contact; use a role address`);
+      if (m) note(f, `line ${s.slice(0, m.index).split('\n').length}: the retired contact address appears (${label}) — use a role address`);
     }
   }
 }
