@@ -150,18 +150,26 @@ the pointer to it.
   job. The hooks fail closed when node or the script is missing.
 - Security headers on every response from `web/_headers`: a Content-Security-Policy, a
   Referrer-Policy of `strict-origin-when-cross-origin`, and a Permissions-Policy that disables the
-  23 standardized features the page does not use. The policy has no `'unsafe-inline'`: the page's
-  one inline script and its three inline styles are admitted by hash. Google Fonts is the named
-  exception, pinned by origin, because its stylesheet varies by browser and cannot carry a fixed
-  hash. On kolwen.com the edge appends an inline bot-detection script to the page; it has
+  23 standardized features the page does not use, and, since the cross-origin set, a
+  `Cross-Origin-Opener-Policy` and a `Cross-Origin-Resource-Policy`, both `same-origin`, with
+  `form-action 'self'` added to the policy. The policy has no `'unsafe-inline'`: the page's
+  one inline script and its three inline styles are admitted by hash. Two origins are named
+  exceptions, pinned by origin or path, because neither can carry a fixed hash: Google Fonts (its
+  stylesheet varies by browser) and the Cloudflare Web Analytics beacon, admitted in `script-src`
+  by the path prefix `https://static.cloudflareinsights.com/beacon.min.js/` (Cloudflare does not
+  support version-pinning it, so it carries no integrity hash). `Cross-Origin-Embedder-Policy` is
+  not set, and `_headers` says why. On kolwen.com the edge appends an inline bot-detection script to the page; it has
   per-request contents, so this policy blocks it. Strict-Transport-Security and
   `X-Content-Type-Options` stay at the Cloudflare zone, and `_headers` says so.
 - Rule 13 of `scripts/surface-check.mjs` recomputes the hash of every inline script and style in
   the served pages and fails if `web/_headers` does not admit exactly those, so a one-byte edit to
   the page's script can no longer silently stop it running. It also fails on `'unsafe-inline'` in
-  `script-src`, a policy that has lost its floor, a second rule carrying the policy, and an inline
+  `script-src`, a policy that has lost its floor (now including `form-action 'self'`), a missing
+  or weakened `Cross-Origin-Opener-Policy` or `Cross-Origin-Resource-Policy`, a second rule
+  carrying the policy, and an inline
   event handler or `style=` attribute, and it fails rather than passes when it finds nothing to hash.
-- The post-deploy check now compares the headers the site serves against `web/_headers` on every
+- The post-deploy check now compares the five headers the site serves (the Content-Security-Policy,
+  Referrer-Policy, Permissions-Policy and the two cross-origin ones) against `web/_headers` on every
   HTML response, the 404 page included, and checks that kolwen.com still carries the zone's
   Strict-Transport-Security and `X-Content-Type-Options`. It fails if kolwen.com ever sends
   `X-Robots-Tag`. `--origin <url>` points it at one host, so a preview URL can be checked before merge.
@@ -171,6 +179,9 @@ the pointer to it.
   kolwen.com asserts (Strict-Transport-Security, `X-Content-Type-Options`, the `X-Robots-Tag` rail
   and the 404 page) run only when the check can reach kolwen.com, which a CI runner cannot
   (kolwen.com refuses it); they run when the check is run by hand.
+- Every workflow job now declares `timeout-minutes`, sized from the durations of recent runs (the
+  evidence is a comment on each line; `publish-pypi.yml` has never run, so its figure is unmeasured
+  and says so), and `.coalboard/` is ignored.
 - A ban on the retired contact address in every tracked text file, as rule 12 of
   `scripts/surface-check.mjs`, with no exceptions. It reads the plain address and six other
   spellings: full-width, percent-encoded, HTML numeric and named entities, a JS or JSON escape, and

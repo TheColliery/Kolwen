@@ -97,8 +97,14 @@ which have that shape. **Production `kolwen.com` never carries it**: `kolwen.com
 Permissions-Policy on every response. The policy has no `'unsafe-inline'`: the page's inline script
 and inline styles are admitted by `sha256-` hash, so an edit to any of them changes its hash and the
 policy must change with it. `scripts/surface-check.mjs` recomputes those hashes from the served
-HTML and fails the build if the two disagree. Google Fonts is the one origin named in the policy,
-because its stylesheet varies by browser and cannot carry a fixed hash. The CSP is on `/*` and on no
+HTML and fails the build if the two disagree. Two origins are named in the policy because neither
+can carry a fixed hash: Google Fonts (its stylesheet varies by browser) and the Cloudflare Web
+Analytics beacon, admitted in `script-src` by the path prefix
+`https://static.cloudflareinsights.com/beacon.min.js/` (Cloudflare does not support version-pinning
+the beacon, so it has no integrity hash). The policy also sets `form-action 'self'`, and the same
+rule sets `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Resource-Policy: same-origin`.
+`Cross-Origin-Embedder-Policy` is not set; the reason is in `web/_headers`. The deploy check reads
+all five headers from the live response. The CSP is on `/*` and on no
 other rule, because Cloudflare joins a header set by two matching rules with a comma, which would
 serve two policies instead of one.
 
