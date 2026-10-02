@@ -189,7 +189,7 @@ while (Date.now() < deadline) {
         // platform 404), the line drops "including the 404 page" and the note prints beside it on the same stream.
         const skipped404 = NOTES.size > 0;
         for (const n of NOTES) console.log('note: ' + n);
-        console.log(`all ${files.length} deployed files match what is committed, and every HTML response ${skipped404 ? '(the unmatched-path 404 was NOT checked on this host, see the note above)' : '(including the 404 page)'} carries the CSP, Referrer-Policy and Permissions-Policy that web/_headers declares, via ${origin}`);
+        console.log(`all ${files.length} deployed files match what is committed, and every HTML response ${skipped404 ? '(the unmatched-path 404 was NOT checked on this host, see the note above)' : '(including the 404 page)'} carries the CSP, Referrer-Policy, Permissions-Policy, Cross-Origin-Opener-Policy and Cross-Origin-Resource-Policy that web/_headers declares, via ${origin}`);
         matched = true;
       } else {
         lastMisses = { origin, misses };

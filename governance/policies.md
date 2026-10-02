@@ -20,7 +20,8 @@
   does not produce; a tracked file under the publish root that is not a declared shipped asset; a
   retyped copy of the IC label, or an IC-label key that `web/ic.json` should declare as required
   text and leaves empty or undeclared; a Content-Security-Policy that no longer admits the inline script and styles the pages
-  carry, or that has lost its floor; and a legal draft (`PRIVACY.md`, `TERMS.md`) whose
+  carry, or that has lost its floor (the `form-action` directive included) or the two cross-origin
+  headers, or whose `script-src` lacks the one exact Web Analytics beacon source or carries any other `cloudflareinsights` source (it does not refuse other `script-src` sources); and a legal draft (`PRIVACY.md`, `TERMS.md`) whose
   labelled gap has lost the marker saying counsel has not cleared it. **Every claim outside the
   script's rules—what a document says a feature does, for one—is held by review, not by a
   checker.** The rule is not softened to fit the machine; the gap is stated.

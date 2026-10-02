@@ -27,6 +27,7 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 15 # LWK-216: never run yet, so unmeasured: an upper guess
     environment: pypi
     # A job-level `permissions:` block REPLACES the workflow-level one, it never merges with it
     # (LWK-168). Without `contents: read` here, `contents` is `none` inside this job and the gate's

@@ -554,7 +554,7 @@ const CSP_STATS = { scripts: 0, styles: 0 };
       if (pattern !== '/*') note(HEADERS, `line ${line}: the CSP is on "${pattern}", not "/*" — the 404 served for an unmatched path would not carry it`);
       const { dirs, repeats } = lib.parsePolicy(value);
       for (const r of new Set(repeats)) note(HEADERS, `line ${line}: the CSP names ${r} twice; a browser keeps only the first`);
-      const exact = { 'default-src': ["'self'"], 'object-src': ["'none'"], 'base-uri': ["'self'"], 'frame-ancestors': ["'none'"] };
+      const exact = { 'default-src': ["'self'"], 'object-src': ["'none'"], 'base-uri': ["'self'"], 'frame-ancestors': ["'none'"], 'form-action': ["'self'"] };
       for (const [d, toks] of Object.entries(exact)) {
         const got = dirs.get(d);
         if (!got || got.join(' ') !== toks.join(' ')) note(HEADERS, `line ${line}: the CSP floor needs ${d} ${toks.join(' ')}, found ${got ? got.join(' ') : 'nothing'}`);
@@ -562,6 +562,14 @@ const CSP_STATS = { scripts: 0, styles: 0 };
       for (const d of ['script-src', 'default-src']) {
         for (const bad of ["'unsafe-inline'", "'unsafe-eval'"]) if ((dirs.get(d) || []).includes(bad)) note(HEADERS, `line ${line}: ${d} carries ${bad}`);
       }
+      // LWK-223: the Web Analytics beacon is admitted by ONE slash-terminated source. Without the slash CSP
+      // path matching is exact and the edge-injected, versioned beacon path is blocked (analytics goes blind);
+      // the bare host would admit every script that host serves. The served CSP is compared with the declared
+      // one, so an edit to the declaration moves both and only this check holds the string.
+      const BEACON_SRC = 'https://static.cloudflareinsights.com/beacon.min.js/';
+      const scriptToks = dirs.get('script-src') || [];
+      if (!scriptToks.includes(BEACON_SRC)) note(HEADERS, `line ${line}: script-src needs the source ${BEACON_SRC} (trailing slash included), found ${scriptToks.filter(t => /cloudflareinsights/i.test(t)).join(' ') || 'none'}`);
+      for (const t of scriptToks) if (/cloudflareinsights/i.test(t) && t !== BEACON_SRC) note(HEADERS, `line ${line}: script-src carries ${t}; the only cloudflareinsights source allowed is ${BEACON_SRC}`);
       for (const [kind, dir] of [['script', 'script-src'], ['style', 'style-src']]) {
         const toks = dirs.get(dir);
         if (!toks) { if (want[kind].size) note(HEADERS, `line ${line}: the CSP has no ${dir}, but the served HTML has inline ${kind}s that need admitting`); continue; }
@@ -574,6 +582,10 @@ const CSP_STATS = { scripts: 0, styles: 0 };
       const block = rules.find(r => r.pattern === pattern);
       const ref = lib.declarations([block], 'Referrer-Policy')[0];
       if (!ref || ref.value !== 'strict-origin-when-cross-origin') note(HEADERS, `the "${pattern}" rule needs Referrer-Policy: strict-origin-when-cross-origin, found ${ref ? ref.value : 'none'}`);
+      for (const [h, v] of [['Cross-Origin-Opener-Policy', 'same-origin'], ['Cross-Origin-Resource-Policy', 'same-origin']]) {
+        const d = lib.declarations([block], h)[0];
+        if (!d || d.value !== v) note(HEADERS, `the "${pattern}" rule needs ${h}: ${v}, found ${d ? d.value : 'none'}`);
+      }
       const pp = lib.declarations([block], 'Permissions-Policy')[0];
       if (!pp || !/\w+=\(\)/.test(pp.value)) note(HEADERS, `the "${pattern}" rule needs a Permissions-Policy that disables features (name=()), found ${pp ? 'none that does' : 'none'}`);
     }

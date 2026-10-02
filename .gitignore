@@ -28,3 +28,6 @@ pipelines/
 
 # SELF-DECAP raw replies (LWK-132) — local evidence of a run, never shipped
 .decap-runs/
+
+# The coalboard consensus tool writes its reports and staging here; local evidence, never shipped.
+.coalboard/
