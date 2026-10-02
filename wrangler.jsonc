@@ -2,6 +2,18 @@
 	// Kolwen landing — Cloudflare Worker (static assets)
 	// Deployed automatically by Workers Builds on push to main.
 	"name": "kolwen",
+	// LWK-220 (Cloudflare audit WP F1): the production alias `kolwen.hetcreep.workers.dev` does not pass the
+	// zone and accepted TLS 1.0 and 1.1 when measured on 2026-09-26. kolwen.com is the one production origin.
+	// Set here rather than only in the dashboard: Cloudflare says a dashboard-only switch is re-enabled by the next deploy.
+	"workers_dev": false,
+	// Version URLs and workers.dev Preview URLs stay ON, stated explicitly because their default FOLLOWS workers_dev.
+	// Cloudflare's Version URLs page ("Enable or disable Version URLs"): "When no Version URL setting exists, Version
+	// URLs follow the same default as your `workers.dev` route ... If `workers_dev` is disabled, Version URLs are
+	// disabled by default." Its configuration page, `preview_urls`: "If omitted, Wrangler does not change an existing
+	// setting. If no setting exists, its initial value depends on `workers_dev`." So disabling workers_dev while
+	// leaving this out could switch previews off on a fresh state. Whether previews stay public is an open OWNER
+	// decision (LWK-198 ruling), and this setting changes nothing about it.
+	"preview_urls": true,
 	// compatibility_date and assets stay TOP-LEVEL, never duplicated inside `previews` below --
 	// Cloudflare's own guidance: "Keep at the top level, even with an ASSETS binding." Both
 	// apply to previews automatically because they are not per-environment settings.

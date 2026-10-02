@@ -109,8 +109,9 @@
 # can make this rule match it -- verified by a local script re-implementing the documented
 # matching semantics against 8 cases, including kolwen.com and www.kolwen.com (no match).
 # NAMED RESIDUAL: this also matches kolwen.hetcreep.workers.dev, production's OWN bare
-# workers.dev alias (used as post-deploy-check.mjs's fallback origin) -- not kolwen.com, but a
-# production-adjacent surface. Left in rather than narrowed further: no documented `_headers`
+# workers.dev alias -- not kolwen.com, but a production-adjacent surface. (LWK-220 item 3 sets
+# `workers_dev: false` in wrangler.jsonc, which disables that alias on the next deploy; this
+# note stays true for any host of that shape until then.) Left in rather than narrowed further: no documented `_headers`
 # syntax can express "ends with -kolwen" within one label (placeholders are whole-label-only,
 # `*` is unconditionally greedy to the end of the pattern) -- narrowing here would be a rule
 # whose scope cannot be proven, and an unprovable scope is not shipped.
