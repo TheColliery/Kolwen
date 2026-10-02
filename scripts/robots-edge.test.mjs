@@ -55,7 +55,11 @@ test('fails when a non-comment line sits ahead of the managed block', () => {
 });
 
 test('fails when the fences are gone, so anything prepended is not accepted as the managed block', () => {
-  const noFence = EDGE.replace(/# (BEGIN|END) Cloudflare Managed [Cc]ontent\n/g, '');
+  // Build the fixture line by line: drop the two fence lines, keep every other line of the edge block.
+  const fenceLines = new Set(['# begin cloudflare managed content', '# end cloudflare managed content']);
+  const kept = EDGE.split('\n').filter(line => !fenceLines.has(line.toLowerCase()));
+  assert.equal(kept.length, EDGE.split('\n').length - 2);
+  const noFence = kept.join('\n');
   assert.equal(robotsVerdict(noFence + OURS, OURS).ok, false);
 });
 
