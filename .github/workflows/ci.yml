@@ -1,9 +1,10 @@
 name: CI
 
 # Diverges from the flock template in its JOB SET, deliberately: the template ships one `gate` job
-# for a skill repo (build, verify, test). This repo has no build and no test suite, so it ships
-# `assets` (regenerate every brand file, fail on any byte difference) and `surface` (the room's
-# published-claim laws). `all-green` is the stable required context either way.
+# for a skill repo (build, verify, test). This repo has no build and no product test suite, so it ships
+# `assets` (regenerate every brand file, fail on any byte difference), `surface` (the room's
+# published-claim laws) and `secret-scan` (the house scanner's own tests, then the scan). `all-green` is
+# the stable required context either way.
 
 on:
   push:
@@ -116,11 +117,27 @@ jobs:
         run: node scripts/decap-battery.mjs --label
       - name: battery self-test (fixture-free legs always; fixture leg skips loudly)
         run: node scripts/decap-battery.mjs --self-test
+  secret-scan:
+    name: secret scan (LWK-239)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      # The house secret scan. The scanner's own tests (an EXPLICIT file list, never the directory form, which breaks
+      # on Node 24) and the gate's spawn tests run first; then the gate itself in tree mode, the only mode a CI
+      # checkout can run (it has no pushed range, and the gate says so in its PASS line). The push-time scan of
+      # added lines, commit messages and tags runs in .githooks/pre-push on the pusher's box.
+      - run: node --test scripts/secret-scan.test.mjs scripts/secret-gate.test.mjs
+      - run: node scripts/secret-gate.mjs
   # A single STABLE required-check context (job names drift; this does not).
   # Rulesets require `all-green`, never the per-job names.
   all-green:
     name: all-green
-    needs: [assets, surface, reply-language, clone-test]
+    needs: [assets, surface, reply-language, clone-test, secret-scan]
     if: always()
     runs-on: ubuntu-latest
     # LWK-180. `if: always()` makes this job run whatever its needs did, so it must judge them: a

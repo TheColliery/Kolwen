@@ -20,7 +20,7 @@ Measured facts, each traceable to something in this repository or to a live chec
 | Tags cannot be altered or deleted | the `tag-immutable` ruleset, no bypass |
 | Code is scanned on every push | CodeQL, plus OpenSSF Scorecard |
 | Dependencies are watched and patched | Dependabot, with CI-gated auto-merge |
-| Secrets are scanned and blocked at push | GitHub secret scanning with push protection |
+| Secrets are blocked at push (GitHub push protection, the house hooks) and checked after push (the house scan in CI) | GitHub secret scanning with push protection, plus the house scan (`scripts/secret-gate.mjs`) in CI and in `.githooks/`. The hooks run only in a clone that ran `git config core.hooksPath .githooks`, and `git push --no-verify` bypasses them |
 | Vulnerabilities can be reported privately | GitHub private vulnerability reporting, and `SECURITY.md` |
 
 ## 2 · Encryption and keys

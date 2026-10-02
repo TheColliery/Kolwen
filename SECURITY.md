@@ -79,7 +79,7 @@ checkable rather than asserted:
   with write scopes narrowed to the single job that needs them.
 - **No `pull_request_target`, no `workflow_run`**, and no attacker-controllable context
   interpolated into a shell command.
-- **Secret scanning and push protection are enabled on this repository.**
+- **Secret scanning and push protection are enabled on this repository.** The house secret scan (`scripts/secret-gate.mjs`) also runs in CI and, in a clone that enabled `core.hooksPath`, before each commit and push; it covers kinds GitHub does not scan for free, such as a private key or a connection string. `git push --no-verify` bypasses the hooks.
 - CodeQL, OpenSSF Scorecard and Dependabot run here. A ruleset on `main` requires the
   `all-green` and `analyze (javascript)` checks and blocks deletion and force-push—**and the
   maintainer's admin role can bypass it, and does**, because this is a one-person repository
