@@ -55,6 +55,9 @@
 #    source (no trailing slash) does not match. CSP path matching treats a source path that ends in `/` as
 #    a prefix, so `https://static.cloudflareinsights.com/beacon.min.js/` admits that path and any version
 #    under it and nothing else on the host. (The host alone would admit every script that host serves.)
+#    The unversioned `/beacon.min.js` itself is NOT admitted (W3C CSP3, path-part matching: a source path
+#    with more segments than the request path does not match), which matters only if the site ever moves to
+#    Cloudflare's manual snippet. surface-check rule 13 holds this exact source string.
 #    No `connect-src` is added: with automatic injection the beacon posts to this same origin's
 #    /cdn-cgi/rum, which `default-src 'self'` already covers (Cloudflare Web Analytics FAQ, "What do I need
 #    to add to my Content Security Policy": for automatic injection "ensure your connect-src includes 'self'").
