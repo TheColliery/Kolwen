@@ -37,11 +37,15 @@ nothing here needs an `npm install` to run.
 
 ```bash
 node scripts/surface-check.mjs      # the room's own laws: claims, leakage, orthography, contrast
+node scripts/secret-gate.mjs        # the house secret scan over the tracked tree (the hooks also scan what a commit or push adds)
+node --test scripts/secret-scan.test.mjs scripts/secret-gate.test.mjs   # the scanner's and the gate's own tests
 node brand/make-brand.mjs           # regenerate every brand asset; must leave git clean
 node scripts/post-deploy-check.mjs  # compare the live site to what is committed (needs network); --origin <url> checks one host
 ```
 
-The first two run in CI on every push and both must pass. The third runs after a deploy.
+The surface check, the brand byte-identity check and the secret gate (with its two test files) run in CI on every push and must pass. The post-deploy check runs after a deploy.
+
+The repository also ships a `pre-commit` and a `pre-push` hook in `.githooks/` that run the secret scan, then the surface check. `pre-commit` scans the tracked tree; `pre-push` scans the added lines, commit messages and tags of every pushed commit. It runs only in a clone that ran `git config core.hooksPath .githooks`, and `git push --no-verify` bypasses it; GitHub's server-side secret scanning and push protection stay this repository's other wall.
 
 ### Rules that are not style preferences
 
