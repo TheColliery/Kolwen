@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // secret-gate — the pre-push secret scan a PUBLIC repository carries (LWK-239).
 //
-// WHY: GitHub scans a public repository for PROVIDER tokens for free, but a private key, a connection string or an
-// HTTP authentication header is a "generic" pattern that GitHub scans for only on a paid plan.
+// WHY: GitHub scans a public repository for PROVIDER tokens for free; a private key, a connection string or an
+// HTTP authentication header are kinds its free public-repository scan is not documented to cover.
 // This gate is the house's own wall for those: it runs the portable scanner (scripts/lib/secret-scan.mjs, byte-equal in
 // every carrier) before a commit and before a push.
 //

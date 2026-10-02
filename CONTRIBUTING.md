@@ -45,7 +45,7 @@ node scripts/post-deploy-check.mjs  # compare the live site to what is committed
 
 The surface check, the brand byte-identity check and the secret gate (with its two test files) run in CI on every push and must pass. The post-deploy check runs after a deploy.
 
-The repository also ships a `pre-commit` and a `pre-push` hook in `.githooks/` that run the secret scan, then the surface check. `pre-commit` scans the tracked tree; `pre-push` scans the added lines, commit messages and tags of every pushed commit. It runs only in a clone that ran `git config core.hooksPath .githooks`, and `git push --no-verify` bypasses it; GitHub's server-side secret scanning and push protection stay this repository's other wall.
+The repository also ships a `pre-commit` and a `pre-push` hook in `.githooks/` that run the secret scan, then the surface check. `pre-commit` scans the working-tree copy of each tracked file, not what is staged, so a key that is staged and then removed from the working copy passes it; `pre-push` scans the added lines, commit messages and tags of every pushed commit, and CI scans the tree, so that key is caught there. They run only in a clone that ran `git config core.hooksPath .githooks`, and `git push --no-verify` bypasses them; GitHub's server-side secret scanning and push protection stay this repository's other wall.
 
 ### Rules that are not style preferences
 

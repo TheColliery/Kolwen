@@ -140,9 +140,10 @@ the pointer to it.
 ### Added
 
 - A local secret scan before every commit and every push. GitHub scans this public repository for provider
-  tokens, but not for a private key, a connection string or an HTTP authentication header, so the room now
+  tokens, and a private key, a connection string or an HTTP authentication header are kinds its free
+  public-repository scan is not documented to cover, so the room now
   carries the house scanner (`scripts/lib/secret-scan.mjs`, kept byte-equal with the other carriers) and its
-  caller `scripts/secret-gate.mjs`. `.githooks/pre-commit` scans the tracked tree; `.githooks/pre-push` also scans
+  caller `scripts/secret-gate.mjs`. `.githooks/pre-commit` scans the working-tree copy of each tracked file (not the staged blob); `.githooks/pre-push` also scans
   the added lines of every commit being pushed, every commit message and every tag message, so a key added and
   then deleted inside the push is still found. A hit prints the file, the line and a fingerprint, never the value,
   and a scan that cannot run fails the push. CI runs the scanner's own tests and the tree scan as a new required
