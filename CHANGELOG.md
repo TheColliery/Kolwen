@@ -165,8 +165,9 @@ the pointer to it.
   the served pages and fails if `web/_headers` does not admit exactly those, so a one-byte edit to
   the page's script can no longer silently stop it running. It also fails on `'unsafe-inline'` in
   `script-src`, a policy that has lost its floor (now including `form-action 'self'`), a missing
-  or weakened `Cross-Origin-Opener-Policy` or `Cross-Origin-Resource-Policy`, a second rule
-  carrying the policy, and an inline
+  or weakened `Cross-Origin-Opener-Policy` or `Cross-Origin-Resource-Policy`, a `script-src`
+  that does not carry exactly the slash-terminated Web Analytics beacon source (or that widens it
+  to the bare host or a wildcard), a second rule carrying the policy, and an inline
   event handler or `style=` attribute, and it fails rather than passes when it finds nothing to hash.
 - The post-deploy check now compares the five headers the site serves (the Content-Security-Policy,
   Referrer-Policy, Permissions-Policy and the two cross-origin ones) against `web/_headers` on every

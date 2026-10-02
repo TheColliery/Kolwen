@@ -562,6 +562,14 @@ const CSP_STATS = { scripts: 0, styles: 0 };
       for (const d of ['script-src', 'default-src']) {
         for (const bad of ["'unsafe-inline'", "'unsafe-eval'"]) if ((dirs.get(d) || []).includes(bad)) note(HEADERS, `line ${line}: ${d} carries ${bad}`);
       }
+      // LWK-223: the Web Analytics beacon is admitted by ONE slash-terminated source. Without the slash CSP
+      // path matching is exact and the edge-injected, versioned beacon path is blocked (analytics goes blind);
+      // the bare host would admit every script that host serves. The served CSP is compared with the declared
+      // one, so an edit to the declaration moves both and only this check holds the string.
+      const BEACON_SRC = 'https://static.cloudflareinsights.com/beacon.min.js/';
+      const scriptToks = dirs.get('script-src') || [];
+      if (!scriptToks.includes(BEACON_SRC)) note(HEADERS, `line ${line}: script-src needs the source ${BEACON_SRC} (trailing slash included), found ${scriptToks.filter(t => /cloudflareinsights/i.test(t)).join(' ') || 'none'}`);
+      for (const t of scriptToks) if (/cloudflareinsights/i.test(t) && t !== BEACON_SRC) note(HEADERS, `line ${line}: script-src carries ${t}; the only cloudflareinsights source allowed is ${BEACON_SRC}`);
       for (const [kind, dir] of [['script', 'script-src'], ['style', 'style-src']]) {
         const toks = dirs.get(dir);
         if (!toks) { if (want[kind].size) note(HEADERS, `line ${line}: the CSP has no ${dir}, but the served HTML has inline ${kind}s that need admitting`); continue; }
