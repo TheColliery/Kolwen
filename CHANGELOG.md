@@ -180,6 +180,11 @@ the pointer to it.
   kolwen.com asserts (Strict-Transport-Security, `X-Content-Type-Options`, the `X-Robots-Tag` rail
   and the 404 page) run only when the check can reach kolwen.com, which a CI runner cannot
   (kolwen.com refuses it); they run when the check is run by hand.
+- `brand/README.md` no longer carries its own 4.5:1 minimum for the mark over a photograph. Where
+  WCAG 2.2 exempts the case (SC 1.4.3 covers text, and its *Logotypes* exception covers the word
+  mark; the three-bar device is outside its scope), the file now says so and sets no number of its
+  own, in Thai and English alike. The 3:1 rule for a mark used as a link or button (SC 1.4.11)
+  stays. No shipped colour changes.
 - Every workflow job now declares `timeout-minutes`, sized from the durations of recent runs (the
   evidence is a comment on each line; `publish-pypi.yml` has never run, so its figure is unmeasured
   and says so), and `.coalboard/` is ignored.
