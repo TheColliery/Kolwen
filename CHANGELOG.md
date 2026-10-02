@@ -139,6 +139,14 @@ the pointer to it.
 
 ### Added
 
+- A local secret scan before every commit and every push. GitHub scans this public repository for provider
+  tokens, but not for a private key, a connection string or an HTTP authentication header, so the room now
+  carries the house scanner (`scripts/lib/secret-scan.mjs`, kept byte-equal with the other carriers) and its
+  caller `scripts/secret-gate.mjs`. `.githooks/pre-commit` scans the tracked tree; `.githooks/pre-push` also scans
+  the added lines of every commit being pushed, every commit message and every tag message, so a key added and
+  then deleted inside the push is still found. A hit prints the file, the line and a fingerprint, never the value,
+  and a scan that cannot run fails the push. CI runs the scanner's own tests and the tree scan as a new required
+  job. The hooks fail closed when node or the script is missing.
 - Security headers on every response from `web/_headers`: a Content-Security-Policy, a
   Referrer-Policy of `strict-origin-when-cross-origin`, and a Permissions-Policy that disables the
   23 standardized features the page does not use. The policy has no `'unsafe-inline'`: the page's
