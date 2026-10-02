@@ -6,7 +6,7 @@
 // Usage: node scripts/post-deploy-check.mjs [--wait <seconds>] [--origin <url>]
 // Exit 0 = every deployed file matches and the served security headers are the ones web/_headers declares.
 // Exit 1 = a mismatch, or nothing could be observed. Exit 2 = a bad argument, or nothing declared to compare.
-// --origin checks ONE host instead of the production origin: a preview URL, a workers.dev host, or a local
+// --origin checks ONE host instead of the two production origins: a preview URL, a workers.dev host, or a local
 // server. Zone-only headers (HSTS, nosniff) and the production noindex rail apply to kolwen.com hosts alone.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -30,12 +30,11 @@ const started = Date.now();
 const deadline = started + budget * 1000;
 
 // R1: kolwen.com refuses datacenter egress (HTTP 403 on every attempt from a GitHub runner,
-// 200 from a residential IP — measured). The workers.dev alias used to be the second origin; LWK-220
-// item 3 disables that alias (`workers_dev: false`, it bypassed the zone and accepted TLS 1.0 and 1.1),
-// so kolwen.com is the only default origin. From a GitHub runner the check therefore reports that it
-// could not OBSERVE anything, which is a failure, never a pass; a hand run from a box kolwen.com accepts,
-// or `--origin <url>` (a Workers Preview, a local server), still works.
-let ORIGINS = ['https://kolwen.com/'];
+// 200 from a residential IP — measured). The workers.dev origin serves the same deployment and
+// may not carry the same edge rules, so the second is tried when the first does not ANSWER --
+// a mismatching first origin is not second-guessed, by design. If NEITHER answers, that is
+// reported as an observation failure — never as a pass.
+let ORIGINS = ['https://kolwen.com/', 'https://kolwen.hetcreep.workers.dev/'];
 if (o >= 0) {
   let u = null;
   try { u = new URL(args[o + 1]); } catch { /* reported below */ }
