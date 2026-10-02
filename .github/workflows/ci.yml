@@ -109,9 +109,13 @@ jobs:
         with:
           node-version: 24
       # The chip the ladder measures must equal the label the product shows. web/ic.json is the
-      # single source of truth for that label; a swap changes it and this job re-runs. Today no
-      # IC is labelled, so what runs is the runner proving it DETECTS a relabel (a mocked wrong
-      # chip must fail the assert). The real fixtures live outside this repo and are never
+      # single source of truth for that label. A swap changes it and this job re-runs, but ONLY its
+      # `--label` and `--self-test` steps: the real battery run (the runner against the labelled chip,
+      # which needs KOLWEN_IC_ENDPOINT and KOLWEN_IC_KEY) is never run by any workflow, so a chip
+      # change passes this job green. That run is a hand run keyed to the label changing
+      # (docs/NEVER-A-CLONE.md section 2), and nothing in CI checks that it happened. Today no IC is
+      # labelled, so what runs is the runner proving it DETECTS a relabel (a mocked wrong chip must
+      # fail the assert). The real fixtures live outside this repo and are never
       # published here, so THIS checkout cannot run the fixture leg. The self-test is split for
       # that reason (LWK-168): the legs that need no fixture run unconditionally and fail the job
       # on any failure; only the fixture leg is conditional, and it says so in the log and as a
