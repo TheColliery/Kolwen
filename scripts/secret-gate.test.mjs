@@ -115,6 +115,15 @@ test('a pushed tag whose target is not a commit is refused by name, never scanne
   assert.match(r.out, /FAIL SECRETS: .*pushes a non-commit object \(blob\)/);
 });
 
+test('--pre-push with a ref line the scanner cannot read FAILS: exit 1 and the could-not-be-read line, never a pass in tree mode', () => {
+  const dir = repo([{ 'a.txt': 'one\n' }]);
+  const tip = git(dir, 'rev-parse', 'HEAD');
+  const r = run(dir, ['--pre-push'], `refs/heads/main ${tip}\n`); // the remote half of the ref line is missing
+  assert.strictEqual(r.code, 1, r.out + r.err);
+  assert.match(r.out, /FAIL SECRETS: the pushed range could not be read/);
+  assert.doesNotMatch(r.out, /PASS SECRETS/);
+});
+
 test('a scan that cannot run fails: a missing scanner and a directory that is not a repository both exit 1 with a FAIL line', () => {
   const noLib = run(repo([{ 'a.txt': 'x\n' }], { withLib: false }));
   assert.strictEqual(noLib.code, 1);

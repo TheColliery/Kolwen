@@ -11,6 +11,13 @@
 // range is still found, plus every pushed commit message and annotated-tag message. --remote=<name> narrows a new branch
 // to the commits that remote does not already have.
 //
+// A DELIBERATE, ROUTED LIMIT (LWK-239 inspection, finding F1): the tree scan reads the WORKING-TREE copy of each tracked
+// path, not the staged blob. A key that is staged and then removed from the working copy before `git commit` passes
+// pre-commit. It is caught at pre-push (the added lines of every pushed commit) and by CI's tree scan while the file is
+// still in the pushed tip. The code cure (scan the staged blobs) is not made here on purpose: every repository carrying
+// the published-code template shares this caller, so a fix in one copy would split the flock. It is routed as a
+// flock-wide finding, and the limit is named in this header until it lands.
+//
 // A SCAN THAT CANNOT RUN FAILS: a scanner that will not load, a tracked file that cannot be read, stdin that is a
 // terminal, a range git cannot list. Never a pass, never a note (a git pre-* hook must be able to abort).
 //
