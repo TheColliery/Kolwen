@@ -183,8 +183,9 @@ the pointer to it.
   Preview answers such a path with its own bare 404, so there the check prints a note, skips the
   404 page's headers instead of failing, and its pass line says the 404 was not checked. The
   kolwen.com asserts (Strict-Transport-Security, `X-Content-Type-Options`, the `X-Robots-Tag` rail
-  and the 404 page) run only when the check can reach kolwen.com, which a CI runner cannot
-  (kolwen.com refuses it); they run when the check is run by hand.
+  and the 404 page) run only when the check can reach kolwen.com. A CI runner reached it first on
+  2026-10-02 (earlier runs were refused), so the check reads kolwen.com when it answers and falls
+  back to the workers.dev address otherwise; the fallback does not run them.
 - `brand/README.md` no longer carries its own 4.5:1 minimum for the mark over a photograph. Where
   WCAG 2.2 exempts the case (SC 1.4.3 covers text, and its *Logotypes* exception covers the word
   mark; the three-bar device is outside its scope), the file now says so and sets no number of its

@@ -29,9 +29,10 @@ if (w >= 0) {
 const started = Date.now();
 const deadline = started + budget * 1000;
 
-// R1: kolwen.com refuses datacenter egress (HTTP 403 on every attempt from a GitHub runner,
-// 200 from a residential IP — measured). The workers.dev origin serves the same deployment and
-// may not carry the same edge rules, so the second is tried when the first does not ANSWER --
+// R1: kolwen.com refused datacenter egress (HTTP 403 on every attempt from a GitHub runner, 200 from
+// a residential IP) until a runner first reached it on 2026-10-02. It may refuse again. The workers.dev
+// origin serves the same deployment and does not carry the same edge rules, so the second is tried when
+// the first does not ANSWER --
 // a mismatching first origin is not second-guessed, by design. If NEITHER answers, that is
 // reported as an observation failure — never as a pass.
 let ORIGINS = ['https://kolwen.com/', 'https://kolwen.hetcreep.workers.dev/'];
