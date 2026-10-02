@@ -78,6 +78,8 @@ jobs:
       # identifier · no kitchen leakage · Thai orthography · HTML + ld+json integrity ·
       # bilingual structure · every stated contrast ratio recomputed from its own hex pair.
       - run: node scripts/surface-check.mjs
+      # The one robots.txt comparison rule the post-deploy check applies (it cannot run here: it needs the live site).
+      - run: node --test scripts/robots-edge.test.mjs
 
   reply-language:
     name: reply language (LWK-131)

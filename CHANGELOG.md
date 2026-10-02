@@ -174,6 +174,11 @@ the pointer to it.
   HTML response, the 404 page included, and checks that kolwen.com still carries the zone's
   Strict-Transport-Security and `X-Content-Type-Options`. It fails if kolwen.com ever sends
   `X-Robots-Tag`. `--origin <url>` points it at one host, so a preview URL can be checked before merge.
+- The post-deploy check accepts the `robots.txt` that kolwen.com serves: the zone prepends Cloudflare's
+  managed AI-crawl block, and the check now passes when the committed file is the final block after it
+  (comment lines and one fenced block ahead of it, nothing else). It still fails when a line of ours is
+  changed or missing, or when anything else sits ahead of ours. The managed block itself is not compared.
+  The rule has a unit test (`scripts/robots-edge.test.mjs`), run by the `surface` job.
   On kolwen.com an unmatched path must serve the committed `404.html` with those headers. A Workers
   Preview answers such a path with its own bare 404, so there the check prints a note, skips the
   404 page's headers instead of failing, and its pass line says the 404 was not checked. The

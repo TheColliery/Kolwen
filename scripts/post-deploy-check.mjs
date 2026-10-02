@@ -10,7 +10,7 @@
 // server. Zone-only headers (HSTS, nosniff) and the production noindex rail apply to kolwen.com hosts alone.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { parseHeadersFile, declaredSecurityHeaders, servedHeaderMisses, robotsRailMisses, notFoundVerdict } from './lib/headers-file.mjs';
+import { parseHeadersFile, declaredSecurityHeaders, servedHeaderMisses, robotsRailMisses, notFoundVerdict, robotsVerdict } from './lib/headers-file.mjs';
 
 const args = process.argv.slice(2);
 const w = args.indexOf('--wait');
@@ -50,6 +50,9 @@ catch (e) { console.error('post-deploy check cannot compare served headers: ' + 
 // Per response: HTML must carry the declared headers (and, on a production host, the zone's HSTS and nosniff);
 // EVERY response from a production host must be free of X-Robots-Tag.
 const NOTES = new Set();
+// Origins whose robots.txt carried Cloudflare's managed block ahead of ours (accepted, and said so on a pass).
+// Separate from NOTES: a NOTES entry means "the 404 check was skipped" to the pass line below.
+const EDGE_ROBOTS = new Set();
 const headerMisses = (origin, r, what, html) => {
   const host = new URL(origin).hostname;
   const out = robotsRailMisses(host, r.headers);
@@ -118,6 +121,7 @@ async function get(url, until) {
 
 async function probe(origin, until) {
   const misses = [];
+  EDGE_ROBOTS.clear();
   NOTES.clear(); // per round: a note from an earlier round must not colour a later, complete one
 
   // not_found_handling: 404-page — an unmatched path must answer 404, not 200 with the home
@@ -156,7 +160,12 @@ async function probe(origin, until) {
     if (TEXT.test(f)) {
       const live = normHtml(await r.text());
       const want = normHtml(readFileSync(`web/${f}`, 'utf8'));
-      if (live !== want) misses.push(`${f}: served ${live.length} chars, committed ${want.length}`);
+      if (f === 'robots.txt') {
+        // The zone prepends Cloudflare's managed block (see robotsVerdict); our file must still be the final block.
+        const v = robotsVerdict(live, want);
+        if (v.edge) EDGE_ROBOTS.add(origin);
+        if (!v.ok) misses.push(`${f}: served ${live.length} chars, committed ${want.length}; the committed file is not the served file or its final block after Cloudflare's managed block`);
+      } else if (live !== want) misses.push(`${f}: served ${live.length} chars, committed ${want.length}`);
     } else {
       const live = sha(Buffer.from(await r.arrayBuffer()));
       const want = sha(readFileSync(`web/${f}`));
@@ -189,6 +198,7 @@ while (Date.now() < deadline) {
         // platform 404), the line drops "including the 404 page" and the note prints beside it on the same stream.
         const skipped404 = NOTES.size > 0;
         for (const n of NOTES) console.log('note: ' + n);
+        if (EDGE_ROBOTS.size > 0) console.log("note: robots.txt is served with Cloudflare's managed block ahead of the committed file; the committed file matches as the final block, and the managed block itself is not compared");
         console.log(`all ${files.length} deployed files match what is committed, and every HTML response ${skipped404 ? '(the unmatched-path 404 was NOT checked on this host, see the note above)' : '(including the 404 page)'} carries the CSP, Referrer-Policy, Permissions-Policy, Cross-Origin-Opener-Policy and Cross-Origin-Resource-Policy that web/_headers declares, via ${origin}`);
         matched = true;
       } else {
