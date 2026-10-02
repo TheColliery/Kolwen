@@ -12,7 +12,7 @@
 	// disabled by default." Its configuration page, `preview_urls`: "If omitted, Wrangler does not change an existing
 	// setting. If no setting exists, its initial value depends on `workers_dev`." So disabling workers_dev while
 	// leaving this out could switch previews off on a fresh state. Whether previews stay public is an open OWNER
-	// decision (LWK-198 ruling), and this setting changes nothing about it.
+	// decision (the 2026-09-23 ruling on Previews stands), and this setting changes nothing about it.
 	"preview_urls": true,
 	// compatibility_date and assets stay TOP-LEVEL, never duplicated inside `previews` below --
 	// Cloudflare's own guidance: "Keep at the top level, even with an ASSETS binding." Both
