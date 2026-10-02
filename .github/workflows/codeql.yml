@@ -43,6 +43,7 @@ jobs:
   analyze:
     name: analyze (javascript)
     runs-on: ubuntu-latest
+    timeout-minutes: 20 # LWK-216: max 71 s over 12 runs
     # A job-level `permissions:` block REPLACES the workflow-level one, it never merges with it
     # (LWK-181), so without `contents: read` here `contents` is `none` inside this job. Harmless
     # while the repo is public (it clones anonymously); the day it is made private the checkout

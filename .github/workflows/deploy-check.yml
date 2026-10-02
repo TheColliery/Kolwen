@@ -35,6 +35,7 @@ jobs:
   live:
     name: live page matches main
     runs-on: ubuntu-latest
+    timeout-minutes: 15 # LWK-216: max 27 s over 1 run; its own --wait is 300 s
     steps:
       # persist-credentials: false (LWK-168) -- this job runs a script out of the checked-out tree
       # and needs no git operation, so the token is not left in .git/config for that script.

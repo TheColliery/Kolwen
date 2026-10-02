@@ -43,6 +43,7 @@ jobs:
   assets:
     name: assets (byte-identity)
     runs-on: ubuntu-latest
+    timeout-minutes: 10 # LWK-216: max 9 s over 11 runs
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -65,6 +66,7 @@ jobs:
   surface:
     name: surface (published claims)
     runs-on: ubuntu-latest
+    timeout-minutes: 10 # LWK-216: max 10 s over 11 runs
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -80,6 +82,7 @@ jobs:
   reply-language:
     name: reply language (LWK-131)
     runs-on: ubuntu-latest
+    timeout-minutes: 10 # LWK-216: max 13 s over 11 runs
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -97,6 +100,7 @@ jobs:
   clone-test:
     name: never a clone (LWK-132)
     runs-on: ubuntu-latest
+    timeout-minutes: 10 # LWK-216: max 11 s over 11 runs
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -120,6 +124,7 @@ jobs:
   secret-scan:
     name: secret scan (LWK-239)
     runs-on: ubuntu-latest
+    timeout-minutes: 10 # LWK-216: max 9 s over 3 runs
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -140,6 +145,7 @@ jobs:
     needs: [assets, surface, reply-language, clone-test, secret-scan]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 5 # LWK-216: max 5 s over 11 runs
     # LWK-180. `if: always()` makes this job run whatever its needs did, so it must judge them: a
     # needed job counts ONLY if its result is exactly `success`. `skipped` and `cancelled` are red,
     # not a pass -- a required check that goes green because a job did not run is the row-1 defect

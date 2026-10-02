@@ -31,6 +31,7 @@ jobs:
   auto-merge:
     if: ${{ github.event.pull_request.user.login == 'dependabot[bot]' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5 # LWK-216: max 8 s over 5 runs
     permissions:
       contents: write
       pull-requests: write
