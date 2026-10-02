@@ -20,6 +20,7 @@ on:
       # A change to the checker itself must re-verify: otherwise the commit that fixes the
       # gate is the one commit the gate never runs on.
       - 'scripts/post-deploy-check.mjs'
+      - 'scripts/lib/headers-file.mjs'
 
 # cancel-in-progress: TRUE -- this job only FETCHES the live page and compares it to the commit.
 # It writes nothing anywhere. A superseded run is worse than useless: it is still waiting on an

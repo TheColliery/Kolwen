@@ -18,6 +18,22 @@ export function parseHeadersFile(text) {
   return rules;
 }
 
+// Does the served robots.txt carry the committed one? Both arguments are already newline-normalised
+// (post-deploy-check's normHtml). kolwen.com's zone syncs an AI-crawl preference into robots.txt: the edge
+// PREPENDS its managed block, fenced by `# BEGIN Cloudflare Managed content` and `# END Cloudflare Managed
+// Content` comment lines, with a comment-only content-signals preamble above the fence (read 2026-10-02), and
+// serves our file after it, unchanged. So the served body is accepted when it IS the committed file, or when
+// the committed file is its FINAL block and everything before is comment lines, one fenced block, and nothing
+// else. The managed block's own contents are NOT compared (Cloudflare owns them); any non-comment line ahead
+// of the fence, a changed line of ours, or our lines missing is a miss. Limit: if Cloudflare renames the fence
+// comments this fails closed (red, naming the file), never open.
+const EDGE_ROBOTS_PREFIX = /^(?:#[^\n]*\n)*# BEGIN Cloudflare Managed content[^\n]*\n[\s\S]*\n# END Cloudflare Managed Content[ \t]*\n$/i;
+export function robotsVerdict(live, want) {
+  if (live === want) return { ok: true, edge: false };
+  if (want.length > 0 && live.endsWith(want) && EDGE_ROBOTS_PREFIX.test(live.slice(0, live.length - want.length))) return { ok: true, edge: true };
+  return { ok: false, edge: false };
+}
+
 // Every declaration of one header, in file order: [{ pattern, value, line }]. Names compare
 // case-insensitively, as HTTP header names do.
 export function declarations(rules, name) {
