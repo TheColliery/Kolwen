@@ -48,19 +48,19 @@ export const PRODUCTION_HOSTS = new Set(['kolwen.com', 'www.kolwen.com']);
 // to compare against must not read as a check that passed.
 export function declaredSecurityHeaders(rules) {
   const block = rules.find(r => r.pattern === '/*');
-  if (!block) throw new Error('web/_headers has no "/*" rule, so there is no declared CSP, Referrer-Policy or Permissions-Policy to compare the served response against');
+  if (!block) throw new Error('web/_headers has no "/*" rule, so there is no declared CSP, Referrer-Policy, Permissions-Policy, Cross-Origin-Opener-Policy or Cross-Origin-Resource-Policy to compare the served response against');
   const one = name => {
     const d = declarations([block], name);
     if (d.length !== 1) throw new Error(`the "/*" rule in web/_headers declares ${name} ${d.length} times; the served-header check needs exactly one`);
     return d[0].value;
   };
-  return { csp: one('Content-Security-Policy'), referrer: one('Referrer-Policy'), permissions: one('Permissions-Policy') };
+  return { csp: one('Content-Security-Policy'), referrer: one('Referrer-Policy'), permissions: one('Permissions-Policy'), coop: one('Cross-Origin-Opener-Policy'), corp: one('Cross-Origin-Resource-Policy') };
 }
 
 // What is wrong with one HTML response's headers. `headers` is a fetch `Headers`. Empty array = fine.
 export function servedHeaderMisses(hostname, headers, declared) {
   const out = [];
-  for (const [name, want] of [['Content-Security-Policy', declared.csp], ['Referrer-Policy', declared.referrer], ['Permissions-Policy', declared.permissions]]) {
+  for (const [name, want] of [['Content-Security-Policy', declared.csp], ['Referrer-Policy', declared.referrer], ['Permissions-Policy', declared.permissions], ['Cross-Origin-Opener-Policy', declared.coop], ['Cross-Origin-Resource-Policy', declared.corp]]) {
     const got = headers.get(name);
     if (got === null) out.push(`${name} is missing (web/_headers declares one on every response)`);
     else if (got !== want) out.push(`${name} is "${got}", web/_headers declares "${want}"`);
