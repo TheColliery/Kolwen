@@ -163,6 +163,8 @@ const SHIPPED = new Set([
   // also know.
   'web/404.html', 'web/_headers',
   'web/favicon.svg', 'web/favicon-32.png', 'web/apple-touch-icon.png', 'web/og.png',
+  // LWK-215: the five PREVIEW pages. Named one by one; rule 14 below holds what makes them previews.
+  'web/pricing.html', 'web/contact.html', 'web/terms.html', 'web/privacy.html', 'web/refund.html',
 ]);
 for (const f of tracked.filter(f => f.startsWith('web/'))) {
   if (!SHIPPED.has(f)) note(f, 'is tracked under the publish root but is not a declared shipped asset — every path under web/ is a live URL');
