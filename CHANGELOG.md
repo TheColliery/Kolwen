@@ -117,6 +117,10 @@ the pointer to it.
 
 ### Changed
 
+- The home page footer no longer says "no trackers, no ads, no cookies" (and its Thai twin), in both
+  languages. kolwen.com now runs Cloudflare Web Analytics, so the claim was no longer true. The rest of
+  each footer line (the language choice stored locally, the fonts loaded from Google Fonts) is unchanged,
+  and no replacement wording was added.
 - Every published contact address moved from one shared address to a role address: `info@kolwen.com`
   on the page (both language blocks and the structured data) and in the README,
   `security@kolwen.com` in `SECURITY.md` and `governance/incident-response.md`, and
