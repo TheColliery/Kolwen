@@ -154,6 +154,10 @@ if (existsSync('brand/README.md')) {
 // allowlist governs. A manual local `wrangler deploy` uploads the local DIRECTORY, untracked
 // files included, and no check running in CI can see those. That half is closed by the scratch
 // tree no longer existing under web/, not by this rule.
+// LWK-215: the pages that carry PLACEHOLDER prices and unsigned legal text. Declared ONCE, here; rule 7 ships
+// them (spread into SHIPPED below) and rule 14 holds what makes them previews, so a page cannot be in one and
+// miss the other.
+const PREVIEW_PAGES = ['web/pricing.html', 'web/contact.html', 'web/terms.html', 'web/privacy.html', 'web/refund.html'];
 const SHIPPED = new Set([
   'web/index.html', 'web/robots.txt', 'web/sitemap.xml', 'web/ic.json',
   // Added BY NAME, never by widening the glob — the point of the list is that a new path under
@@ -163,8 +167,8 @@ const SHIPPED = new Set([
   // also know.
   'web/404.html', 'web/_headers',
   'web/favicon.svg', 'web/favicon-32.png', 'web/apple-touch-icon.png', 'web/og.png',
-  // LWK-215: the five PREVIEW pages. Named one by one; rule 14 below holds what makes them previews.
-  'web/pricing.html', 'web/contact.html', 'web/terms.html', 'web/privacy.html', 'web/refund.html',
+  // LWK-215: the PREVIEW pages. The ONE list is PREVIEW_PAGES above; rule 14 holds what makes them previews.
+  ...PREVIEW_PAGES,
 ]);
 for (const f of tracked.filter(f => f.startsWith('web/'))) {
   if (!SHIPPED.has(f)) note(f, 'is tracked under the publish root but is not a declared shipped asset — every path under web/ is a live URL');
@@ -591,6 +595,38 @@ const CSP_STATS = { scripts: 0, styles: 0 };
       const pp = lib.declarations([block], 'Permissions-Policy')[0];
       if (!pp || !/\w+=\(\)/.test(pp.value)) note(HEADERS, `the "${pattern}" rule needs a Permissions-Policy that disables features (name=()), found ${pp ? 'none that does' : 'none'}`);
     }
+  }
+}
+
+// ── 14. The preview pages stay previews (LWK-215) ────────────────────────────
+// The pages in PREVIEW_PAGES (rule 7) carry PLACEHOLDER prices and unsigned legal text. Until the owner's
+// prices and the lawyer's words are in, each must say so on the page in both languages, ask search engines to
+// skip it, load no third-party script (no payment code is shipped), and stay out of the sitemap. This holds the
+// page; it does not hold the host (that a branch is served only by its Workers Preview is how it is deployed,
+// not something this file can see).
+//
+// ONE LIST: rule 7 ships PREVIEW_PAGES and this rule checks it, so there is no second list to drift. Going the
+// other way, any tracked HTML page under web/ that is neither the home page, the 404 nor a preview page is a
+// finding: a page added to the publish root by hand cannot skip this rule by being left off its list.
+//
+// NON-VACUITY: a listed page that does not exist is a finding, never a pass. STATED LIMITS: the HTML is
+// read as text, so a banner or meta tag inside a comment would count; and the placeholder LABELS inside
+// a page are held by review, not by this rule.
+{
+  const BANNERS = ['PREVIEW — placeholder prices, not an offer', 'ตัวอย่าง — ราคาเป็นค่าสมมติ ไม่ใช่ข้อเสนอขาย'];
+  const NOT_PREVIEW = new Set(['web/index.html', 'web/404.html']);
+  const sitemap = existsSync('web/sitemap.xml') ? read('web/sitemap.xml') : '';
+  for (const f of tracked.filter(f => f.startsWith('web/') && f.endsWith('.html'))) {
+    if (!NOT_PREVIEW.has(f) && !PREVIEW_PAGES.includes(f)) note(f, 'is a tracked HTML page that is neither the home page, the 404 nor a declared preview page, so rule 14 does not hold it — declare it in PREVIEW_PAGES, or, once it is a real production page, say so by adding it to NOT_PREVIEW in rule 14');
+  }
+  for (const f of PREVIEW_PAGES) {
+    if (!existsSync(f)) { note(f, 'is a declared preview page but is missing, so rule 14 has nothing to check for it — this CHECK is now empty for that page'); continue; }
+    const s = read(f);
+    if (!/<meta\s+name="robots"\s+content="noindex"\s*>/i.test(s)) note(f, 'has no <meta name="robots" content="noindex">');
+    for (const b of BANNERS) if (!s.includes(b)) note(f, `lacks the preview banner "${b}"`);
+    if (/<script\b[^>]*\bsrc\s*=/i.test(s)) note(f, 'loads an external script; a preview page takes no payment and loads no third-party script');
+    const slug = f.replace(/^web\//, '').replace(/\.html$/, '');
+    if (new RegExp('/' + slug + '(?![A-Za-z0-9-])').test(sitemap)) note('web/sitemap.xml', `lists /${slug}, a preview page that must stay out of the sitemap`);
   }
 }
 

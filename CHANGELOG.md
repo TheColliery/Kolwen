@@ -147,7 +147,9 @@ the pointer to it.
   the seller details with the legal name and address as labelled placeholders, Paddle as the merchant of
   record, Kolwen's own privacy notice as separate from Paddle's, and refunds as handled by Paddle. No page
   loads Paddle.js, sets a cookie or takes a payment. The CSP gains one style hash for the shared inline
-  style block.
+  style block. Rule 14 of `scripts/surface-check.mjs` holds the banner in both languages, the noindex tag,
+  the absence of an external script and the page's absence from the sitemap; the preview pages are declared
+  once, and any other tracked HTML page under `web/` besides the home page and the 404 is a finding.
 - A local secret scan before every commit and every push. GitHub scans this public repository for provider
   tokens, and a private key, a connection string or an HTTP authentication header are kinds its free
   public-repository scan is not documented to cover, so the room now
