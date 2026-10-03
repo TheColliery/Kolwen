@@ -30,12 +30,12 @@ Two checks report on it:
   not that page is noted and skipped, not failed (see "The 404 page" below); the pass line then
   says the unmatched-path 404 was NOT checked on that host. **Those production asserts (the
   `kolwen.com` noindex rail, the 404 page, and the zone's HSTS and nosniff below) run only when the
-  check can reach `kolwen.com`. A CI runner first reached it on 2026-10-02 (earlier runs were refused;
-  `docs/TRUST.md`), so `deploy-check` reads `kolwen.com` when it answers and falls back to the
-  `workers.dev` alias otherwise. On the alias it does not run them; a hand run on a machine that
-  reaches `kolwen.com` does.** `--origin <url>` checks one host
-  instead of the two production origins, so a preview, a `workers.dev` host or a local server can
-  be checked before merge. It waits for publication
+  check reads `kolwen.com`, which is its only default origin. A CI runner first reached it on 2026-10-02
+  (earlier runs were refused; `docs/TRUST.md`). `wrangler.jsonc` sets `workers_dev: false`, which turns
+  the Worker's `workers.dev` alias off at the next deploy, so the check has no fallback origin: a runner
+  that `kolwen.com` refuses makes the check fail as unable to observe anything, never pass.** `--origin <url>`
+  checks one other host instead of `kolwen.com`, so a preview, a `workers.dev` host or a local server can
+  be checked before merge; the production asserts above do not run on such a host. It waits for publication
   rather than for a reply, because the deploy lands after CI starts. It runs on a push touching
   `web/`, `wrangler.jsonc`, **or the checker itself**—otherwise the commit that changes the gate
   would be the one commit the gate never runs on—and can also be started by hand from the
@@ -84,14 +84,15 @@ which have that shape. **Production `kolwen.com` never carries it**: `kolwen.com
   `X-Robots-Tag: noindex`, but that header is Cloudflare's own preview header, not this rule's, so
   the measurement does not show this rule applying to a preview.
 - **One residual, named.** The rule also matches `kolwen.hetcreep.workers.dev`, production's own
-  `workers.dev` alias, which `scripts/post-deploy-check.mjs` uses as its fallback origin. That is
-  not `kolwen.com`, but it is a production-adjacent address that now sends `noindex`. No
+  `workers.dev` alias. That is not `kolwen.com`, but it is a production-adjacent address that sends
+  `noindex` for as long as the alias is served; `wrangler.jsonc` sets `workers_dev: false`, which
+  turns the alias off at the next deploy, and the check no longer reads it. No
   documented `_headers` syntax can tell a preview label from that bare one within a single label,
   so the rule was not narrowed by guesswork.
 - **Cloudflare's Previews page is silent** on whether previews send `X-Robots-Tag` (read
   2026-09-23), which is why the rule was written. Measured 2026-09-25: a preview sends it on its
-  own. The rule is therefore redundant on a Preview URL; it is still what puts `noindex` on
-  production's own `workers.dev` alias, which is not a preview.
+  own. The rule is therefore redundant on a Preview URL; it is what put `noindex` on
+  production's own `workers.dev` alias, which is not a preview, for as long as that alias is served.
 
 ## Security headers
 
@@ -114,7 +115,8 @@ serve two policies instead of one.
   and `X-Content-Type-Options: nosniff` on `kolwen.com` (measured 2026-09-25). A preview or
   `workers.dev` host does not pass through the zone, so it carries neither. `deploy-check` asserts
   both are present on `kolwen.com` and does not ask for them elsewhere. That assert runs only when
-  the check reads `kolwen.com` (first reached from a CI runner on 2026-10-02; otherwise the alias is read and it is skipped).
+  the check reads `kolwen.com`, its default origin (first reached from a CI runner on 2026-10-02); it is skipped
+  on any other host given with `--origin`.
 - **Cloudflare's injected script is refused on `kolwen.com`.** The edge appends an inline
   bot-detection script to the page. Its contents differ per request, so it cannot be admitted by
   hash, and this policy refuses it; the browser console reports the refusal. Cloudflare's
@@ -125,7 +127,7 @@ serve two policies instead of one.
   - **Production.** `_headers` path rules are applied to the 404 fallback: a request for a missing
     `.svg` came back with the `Cache-Control` that `/*.svg` sets. So the `/*` rule covers the
     404 page there, and `deploy-check` requires `kolwen.com` to serve the committed `web/404.html`
-    with the declared headers, when it reads `kolwen.com` and not the `workers.dev` fallback.
+    with the declared headers, when it reads `kolwen.com`, its default origin.
   - **A Workers Preview.** An unmatched path got a 9-byte platform "Not found" instead of
     `web/404.html`, with no `_headers` rule applied, not the path rules and not the host rule. Its
     `X-Robots-Tag: noindex` is Cloudflare's own. So a preview's 404 carries none of the policy.

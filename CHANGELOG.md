@@ -85,8 +85,9 @@ the pointer to it.
   one-line pitch, still said the discipline goes into "a model you can actually run"; it now says
   no model has shipped. `docs/TRUST.md` said the served files are compared to what is committed
   "after every deploy": the check runs only after a push touching `web/`, `wrangler.jsonc` or the
-  checker, and from CI it reads the Worker's `workers.dev` address because `kolwen.com` refuses
-  the request, so what `kolwen.com` itself serves is not compared there. The row now says both.
+  checker, and from CI it read the Worker's `workers.dev` address because `kolwen.com` refused
+  the request, so what `kolwen.com` itself serves was not compared there. The row said both then;
+  it has since changed (see the `workers_dev` bullet under Changed).
   "Nothing is retained today" is scoped to conversation content in the four documents that carried
   it, because the contact mailbox holds what a visitor sends it.
 - **Two Thai summaries said less than their English, in Kolwen's favour.** The cookie interim
@@ -117,6 +118,12 @@ the pointer to it.
 
 ### Changed
 
+- The Worker's `workers.dev` production alias is switched off (`workers_dev: false` in `wrangler.jsonc`,
+  LWK-220), which takes effect at the next deploy. The post-deploy check now reads `kolwen.com` alone
+  by default, so there is no fallback origin: if `kolwen.com` refuses a CI runner, `deploy-check` fails
+  as unable to observe anything, and never passes. `--origin <url>` still checks one other host.
+  `docs/DEPLOY.md`, `docs/TRUST.md`, `SECURITY.md` and `governance/risk-register.md` say the same.
+  The Workers Preview and Version URL setting is not changed by this entry.
 - The home page footer no longer says "no trackers, no ads, no cookies" (and its Thai twin), in both
   languages. kolwen.com now runs Cloudflare Web Analytics, so the claim was no longer true. The rest of
   each footer line (the language choice stored locally, the fonts loaded from Google Fonts) is unchanged,
@@ -188,8 +195,8 @@ the pointer to it.
   404 page's headers instead of failing, and its pass line says the 404 was not checked. The
   kolwen.com asserts (Strict-Transport-Security, `X-Content-Type-Options`, the `X-Robots-Tag` rail
   and the 404 page) run only when the check can reach kolwen.com. A CI runner reached it first on
-  2026-10-02 (earlier runs were refused), so the check reads kolwen.com when it answers and falls
-  back to the workers.dev address otherwise; the fallback does not run them.
+  2026-10-02 (earlier runs were refused). The workers.dev fallback this bullet first described is gone:
+  see the `workers_dev` bullet under Changed.
 - `brand/README.md` no longer carries its own 4.5:1 minimum for the mark over a photograph. Where
   WCAG 2.2 exempts the case (SC 1.4.3 covers text, and its *Logotypes* exception covers the word
   mark; the three-bar device is outside its scope), the file now says so and sets no number of its
@@ -212,7 +219,8 @@ the pointer to it.
   public. Not yet observed live.
 - A `noindex` header for preview and version hosts only, as a host-pattern rule at the end of
   `web/_headers`. `kolwen.com` never matches it. It also matches production's own `workers.dev`
-  alias, which is not `kolwen.com`; `docs/DEPLOY.md` names that residual. Checked by a local
+  alias, which is not `kolwen.com`; `docs/DEPLOY.md` names that residual (the alias is turned off by
+  the `workers_dev` change under Changed). Checked by a local
   re-implementation of Cloudflare's documented matching, not against a live preview.
 - Wrangler is pinned as a devDependency in a new `package.json` and `package-lock.json`, at
   4.136.3 exactly. Dependabot's new `npm` entry checks daily; a patch or minor bump auto-merges
