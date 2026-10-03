@@ -21,8 +21,12 @@
   retyped copy of the IC label, or an IC-label key that `web/ic.json` should declare as required
   text and leaves empty or undeclared; a Content-Security-Policy that no longer admits the inline script and styles the pages
   carry, or that has lost its floor (the `form-action` directive included) or the two cross-origin
-  headers, or whose `script-src` lacks the one exact Web Analytics beacon source or carries any other `cloudflareinsights` source (it does not refuse other `script-src` sources); and a legal draft (`PRIVACY.md`, `TERMS.md`) whose
-  labelled gap has lost the marker saying counsel has not cleared it. **Every claim outside the
+  headers, or whose `script-src` lacks the one exact Web Analytics beacon source or carries any other `cloudflareinsights` source (it does not refuse other `script-src` sources); a legal draft (`PRIVACY.md`, `TERMS.md`) whose
+  labelled gap has lost the marker saying counsel has not cleared it; and a preview page (the five
+  placeholder-price pages, listed once in the script) that has lost its "PREVIEW" banner in either
+  language or its `noindex` tag, loads an external script, appears in `web/sitemap.xml`, or is a tracked
+  HTML page under `web/` that the script does not know (rule 14; it holds the page, never the host that
+  serves it). **Every claim outside the
   script's rules—what a document says a feature does, for one—is held by review, not by a
   checker.** The rule is not softened to fit the machine; the gap is stated.
 - **A workflow job's own permissions must say what it needs.** A job-level `permissions:` block

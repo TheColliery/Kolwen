@@ -93,6 +93,18 @@ which have that shape. **Production `kolwen.com` never carries it**: `kolwen.com
   own. The rule is therefore redundant on a Preview URL; it is still what puts `noindex` on
   production's own `workers.dev` alias, which is not a preview.
 
+## Preview pages: `pricing`, `contact`, `terms`, `privacy`, `refund`
+
+These five pages carry placeholder prices and unsigned legal text. Each shows a "PREVIEW" banner in English
+and Thai and carries `<meta name="robots" content="noindex">`. They load no Paddle.js or any other external
+script, set no cookie and take no payment. They are meant to be read on a Workers Preview URL only; they are
+not meant to reach `kolwen.com` until the prices are set and the legal texts are signed. `scripts/surface-check.mjs`
+rule 14 holds the banner, the `noindex` tag, the absence of an external script and the pages' absence from
+`web/sitemap.xml`. It holds the page, not the host: nothing in this repository stops a merge to `main` from
+deploying them to `kolwen.com`, so that merge is a deliberate act of the room's head, taken with the owner.
+The host rule for `noindex` above covers Preview and `workers.dev` hosts; these pages say `noindex`
+themselves, so they carry it on any host. On `kolwen.com` the sitemap and `robots.txt` are unchanged and do not list them.
+
 ## Security headers
 
 `web/_headers` carries one rule, on `/*`, that sets a Content-Security-Policy, a Referrer-Policy and a
