@@ -94,8 +94,9 @@ const files = readdirSync('web')
 const TEXT = /\.(html|xml|txt|svg|json)$/i;
 
 // LWK-179: the deadline above bounds the JOB; it did not bound each origin's SHARE of it, so a first
-// origin that hung consumed the whole remaining --wait and the fallback origin was never tried --
-// the one thing the fallback exists for. Two guards, and they are not interchangeable:
+// origin that hung consumed the whole remaining --wait and the second origin (then the workers.dev
+// alias) was never tried. With the alias off there is one default origin, so today the share is the
+// whole budget; the arithmetic still holds for any list. Two guards, and they are not interchangeable:
 //   1. THE SPLIT (the cure). An origin may spend at most the remaining budget divided by the
 //      origins NOT YET TRIED this round, so the last origin is structurally always reached. A flat
 //      per-request timeout alone cannot do this: eleven requests at any ceiling can still outlast

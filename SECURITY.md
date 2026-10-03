@@ -30,9 +30,9 @@ stated so nobody plans around a responsiveness this project cannot guarantee.
 This repository is the public face of Kolwen. What ships from it:
 
 **In scope**
-- `web/`—the static page and `wrangler.jsonc` which configures it. The same deployment is
-  reachable at `kolwen.com` and at the Worker origin `kolwen.hetcreep.workers.dev`; **both are
-  in scope**, and CI verifies the served bytes against this repo via whichever one answers.
+- `web/`—the static page and `wrangler.jsonc` which configures it. The deployment is served
+  at `kolwen.com`, and CI verifies the served bytes against this repo there. The Worker's own
+  `workers.dev` address is turned off by `workers_dev: false` in `wrangler.jsonc`, at the next deploy.
 - `py/`—the `kolwen` package published to PyPI, and `.github/workflows/publish-pypi.yml`,
   which publishes it via OIDC Trusted Publishing.
 - `brand/`—`make-brand.mjs` and the committed image assets it generates. Several are served
