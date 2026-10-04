@@ -157,7 +157,7 @@ if (existsSync('brand/README.md')) {
 // LWK-215: the pages that carry PLACEHOLDER prices and unsigned legal text. Declared ONCE, here; rule 7 ships
 // them (spread into SHIPPED below) and rule 14 holds what makes them previews, so a page cannot be in one and
 // miss the other.
-const PREVIEW_PAGES = ['web/pricing.html', 'web/contact.html', 'web/terms.html', 'web/privacy.html', 'web/refund.html'];
+const PREVIEW_PAGES = ['web/pricing.html', 'web/plans.html', 'web/contact.html', 'web/terms.html', 'web/privacy.html', 'web/refund.html'];
 const SHIPPED = new Set([
   'web/index.html', 'web/robots.txt', 'web/sitemap.xml', 'web/ic.json',
   // Added BY NAME, never by widening the glob — the point of the list is that a new path under
