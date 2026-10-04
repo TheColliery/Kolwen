@@ -632,15 +632,19 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
 // X-Robots-Tag value holding `noindex` or `none` on any rule whose pattern is not an absolute `*.workers.dev` URL.
 // NON-VACUITY: rule 15's empty-scope finding covers the page list; a `_headers` that cannot be read is rule 13's finding.
 // STATED LIMITS, not fixed here: engine-specific names (`googlebot`, `bingbot`, a `user-agent:` prefix in the header
-// value) and directives such as `unavailable_after` are not read; a `>` inside an attribute value ends the tag
-// early; a meta inside an HTML comment counts (it fails safe); and a `*.workers.dev` pattern is trusted to be a
-// preview host, which includes production's own `workers.dev` alias (docs/DEPLOY.md names that residual); an
-// attribute name written with an entity or a stray character inside it (`na&#109;e`) is not read; and a
-// `name=` or `content=` text sitting inside ANOTHER attribute's quoted value is still seen as the attribute.
+// value) and directives such as `unavailable_after` are not read; a meta inside an HTML comment counts (it fails
+// safe); and a `*.workers.dev` pattern is trusted to be a preview host, which includes production's own
+// `workers.dev` alias (docs/DEPLOY.md names that residual); an attribute name written with an entity or a stray
+// character inside it (`na&#109;e`) is not read; a `name=` or `content=` text sitting inside ANOTHER attribute's
+// quoted value is still seen as the attribute; and a tag with an UNTERMINATED quote is not matched at all (the
+// quote runs to the next matching quote, so a stray one hides the tag).
 {
+  // A meta tag ends at the first `>` OUTSIDE a quoted attribute value, so `<meta data-note="a > b" name="robots"
+  // content="noindex">` is read whole. The three alternatives start on different characters, so the match is linear.
+  const META_TAG = /<meta\b(?:"[^"]*"|'[^']*'|[^>"'])*>/gi;
   // The attribute NAME must be the whole name: `(?<![\w-])` refuses `data-content`, `data-name`, `x-content`, so a
-  // data attribute that happens to hold `noindex` or `robots` is not read as the robots meta (CodeRabbit thread
-  // 4177057735). The `name` value must be exactly `robots`, not a longer token that merely starts with it.
+  // data attribute that happens to hold `noindex` or `robots` is not read as the robots meta. The `name` value must
+  // be exactly `robots`, not a longer token that merely starts with it.
   const ROBOTS_NAME = /(?<![\w-])name\s*=\s*(?:"\s*robots\s*"|'\s*robots\s*'|robots(?![\w-]))/i;
   const NOINDEX_CONTENT = /(?<![\w-])content\s*=\s*(?:"[^"]*\b(?:noindex|none)\b[^"]*"|'[^']*\b(?:noindex|none)\b[^']*'|[^\s"'>]*\b(?:noindex|none)\b)/i;
   // ONE NAMED EXEMPTION: web/404.html already carries `noindex` on purpose. It answers an unmatched path with
@@ -649,7 +653,7 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
   const NOINDEX_META_OK = new Set(['web/404.html']);
   for (const f of PRODUCTION_PAGES.filter(f => !NOINDEX_META_OK.has(f))) {
     const s = read(f);
-    for (const m of s.matchAll(/<meta\b[^>]*>/gi)) {
+    for (const m of s.matchAll(META_TAG)) {
       if (ROBOTS_NAME.test(m[0]) && NOINDEX_CONTENT.test(m[0])) {
         note(f, `line ${lineOf(s, m.index)}: carries a robots noindex meta tag; production pages must stay indexable (only the preview host says noindex, in a response header)`);
       }
