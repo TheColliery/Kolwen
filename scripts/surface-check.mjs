@@ -610,9 +610,18 @@ const CSP_STATS = { scripts: 0, styles: 0 };
 // other way, any tracked HTML page under web/ that is neither the home page, the 404 nor a preview page is a
 // finding: a page added to the publish root by hand cannot skip this rule by being left off its list.
 //
+// TWO CLAUSES ON THE SAME PAGES: (a) no preview page names a "Free" plan or a free tier, in either
+// language, until that plan exists to be named; (b) the sentence "This site sets no cookies and has no ads." and its Thai
+// twin may sit on a preview page only with a pending-legal-review label that names cookies, straight after the sentence,
+// as the page's other `[... — pending legal review]` labels do (counsel has not cleared the claim, the home page dropped it).
+//
 // NON-VACUITY: a listed page that does not exist is a finding, never a pass. STATED LIMITS: the HTML is
-// read as text, so a banner or meta tag inside a comment would count; and the placeholder LABELS inside
-// a page are held by review, not by this rule.
+// read as text, so a banner or meta tag inside a comment would count; the placeholder LABELS inside a page are
+// held by review, except the cookies-and-ads label of clause (b); clause (a) reads the capitalised word `Free`
+// (so `Free-form` counts and `freedom` does not), `free plan` / `free tier` / `free version` in any case, and the
+// Thai word for free, and nothing else, so another way to say the same thing passes; clause (b) reads only the
+// two exact sentences (a reworded claim, or one on a page outside the preview list, is not read) and a label
+// must be the next element after the sentence.
 {
   const BANNERS = ['PREVIEW — not an offer', 'ตัวอย่าง — ไม่ใช่ข้อเสนอขาย'];
   const NOT_PREVIEW = new Set(['web/index.html', 'web/404.html']);
@@ -628,6 +637,24 @@ const CSP_STATS = { scripts: 0, styles: 0 };
     if (/<script\b[^>]*\bsrc\s*=/i.test(s)) note(f, 'loads an external script; a preview page takes no payment and loads no third-party script');
     const slug = f.replace(/^web\//, '').replace(/\.html$/, '');
     if (new RegExp('/' + slug + '(?![A-Za-z0-9-])').test(sitemap)) note('web/sitemap.xml', `lists /${slug}, a preview page that must stay out of the sitemap`);
+    const at = i => s.slice(0, i).split('\n').length; // rule 14 runs before `lineOf` exists
+    /* FREE_CHECK:begin */
+    const visible = s.replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>|<svg[\s\S]*?<\/svg>/gi, m => m.replace(/[^\n]/g, ' '));
+    const seenAt = new Set(); // "Free plan" matches two patterns at one place: one finding
+    for (const re of [/\b(?:Free|FREE)\b/g, /\bfree\s+(?:plan|tier|version)\b/gi, /ฟรี/g]) {
+      for (const m of visible.matchAll(re)) if (!seenAt.has(m.index)) seenAt.add(m.index), note(f, `line ${at(m.index)}: says "${m[0].replace(/\s+/g, ' ')}", a Free plan or a free tier; a preview page names no Free plan until it exists to be named`);
+    }
+    /* FREE_CHECK:end */
+    /* COOKIE_EN:begin */
+    for (const m of s.matchAll(/This\s+site\s+sets\s+no\s+cookies\s+and\s+has\s+no\s+ads\./g)) {
+      if (!/^\s*<span class="ph">\[[^\]]*cookie[^\]]*pending legal review\]<\/span>/i.test(s.slice(m.index + m[0].length))) note(f, `line ${at(m.index)}: carries the cookie and ads sentence without its pending-legal-review label naming cookies right after it (English)`);
+    }
+    /* COOKIE_EN:end */
+    /* COOKIE_TH:begin */
+    for (const m of s.matchAll(/เว็บไซต์นี้ไม่ตั้งคุกกี้และไม่มีโฆษณา/g)) {
+      if (!/^\s*<span class="ph">\[[^\]]*คุกกี้[^\]]*รอที่ปรึกษากฎหมาย\]<\/span>/.test(s.slice(m.index + m[0].length))) note(f, `line ${at(m.index)}: carries the cookie and ads sentence without its pending-legal-review label naming cookies right after it (Thai)`);
+    }
+    /* COOKIE_TH:end */
   }
 }
 
