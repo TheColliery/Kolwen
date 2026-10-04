@@ -1,0 +1,48 @@
+name: Scorecard
+
+on:
+  branch_protection_rule:
+  schedule:
+    - cron: '0 6 * * 2'
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+
+permissions:
+  contents: read
+
+# cancel-in-progress: FALSE, deliberately. Unlike the read-only workflows here, Scorecard
+# UPLOADS a SARIF to code scanning and (with publish_results) posts to the OpenSSF API --
+# outward writes, where a cancellation mid-publish is a partially-applied result rather than a
+# discarded one. It is also schedule-driven, so overlap is rare and queueing costs nothing.
+concurrency:
+  group: scorecard-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10 # LWK-216: max 25 s over 3 runs
+    # A job-level `permissions:` block REPLACES the workflow-level one, it never merges with it
+    # (LWK-181), so without `contents: read` here `contents` is `none` inside this job. Harmless
+    # while the repo is public (it clones anonymously); the day it is made private the checkout
+    # loses its read. Scorecard's own README lists `contents: read` at job level as expected.
+    permissions:
+      contents: read
+      security-events: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+      - uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: results.sarif

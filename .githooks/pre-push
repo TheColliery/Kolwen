@@ -1,0 +1,25 @@
+#!/bin/sh
+# Repo gate — wired as BOTH pre-commit and pre-push (identical bytes).
+# Runs the secret scan, then the same fail-loud check CI runs (.github/workflows/ci.yml, `surface` job).
+#
+# Enable once per clone — git deliberately refuses to let a repo configure its
+# own hooks, so the files travel with the clone but the pointer does not:
+#   git config core.hooksPath .githooks
+#
+# Fails CLOSED on purpose: a missing node or a missing script blocks the commit
+# instead of passing quietly.
+#
+# The house secret scan (LWK-239, scripts/secret-gate.mjs). A public repository gets GitHub's provider-token scan
+# for free, but not the generic kinds (a private key, a connection string, an HTTP authentication header). git hands
+# only pre-push the ref lines on stdin, so only pre-push passes --pre-push (every pushed commit, message and tag);
+# pre-commit scans the tracked tree. One file, two hook names, identical bytes: the branch is on the name git invoked.
+# The scan runs first and its stdin is git's, so nothing may read stdin before it.
+if [ "$(basename "$0")" = "pre-push" ]; then
+  node scripts/secret-gate.mjs --pre-push "--remote=$1" || exit 1
+else
+  node scripts/secret-gate.mjs || exit 1
+fi
+# Then the surface check. The other two CI gates are wrong for a hook: the brand byte-identity gate REGENERATES
+# assets, so it would write files in the middle of a commit, and the post-deploy check needs the network and a
+# deploy that has not happened yet. This hook moves the room's own laws earlier; it does not try to be CI.
+node scripts/surface-check.mjs

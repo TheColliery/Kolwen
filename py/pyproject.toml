@@ -1,0 +1,31 @@
+[build-system]
+# Exact, and the same version as py/requirements-build.in: the release build runs with
+# --no-isolation against that hashed set, so a disagreement here fails the build (LWK-177).
+requires = ["hatchling==1.32.4"]
+build-backend = "hatchling.build"
+
+[project]
+name = "kolwen"
+version = "0.0.1.dev1"
+description = "Kolwen — Thai-first verifiable AI assistant. Name reservation; nothing is released yet."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+authors = [{ name = "TheColliery" }]
+keywords = ["kolwen", "llm", "thai", "ai-assistant"]
+classifiers = [
+  "Development Status :: 1 - Planning",
+  "Intended Audience :: Developers",
+  "License :: Other/Proprietary License",
+  "Natural Language :: Thai",
+  "Natural Language :: English",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[project.urls]
+Homepage = "https://kolwen.com"
+Source = "https://github.com/TheColliery/Kolwen"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/kolwen"]

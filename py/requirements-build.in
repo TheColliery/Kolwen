@@ -1,0 +1,27 @@
+# INPUT for requirements-build.txt — the build toolchain .github/workflows/publish-pypi.yml
+# installs. Edit THIS file, then regenerate the .txt; never edit the .txt by hand. From py/:
+#
+#   uv pip compile requirements-build.in --python-version 3.12 --python-platform linux \
+#       --generate-hashes -o requirements-build.txt
+#
+# `uv` is a LOCAL tool for this one command and ships nothing. It resolves against the TARGET
+# interpreter (Python 3.12, linux — what the release job runs on) without that interpreter being
+# installed, and reads every sha256 from the package index: no digest here was typed by hand. Pass
+# --python-platform explicitly; the resolver otherwise targets the machine it runs on.
+#
+# The release job installs the .txt with `pip install --require-hashes` — the only form Scorecard's
+# Pinned-Dependencies check accepts for a pip command (an exact version alone still scores as
+# unpinned) — and pip then FAILS CLOSED on any dependency that is not pinned and hashed in the .txt.
+# It then builds with `python -m build --no-isolation`, so the backend that builds is the hashed one
+# just installed, never one resolved on the fly.
+#
+# hatchling is the build backend and is pinned EXACTLY here AND in py/pyproject.toml's
+# [build-system].requires (LWK-177). With --no-isolation the build refuses to run when the two
+# disagree, so bumping one without the other is a red release run, not a quiet different backend.
+# Bump both together, then regenerate.
+build==1.6.0
+hatchling==1.32.4
+# Held at the versions the earlier hash set already pinned, so this change moves the backend and
+# nothing else it did not have to.
+packaging==26.3
+pyproject-hooks==1.2.0

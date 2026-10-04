@@ -1,0 +1,200 @@
+# Deploying kolwen.com
+
+The site is a Cloudflare Worker that serves static assets. There is no build step and no bundler:
+`wrangler.jsonc` binds the `web/` directory and that is the whole application. `package.json`
+exists for one reason only, to pin the Wrangler version (see "Wrangler is pinned" below); it
+declares no runtime dependency.
+
+## Production: Workers Builds, on push to main
+
+**Pushing to `main` is the deploy.** Cloudflare's Workers Builds integration watches the
+repository and republishes the site. Nobody runs a deploy command by hand, and nobody needs
+credentials on their machine to ship.
+
+**Which pushes trigger a build is NOT decided in this repository.** Cloudflare's default is
+*"a change to any file in the repository will trigger a build"*—includes `[*]`, excludes `[]`.
+Narrowing that is a dashboard setting (Settings → Build → Build watch paths) that leaves no trace
+here, so no file in this repo can tell you what is configured. **And even once narrowed, path
+matching is bypassed** for a push with 0 file changes, 3000+ changed files, or 20+ commits. Read
+this as: assume any push may deploy.
+
+Two checks report on it:
+
+- **`Workers Builds: kolwen`**—Cloudflare's own check, on the commit. It says the build ran.
+- **`deploy-check` / "live page matches main"**—ours (`scripts/post-deploy-check.mjs`). It
+  fetches every file under `web/` from the live origin and compares it to what is committed, so a
+  build that reports success but publishes nothing is still caught. It also compares the security
+  headers each HTML response serves against the ones `web/_headers` declares, and fails if
+  `kolwen.com` ever sends `X-Robots-Tag`. On `kolwen.com` an unmatched path must serve the
+  committed `web/404.html` with those headers, or the check fails. On any other host a 404 that is
+  not that page is noted and skipped, not failed (see "The 404 page" below); the pass line then
+  says the unmatched-path 404 was NOT checked on that host. **Those production asserts (the
+  `kolwen.com` noindex rail, the 404 page, and the zone's HSTS and nosniff below) run only when the
+  check reads `kolwen.com`, which is its only default origin. A CI runner first reached it on 2026-10-02
+  (earlier runs were refused; `docs/TRUST.md`). `wrangler.jsonc` sets `workers_dev: false`, which turns
+  the Worker's `workers.dev` alias off at the next deploy, so the check has no fallback origin: a runner
+  that `kolwen.com` refuses makes the check fail as unable to observe anything, never pass.** `--origin <url>`
+  checks one other host instead of `kolwen.com`, so a preview, a `workers.dev` host or a local server can
+  be checked before merge; the production asserts above do not run on such a host. It waits for publication
+  rather than for a reply, because the deploy lands after CI starts. It runs on a push touching
+  `web/`, `wrangler.jsonc`, **or the checker itself**—otherwise the commit that changes the gate
+  would be the one commit the gate never runs on—and can also be started by hand from the
+  Actions tab.
+
+A push is not finished until both have answered. Read the verdict; do not assume it.
+
+## Previews: a pull request can get a URL
+
+`wrangler.jsonc` carries an empty `previews` block, and that block is what makes this Worker
+preview-enabled: Cloudflare's configuration page says *"The `previews` block is required, but it
+can be empty"*, and says to keep `assets` and `compatibility_date` at the top level, where they
+stay. A pull request gets a preview URL only if Workers Builds built it after Previews was switched
+on for the Worker in Cloudflare, which was done on 2026-09-24, and only while that Cloudflare-side
+setting stays on. A pull request built before then has no preview URL. That setting and the build
+credential behind it live in Cloudflare, not in this repository. A preview is a copy of the site
+built from the branch. The URL has the shape `<preview-name>-kolwen.<subdomain>.workers.dev`.
+
+- **Previews are public, with no access gate.** Owner ruling, 2026-09-23: there is no Cloudflare
+  Access in front of them, so anyone holding a preview URL can load it. What they load is the
+  same static files, from the branch. The Worker has no binding, variable or secret, so a preview
+  reaches nothing that is not already on the public page. A binding is added to `wrangler.jsonc`
+  only after that is checked again, because a preview's service binding calls the bound Worker's
+  *production* deployment.
+- **Observed live, in part.** A preview of this branch was measured on 2026-09-25; the
+  measurements are stated where they apply below (the noindex header and the 404 page).
+
+### noindex applies to preview and version hosts only
+
+`web/_headers` ends with one rule keyed on the host, not the path:
+
+```
+https://:version.:subdomain.workers.dev/*
+  X-Robots-Tag: noindex
+```
+
+It is the example Cloudflare's own headers page gives under "Prevent your workers.dev URLs showing
+in search results". Each placeholder matches exactly one dot-delimited host label, and the
+pattern ends in the literal `.workers.dev`, so it matches a Preview URL and a Version URL, both of
+which have that shape. **Production `kolwen.com` never carries it**: `kolwen.com` does not end in
+`.workers.dev`, so no binding of the placeholders can make the rule match it.
+
+- **How that was checked.** A local script re-implemented the documented matching over eight
+  hosts, `kolwen.com` and `www.kolwen.com` among them, and neither matched. That script is not
+  Cloudflare's engine. A live preview was measured on 2026-09-25 and does send
+  `X-Robots-Tag: noindex`, but that header is Cloudflare's own preview header, not this rule's, so
+  the measurement does not show this rule applying to a preview.
+- **One residual, named.** The rule also matches `kolwen.hetcreep.workers.dev`, production's own
+  `workers.dev` alias. That is not `kolwen.com`, but it is a production-adjacent address that sends
+  `noindex` for as long as the alias is served; `wrangler.jsonc` sets `workers_dev: false`, which
+  turns the alias off at the next deploy, and the check no longer reads it. No
+  documented `_headers` syntax can tell a preview label from that bare one within a single label,
+  so the rule was not narrowed by guesswork.
+- **Cloudflare's Previews page is silent** on whether previews send `X-Robots-Tag` (read
+  2026-09-23), which is why the rule was written. Measured 2026-09-25: a preview sends it on its
+  own. The rule is therefore redundant on a Preview URL; it is what put `noindex` on
+  production's own `workers.dev` alias, which is not a preview, for as long as that alias is served.
+
+## Security headers
+
+`web/_headers` carries one rule, on `/*`, that sets a Content-Security-Policy, a Referrer-Policy and a
+Permissions-Policy on every response. The policy has no `'unsafe-inline'`: the page's inline script
+and inline styles are admitted by `sha256-` hash, so an edit to any of them changes its hash and the
+policy must change with it. `scripts/surface-check.mjs` recomputes those hashes from the served
+HTML and fails the build if the two disagree. Two origins are named in the policy because neither
+can carry a fixed hash: Google Fonts (its stylesheet varies by browser) and the Cloudflare Web
+Analytics beacon, admitted in `script-src` by the path prefix
+`https://static.cloudflareinsights.com/beacon.min.js/` (Cloudflare does not support version-pinning
+the beacon, so it has no integrity hash). The policy also sets `form-action 'self'`, and the same
+rule sets `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Resource-Policy: same-origin`.
+`Cross-Origin-Embedder-Policy` is not set; the reason is in `web/_headers`. The deploy check reads
+all five headers from the live response. The CSP is on `/*` and on no
+other rule, because Cloudflare joins a header set by two matching rules with a comma, which would
+serve two policies instead of one.
+
+- **HSTS and nosniff are not set in `_headers`.** The Cloudflare zone sets `Strict-Transport-Security`
+  and `X-Content-Type-Options: nosniff` on `kolwen.com` (measured 2026-09-25). A preview or
+  `workers.dev` host does not pass through the zone, so it carries neither. `deploy-check` asserts
+  both are present on `kolwen.com` and does not ask for them elsewhere. That assert runs only when
+  the check reads `kolwen.com`, its default origin (first reached from a CI runner on 2026-10-02); it is skipped
+  on any other host given with `--origin`.
+- **Cloudflare's injected script is refused on `kolwen.com`.** The edge appends an inline
+  bot-detection script to the page. Its contents differ per request, so it cannot be admitted by
+  hash, and this policy refuses it; the browser console reports the refusal. Cloudflare's
+  JavaScript detections page (developers.cloudflare.com/cloudflare-challenges/challenge-types/javascript-detections/,
+  read 2026-09-25) says no enforcement happens unless a WAF rule uses the detection result. This is
+  a known and accepted effect, recorded for the owner; nothing in this repository can change it.
+- **The 404 page.** Measured 2026-09-25, the two hosts differ.
+  - **Production.** `_headers` path rules are applied to the 404 fallback: a request for a missing
+    `.svg` came back with the `Cache-Control` that `/*.svg` sets. So the `/*` rule covers the
+    404 page there, and `deploy-check` requires `kolwen.com` to serve the committed `web/404.html`
+    with the declared headers, when it reads `kolwen.com`, its default origin.
+  - **A Workers Preview.** An unmatched path got a 9-byte platform "Not found" instead of
+    `web/404.html`, with no `_headers` rule applied, not the path rules and not the host rule. Its
+    `X-Robots-Tag: noindex` is Cloudflare's own. So a preview's 404 carries none of the policy.
+    Cloudflare's headers page says rules apply to assets served from the assets pipeline, not to
+    Worker-generated responses; it does not name this case. Why a preview does not serve the
+    `not_found_handling` fallback is not known and was not tested further. `deploy-check` run
+    with `--origin` on a preview prints a note and skips the 404 headers rather than failing.
+  - No host-scoped copy of the policy was added: no rule of ours reaches that response, and a second
+    policy line would break the one-policy rule above.
+
+## Wrangler is pinned
+
+`package.json` and `package-lock.json` hold Wrangler as a devDependency at one exact version, no
+range; at the time of writing that is `4.136.3`, and the lockfile resolves to the same number.
+**`package.json` is the record**: a number written into a document is a claim about the past, and
+Dependabot moves this one. Cloudflare's build configuration page says Workers Builds uses the
+Wrangler version set in `package.json`. Whether its build runs an install step on a repository
+with a devDependency and no build script is not documented there, so it is read from the first
+pull request's `Workers Builds: kolwen` check rather than assumed.
+
+**How the pin moves.** `.github/dependabot.yml` has an `npm` entry that checks daily. Dependabot
+opens a pull request that edits `package.json` and the lockfile, and CI runs on it. A patch or
+minor bump then auto-merges once the required checks are green, through the existing
+`dependabot-auto-merge.yml`, which gates on the author being `dependabot[bot]` and on the update
+not being a major one, and has no filter by package ecosystem. **A major bump waits for the
+owner**, and the pull request is assigned to the maintainer so it is seen. No Dependabot `npm`
+pull request has been observed yet.
+
+**A bump deploys without `deploy-check`.** Every push to `main` deploys, but `deploy-check` runs
+only on a push touching `web/`, `wrangler.jsonc` or the checker, and a bump touches none of them.
+
+## Local: only for dev and dry runs, and only pinned
+
+Nothing here installs `node_modules/`, which is gitignored. Tools are fetched for the length of one
+command and leave nothing behind to go stale. Take the version from `package.json`, so no second copy of
+the number exists to drift:
+
+```bash
+V="$(node -p "require('./package.json').devDependencies.wrangler")"
+npx wrangler@"$V" dev                # serve web/ locally
+npx wrangler@"$V" deploy --dry-run   # compile without publishing
+```
+
+**Always pin the version.** An unpinned `npx wrangler` silently takes whatever is newest on the
+day it runs, so two people on the same task get two different tools and neither can reproduce the
+other.
+
+**`wrangler deploy` from a laptop is not the production path** and should not be used as one. It
+uploads `web/` as it sits on disk, untracked files included, where Workers Builds deploys from a
+clone and can only ship what is committed. It has been needed once, to recover a push that
+produced no build at all—the failure `deploy-check` exists to catch, and named at `acf684f` in
+that workflow's own header.
+
+## What is served
+
+Everything under `web/`, and nothing else. `scripts/surface-check.mjs` holds an allowlist of the
+files we ship and fails if anything else is tracked there, because every path under `web/` is a
+live URL.
+
+## Known behaviour: unmatched paths return 404
+
+`not_found_handling` is set to `404-page`, so a request for a path that does not exist
+returns **404 with `web/404.html`**. It used to be `single-page-application`, which answered 200
+with the home page for every wrong URL—measured 2026-09-03, when `/wp-admin` and `/en/pricing`
+both did—and crawlers indexed nonexistent pages as real ones. Measured again 2026-09-21 against
+the live site: `/wp-admin` and `/en/pricing` answer 404, and `/` answers 200.
+
+**This section describes a Worker with no script.** Whoever adds `/chat` gives this Worker a
+script, and re-reads this section and Cloudflare's current `not_found_handling` documentation
+rather than trusting it.
