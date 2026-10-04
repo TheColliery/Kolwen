@@ -158,10 +158,11 @@ the pointer to it.
 
 ### Added
 
-- Two more rules in `scripts/surface-check.mjs`, both about the production pages. Rule 15 fails a page that
-  says "no trackers" (any case, wrapped lines included) or its Thai twin, because the site runs Cloudflare Web
-  Analytics; it stays until counsel's analytics wording lands. Rule 16 fails a page that carries a robots
-  `noindex` (or `none`) meta tag, in any attribute order and case, and a `web/_headers` rule that sets an
+- Two more rules in `scripts/surface-check.mjs`, both about the web pages. Rule 15 fails any tracked
+  `web/` page, preview pages included, that says "no trackers" (any case, wrapped lines included) or its Thai
+  twin, because the site runs Cloudflare Web Analytics; it stays until counsel's analytics wording lands. Rule 16
+  reads the production pages only (every tracked page except a small exempt set that is empty today) and fails a
+  page that carries a robots `noindex` (or `none`) meta tag, in any attribute order and case, and a `web/_headers` rule that sets an
   `X-Robots-Tag` with noindex on a production path; only an absolute `*.workers.dev` host rule may. The one such
   rule today covers preview and version hosts; production's own `workers.dev` alias, which that pattern would also
   match, is off and answered 404 on 2026-10-04.
