@@ -599,8 +599,9 @@ const CSP_STATS = { scripts: 0, styles: 0 };
 }
 
 // ── 14. The preview pages stay previews (LWK-215) ────────────────────────────
-// The pages in PREVIEW_PAGES (rule 7) carry PLACEHOLDER prices and unsigned legal text. Until the owner's
-// prices and the lawyer's words are in, each must say so on the page in both languages, ask search engines to
+// The pages in PREVIEW_PAGES (rule 7) are not for sale: some carry PLACEHOLDER prices and unsigned legal text, one
+// shows a ratified figure. Until the owner's prices and the lawyer's words are in, each must say on the page, in both
+// languages, that it is a preview and not an offer (one banner text true on every page), ask search engines to
 // skip it, load no third-party script (no payment code is shipped), and stay out of the sitemap. This holds the
 // page; it does not hold the host (that a branch is served only by its Workers Preview is how it is deployed,
 // not something this file can see).
@@ -613,7 +614,7 @@ const CSP_STATS = { scripts: 0, styles: 0 };
 // read as text, so a banner or meta tag inside a comment would count; and the placeholder LABELS inside
 // a page are held by review, not by this rule.
 {
-  const BANNERS = ['PREVIEW — placeholder prices, not an offer', 'ตัวอย่าง — ราคาเป็นค่าสมมติ ไม่ใช่ข้อเสนอขาย'];
+  const BANNERS = ['PREVIEW — not an offer', 'ตัวอย่าง — ไม่ใช่ข้อเสนอขาย'];
   const NOT_PREVIEW = new Set(['web/index.html', 'web/404.html']);
   const sitemap = existsSync('web/sitemap.xml') ? read('web/sitemap.xml') : '';
   for (const f of tracked.filter(f => f.startsWith('web/') && f.endsWith('.html'))) {

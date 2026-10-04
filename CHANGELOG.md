@@ -160,7 +160,7 @@ the pointer to it.
 
 - Five PREVIEW pages on the `lwk-201-pricing-preview` branch, served only by its Workers Preview URL and not
   merged: `pricing`, `contact`, `terms`, `privacy` and `refund`, each in English with a Thai toggle. Every one
-  carries a visible "PREVIEW — placeholder prices, not an offer" banner in both languages and
+  carries a visible "PREVIEW — not an offer" banner in both languages (one text true on every preview page) and
   `<meta name="robots" content="noindex">`. They show placeholder plans and prices (labelled, none decided),
   the total-price-with-tax and renewal statements, a cancellation-path statement with a placeholder link,
   the seller details with the legal name and address as labelled placeholders, Paddle as the merchant of
