@@ -594,23 +594,27 @@ const CSP_STATS = { scripts: 0, styles: 0 };
 
 // ── 15. The dropped "no trackers" claim stays off every production page (LWK-273) ──
 // kolwen.com runs Cloudflare Web Analytics, so the footer's "no trackers" (and its Thai twin) was dropped
-// (`94b9415`). Counsel's analytics sentence has not landed, so until it does no production page may say
-// it again. Rule 14 is left to the preview-pages rule on branch lwk-201-pricing-preview; PREVIEW_EXEMPT is where
-// that branch lists its five pages, which carry the pending-review label instead of the claim.
+// (`94b9415`). Counsel's analytics sentence has not landed, so until it does no page the site serves may say
+// it again.
 //
-// SCOPE: every tracked `web/*.html` page that is not in PREVIEW_EXEMPT (home, 404, and any page added later).
-// NON-VACUITY: a repo with no such page is a finding, never a pass.
+// SCOPE: EVERY tracked `web/*.html` page (WEB_PAGES: home, 404, any preview page, and any page added later). A
+// preview page is not exempt from this rule: the claim is false on a preview page too, and nothing a preview page
+// legitimately says needs the phrase. PREVIEW_EXEMPT, below, does not narrow this rule; it names the pages that a
+// preview rule holds INSTEAD of rule 16 (a preview page has to ask search engines to skip it, which rule 16 forbids
+// on a production page). It is empty while no tracked page is a preview page.
+// NON-VACUITY: a repo with no tracked HTML page is a finding, never a pass.
 // STATED LIMITS, not fixed here: two phrasings only, `no trackers` (any case, any run of whitespace, so a wrapped
 // line still matches) and `ไม่มีตัวติดตาม`; another wording of the same claim ("tracker-free", "ไม่ติดตามคุณ", an HTML
 // entity inside the phrase) passes, and so does the claim in a file that is not a page (PRIVACY.md is held by
 // its own pending-review labels, not by this rule). The HTML is read as text, so the phrase inside a comment counts.
 const PREVIEW_EXEMPT = new Set();
-const PRODUCTION_PAGES = tracked.filter(f => f.startsWith('web/') && f.endsWith('.html') && !PREVIEW_EXEMPT.has(f));
+const WEB_PAGES = tracked.filter(f => f.startsWith('web/') && f.endsWith('.html'));
+const PRODUCTION_PAGES = WEB_PAGES.filter(f => !PREVIEW_EXEMPT.has(f));
 const lineOf = (s, i) => s.slice(0, i).split('\n').length;
 {
   const CLAIMS = [/\bno\s+trackers\b/gi, /ไม่มีตัวติดตาม/g];
-  if (PRODUCTION_PAGES.length === 0) note('web/', 'has no tracked production HTML page, so rule 15 checked nothing — this CHECK is now empty, not the claim proven absent');
-  for (const f of PRODUCTION_PAGES) {
+  if (WEB_PAGES.length === 0) note('web/', 'has no tracked HTML page, so rule 15 checked nothing — this CHECK is now empty, not the claim proven absent');
+  for (const f of WEB_PAGES) {
     const s = read(f);
     for (const re of CLAIMS) {
       for (const m of s.matchAll(re)) {
@@ -630,7 +634,9 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
 // What counts: a `<meta>` whose `name` is `robots` and whose `content` holds `noindex` or `none` (robots `none` means
 // noindex plus nofollow), in any attribute order, any case, double, single or no quotes. In `_headers`, an
 // X-Robots-Tag value holding `noindex` or `none` on any rule whose pattern is not an absolute `*.workers.dev` URL.
-// NON-VACUITY: rule 15's empty-scope finding covers the page list; a `_headers` that cannot be read is rule 13's finding.
+// SCOPE: PRODUCTION_PAGES, every tracked page except those in PREVIEW_EXEMPT (rule 15 names why that set exists).
+// NON-VACUITY: rule 15's empty-scope finding covers the page list, and a list that is empty only because every page
+// is exempt is a finding here; a `_headers` that cannot be read is rule 13's finding.
 // STATED LIMITS, not fixed here: engine-specific names (`googlebot`, `bingbot`, a `user-agent:` prefix in the header
 // value) and directives such as `unavailable_after` are not read; a meta inside an HTML comment counts (it fails
 // safe); and a `*.workers.dev` pattern is trusted to be a preview host, which includes production's own
@@ -651,6 +657,7 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
   // HTTP 404, which search engines drop on their own, so the tag decides nothing about any page of the site. Its
   // `X-Robots-Tag` header is still refused below. Anything else carrying the tag is a finding.
   const NOINDEX_META_OK = new Set(['web/404.html']);
+  if (WEB_PAGES.length > 0 && PRODUCTION_PAGES.length === 0) note('web/', 'has tracked HTML pages but every one is in PREVIEW_EXEMPT, so rule 16 checked nothing — this CHECK is now empty, not the noindex meta proven absent');
   for (const f of PRODUCTION_PAGES.filter(f => !NOINDEX_META_OK.has(f))) {
     const s = read(f);
     for (const m of s.matchAll(META_TAG)) {
