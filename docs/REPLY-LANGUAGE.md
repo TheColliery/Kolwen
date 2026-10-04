@@ -32,7 +32,8 @@ therefore exempt BY KIND, not by exception, and both are named so nobody "fixes"
 `py/src/kolwen/__init__.py` holds an English docstring: package metadata, not a reply, and it is
 covered by the scan anyway.
 
-The scan that keeps this true is `scripts/reply-language-check.mjs --scan`, wired into CI.
+The scan that checks this is `scripts/reply-language-check.mjs --scan`, wired into CI. It flags
+non-Latin text only; its limit is stated in the acceptance-test table below.
 
 ## The system-prompt rule—BINDS AT SURFACE
 
@@ -71,7 +72,7 @@ paths**—20 probes—and asserts the language of the REPLY.
 | mode | when | what it proves |
 |---|---|---|
 | `--self-test` | **in CI today** | the harness detects the failure. The RED fixture is the Synantic shape: a Thai template returned whatever was asked. It must fail every non-Thai probe (15 of 20)—if it does not, the harness is not measuring anything. A conforming fixture must pass all 20. |
-| `--scan` | **in CI today** | no hard-coded single-language reply template exists in shipped code |
+| `--scan` | **in CI today** | no Thai, Japanese or Chinese text sits in a file that could emit a reply. **It does not see a Latin-script template**—a hard-coded English or French reply passes it. That is a coverage gap on a surface that does not exist yet, stated here; the rule (no hard-coded reply template in any language) is held by review until there is a reply surface to scan properly. |
 | `KOLWEN_CHAT_ENDPOINT=<url>` | **the day `/chat` exists** | the same 20 probes against the real endpoint. One environment variable, no rewrite. |
 
 With no mode and no endpoint the script **exits 1** rather than printing nothing: a gate that

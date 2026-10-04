@@ -20,6 +20,7 @@ on:
       # A change to the checker itself must re-verify: otherwise the commit that fixes the
       # gate is the one commit the gate never runs on.
       - 'scripts/post-deploy-check.mjs'
+      - 'scripts/lib/headers-file.mjs'
 
 # cancel-in-progress: TRUE -- this job only FETCHES the live page and compares it to the commit.
 # It writes nothing anywhere. A superseded run is worse than useless: it is still waiting on an
@@ -35,8 +36,13 @@ jobs:
   live:
     name: live page matches main
     runs-on: ubuntu-latest
+    timeout-minutes: 15 # LWK-216: max 27 s over 1 run; its own --wait is 300 s
     steps:
+      # persist-credentials: false (LWK-168) -- this job runs a script out of the checked-out tree
+      # and needs no git operation, so the token is not left in .git/config for that script.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24

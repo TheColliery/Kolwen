@@ -16,11 +16,9 @@ product SHOWS.
 **`web/ic.json` is the ONE source of truth** for the IC this product runs: model id, cutoff,
 effort. It is published at `/ic.json`, so a reader can fetch it right now.
 
-Today it says exactly what is true:
-
-```json
-{ "status": "no-ic-running", "model_id": null, "cutoff": null, "effort": null }
-```
+Today it says exactly what is true: no IC is running, so the model id, cutoff and effort are all
+empty. Fetch `/ic.json` for the current values; this page does not copy them, because a copy is
+the retyping this section forbids.
 
 **A placeholder is honest; a fake id is not.** No model runs here, so none is named.
 
@@ -47,20 +45,32 @@ warehouse; the runner lives here** (`scripts/decap-battery.mjs`).
 | `B11-pin`: no unknown-escape | the fixture forces a best guess with `(?)`; the runner never adds an "I don't know" affordance to it |
 | the maker's-own-event separator | included—it is a line inside `B11-pin`, and the runner sends the block's items unedited |
 | raw replies saved | every run writes per-block replies plus an index under `.decap-runs/<timestamp>/` **before** asserting. **A verdict with no raw answers is a claim.** |
-| a battery with no blocks | throws. An empty fixtures directory is never reported as a pass. |
+| a battery with no blocks | a real run throws; an empty fixtures directory is never reported as a pass. The self-test's fixture leg, absent the directory, is reported as SKIPPED, never as passed. |
 
 **Red-first, and the assert is the point:** a mocked WRONG CHIP that answers rungs past the
 labelled cutoff must FAIL, and a conforming chip must PASS. Measured:
 
 ```
-  wrong-chip fixture  -> measured 2026 vs label 2024: FAILED (correct)
-  conforming fixture  -> measured 2024 vs label 2024: PASSED (correct)
+  wrong-chip adapter  -> measured 2026 vs label 2024: FAILED (correct)
+  conforming adapter  -> measured 2024 vs label 2024: PASSED (correct)
 ```
 
 **Why dated events and not an accuracy benchmark:** a relabelled chip is as clever as the chip it
 really is, so a capability score cannot expose it. Only knowledge of dated events can.
 
-**CI:** the self-test runs on every push. **A real run is keyed to the label changing**—the day
+**CI:** the self-test runs on every push, in two halves, and CI proves only the first.
+
+- **Fixture-free legs—run unconditionally, and fail the job on any failure.** The wrong-chip and
+  conforming adapters are run against a small synthetic block set written for the check (it
+  carries the fixtures' format, none of their text); the strip and placeholder-slot units; and the
+  prompt-hygiene assertions that no outgoing prompt carries an answer key or an unfilled slot.
+- **Fixture leg—skipped in a public checkout, and it says so.** It repeats the red/green assertion
+  and the hygiene check on the real blocks, and counts `B11-pin`'s per-item sessions. The blocks
+  live in the warehouse, outside this repository, so CI cannot read them: the leg is reported as
+  `SKIPPED, not passed` in the log and as a workflow warning. That half is proven only on a
+  machine that has the warehouse beside this repository.
+
+**A real run is keyed to the label changing**—the day
 `web/ic.json` names a model, the battery runs against it, because a swap that does not re-run the
 battery is a label nobody checked. With a label and no endpoint the runner exits 1 rather than
 reporting a pass.
@@ -78,9 +88,9 @@ decoration.
 ## 4 · No hard-coded refusal templates—the scan is ENFORCED TODAY
 
 A refusal is generated, in the user's language, never selected from a canned string. This is the
-same rule as `docs/REPLY-LANGUAGE.md`'s and the same scan enforces it
-(`scripts/reply-language-check.mjs --scan`): a canned refusal is a single-language reply template
-wearing a safety justification.
+same rule as `docs/REPLY-LANGUAGE.md`'s, and the same scan checks it
+(`scripts/reply-language-check.mjs --scan`)—for non-Latin text only, a limit stated in that
+document: a canned refusal is a single-language reply template wearing a safety justification.
 
 Two rules meeting on one string is the point—a canned refusal fails the clone test too, because
 it is somebody else's words in Kolwen's mouth.

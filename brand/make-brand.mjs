@@ -82,9 +82,14 @@ function png(size, fg, bg, bars = BARS) {
       }
       const a = hits / (SS * SS);
       const i = row + 1 + x * 4;
-      raw[i]     = Math.round(fr  * a + br  * (1 - a));
-      raw[i + 1] = Math.round(fg_ * a + bg_ * (1 - a));
-      raw[i + 2] = Math.round(fb  * a + bb  * (1 - a));
+      // LWK-168: PNG alpha is STRAIGHT (the spec's model): the colour channels hold the ink's own
+      // colour and coverage lives in alpha alone. With no ground (`bg` null) this used to write
+      // the ink already multiplied by its coverage AND put the coverage in alpha, so a compositor
+      // applied it a second time and every anti-aliased edge came out darker than the ink. With a
+      // ground there is no transparency, so the composite over that ground is the right answer.
+      raw[i]     = bg ? Math.round(fr  * a + br  * (1 - a)) : fr;
+      raw[i + 1] = bg ? Math.round(fg_ * a + bg_ * (1 - a)) : fg_;
+      raw[i + 2] = bg ? Math.round(fb  * a + bb  * (1 - a)) : fb;
       raw[i + 3] = Math.round(255 * a + bgA * (1 - a));
     }
   }

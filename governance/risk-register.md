@@ -1,8 +1,9 @@
 # Risk register
 
 > Part of Kolwen's control-family set. **Written from day one so that a future audit COLLECTS
-> EVIDENCE rather than builds it** (owner ruling AR-10, 2026-09-06). Everything under "Today" is a
-> present-tense fact with its backing named; everything under "Planned" is not yet true.
+> EVIDENCE rather than builds it** (owner ruling AR-10, 2026-09-06; what `AR-n` means is in
+> [the index](README.md)). Everything under "Today" is a present-tense fact with its backing
+> named; everything under "Planned" is not yet true.
 > **No certification is held or claimed** — see `ISO-MAP.md`.
 
 ## Today
@@ -11,6 +12,7 @@
 |---|---|---|
 | A false public claim ships | machine-checked on every push | `scripts/surface-check.mjs` |
 | A deploy silently fails or serves stale bytes | the live site is compared to the commit | `scripts/post-deploy-check.mjs` |
+| A page's inline script stops running, or the CSP drifts from what the page carries | the CSP hashes are recomputed from the HTML on every push, and the served headers, the 404 page included, are compared to `web/_headers` after deploy at `kolwen.com`, the check's only default origin (`--origin` checks one other host) | `scripts/surface-check.mjs`, `scripts/post-deploy-check.mjs` |
 | An unauthorised package release | only a signed annotated tag can publish | `.github/workflows/publish-pypi.yml` |
 | A stored publishing credential leaks | there is none — OIDC Trusted Publishing | same workflow |
 | A secret is committed | scanned and blocked at push | GitHub secret scanning, push protection |

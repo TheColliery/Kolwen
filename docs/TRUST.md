@@ -12,15 +12,15 @@ Measured facts, each traceable to something in this repository or to a live chec
 |---|---|
 | The site is served over TLS by Cloudflare | the live site answers on HTTPS; the Worker config is `wrangler.jsonc` |
 | **No customer data store exists** | there is no database, no account system and no conversational service in this repository — `py/` is a name reservation and `web/` is a static page |
-| Every published claim is machine-checked | `scripts/surface-check.mjs`, a required CI context |
-| What is served is compared to what is committed | `scripts/post-deploy-check.mjs`, run after every deploy |
+| The failures `scripts/surface-check.mjs` has a rule for are machine-checked; every other published claim is held by review, not by a checker | `scripts/surface-check.mjs`, a required CI context; its numbered rules are the list, summarised in `governance/policies.md` |
+| The files under `web/`, and the security headers each HTML response carries, are compared to what the site serves, on the pushes that can change them, at `kolwen.com` (or at the one host given with `--origin`). On `kolwen.com` an unmatched path must serve the committed 404 page with those headers; on a Workers Preview the 404 is Cloudflare's own bare response (measured 2026-09-25), so it is noted and skipped | `scripts/post-deploy-check.mjs`, run by `deploy-check.yml` only after a push touching `web/`, `wrangler.jsonc` or the checker itself. Every push to `main` deploys, so a push touching none of those deploys without this check. A CI runner now reaches `kolwen.com` (first seen on the run of 2026-10-02; earlier runs were refused), so the check compares what `kolwen.com` itself serves. It has no other default origin: `wrangler.jsonc` sets `workers_dev: false`, which turns the Worker's `workers.dev` address off at the next deploy, so a runner that `kolwen.com` refuses makes the check fail as unable to observe anything, never pass. The one file the edge adds to is `robots.txt`: the zone prepends Cloudflare's managed AI-crawl block, so the committed file must be the final block after it, and that managed block itself is not compared |
 | Only a signed, annotated tag can publish the package | the gate in `.github/workflows/publish-pypi.yml` |
 | Package publishing uses Trusted Publishing | no API token is stored anywhere; the workflow uses OIDC |
 | The default branch cannot be deleted or force-pushed | GitHub rulesets `main-guard` and `dependabot-auto-merge-gate` |
 | Tags cannot be altered or deleted | the `tag-immutable` ruleset, no bypass |
 | Code is scanned on every push | CodeQL, plus OpenSSF Scorecard |
 | Dependencies are watched and patched | Dependabot, with CI-gated auto-merge |
-| Secrets are scanned and blocked at push | GitHub secret scanning with push protection |
+| Secrets are blocked at push (GitHub push protection, the house hooks) and checked after push (the house scan in CI) | GitHub secret scanning with push protection, plus the house scan (`scripts/secret-gate.mjs`) in CI and in `.githooks/`. The hooks run only in a clone that ran `git config core.hooksPath .githooks`, and `git push --no-verify` bypasses them |
 | Vulnerabilities can be reported privately | GitHub private vulnerability reporting, and `SECURITY.md` |
 
 ## 2 · Encryption and keys
@@ -36,7 +36,7 @@ should be read as false the moment it stops matching the code.
 - **No-training covenant** — `TERMS.md` (DRAFT, with legal gaps).
 - **Privacy notice** — `PRIVACY.md` (published as a DRAFT with legal gaps).
 - **Data processing terms** — not yet drafted; the PDPA §40 skeleton is held internally.
-- **Retention** — **[90 days]**, bracketed, and nothing is retained today.
+- **Retention** — **[N days]**, bracketed: N is set before launch, and no conversation content is retained today.
 
 ## 4 · Sub-processors
 

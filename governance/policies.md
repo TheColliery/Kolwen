@@ -1,15 +1,35 @@
 # Policies
 
 > Part of Kolwen's control-family set. **Written from day one so that a future audit COLLECTS
-> EVIDENCE rather than builds it** (owner ruling AR-10, 2026-09-06). Everything under "Today" is a
-> present-tense fact with its backing named; everything under "Planned" is not yet true.
+> EVIDENCE rather than builds it** (owner ruling AR-10, 2026-09-06; what `AR-n` means is in
+> [the index](README.md)). Everything under "Today" is a present-tense fact with its backing
+> named; everything under "Planned" is not yet true.
 > **No certification is held or claimed** — see `ISO-MAP.md`.
 
 ## Today
 
-- **Every published claim must match what the code does.** Enforced, not aspirational:
-  `scripts/surface-check.mjs` runs as a required CI context and fails the build on a false claim
-  about the trademark, an identifier on a public surface, or a private-zone path.
+- **Every published claim must match what the code does.** The rule is universal; the machine
+  behind it is not. `scripts/surface-check.mjs` runs as a required CI context, and **its numbered
+  rules are the complete list of what it fails the build on**. This sentence summarises the ones
+  that guard a published claim, and where it and the script disagree the script is right and this
+  page is stale. Those classes today: a false trademark claim (the registration symbol, or an
+  affirmative registration claim, in English or Thai); a filing-identifier-shaped number on a public
+  surface; an internal path, a private-repo reference or an absolute local path; the retired
+  contact address, in the spellings the script lists, on a tracked text file; Thai orthography
+  faults; a broken landing-page structure; a brand-document contrast ratio that its own colour pair
+  does not produce; a tracked file under the publish root that is not a declared shipped asset; a
+  retyped copy of the IC label, or an IC-label key that `web/ic.json` should declare as required
+  text and leaves empty or undeclared; a Content-Security-Policy that no longer admits the inline script and styles the pages
+  carry, or that has lost its floor (the `form-action` directive included) or the two cross-origin
+  headers, or whose `script-src` lacks the one exact Web Analytics beacon source or carries any other `cloudflareinsights` source (it does not refuse other `script-src` sources); and a legal draft (`PRIVACY.md`, `TERMS.md`) whose
+  labelled gap has lost the marker saying counsel has not cleared it. **Every claim outside the
+  script's rules—what a document says a feature does, for one—is held by review, not by a
+  checker.** The rule is not softened to fit the machine; the gap is stated.
+- **A workflow job's own permissions must say what it needs.** A job-level `permissions:` block
+  replaces the workflow-level one rather than merging with it, so a job that checks the repository
+  out and declares its own block without `contents` reads `contents: none`. This is CI hygiene, not
+  a published claim, so it is checked separately from the rule above: `scripts/surface-check.mjs`
+  rule 11 reads every tracked workflow for it.
 - **A public repository is a publication.** Every commit is treated as one.
 - **Nothing ships that a document cannot back** — the rule `docs/TRUST.md` is written under.
 - **The word mark is FILED, not registered**, and product names always read "Kolwen <Rank>"

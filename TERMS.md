@@ -16,24 +16,32 @@ Terms §B uses (*"Anthropic may not train models on Customer Content from Servic
 
 **A tension named rather than hidden:** a separate consumer-facing mechanism is drafted elsewhere
 that would let an individual user opt IN to helping improve Kolwen. Those are two different tiers
-on purpose. **Whether the enterprise Terms carry this absolute sentence while a separate consumer
-document carries the opt-in, or whether one document must reconcile both, is
-`[pending legal review]` and the owner's decision.**
+on purpose.
+
+**GAP 1 — [pending legal review]: whether the enterprise Terms carry this absolute sentence while a
+separate consumer document carries the opt-in, or whether one document must reconcile both, is
+counsel's question and the owner's decision.**
 
 ## Rights in Inputs and Outputs
 
-`[pending legal review]` — the companion clauses in the same source Terms state that the customer
-retains rights to its Inputs and owns its Outputs, and that Customer Content is the customer's
-confidential information. Whether Kolwen adopts that allocation verbatim is counsel's call.
+**GAP 2 — [pending legal review]** — the companion clauses in the same source Terms state that the
+customer retains rights to its Inputs and owns its Outputs, and that Customer Content is the
+customer's confidential information. Whether Kolwen adopts that allocation verbatim is counsel's call.
 
 ## Retention
 
-Conversation content, once a conversational service exists, is retained for **[90 days]** and then
-deleted or anonymised. The number is bracketed because it is a product and legal decision, not a
-figure any statute supplies — Thailand's PDPA requires that a period be stated, recorded and
-enforced by a deletion mechanism, never a specific length.
+No conversation content is retained today, because no conversational service exists.
+When one does, conversation content is retained for **[N days]** and then deleted or anonymised. N
+is set before launch, stated here, recorded, and enforced by a deletion mechanism — §23(3), §37(3)
+and §39(4) require that a period be stated, recorded and enforced, and no statute supplies the
+number.
 
-**Nothing is retained today, because no conversational service exists.** See `docs/TRUST.md`.
+> ปัจจุบันไม่มีการเก็บเนื้อหาการสนทนา เพราะยังไม่มีบริการสนทนา เมื่อมี เนื้อหาการสนทนาจะถูกเก็บไว้
+> **[N วัน]** แล้วลบหรือทำให้ไม่สามารถระบุตัวบุคคลได้ โดย N จะถูกกำหนดก่อนเปิดใช้ ระบุไว้ที่นี่
+> บันทึกไว้ และบังคับใช้ด้วยกลไกการลบ มาตรา 23(3) มาตรา 37(3) และมาตรา 39(4) กำหนดให้ต้องระบุ
+> บันทึก และบังคับใช้ระยะเวลาการเก็บ และไม่มีกฎหมายฉบับใดกำหนดตัวเลขไว้
+
+N is the owner's and counsel's to set; this document does not choose it. See `docs/TRUST.md`.
 
 ## Status of this document
 

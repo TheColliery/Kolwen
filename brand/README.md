@@ -50,7 +50,7 @@
 
 - **ข้อความ** สี `#e8833a` บนขาว **[บังคับ]** — ตก 1.4.3 ทั้ง 4.5:1 และ 3:1 ไม่ผ่านเกณฑ์ไหนเลย
 - **ตัวเครื่องหมาย** สี `#e8833a` บนขาว **[บ้านเรา]** — 1.4.3 ไม่เอื้อมถึงอุปกรณ์ และ 1.4.11 ข้อ (ข)
-  ก็ไม่เอื้อม (ตราบใดที่ไม่ได้เป็นลิงก์/ปุ่ม) ห้ามข้อนี้จึงเป็นเกณฑ์ของเราเอง เหตุผลเดียวกับพื้นภาพถ่าย
+  ก็ไม่เอื้อม (ตราบใดที่ไม่ได้เป็นลิงก์/ปุ่ม) ห้ามข้อนี้จึงเป็นเกณฑ์ของเราเอง
 
 **`#A65A19` บนพื้นเข้ม `#15130f` วัดได้ 3.620:1** — ตกเกณฑ์ 1.4.3 สำหรับข้อความปกติ (4.5:1)
 แต่ผ่าน 3:1 ของ 1.4.3 *Large Text* จึงแยกเป็นสองกรณี:
@@ -120,15 +120,12 @@ rasterise ที่ 4× supersampling แล้วนับว่ายังเ
 **ห้าม** — บิดสัดส่วน (ย่อด้านเดียว) · หมุนหรือเอียง · ใส่เงา ไล่เฉด ขอบเส้น หรือมุมโค้ง ·
 เปลี่ยนสีเป็นสีอื่นนอกจากที่ระบุหรือ mono · ขยับ/เพิ่ม/ลดจำนวนแถบ ·
 วาง `#e8833a` บนพื้นขาว (สองที่มา ดูข้อ 2) ·
-ใส่เครื่องหมายไว้ในกล่องที่บีบจน clear space ไม่พอ ·
-วางเครื่องหมายบนภาพถ่ายที่ contrast ต่ำกว่า 4.5:1 (เกณฑ์ของเราเอง ดูย่อหน้าถัดไป)
+ใส่เครื่องหมายไว้ในกล่องที่บีบจน clear space ไม่พอ
 
-**เกณฑ์ของเราเอง [บ้านเรา]** — วางเครื่องหมายบนภาพถ่ายต้องได้ **อย่างน้อย 4.5:1**
-มาตรฐานไม่ได้บังคับตัวเลขนี้ — 1.4.3 คุมเฉพาะข้อความ อุปกรณ์สามแถบอยู่นอกขอบเขต (คำว่า Kolwen ที่เป็น
-ตัวอักษรเข้าข้อยกเว้น *Logotypes*) ส่วน 1.4.11 ข้อ (ข) คุมกราฟิกที่จำเป็นต่อการเข้าใจเนื้อหา ซึ่ง
-เครื่องหมายการค้าไม่ใช่ **4.5 จึงเป็นเกณฑ์ของเราเอง** เหตุผล: ภาพถ่ายไม่ใช่พื้นสีเดียวสม่ำเสมอ
-ค่า contrast ค่าเดียวจึงประเมินกรณีแย่สุดจริงต่ำเกินไป (ถ้าเครื่องหมายนั้นเป็นลิงก์ด้วย ดูข้อถัดไป —
-กรณีนั้น 3:1 เป็นข้อบังคับซ้อนเข้ามา)
+**เครื่องหมายบนภาพถ่าย** — มาตรฐานไม่กำหนดตัวเลข contrast ให้กรณีนี้ และเราไม่ตั้งตัวเลขของเราเอง:
+1.4.3 คุมเฉพาะข้อความ อุปกรณ์สามแถบอยู่นอกขอบเขต (คำว่า Kolwen ที่เป็นตัวอักษรเข้าข้อยกเว้น *Logotypes*)
+ส่วน 1.4.11 ข้อ (ข) คุมกราฟิกที่จำเป็นต่อการเข้าใจเนื้อหา ซึ่งเครื่องหมายการค้าไม่ใช่
+(ถ้าเครื่องหมายนั้นเป็นลิงก์หรือปุ่มด้วย ดูข้อถัดไป — กรณีนั้น 3:1 เป็นข้อบังคับ)
 
 **ถ้าเครื่องหมายถูกใช้เป็นลิงก์หรือปุ่ม [บังคับ]** — ตอนนั้นมันเป็น UI component และ 1.4.11 ข้อ (ก)
 เข้ามาเกี่ยว ข้อ (ก) บังคับ 3:1 กับ *ข้อมูลภาพที่จำเป็นต่อการระบุตัว component* ซึ่งอาจไม่ใช่ตัวเครื่องหมาย
@@ -285,9 +282,10 @@ exception is what covers the word mark. SC 1.4.11 requires 3:1 for information i
 UI components and for "Parts of graphics required to understand the content"; a brand mark
 is not ordinarily required to understand content, so that clause does not reach it either.
 
-**So our 4.5:1 minimum for the mark over a photograph is OUR rule [ours]**, and the reason
-is ours too: a photograph is not a flat ground, so a single contrast value understates the
-real worst case. The text bars above are the standard's and are unchanged.
+**So the standard sets no contrast number for the mark over a photograph, and we set none of our
+own.** The word mark is covered by the *Logotypes* exception of 1.4.3, the three-bar device is out of
+its scope, and a brand mark is not a graphic 1.4.11 (b) requires to understand content. The text
+bars above are the standard's and are unchanged.
 
 **One case flips it back.** A mark used as a link or control is a user interface component,
 and 1.4.11 then applies to the visual information that identifies the control—which may or

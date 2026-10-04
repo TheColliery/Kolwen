@@ -16,5 +16,7 @@ audit later gathers evidence instead of commissioning work.
 | `change-management.md` | how a change reaches production |
 | `ISO-MAP.md` | those files mapped to ISO/IEC 27001:2022 and ISO/IEC 42001:2023 control numbers |
 
+**An `AR-n` tag** in these files labels one owner ruling in the maintainer's own decision log, which is not published; the date beside the tag is the public reference.
+
 **None of this is a certification, and none of it says "compliant".** A map of documents to
 control numbers is a map.

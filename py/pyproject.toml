@@ -1,5 +1,7 @@
 [build-system]
-requires = ["hatchling>=1.24"]
+# Exact, and the same version as py/requirements-build.in: the release build runs with
+# --no-isolation against that hashed set, so a disagreement here fails the build (LWK-177).
+requires = ["hatchling==1.32.4"]
 build-backend = "hatchling.build"
 
 [project]

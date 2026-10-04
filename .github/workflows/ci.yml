@@ -1,9 +1,10 @@
 name: CI
 
 # Diverges from the flock template in its JOB SET, deliberately: the template ships one `gate` job
-# for a skill repo (build, verify, test). This repo has no build and no test suite, so it ships
-# `assets` (regenerate every brand file, fail on any byte difference) and `surface` (the room's
-# published-claim laws). `all-green` is the stable required context either way.
+# for a skill repo (build, verify, test). This repo has no build and no product test suite, so it ships
+# `assets` (regenerate every brand file, fail on any byte difference), `surface` (the room's
+# published-claim laws) and `secret-scan` (the house scanner's own tests, then the scan). `all-green` is
+# the stable required context either way.
 
 on:
   push:
@@ -34,12 +35,19 @@ concurrency:
 permissions:
   contents: read
 
+# Every checkout below sets `persist-credentials: false` (LWK-168). This workflow runs on
+# `pull_request` and executes scripts out of the checked-out tree; by default the checkout leaves
+# the job's token in .git/config for every later step to read. No job here runs a git operation
+# that needs it -- they only read, regenerate and compare -- so none keeps it.
 jobs:
   assets:
     name: assets (byte-identity)
     runs-on: ubuntu-latest
+    timeout-minutes: 10 # LWK-216: max 9 s over 11 runs
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
@@ -58,8 +66,11 @@ jobs:
   surface:
     name: surface (published claims)
     runs-on: ubuntu-latest
+    timeout-minutes: 10 # LWK-216: max 10 s over 11 runs
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
@@ -67,12 +78,17 @@ jobs:
       # identifier · no kitchen leakage · Thai orthography · HTML + ld+json integrity ·
       # bilingual structure · every stated contrast ratio recomputed from its own hex pair.
       - run: node scripts/surface-check.mjs
+      # The one robots.txt comparison rule the post-deploy check applies (it cannot run here: it needs the live site).
+      - run: node --test scripts/robots-edge.test.mjs
 
   reply-language:
     name: reply language (LWK-131)
     runs-on: ubuntu-latest
+    timeout-minutes: 10 # LWK-216: max 13 s over 11 runs
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
@@ -86,40 +102,75 @@ jobs:
   clone-test:
     name: never a clone (LWK-132)
     runs-on: ubuntu-latest
+    timeout-minutes: 10 # LWK-216: max 11 s over 11 runs
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
       # The chip the ladder measures must equal the label the product shows. web/ic.json is the
-      # single source of truth for that label; a swap changes it and this job re-runs. Today no
-      # IC is labelled, so what runs is the runner proving it DETECTS a relabel (a mocked wrong
-      # chip must fail the assert). Fixtures live in the zone warehouse and are NOT in this
-      # checkout, so the self-test is skipped rather than faked when they are absent -- and it
-      # says so. Spec: docs/NEVER-A-CLONE.md
+      # single source of truth for that label. A swap changes it and this job re-runs, but ONLY its
+      # `--label` and `--self-test` steps: the real battery run (the runner against the labelled chip,
+      # which needs KOLWEN_IC_ENDPOINT and KOLWEN_IC_KEY) is never run by any workflow, so a chip
+      # change passes this job green. That run is a hand run keyed to the label changing
+      # (docs/NEVER-A-CLONE.md section 2), and nothing in CI checks that it happened. Today no IC is
+      # labelled, so what runs is the runner proving it DETECTS a relabel (a mocked wrong chip must
+      # fail the assert). The real fixtures live outside this repo and are never
+      # published here, so THIS checkout cannot run the fixture leg. The self-test is split for
+      # that reason (LWK-168): the legs that need no fixture run unconditionally and fail the job
+      # on any failure; only the fixture leg is conditional, and it says so in the log and as a
+      # workflow warning. The step is NOT guarded in shell: a required check that can pass with
+      # nothing run is worse than a red one. Spec: docs/NEVER-A-CLONE.md
       - name: label source of truth
         run: node scripts/decap-battery.mjs --label
-      - name: battery self-test (skips loudly if the warehouse fixtures are absent)
-        run: |
-          if [ -d ../warehouse/decap-battery/blocks ]; then
-            node scripts/decap-battery.mjs --self-test
-          else
-            echo 'fixtures absent in this checkout (they live in the zone warehouse, outside this repo) -- self-test SKIPPED, not passed'
-          fi
+      - name: battery self-test (fixture-free legs always; fixture leg skips loudly)
+        run: node scripts/decap-battery.mjs --self-test
+  secret-scan:
+    name: secret scan (LWK-239)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10 # LWK-216: max 9 s over 3 runs
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      # The house secret scan. The scanner's own tests (an EXPLICIT file list, never the directory form, which breaks
+      # on Node 24) and the gate's spawn tests run first; then the gate itself in tree mode, the only mode a CI
+      # checkout can run (it has no pushed range, and the gate says so in its PASS line). The push-time scan of
+      # added lines, commit messages and tags runs in .githooks/pre-push on the pusher's box.
+      - run: node --test scripts/secret-scan.test.mjs scripts/secret-gate.test.mjs
+      - run: node scripts/secret-gate.mjs
   # A single STABLE required-check context (job names drift; this does not).
   # Rulesets require `all-green`, never the per-job names.
   all-green:
     name: all-green
-    needs: [assets, surface, reply-language, clone-test]
+    needs: [assets, surface, reply-language, clone-test, secret-scan]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 5 # LWK-216: max 5 s over 11 runs
+    # LWK-180. `if: always()` makes this job run whatever its needs did, so it must judge them: a
+    # needed job counts ONLY if its result is exactly `success`. `skipped` and `cancelled` are red,
+    # not a pass -- a required check that goes green because a job did not run is the row-1 defect
+    # again (a battery never run). It iterates the `needs` context itself instead of a hand-copied
+    # list of job names, so adding a job to `needs:` above gates it here with no second edit, and an
+    # empty context is a failure rather than a vacuous pass. The context arrives through the
+    # environment, never interpolated into the script.
+    # jq: the runner ships 1.7.1; every construct used (to_entries, length, all, -e) predates 1.5,
+    # so this is not a version-sensitive step. Stated, not assumed (LWK-192 T4).
+    env:
+      NEEDS: ${{ toJSON(needs) }}
     steps:
       - name: gate result
         run: |
-          for r in "${{ needs.assets.result }}" "${{ needs.surface.result }}" "${{ needs['reply-language'].result }}" "${{ needs['clone-test'].result }}"; do
-            case "$r" in
-              success|skipped) ;;
-              *) echo "gate result: $r"; exit 1 ;;
-            esac
-          done
-          echo "assets=${{ needs.assets.result }} surface=${{ needs.surface.result }} reply-language=${{ needs['reply-language'].result }}"
+          printf '%s' "$NEEDS" | jq -r 'to_entries[] | "\(.key)=\(.value.result)"' || {
+            echo "::error::all-green: NEEDS did not parse as JSON -- the needs context itself is malformed, which is not a pass either"
+            exit 1
+          }
+          printf '%s' "$NEEDS" | jq -e 'length > 0 and ([.[] | .result] | all(. == "success"))' > /dev/null || {
+            echo "::error::all-green: every needed job must be exactly 'success' -- a skipped, cancelled or failed job is not a pass"
+            exit 1
+          }
