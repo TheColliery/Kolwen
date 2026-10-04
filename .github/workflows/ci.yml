@@ -3,8 +3,10 @@ name: CI
 # Diverges from the flock template in its JOB SET, deliberately: the template ships one `gate` job
 # for a skill repo (build, verify, test). This repo has no build and no product test suite, so it ships
 # `assets` (regenerate every brand file, fail on any byte difference), `surface` (the room's
-# published-claim laws) and `secret-scan` (the house scanner's own tests, then the scan). `all-green` is
-# the stable required context either way.
+# published-claim laws), `reply-language` (the reply-language harness proving it detects the failure, then
+# a tree scan), `clone-test` (the decap battery's label source of truth and its self-test) and
+# `secret-scan` (the house scanner's own tests, then the scan). `all-green` needs all five and is the
+# stable required context either way.
 
 on:
   push:

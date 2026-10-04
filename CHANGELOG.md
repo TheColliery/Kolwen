@@ -127,7 +127,7 @@ the pointer to it.
   draft's wording. The sentences are unchanged. The draft's header, in both languages, now says four
   legal gaps plus these seven marked statements, and no longer lists the cookies as asserted facts.
 - The Worker's `workers.dev` production alias is switched off (`workers_dev: false` in `wrangler.jsonc`,
-  LWK-220), which takes effect at the next deploy. The post-deploy check now reads `kolwen.com` alone
+  LWK-220); `kolwen.hetcreep.workers.dev` answered 404 when read on 2026-10-04. The post-deploy check now reads `kolwen.com` alone
   by default, so there is no fallback origin: if `kolwen.com` refuses a CI runner, `deploy-check` fails
   as unable to observe anything, and never passes. `--origin <url>` still checks one other host.
   `docs/DEPLOY.md`, `docs/TRUST.md`, `SECURITY.md` and `governance/risk-register.md` say the same.
@@ -158,6 +158,15 @@ the pointer to it.
 
 ### Added
 
+- Two more rules in `scripts/surface-check.mjs`, both about the production pages. Rule 15 fails a page that
+  says "no trackers" (any case, wrapped lines included) or its Thai twin, because the site runs Cloudflare Web
+  Analytics; it stays until counsel's analytics wording lands. Rule 16 fails a page that carries a robots
+  `noindex` (or `none`) meta tag, in any attribute order and case, and a `web/_headers` rule that sets an
+  `X-Robots-Tag` with noindex on a production path; only an absolute `*.workers.dev` host rule may. The one such
+  rule today covers preview and version hosts; production's own `workers.dev` alias, which that pattern would also
+  match, is off and answered 404 on 2026-10-04.
+  `web/404.html` keeps the `noindex` meta it already carries, as one named exemption. Each rule was proven
+  red-first on a throwaway copy, and each stated limit is in the code.
 - A local secret scan before every commit and every push. GitHub scans this public repository for provider
   tokens, and a private key, a connection string or an HTTP authentication header are kinds its free
   public-repository scan is not documented to cover, so the room now
@@ -227,8 +236,8 @@ the pointer to it.
   public. Not yet observed live.
 - A `noindex` header for preview and version hosts only, as a host-pattern rule at the end of
   `web/_headers`. `kolwen.com` never matches it. It also matches production's own `workers.dev`
-  alias, which is not `kolwen.com`; `docs/DEPLOY.md` names that residual (the alias is turned off by
-  the `workers_dev` change under Changed). Checked by a local
+  alias, which is not `kolwen.com`; `docs/DEPLOY.md` names that residual (that alias is now off, see the
+  `workers_dev` change under Changed). Checked by a local
   re-implementation of Cloudflare's documented matching, not against a live preview.
 - Wrangler is pinned as a devDependency in a new `package.json` and `package-lock.json`, at
   4.136.3 exactly. Dependabot's new `npm` entry checks daily; a patch or minor bump auto-merges

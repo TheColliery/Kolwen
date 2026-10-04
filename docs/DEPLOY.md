@@ -31,8 +31,8 @@ Two checks report on it:
   says the unmatched-path 404 was NOT checked on that host. **Those production asserts (the
   `kolwen.com` noindex rail, the 404 page, and the zone's HSTS and nosniff below) run only when the
   check reads `kolwen.com`, which is its only default origin. A CI runner first reached it on 2026-10-02
-  (earlier runs were refused; `docs/TRUST.md`). `wrangler.jsonc` sets `workers_dev: false`, which turns
-  the Worker's `workers.dev` alias off at the next deploy, so the check has no fallback origin: a runner
+  (earlier runs were refused; `docs/TRUST.md`). `wrangler.jsonc` sets `workers_dev: false`, which turned
+  the Worker's `workers.dev` alias off (it answered 404 when read on 2026-10-04), so the check has no fallback origin: a runner
   that `kolwen.com` refuses makes the check fail as unable to observe anything, never pass.** `--origin <url>`
   checks one other host instead of `kolwen.com`, so a preview, a `workers.dev` host or a local server can
   be checked before merge; the production asserts above do not run on such a host. It waits for publication
@@ -84,15 +84,21 @@ which have that shape. **Production `kolwen.com` never carries it**: `kolwen.com
   `X-Robots-Tag: noindex`, but that header is Cloudflare's own preview header, not this rule's, so
   the measurement does not show this rule applying to a preview.
 - **One residual, named.** The rule also matches `kolwen.hetcreep.workers.dev`, production's own
-  `workers.dev` alias. That is not `kolwen.com`, but it is a production-adjacent address that sends
-  `noindex` for as long as the alias is served; `wrangler.jsonc` sets `workers_dev: false`, which
-  turns the alias off at the next deploy, and the check no longer reads it. No
+  `workers.dev` alias. That is not `kolwen.com`, and the alias is off: `wrangler.jsonc` sets
+  `workers_dev: false`, and it answered 404 when read on 2026-10-04, so the match is moot unless the alias is
+  served again. The check no longer reads it. While the alias was served it sent `noindex`. No
   documented `_headers` syntax can tell a preview label from that bare one within a single label,
   so the rule was not narrowed by guesswork.
 - **Cloudflare's Previews page is silent** on whether previews send `X-Robots-Tag` (read
   2026-09-23), which is why the rule was written. Measured 2026-09-25: a preview sends it on its
   own. The rule is therefore redundant on a Preview URL; it is what put `noindex` on
-  production's own `workers.dev` alias, which is not a preview, for as long as that alias is served.
+  production's own `workers.dev` alias, which is not a preview, for as long as that alias was served.
+- **The repo-side gate.** `scripts/surface-check.mjs` (rule 16) holds the other half of "production never says
+  noindex": it fails a production page that carries a robots `noindex` (or `none`) meta tag, and any
+  `web/_headers` rule that sets `X-Robots-Tag` noindex on a pattern that is not an absolute `*.workers.dev` URL.
+  `web/404.html` carries a `noindex` meta on purpose, because it answers unmatched paths with HTTP 404, and is
+  exempt there by name; its `X-Robots-Tag` header is still refused. The rule trusts every `*.workers.dev`
+  pattern as a preview host, which would include production's own alias if it were ever served again (the residual above). The script is the list of record for what it checks.
 
 ## Security headers
 

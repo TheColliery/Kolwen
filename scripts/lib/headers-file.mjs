@@ -59,7 +59,7 @@ export function parsePolicy(value) {
 // production must never say noindex. workers.dev and preview hosts skip the zone and are not listed.
 export const PRODUCTION_HOSTS = new Set(['kolwen.com', 'www.kolwen.com']);
 
-// The three headers `_headers` puts on every response, read from its `/*` rule. Throws (with a message a
+// The five headers `_headers` puts on every response (CSP, Referrer-Policy, Permissions-Policy, COOP, CORP), read from its `/*` rule. Throws (with a message a
 // reader can act on) when the file does not declare exactly one of each there, because a check with nothing
 // to compare against must not read as a check that passed.
 export function declaredSecurityHeaders(rules) {
