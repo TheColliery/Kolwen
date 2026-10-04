@@ -1,7 +1,9 @@
 # Privacy
 
-> **Published as a DRAFT with legal gaps by the owner's order of 2026-09-05.** The four
-> `[pending legal review]` / `[รอที่ปรึกษากฎหมาย]` markers below are the clauses awaiting counsel.
+> **Published as a DRAFT with legal gaps by the owner's order of 2026-09-05.** The
+> `[pending legal review]` / `[รอที่ปรึกษากฎหมาย]` markers below are the clauses awaiting counsel:
+> the four legal gaps, and six statements about cookies, trackers and analytics marked the same way
+> because the home page's no-trackers claim was withdrawn.
 > **Not yet reviewed by a lawyer.** Every statement about this site's own behaviour was MEASURED
 > on 2026-09-04 and carries the command that produced it; every statement that could not be
 > measured from this repository is marked ⚠️ and is a question returned to the owner, not a
@@ -9,12 +11,14 @@
 > why the unanswered parts are marked rather than filled in.
 >
 > **เผยแพร่เป็นฉบับร่างที่ยังมีช่องว่างทางกฎหมาย ตามคำสั่งเจ้าของ 2026-09-05** —
-> เครื่องหมาย `[รอที่ปรึกษากฎหมาย]` สี่จุดคือข้อที่ยังรอทนายความ **ยังไม่ผ่านการตรวจโดยทนายความ**
+> เครื่องหมาย `[รอที่ปรึกษากฎหมาย]` / `[pending legal review]` คือข้อที่ยังรอทนายความ ได้แก่ช่องว่างทางกฎหมายสี่จุด
+> และข้อความอีกหกข้อเกี่ยวกับคุกกี้ ตัวติดตาม และการวิเคราะห์ ที่ทำเครื่องหมายแบบเดียวกัน
+> เพราะหน้าแรกถอนข้อความว่าไม่มีตัวติดตามแล้ว **ยังไม่ผ่านการตรวจโดยทนายความ**
 > **GAPPED 2026-09-06 (LWK-146, owner ruling of 2026-09-05): every clause below that is a legal
 > CONCLUSION — a statutory duty asserted as met, a controller/processor characterisation, a
 > DPO/representative status determination, or any other class the lawyer must confirm — is now marked
 > `[pending legal review]` at the exact spot, replacing an asserted sentence. Facts this
-> repository can already back (what the site does today, the cookies, the contact) stay asserted,
+> repository can already back (what the site does today, the contact) stay asserted,
 > unchanged. Four gaps total; the numbered list with the exact question for the lawyer is at
 > an internal gaps list held for counsel.**
 
@@ -31,7 +35,7 @@ request handler, no logging, and no storage on our side.
 
 ## Cookies
 
-**This site sets no cookies at all.**
+**[pending legal review] This site sets no cookies at all.**
 
 *Measured: `curl -sI https://kolwen.com/` and the same on an asset—no `Set-Cookie` header on
 either.*
@@ -44,16 +48,16 @@ removes it.
 
 ### When the assistant ships, this changes, and here is exactly how
 
-The chat will set **one strictly necessary cookie** so that a conversation works. There will be no
+The chat will set **one strictly necessary cookie** so that a conversation works. [pending legal review] There will be no
 advertising cookie and no tracker.
 
 **GAP 1 — [pending legal review]: whether this specific cookie qualifies for the "strictly
 necessary" exemption that removes the need for a consent banner is a legal characterisation, not
 a fact this repository can measure ahead of the feature existing. Not asserted here as settled.**
 
-> ไม่มี cookie โฆษณา ไม่มี tracker — มี cookie จำเป็น 1 ตัวให้แชททำงาน
+> [รอที่ปรึกษากฎหมาย] ไม่มี cookie โฆษณา ไม่มี tracker — มี cookie จำเป็น 1 ตัวให้แชททำงาน
 >
-> No advertising cookies, no trackers—one necessary cookie so chat works.
+> [pending legal review] No advertising cookies, no trackers—one necessary cookie so chat works.
 
 **Interim position (not legal advice), pending the review above:** until a non-essential cookie
 exists, Kolwen sets no non-essential cookie and shows no banner, because there is nothing to
@@ -96,7 +100,7 @@ here, and it is not stated as fact.** Returned as an owner question.
 **Google Fonts** serves the two typefaces the page uses, so your browser makes a request to
 Google when the page loads. That request carries your IP address to Google.
 
-*Measured: `curl -s https://kolwen.com/ | grep -oE 'https?://[a-z0-9.-]+'`—`fonts.googleapis.com`
+*[pending legal review] Measured: `curl -s https://kolwen.com/ | grep -oE 'https?://[a-z0-9.-]+'`—`fonts.googleapis.com`
 is the only third-party origin the page FETCHES. The github.com, huggingface.co and npmjs.com
 addresses on the page are links you would have to click.*
 
@@ -112,7 +116,7 @@ configuration outside this repository.** Not measurable here; returned rather th
 
 ## What we do not do
 
-- No advertising, no ad networks, no third-party analytics on this page.
+- [pending legal review] No advertising, no ad networks, no third-party analytics on this page.
 - No account, no sign-up, and nothing to log in to.
 - Kolwen's own systems—the site and its Worker—collect and store nothing, so there is nothing
   there to sell or share. **Three parties outside those systems do handle data, as this notice
