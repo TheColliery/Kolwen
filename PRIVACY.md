@@ -2,7 +2,7 @@
 
 > **Published as a DRAFT with legal gaps by the owner's order of 2026-09-05.** The
 > `[pending legal review]` / `[รอที่ปรึกษากฎหมาย]` markers below are the clauses awaiting counsel:
-> the four legal gaps, and six statements about cookies, trackers and analytics marked the same way
+> the four legal gaps, and seven statements about cookies, trackers and analytics marked the same way
 > because the home page's no-trackers claim was withdrawn.
 > **Not yet reviewed by a lawyer.** Every statement about this site's own behaviour was MEASURED
 > on 2026-09-04 and carries the command that produced it; every statement that could not be
@@ -12,7 +12,7 @@
 >
 > **เผยแพร่เป็นฉบับร่างที่ยังมีช่องว่างทางกฎหมาย ตามคำสั่งเจ้าของ 2026-09-05** —
 > เครื่องหมาย `[รอที่ปรึกษากฎหมาย]` / `[pending legal review]` คือข้อที่ยังรอทนายความ ได้แก่ช่องว่างทางกฎหมายสี่จุด
-> และข้อความอีกหกข้อเกี่ยวกับคุกกี้ ตัวติดตาม และการวิเคราะห์ ที่ทำเครื่องหมายแบบเดียวกัน
+> และข้อความอีกเจ็ดข้อเกี่ยวกับคุกกี้ ตัวติดตาม และการวิเคราะห์ ที่ทำเครื่องหมายแบบเดียวกัน
 > เพราะหน้าแรกถอนข้อความว่าไม่มีตัวติดตามแล้ว **ยังไม่ผ่านการตรวจโดยทนายความ**
 > **GAPPED 2026-09-06 (LWK-146, owner ruling of 2026-09-05): every clause below that is a legal
 > CONCLUSION — a statutory duty asserted as met, a controller/processor characterisation, a
@@ -93,7 +93,7 @@ how any hosted site works, and it is not something we can turn off while remaini
 Cloudflare also injects its own bot-detection script into the served HTML—we do not control it
 and do not receive its output.
 
-⚠️ **What Cloudflare retains, for how long, and whether any analytics product is enabled on this
+⚠️ **[pending legal review] What Cloudflare retains, for how long, and whether any analytics product is enabled on this
 account is a dashboard setting that leaves no trace in this repository. It cannot be measured from
 here, and it is not stated as fact.** Returned as an owner question.
 
