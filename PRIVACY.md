@@ -31,7 +31,7 @@ request handler, no logging, and no storage on our side.
 
 ## Cookies
 
-**This site sets no cookies at all.**
+**[pending legal review] This site sets no cookies at all.**
 
 *Measured: `curl -sI https://kolwen.com/` and the same on an asset—no `Set-Cookie` header on
 either.*
@@ -44,16 +44,16 @@ removes it.
 
 ### When the assistant ships, this changes, and here is exactly how
 
-The chat will set **one strictly necessary cookie** so that a conversation works. There will be no
+The chat will set **one strictly necessary cookie** so that a conversation works. [pending legal review] There will be no
 advertising cookie and no tracker.
 
 **GAP 1 — [pending legal review]: whether this specific cookie qualifies for the "strictly
 necessary" exemption that removes the need for a consent banner is a legal characterisation, not
 a fact this repository can measure ahead of the feature existing. Not asserted here as settled.**
 
-> ไม่มี cookie โฆษณา ไม่มี tracker — มี cookie จำเป็น 1 ตัวให้แชททำงาน
+> [รอที่ปรึกษากฎหมาย] ไม่มี cookie โฆษณา ไม่มี tracker — มี cookie จำเป็น 1 ตัวให้แชททำงาน
 >
-> No advertising cookies, no trackers—one necessary cookie so chat works.
+> [pending legal review] No advertising cookies, no trackers—one necessary cookie so chat works.
 
 **Interim position (not legal advice), pending the review above:** until a non-essential cookie
 exists, Kolwen sets no non-essential cookie and shows no banner, because there is nothing to
