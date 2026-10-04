@@ -664,8 +664,10 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
 }
 
 // ── 16. No production page asks search engines to skip it (LWK-271) ─────────
-// Production kolwen.com must be indexable. Only the preview host says noindex, and it says it in a response
-// header (web/_headers, the absolute-URL rule on `*.workers.dev`), never in a page. So: no tracked production page
+// Production kolwen.com must be indexable. The preview HOST says noindex in a response header (web/_headers, the
+// absolute-URL rule on `*.workers.dev`), and every preview page also says it in its own meta tag (rule 14 requires
+// it; PREVIEW_EXEMPT, derived from the same list, is what lets this rule skip those pages). A production page never
+// does. So: no tracked production page
 // (the home page included) carries a robots `noindex` meta, and no `web/_headers` rule on a production path sets
 // an X-Robots-Tag with noindex. The reviewer's mutant I1 (a noindex meta on the home page) passed every gate
 // before this rule.
@@ -701,7 +703,7 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
     const s = read(f);
     for (const m of s.matchAll(META_TAG)) {
       if (ROBOTS_NAME.test(m[0]) && NOINDEX_CONTENT.test(m[0])) {
-        note(f, `line ${lineOf(s, m.index)}: carries a robots noindex meta tag; production pages must stay indexable (only the preview host says noindex, in a response header)`);
+        note(f, `line ${lineOf(s, m.index)}: carries a robots noindex meta tag; production pages must stay indexable (a preview page says noindex in its own meta tag and is skipped by the preview list; the preview host says it in a response header; a production page may not)`);
       }
     }
   }
