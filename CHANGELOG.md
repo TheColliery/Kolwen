@@ -157,6 +157,13 @@ the pointer to it.
 
 ### Added
 
+- Two more rules in `scripts/surface-check.mjs`, both about the production pages. Rule 15 fails a page that
+  says "no trackers" (any case, wrapped lines included) or its Thai twin, because the site runs Cloudflare Web
+  Analytics; it stays until counsel's analytics wording lands. Rule 16 fails a page that carries a robots
+  `noindex` (or `none`) meta tag, in any attribute order and case, and a `web/_headers` rule that sets an
+  `X-Robots-Tag` with noindex on a production path; only the absolute `*.workers.dev` preview-host rule may.
+  `web/404.html` keeps the `noindex` meta it already carries, as one named exemption. Each rule was proven
+  red-first on a throwaway copy, and each stated limit is in the code.
 - A local secret scan before every commit and every push. GitHub scans this public repository for provider
   tokens, and a private key, a connection string or an HTTP authentication header are kinds its free
   public-repository scan is not documented to cover, so the room now
