@@ -173,13 +173,18 @@ the pointer to it.
   page, `plans`, is the next bullet; the current count is six.
 - A sixth PREVIEW page, `plans` (path `/plans`), on the same branch and the same terms: it shows US Standard at
   $20 a month before tax, Standard opening first with Lite, Premium and Exclusive "open later" and no figure,
-  the five plan names, and the pricing formula (`price(country, tier) = tier_ratio × 0.358% × mean monthly
+  the four plan names (Lite, Standard, Premium, Exclusive), and the pricing formula (`price(country, tier) = tier_ratio × 0.358% × mean monthly
   wage`, rounded) with its statements (one capacity axis; the total tax included outside the US and before tax
   in the US; a live subscription keeps its price; regional prices follow). It shows no regional price, no figure
   under $10 a month, no legal text, no checkout and no plan description beyond the names and the opening order.
   Like the other five it is a preview only and makes no production claim. Its table has a caption and
   header scopes in both languages. It carries the same banner and `noindex`, is linked from the other five, and
   is declared once in the script's preview list, from which rule 16's exemption is derived.
+- Rule 14 of `scripts/surface-check.mjs` gains two clauses on the preview pages. No preview page may name a Free plan or a free
+  tier, in English or Thai (the `plans` page lists four plan names and no Free row). And the sentence "This site sets no cookies
+  and has no ads." and its Thai twin, on the `privacy` preview page, now carry a pending-legal-review label naming cookies right after
+  them, in both languages, as the page's other open points do; the words themselves are unchanged. Each clause was proven red-first
+  and each check removed lets its fixture through; the limits are stated in the code.
 - Two more rules in `scripts/surface-check.mjs`, both about the web pages. Rule 15 fails any tracked
   `web/` page, preview pages included, that says "no trackers" (any case, wrapped lines included) or its Thai
   twin, because the site runs Cloudflare Web Analytics; it stays until counsel's analytics wording lands. Rule 16
