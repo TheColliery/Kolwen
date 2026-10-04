@@ -165,10 +165,12 @@ the pointer to it.
   the total-price-with-tax and renewal statements, a cancellation-path statement with a placeholder link,
   the seller details with the legal name and address as labelled placeholders, Paddle as the merchant of
   record, Kolwen's own privacy notice as separate from Paddle's, and refunds as handled by Paddle. No page
-  loads Paddle.js, sets a cookie or takes a payment. The CSP gains one style hash for the shared inline
+  loads Paddle.js or takes a payment. Their footers do not carry the "no ads, no cookies" line, for the
+  reason the home page footer dropped its claim. The CSP gains one style hash for the shared inline
   style block. Rule 14 of `scripts/surface-check.mjs` holds the banner in both languages, the noindex tag,
   the absence of an external script and the page's absence from the sitemap; the preview pages are declared
-  once, and any other tracked HTML page under `web/` besides the home page and the 404 is a finding.
+  once, and any other tracked HTML page under `web/` besides the home page and the 404 is a finding. A sixth
+  page, `plans`, is the next bullet; the current count is six.
 - A sixth PREVIEW page, `plans` (path `/plans`), on the same branch and the same terms: it shows US Standard at
   $20 a month before tax, Standard opening first with Lite, Premium and Exclusive "open later" and no figure,
   the five plan names, and the pricing formula (`price(country, tier) = tier_ratio × 0.358% × mean monthly

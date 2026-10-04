@@ -108,7 +108,7 @@ Premium and Exclusive open later, with no figure), the plan names, and the prici
 statements. It has no regional price, no legal text, no checkout and no plan description beyond the names and
 the opening order. All six show a "PREVIEW" banner in English
 and Thai and carry `<meta name="robots" content="noindex">`. They load no Paddle.js or any other external
-script, set no cookie and take no payment. They are meant to be read on a Workers Preview URL only; they are
+script and take no payment. Their footers make no claim about cookies, trackers or ads. They are meant to be read on a Workers Preview URL only; they are
 not meant to reach `kolwen.com` until the prices are set and the legal texts are signed. `scripts/surface-check.mjs`
 rule 14 holds the banner, the `noindex` tag, the absence of an external script and the pages' absence from
 `web/sitemap.xml`. It holds the page, not the host: nothing in this repository stops a merge to `main` from
