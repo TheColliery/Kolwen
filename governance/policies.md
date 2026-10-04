@@ -21,7 +21,7 @@
   retyped copy of the IC label, or an IC-label key that `web/ic.json` should declare as required
   text and leaves empty or undeclared; a Content-Security-Policy that no longer admits the inline script and styles the pages
   carry, or that has lost its floor (the `form-action` directive included) or the two cross-origin
-  headers, or whose `script-src` lacks the one exact Web Analytics beacon source or carries any other `cloudflareinsights` source (it does not refuse other `script-src` sources); and a legal draft (`PRIVACY.md`, `TERMS.md`) whose
+  headers, or whose `script-src` lacks the one exact Web Analytics beacon source or carries any other `cloudflareinsights` source (it does not refuse other `script-src` sources); a landing or 404 page that says "no trackers" (English or Thai) while the site runs Cloudflare Web Analytics; a robots `noindex` meta on a production page (the 404 page's own is a named exemption), or an `X-Robots-Tag` noindex on any `web/_headers` rule that is not an absolute `*.workers.dev` host; and a legal draft (`PRIVACY.md`, `TERMS.md`) whose
   labelled gap has lost the marker saying counsel has not cleared it. **Every claim outside the
   script's rules—what a document says a feature does, for one—is held by review, not by a
   checker.** The rule is not softened to fit the machine; the gap is stated.

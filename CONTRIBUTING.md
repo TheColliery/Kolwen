@@ -36,7 +36,7 @@ no build step. `package.json` and `package-lock.json` exist only to pin Wrangler
 nothing here needs an `npm install` to run.
 
 ```bash
-node scripts/surface-check.mjs      # the room's own laws: claims, leakage, orthography, contrast
+node scripts/surface-check.mjs      # the room's own laws: claims, leakage, orthography, contrast, the tracker claim, production noindex
 node scripts/secret-gate.mjs        # the house secret scan over the tracked tree (the hooks also scan what a commit or push adds)
 node --test scripts/secret-scan.test.mjs scripts/secret-gate.test.mjs   # the scanner's and the gate's own tests
 node brand/make-brand.mjs           # regenerate every brand asset; must leave git clean
