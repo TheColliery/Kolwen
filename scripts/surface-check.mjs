@@ -634,10 +634,15 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
 // STATED LIMITS, not fixed here: engine-specific names (`googlebot`, `bingbot`, a `user-agent:` prefix in the header
 // value) and directives such as `unavailable_after` are not read; a `>` inside an attribute value ends the tag
 // early; a meta inside an HTML comment counts (it fails safe); and a `*.workers.dev` pattern is trusted to be a
-// preview host, which includes production's own `workers.dev` alias (docs/DEPLOY.md names that residual).
+// preview host, which includes production's own `workers.dev` alias (docs/DEPLOY.md names that residual); an
+// attribute name written with an entity or a stray character inside it (`na&#109;e`) is not read; and a
+// `name=` or `content=` text sitting inside ANOTHER attribute's quoted value is still seen as the attribute.
 {
-  const ROBOTS_NAME = /\bname\s*=\s*["']?\s*robots\b/i;
-  const NOINDEX_CONTENT = /\bcontent\s*=\s*(?:"[^"]*\b(?:noindex|none)\b[^"]*"|'[^']*\b(?:noindex|none)\b[^']*'|[^\s"'>]*\b(?:noindex|none)\b)/i;
+  // The attribute NAME must be the whole name: `(?<![\w-])` refuses `data-content`, `data-name`, `x-content`, so a
+  // data attribute that happens to hold `noindex` or `robots` is not read as the robots meta (CodeRabbit thread
+  // 4177057735). The `name` value must be exactly `robots`, not a longer token that merely starts with it.
+  const ROBOTS_NAME = /(?<![\w-])name\s*=\s*(?:"\s*robots\s*"|'\s*robots\s*'|robots(?![\w-]))/i;
+  const NOINDEX_CONTENT = /(?<![\w-])content\s*=\s*(?:"[^"]*\b(?:noindex|none)\b[^"]*"|'[^']*\b(?:noindex|none)\b[^']*'|[^\s"'>]*\b(?:noindex|none)\b)/i;
   // ONE NAMED EXEMPTION: web/404.html already carries `noindex` on purpose. It answers an unmatched path with
   // HTTP 404, which search engines drop on their own, so the tag decides nothing about any page of the site. Its
   // `X-Robots-Tag` header is still refused below. Anything else carrying the tag is a finding.
