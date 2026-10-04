@@ -174,7 +174,8 @@ the pointer to it.
   the five plan names, and the pricing formula (`price(country, tier) = tier_ratio × 0.358% × mean monthly
   wage`, rounded) with its statements (one capacity axis; the total tax included outside the US and before tax
   in the US; a live subscription keeps its price; regional prices follow). It shows no regional price, no figure
-  under $10 a month, no legal text, no checkout and no description of the Free plan. Its table has a caption and
+  under $10 a month, no legal text, no checkout and no plan description beyond the names and the opening order.
+  Like the other five it is a preview only and makes no production claim. Its table has a caption and
   header scopes in both languages. It carries the same banner and `noindex`, is linked from the other five, and
   is declared once in the script's preview list, from which rule 16's exemption is derived.
 - Two more rules in `scripts/surface-check.mjs`, both about the web pages. Rule 15 fails any tracked

@@ -105,9 +105,9 @@ which have that shape. **Production `kolwen.com` never carries it**: `kolwen.com
 `pricing`, `contact`, `terms`, `privacy` and `refund` carry placeholder prices and unsigned legal text. `plans`
 (path `/plans`) shows only the opening order of the plans (Standard first, US $20 a month before tax; Lite,
 Premium and Exclusive open later, with no figure), the plan names, and the pricing formula with its four
-statements. It has no regional price, no legal text, no checkout and no description of the Free plan. All six
-show a "PREVIEW" banner in English
-and Thai and carries `<meta name="robots" content="noindex">`. They load no Paddle.js or any other external
+statements. It has no regional price, no legal text, no checkout and no plan description beyond the names and
+the opening order. All six show a "PREVIEW" banner in English
+and Thai and carry `<meta name="robots" content="noindex">`. They load no Paddle.js or any other external
 script, set no cookie and take no payment. They are meant to be read on a Workers Preview URL only; they are
 not meant to reach `kolwen.com` until the prices are set and the legal texts are signed. `scripts/surface-check.mjs`
 rule 14 holds the banner, the `noindex` tag, the absence of an external script and the pages' absence from
