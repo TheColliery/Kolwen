@@ -118,13 +118,14 @@ the pointer to it.
 
 ### Changed
 
-- `PRIVACY.md` (a draft, not linked from the site) now marks six statements about cookies, trackers
+- `PRIVACY.md` (a draft, not linked from the site) now marks seven statements about cookies, trackers
   and analytics `[pending legal review]` (the Thai twin with the file's Thai marker `[รอที่ปรึกษากฎหมาย]`):
   "This site sets no cookies at all", "no advertising cookie and no tracker", the quoted Thai and English
-  summary of the same, "no third-party analytics on this page", and the measurement that one third-party
-  origin is fetched. The home page footer no longer claims them, and counsel has not cleared the
+  summary of the same, "no third-party analytics on this page", the measurement that one third-party
+  origin is fetched, and the paragraph saying whether a Cloudflare analytics product is enabled cannot be
+  measured from the repository. The home page footer no longer claims them, and counsel has not cleared the
   draft's wording. The sentences are unchanged. The draft's header, in both languages, now says four
-  legal gaps plus these six marked statements, and no longer lists the cookies as asserted facts.
+  legal gaps plus these seven marked statements, and no longer lists the cookies as asserted facts.
 - The Worker's `workers.dev` production alias is switched off (`workers_dev: false` in `wrangler.jsonc`,
   LWK-220), which takes effect at the next deploy. The post-deploy check now reads `kolwen.com` alone
   by default, so there is no fallback origin: if `kolwen.com` refuses a CI runner, `deploy-check` fails
