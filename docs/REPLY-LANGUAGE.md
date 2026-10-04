@@ -27,7 +27,7 @@ therefore exempt BY KIND, not by exception, and both are named so nobody "fixes"
 | not a reply | why |
 |---|---|
 | `web/index.html`'s bilingual copy | It is the PAGE, not an answer to anyone. Its EN/TH toggle is the site's design, and a visitor choosing Thai is choosing what to read, not receiving a reply in a language they did not write in. |
-| the Thai strings in `scripts/surface-check.mjs` | They are DETECTOR patterns—the Thai phrasings of a false trademark claim, which the checker must contain in order to catch. A detector that cannot name what it looks for is not a detector. |
+| the Thai strings in `scripts/surface-check.mjs` | They are DETECTOR patterns—the Thai phrasings of a false trademark claim and of the withdrawn "no trackers" claim, which the checker must contain in order to catch. A detector that cannot name what it looks for is not a detector. |
 
 `py/src/kolwen/__init__.py` holds an English docstring: package metadata, not a reply, and it is
 covered by the scan anyway.

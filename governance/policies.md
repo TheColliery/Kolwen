@@ -21,9 +21,8 @@
   retyped copy of the IC label, or an IC-label key that `web/ic.json` should declare as required
   text and leaves empty or undeclared; a Content-Security-Policy that no longer admits the inline script and styles the pages
   carry, or that has lost its floor (the `form-action` directive included) or the two cross-origin
-  headers, or whose `script-src` lacks the one exact Web Analytics beacon source or carries any other `cloudflareinsights` source (it does not refuse other `script-src` sources); a legal draft (`PRIVACY.md`, `TERMS.md`) whose
-  labelled gap has lost the marker saying counsel has not cleared it; and a preview page (the five
-  placeholder-price pages, listed once in the script) that has lost its "PREVIEW" banner in either
+  headers, or whose `script-src` lacks the one exact Web Analytics beacon source or carries any other `cloudflareinsights` source (it does not refuse other `script-src` sources); any HTML page under `web/` (the landing page, the 404 page, a preview page, or one added later) that says "no trackers" (English or Thai) while the site runs Cloudflare Web Analytics; a robots `noindex` meta on a production page (the 404 page's own is a named exemption, and a preview page must carry one), or an `X-Robots-Tag` noindex on any `web/_headers` rule that is not an absolute `*.workers.dev` host; a legal draft (`PRIVACY.md`, `TERMS.md`) whose
+  labelled gap has lost the marker saying counsel has not cleared it; and a preview page (the placeholder-price pages, listed once in the script) that has lost its "PREVIEW" banner in either
   language or its `noindex` tag, loads an external script, appears in `web/sitemap.xml`, or is a tracked
   HTML page under `web/` that the script does not know (rule 14; it holds the page, never the host that
   serves it). **Every claim outside the

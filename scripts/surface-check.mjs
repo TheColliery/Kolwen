@@ -630,6 +630,95 @@ const CSP_STATS = { scripts: 0, styles: 0 };
   }
 }
 
+// ── 15. The dropped "no trackers" claim stays off every production page (LWK-273) ──
+// kolwen.com runs Cloudflare Web Analytics, so the footer's "no trackers" (and its Thai twin) was dropped
+// (`94b9415`). Counsel's analytics sentence has not landed, so until it does no page the site serves may say
+// it again.
+//
+// SCOPE: EVERY tracked `web/*.html` page (WEB_PAGES: home, 404, any preview page, and any page added later). A
+// preview page is not exempt from this rule: the claim is false on a preview page too, and nothing a preview page
+// legitimately says needs the phrase. PREVIEW_EXEMPT, below, does not narrow this rule; it names the pages that a
+// preview rule holds INSTEAD of rule 16 (a preview page has to ask search engines to skip it, which rule 16 forbids
+// on a production page). It is the SAME list as PREVIEW_PAGES (rule 7 ships it, rule 14 holds it), derived, never
+// retyped, so the pages that rule 14 requires to say noindex are exactly the pages rule 16 does not refuse for it.
+// NON-VACUITY: a repo with no tracked HTML page is a finding, never a pass.
+// STATED LIMITS, not fixed here: two phrasings only, `no trackers` (any case, any run of whitespace, so a wrapped
+// line still matches) and `ไม่มีตัวติดตาม`; another wording of the same claim ("tracker-free", "ไม่ติดตามคุณ", an HTML
+// entity inside the phrase) passes, and so does the claim in a file that is not a page (PRIVACY.md is held by
+// its own pending-review labels, not by this rule). The HTML is read as text, so the phrase inside a comment counts.
+const PREVIEW_EXEMPT = new Set(PREVIEW_PAGES);
+const WEB_PAGES = tracked.filter(f => f.startsWith('web/') && f.endsWith('.html'));
+const PRODUCTION_PAGES = WEB_PAGES.filter(f => !PREVIEW_EXEMPT.has(f));
+const lineOf = (s, i) => s.slice(0, i).split('\n').length;
+{
+  const CLAIMS = [/\bno\s+trackers\b/gi, /ไม่มีตัวติดตาม/g];
+  if (WEB_PAGES.length === 0) note('web/', 'has no tracked HTML page, so rule 15 checked nothing — this CHECK is now empty, not the claim proven absent');
+  for (const f of WEB_PAGES) {
+    const s = read(f);
+    for (const re of CLAIMS) {
+      for (const m of s.matchAll(re)) {
+        note(f, `line ${lineOf(s, m.index)}: says "${m[0].replace(/\s+/g, ' ')}", a claim the site no longer makes (it runs Cloudflare Web Analytics); keep it off until counsel's analytics wording lands`);
+      }
+    }
+  }
+}
+
+// ── 16. No production page asks search engines to skip it (LWK-271) ─────────
+// Production kolwen.com must be indexable. Only the preview host says noindex, and it says it in a response
+// header (web/_headers, the absolute-URL rule on `*.workers.dev`), never in a page. So: no tracked production page
+// (the home page included) carries a robots `noindex` meta, and no `web/_headers` rule on a production path sets
+// an X-Robots-Tag with noindex. The reviewer's mutant I1 (a noindex meta on the home page) passed every gate
+// before this rule.
+//
+// What counts: a `<meta>` whose `name` is `robots` and whose `content` holds `noindex` or `none` (robots `none` means
+// noindex plus nofollow), in any attribute order, any case, double, single or no quotes. In `_headers`, an
+// X-Robots-Tag value holding `noindex` or `none` on any rule whose pattern is not an absolute `*.workers.dev` URL.
+// SCOPE: PRODUCTION_PAGES, every tracked page except those in PREVIEW_EXEMPT (rule 15 names why that set exists).
+// NON-VACUITY: rule 15's empty-scope finding covers the page list, and a list that is empty only because every page
+// is exempt is a finding here; a `_headers` that cannot be read is rule 13's finding.
+// STATED LIMITS, not fixed here: engine-specific names (`googlebot`, `bingbot`, a `user-agent:` prefix in the header
+// value) and directives such as `unavailable_after` are not read; a meta inside an HTML comment counts (it fails
+// safe); and a `*.workers.dev` pattern is trusted to be a preview host, which includes production's own
+// `workers.dev` alias (docs/DEPLOY.md names that residual); an attribute name written with an entity or a stray
+// character inside it (`na&#109;e`) is not read; a `name=` or `content=` text sitting inside ANOTHER attribute's
+// quoted value is still seen as the attribute; and a tag with an UNTERMINATED quote is not matched at all (the
+// quote runs to the next matching quote, so a stray one hides the tag).
+{
+  // A meta tag ends at the first `>` OUTSIDE a quoted attribute value, so `<meta data-note="a > b" name="robots"
+  // content="noindex">` is read whole. The three alternatives start on different characters, so the match is linear.
+  const META_TAG = /<meta\b(?:"[^"]*"|'[^']*'|[^>"'])*>/gi;
+  // The attribute NAME must be the whole name: `(?<![\w-])` refuses `data-content`, `data-name`, `x-content`, so a
+  // data attribute that happens to hold `noindex` or `robots` is not read as the robots meta. The `name` value must
+  // be exactly `robots`, not a longer token that merely starts with it.
+  const ROBOTS_NAME = /(?<![\w-])name\s*=\s*(?:"\s*robots\s*"|'\s*robots\s*'|robots(?![\w-]))/i;
+  const NOINDEX_CONTENT = /(?<![\w-])content\s*=\s*(?:"[^"]*\b(?:noindex|none)\b[^"]*"|'[^']*\b(?:noindex|none)\b[^']*'|[^\s"'>]*\b(?:noindex|none)\b)/i;
+  // ONE NAMED EXEMPTION: web/404.html already carries `noindex` on purpose. It answers an unmatched path with
+  // HTTP 404, which search engines drop on their own, so the tag decides nothing about any page of the site. Its
+  // `X-Robots-Tag` header is still refused below. Anything else carrying the tag is a finding.
+  const NOINDEX_META_OK = new Set(['web/404.html']);
+  if (WEB_PAGES.length > 0 && PRODUCTION_PAGES.length === 0) note('web/', 'has tracked HTML pages but every one is in PREVIEW_EXEMPT, so rule 16 checked nothing — this CHECK is now empty, not the noindex meta proven absent');
+  for (const f of PRODUCTION_PAGES.filter(f => !NOINDEX_META_OK.has(f))) {
+    const s = read(f);
+    for (const m of s.matchAll(META_TAG)) {
+      if (ROBOTS_NAME.test(m[0]) && NOINDEX_CONTENT.test(m[0])) {
+        note(f, `line ${lineOf(s, m.index)}: carries a robots noindex meta tag; production pages must stay indexable (only the preview host says noindex, in a response header)`);
+      }
+    }
+  }
+  let headersLib = null;
+  try { headersLib = await import(pathToFileURL(resolve('scripts/lib/headers-file.mjs')).href); }
+  catch (e) { note('scripts/lib/headers-file.mjs', 'could not be loaded, so rule 16 could not read web/_headers (' + (e.code || 'import failed') + ')'); }
+  if (headersLib && existsSync('web/_headers')) {
+    for (const r of headersLib.parseHeadersFile(read('web/_headers'))) {
+      for (const h of r.headers) {
+        if (h.name.toLowerCase() !== 'x-robots-tag' || !/\b(?:noindex|none)\b/i.test(h.value)) continue;
+        if (/^https?:\/\/[^/]*\.workers\.dev(?:\/|$)/i.test(r.pattern)) continue;
+        note('web/_headers', `line ${h.line}: sets X-Robots-Tag "${h.value}" on "${r.pattern}", a production path; noindex belongs only to the preview-host rule (an absolute *.workers.dev URL)`);
+      }
+    }
+  }
+}
+
 if (fail.length) {
   console.error('surface check FAILED:\n' + fail.map(f => '  - ' + f).join('\n'));
   process.exit(1);
