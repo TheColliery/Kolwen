@@ -26,9 +26,8 @@
 		"not_found_handling": "404-page"
 	},
 	// Workers Previews (LWK-198): public by owner ruling, 2026-09-23, with no Cloudflare Access.
-	// Deliberately EMPTY: this Worker has zero bindings, vars or secrets today
-	// (verified above -- name, compatibility_date, assets, nothing else), so there is nothing to
-	// diverge from production yet. The block's PRESENCE is what tells Cloudflare this Worker is
+	// Deliberately EMPTY: this Worker has zero bindings, vars or secrets today, so there is nothing
+	// to diverge from production yet. The block's PRESENCE is what tells Cloudflare this Worker is
 	// preview-enabled; per Cloudflare's own docs an empty `previews` block is a documented, legal
 	// shape ("the `previews` block is required, but it can be empty"). It gains content the day a
 	// binding is added -- and every such binding is
