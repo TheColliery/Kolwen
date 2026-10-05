@@ -162,6 +162,8 @@ const SHIPPED = new Set([
   // be served as a static asset" — shipped but never fetchable, which post-deploy-check must
   // also know.
   'web/404.html', 'web/_headers',
+  // The plans page: a PRODUCTION page (US prices, every buy button disabled), read by the rules that read every page.
+  'web/plans.html',
   'web/favicon.svg', 'web/favicon-32.png', 'web/apple-touch-icon.png', 'web/og.png',
 ]);
 for (const f of tracked.filter(f => f.startsWith('web/'))) {

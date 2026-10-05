@@ -68,6 +68,10 @@
 #    in 404.html) are admitted by hash too, so there is no 'unsafe-inline' anywhere. The Google Fonts
 #    stylesheet varies by user agent, so it cannot carry a fixed integrity hash; it is the named
 #    exception, pinned by origin. Self-hosting the two IBM Plex families would retire it.
+#  - The plans page (/plans) has its own <style> block (the home page's rules plus a price table and its disabled
+#    buy buttons), so it carries the one added hash above. Its inline script and its <noscript> style are the same
+#    bytes as index.html's, so they reuse its hashes. It loads no payment script and no new origin; `/plans` takes
+#    the `/*` rule like `/`, and no rule here sets noindex on it.
 #  - The ld+json block in index.html is a DATA block, not script: CSP's script-src does not govern it.
 #  - NAMED CONSEQUENCE: on kolwen.com the edge appends an inline bot-detection script to the HTML (the
 #    Web Analytics beacon above is a separate, allowed script). It has per-request contents, so no hash can
@@ -94,7 +98,7 @@
 # Permissions-Policy: every standardized feature the page does not use, names from the W3C
 # webappsec-permissions-policy feature registry (read 2026-09-25). The page uses none of them.
 /*
-  Content-Security-Policy: default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; script-src 'self' 'sha256-loIfZEEZsGRc+OUW6Qn2FqqBy/dPc0m0OlkLDXwFryM=' https://static.cloudflareinsights.com/beacon.min.js/; style-src 'sha256-ISb4QdfsQOLp1M+Ovnc1EM7Q4RVP8HKyQeEoJd7VHKg=' 'sha256-Gq8k+8DNN4RStI9EUl5KO/5BmbVotx6ZB0JmUcZtYJE=' 'sha256-QoMFVwdguQ6oxyAfNLEvhGddY6ZXY7ZCFtszch64EW8=' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; form-action 'self'
+  Content-Security-Policy: default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; script-src 'self' 'sha256-loIfZEEZsGRc+OUW6Qn2FqqBy/dPc0m0OlkLDXwFryM=' https://static.cloudflareinsights.com/beacon.min.js/; style-src 'sha256-ISb4QdfsQOLp1M+Ovnc1EM7Q4RVP8HKyQeEoJd7VHKg=' 'sha256-Gq8k+8DNN4RStI9EUl5KO/5BmbVotx6ZB0JmUcZtYJE=' 'sha256-QoMFVwdguQ6oxyAfNLEvhGddY6ZXY7ZCFtszch64EW8=' 'sha256-xOK+OWYJ2dyl8lTDnuvfu33TDK090brUYLEOS1s9kyU=' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; form-action 'self'
   Referrer-Policy: strict-origin-when-cross-origin
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin
