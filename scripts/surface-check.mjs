@@ -723,7 +723,8 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
   /* FREE_ALL:begin */
   for (const f of WEB_PAGES) {
     const s = read(f);
-    const visible = s.replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>|<svg[\s\S]*?<\/svg>/gi, m => m.replace(/[^\n]/g, ' '));
+    // The end tag may carry whitespace or attributes ("</script >"), which the HTML parser still closes on (as rule 13's own pattern allows).
+    const visible = s.replace(/<(style|script|svg)\b[\s\S]*?<\/\1\b[^>]*>/gi, m => m.replace(/[^\n]/g, ' '));
     const seenAt = new Set(); // "Free plan" matches two patterns at one place: one finding
     for (const re of [/\b(?:Free|FREE)\b/g, /\bfree\s+(?:plan|tier|version)\b/gi, /ฟรี/g]) {
       for (const m of visible.matchAll(re)) if (!seenAt.has(m.index)) seenAt.add(m.index), note(f, 'line ' + lineOf(s, m.index) + ': says "' + m[0].replace(/\s+/g, ' ') + '", a Free plan or a free tier; no page names a Free plan until it exists to be named');
