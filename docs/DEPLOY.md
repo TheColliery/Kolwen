@@ -193,6 +193,12 @@ Everything under `web/`, and nothing else. `scripts/surface-check.mjs` holds an 
 files we ship and fails if anything else is tracked there, because every path under `web/` is a
 live URL.
 
+Two pages are production pages: the home page and `/plans`. `/plans` is listed in `web/sitemap.xml` and
+`web/robots.txt` allows it, so it is indexable on purpose, like the home page. It takes the same `/*` header
+rule, so the same CSP applies, with one extra `style-src` hash for its own style block. Its buy controls are
+disabled "Coming soon" buttons, and rule 17 of the surface check refuses a live one, a Paddle script or a
+checkout URL on any production page.
+
 ## Known behaviour: unmatched paths return 404
 
 `not_found_handling` is set to `404-page`, so a request for a path that does not exist
