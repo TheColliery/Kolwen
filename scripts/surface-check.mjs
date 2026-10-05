@@ -708,7 +708,8 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
 // free, and nothing else; style, script and svg text is skipped.
 {
   const lineAt = (s, i) => s.slice(0, i).split('\n').length;
-  const bare = attrs => attrs.replace(/"[^"]*"|'[^']*'/g, '""'); // attribute values out: title="disabled" is not the attribute
+  // Attribute VALUES out, quoted or not, so neither title="disabled" nor data-state=disabled is the attribute `disabled`.
+  const bare = attrs => attrs.replace(/=\s*(?:"[^"]*"|'[^']*'|[^\s"'`=>]+)/g, '=""');
   // The backslashes are doubled: in a plain string '\w' is just 'w', which made `notdisabled` and `disabledx` read as disabled.
   const hasAttr = (attrs, name) => new RegExp('(?<![\\w-])' + name + '(?![\\w-])', 'i').test(bare(attrs));
   const TAG = /<([a-zA-Z][\w-]*)\b((?:"[^"]*"|'[^']*'|[^>"'])*)>/g;
