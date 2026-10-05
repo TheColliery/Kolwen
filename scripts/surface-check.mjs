@@ -157,7 +157,7 @@ if (existsSync('brand/README.md')) {
 // LWK-215: the pages that carry PLACEHOLDER prices and unsigned legal text. Declared ONCE, here; rule 7 ships
 // them (spread into SHIPPED below) and rule 14 holds what makes them previews, so a page cannot be in one and
 // miss the other.
-const PREVIEW_PAGES = ['web/pricing.html', 'web/plans.html', 'web/contact.html', 'web/terms.html', 'web/privacy.html', 'web/refund.html'];
+const PREVIEW_PAGES = ['web/pricing.html', 'web/contact.html', 'web/terms.html', 'web/privacy.html', 'web/refund.html'];
 const SHIPPED = new Set([
   'web/index.html', 'web/robots.txt', 'web/sitemap.xml', 'web/ic.json',
   // Added BY NAME, never by widening the glob — the point of the list is that a new path under
@@ -166,6 +166,8 @@ const SHIPPED = new Set([
   // be served as a static asset" — shipped but never fetchable, which post-deploy-check must
   // also know.
   'web/404.html', 'web/_headers',
+  // The plans page: a PRODUCTION page (US prices, every buy button disabled), read by the rules that read every page.
+  'web/plans.html',
   'web/favicon.svg', 'web/favicon-32.png', 'web/apple-touch-icon.png', 'web/og.png',
   // LWK-215: the PREVIEW pages. The ONE list is PREVIEW_PAGES above; rule 14 holds what makes them previews.
   ...PREVIEW_PAGES,
@@ -599,8 +601,8 @@ const CSP_STATS = { scripts: 0, styles: 0 };
 }
 
 // ── 14. The preview pages stay previews (LWK-215) ────────────────────────────
-// The pages in PREVIEW_PAGES (rule 7) are not for sale: some carry PLACEHOLDER prices and unsigned legal text, one
-// shows a ratified figure. Until the owner's prices and the lawyer's words are in, each must say on the page, in both
+// The pages in PREVIEW_PAGES (rule 7) are not for sale: they carry PLACEHOLDER prices and unsigned legal text (the plans page, which
+// shows the ratified US prices, is a production page and is held by rules 15 to 17). Until the owner's prices and the lawyer's words are in, each must say on the page, in both
 // languages, that it is a preview and not an offer (one banner text true on every page), ask search engines to
 // skip it, load no third-party script (no payment code is shipped), and stay out of the sitemap. This holds the
 // page; it does not hold the host (that a branch is served only by its Workers Preview is how it is deployed,
@@ -610,21 +612,21 @@ const CSP_STATS = { scripts: 0, styles: 0 };
 // other way, any tracked HTML page under web/ that is neither the home page, the 404 nor a preview page is a
 // finding: a page added to the publish root by hand cannot skip this rule by being left off its list.
 //
-// TWO CLAUSES ON THE SAME PAGES: (a) no preview page names a "Free" plan or a free tier, in either
-// language, until that plan exists to be named; (b) the sentence "This site sets no cookies and has no ads." and its Thai
+// ONE CLAUSE ON THESE PAGES BESIDE THE ABOVE: the sentence "This site sets no cookies and has no ads." and its Thai
 // twin may sit on a preview page only with a pending-legal-review label that names cookies, straight after the sentence,
 // as the page's other `[... — pending legal review]` labels do (counsel has not cleared the claim, the home page dropped it).
+// (The check that no page names a "Free" plan or a free tier is rule 17's clause (a), which reads EVERY web page, preview
+// pages included, so it is not repeated here: a second copy would report the same word twice.)
 //
 // NON-VACUITY: a listed page that does not exist is a finding, never a pass. STATED LIMITS: the HTML is
 // read as text, so a banner or meta tag inside a comment would count; the placeholder LABELS inside a page are
-// held by review, except the cookies-and-ads label of clause (b); clause (a) reads the capitalised word `Free`
-// (so `Free-form` counts and `freedom` does not), `free plan` / `free tier` / `free version` in any case, and the
-// Thai word for free, and nothing else, so another way to say the same thing passes; clause (b) reads only the
+// held by review, except the cookies-and-ads label above; that clause reads only the
 // two exact sentences (a reworded claim, or one on a page outside the preview list, is not read) and a label
 // must be the next element after the sentence.
 {
   const BANNERS = ['PREVIEW — not an offer', 'ตัวอย่าง — ไม่ใช่ข้อเสนอขาย'];
-  const NOT_PREVIEW = new Set(['web/index.html', 'web/404.html']);
+  // The home page, the 404 and /plans are production pages: rules 15 to 17 hold them, not this rule.
+  const NOT_PREVIEW = new Set(['web/index.html', 'web/404.html', 'web/plans.html']);
   const sitemap = existsSync('web/sitemap.xml') ? read('web/sitemap.xml') : '';
   for (const f of tracked.filter(f => f.startsWith('web/') && f.endsWith('.html'))) {
     if (!NOT_PREVIEW.has(f) && !PREVIEW_PAGES.includes(f)) note(f, 'is a tracked HTML page that is neither the home page, the 404 nor a declared preview page, so rule 14 does not hold it — declare it in PREVIEW_PAGES, or, once it is a real production page, say so by adding it to NOT_PREVIEW in rule 14');
@@ -638,13 +640,6 @@ const CSP_STATS = { scripts: 0, styles: 0 };
     const slug = f.replace(/^web\//, '').replace(/\.html$/, '');
     if (new RegExp('/' + slug + '(?![A-Za-z0-9-])').test(sitemap)) note('web/sitemap.xml', `lists /${slug}, a preview page that must stay out of the sitemap`);
     const at = i => s.slice(0, i).split('\n').length; // rule 14 runs before `lineOf` exists
-    /* FREE_CHECK:begin */
-    const visible = s.replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>|<svg[\s\S]*?<\/svg>/gi, m => m.replace(/[^\n]/g, ' '));
-    const seenAt = new Set(); // "Free plan" matches two patterns at one place: one finding
-    for (const re of [/\b(?:Free|FREE)\b/g, /\bfree\s+(?:plan|tier|version)\b/gi, /ฟรี/g]) {
-      for (const m of visible.matchAll(re)) if (!seenAt.has(m.index)) seenAt.add(m.index), note(f, `line ${at(m.index)}: says "${m[0].replace(/\s+/g, ' ')}", a Free plan or a free tier; a preview page names no Free plan until it exists to be named`);
-    }
-    /* FREE_CHECK:end */
     /* COOKIE_EN:begin */
     for (const m of s.matchAll(/This\s+site\s+sets\s+no\s+cookies\s+and\s+has\s+no\s+ads\./g)) {
       if (!/^\s*<span class="ph">\[[^\]]*cookie[^\]]*pending legal review\]<\/span>/i.test(s.slice(m.index + m[0].length))) note(f, `line ${at(m.index)}: carries the cookie and ads sentence without its pending-legal-review label naming cookies right after it (English)`);
@@ -747,6 +742,97 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
       }
     }
   }
+}
+
+// ── 17. A production page names no Free plan and sells nothing yet ──────────────
+// Until a plan can be bought and the lawyer's words are in, kolwen.com shows prices and cannot take an order. Two
+// things hold that on the page itself, and each is its own clause so a mutant can remove one at a time.
+//
+// (a) FREE: no web page, preview or production, names a "Free" plan or a free tier, in either language, until
+// that plan exists to be named. This is the preview rule's Free check read over EVERY tracked page (WEB_PAGES), so a
+// production page cannot carry what a preview page may not.
+// (b) NOTHING TO BUY: no production page (PRODUCTION_PAGES, rule 15's list minus PREVIEW_EXEMPT) carries a control that
+// can start a purchase. A <button> must be disabled (the two language-toggle buttons, by id, are the one allowance);
+// no <form> and no submit/button/image/reset <input>; no link that reads as a buy control, by its text, its aria-label or title, or the alt of an image inside it (buy, purchase, subscribe,
+// checkout, order, pay, upgrade, sign up, and the Thai for buy, subscribe and pay) or has role=button; no <script src> from
+// a Paddle host and no Paddle global in an inline script; no URL attribute (href, action, src, formaction, data-*)
+// naming a Paddle host, a checkout path or a _ptxn query (a <script src> belongs to the payment-script clause alone,
+// so each shape has exactly one clause that owns it).
+//
+// NON-VACUITY: if no production page holds any <button> at all the button check read nothing (the home page's two
+// language buttons are the standing sample), and that is a finding, not a pass. STATED LIMITS: the HTML is read as text, so
+// a control inside a comment counts (fails safe); "disabled" is read as a bare attribute, so a button the page's own
+// script enables at run time is not seen; the language-toggle allowance is by id, so a live button given the id lang-en
+// passes; a link that sells without saying so ("Continue", a bare arrow), a payment script served from the site's own
+// origin, a checkout URL on another word, a custom element and an onclick handler are not read (rule 13 already refuses
+// inline handlers and any script origin the CSP does not name); a link named only by aria-labelledby, or by CSS content, is not read. Clause (a) reads the capitalised word Free (so
+// Free-form counts and freedom does not), free plan / free tier / free version in any case, and the Thai word for
+// free, and nothing else; style, script and svg text is skipped.
+{
+  const lineAt = (s, i) => s.slice(0, i).split('\n').length;
+  // Attribute VALUES out, quoted or not, so neither title="disabled" nor data-state=disabled is the attribute `disabled`.
+  const bare = attrs => attrs.replace(/=\s*(?:"[^"]*"|'[^']*'|[^\s"'`=>]+)/g, '=""');
+  // The backslashes are doubled: in a plain string '\w' is just 'w', which made `notdisabled` and `disabledx` read as disabled.
+  const hasAttr = (attrs, name) => new RegExp('(?<![\\w-])' + name + '(?![\\w-])', 'i').test(bare(attrs));
+  const TAG = /<([a-zA-Z][\w-]*)\b((?:"[^"]*"|'[^']*'|[^>"'])*)>/g;
+  const ANCHOR = /<a\b((?:"[^"]*"|'[^']*'|[^>"'])*)>([\s\S]*?)<\/a\s*>/gi;
+  const LABEL_ATTR = /(?<![\w-])(?:aria-label|title)\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+)/gi; // what a link is called besides its text
+  const ALT_ATTR = /(?<![\w-])alt\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+)/gi;
+  const LANG_TOGGLE = /(?<![\w-])id\s*=\s*["']?lang-(?:en|th)["']?(?![\w-])/i;
+  const SUBMITTY = /(?<![\w-])type\s*=\s*["']?\s*(?:submit|button|image|reset)\b/i;
+  const BUY_WORDS = /\b(?:buy|purchase|subscribe|checkout|check\s+out|order|pay|upgrade|sign\s+up)\b|ซื้อ|สมัคร|ชำระ|จ่ายเงิน/i;
+  const PAY_HOST = /paddle\.com|paddle\.js|paddlejs/i;
+  const PAY_URL = /paddle\.com|paddlejs|checkout|[?&]_ptxn=/i;
+  const URL_ATTR = /(?<![\w-])(href|action|src|formaction|data-[\w-]+)\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+)/gi;
+  let buttonsSeen = 0;
+  /* FREE_ALL:begin */
+  for (const f of WEB_PAGES) {
+    const s = read(f);
+    // The end tag may carry whitespace or attributes ("</script >"), which the HTML parser still closes on (as rule 13's own pattern allows).
+    const visible = s.replace(/<(style|script|svg)\b[\s\S]*?<\/\1\b[^>]*>/gi, m => m.replace(/[^\n]/g, ' '));
+    const seenAt = new Set(); // "Free plan" matches two patterns at one place: one finding
+    for (const re of [/\b(?:Free|FREE)\b/g, /\bfree\s+(?:plan|tier|version)\b/gi, /ฟรี/g]) {
+      for (const m of visible.matchAll(re)) if (!seenAt.has(m.index)) seenAt.add(m.index), note(f, 'line ' + lineOf(s, m.index) + ': says "' + m[0].replace(/\s+/g, ' ') + '", a Free plan or a free tier; no page names a Free plan until it exists to be named');
+    }
+  }
+  /* FREE_ALL:end */
+  for (const f of PRODUCTION_PAGES) {
+    const s = read(f);
+    for (const m of s.matchAll(TAG)) {
+      const tag = m[1].toLowerCase(), attrs = m[2], at = lineAt(s, m.index);
+      if (tag === 'button') {
+        buttonsSeen++;
+        /* BUY_BTN:begin */
+        if (!hasAttr(attrs, 'disabled') && !LANG_TOGGLE.test(attrs)) note(f, 'line ' + at + ': has a button that is not disabled; a production page sells nothing yet, so every buy button stays disabled');
+        /* BUY_BTN:end */
+      }
+      /* BUY_FORM:begin */
+      if (tag === 'form' || (tag === 'input' && SUBMITTY.test(attrs) && !hasAttr(attrs, 'disabled'))) note(f, 'line ' + at + ': has a form or a submit-type input; a production page sells nothing yet, so it takes no order');
+      /* BUY_FORM:end */
+      /* PAY_SCRIPT:begin */
+      if (tag === 'script') {
+        const src = (attrs.match(/(?<![\w-])src\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+)/i) || [])[1] || '';
+        const body = (s.slice(m.index + m[0].length).match(/^([\s\S]*?)<\/script\b/i) || [])[1] || '';
+        if (PAY_HOST.test(src) || /\bPaddle\s*[.=(]|\bpaddle_billing\b/.test(body)) note(f, 'line ' + at + ': carries a payment script (a Paddle host or the Paddle global); no payment code ships until a plan can be bought');
+      }
+      /* PAY_SCRIPT:end */
+      /* PAY_URL:begin */
+      for (const u of attrs.matchAll(URL_ATTR)) if (!(tag === 'script' && u[1].toLowerCase() === 'src') && PAY_URL.test(u[2])) note(f, 'line ' + at + ': has a checkout or payment URL (' + u[2].replace(/^["']|["']$/g, '').slice(0, 60) + '); no checkout is open yet');
+      /* PAY_URL:end */
+    }
+    /* BUY_LINK:begin */
+    for (const m of s.matchAll(ANCHOR)) {
+      let label = '';
+      /* BUY_LABEL:begin */
+      for (const a of m[1].matchAll(LABEL_ATTR)) label += ' ' + a[1].replace(/^["']|["']$/g, '');
+      for (const a of m[2].matchAll(ALT_ATTR)) label += ' ' + a[1].replace(/^["']|["']$/g, '');
+      /* BUY_LABEL:end */
+      const text = m[2].replace(/<[^>]*>/g, ' ') + label;
+      if (BUY_WORDS.test(text) || /(?<![\w-])role\s*=\s*["']?button\b/i.test(m[1])) note(f, 'line ' + lineAt(s, m.index) + ': has a link that reads as a buy control ("' + text.replace(/\s+/g, ' ').trim().slice(0, 40) + '"); a production page sells nothing yet');
+    }
+    /* BUY_LINK:end */
+  }
+  if (PRODUCTION_PAGES.length > 0 && buttonsSeen === 0) note('web/', 'holds no <button> on any production page, so the buy-button check read nothing — this CHECK is now empty, not the pages proven free of live buy controls');
 }
 
 if (fail.length) {

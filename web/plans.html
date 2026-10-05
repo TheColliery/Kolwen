@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
-<title>Plans — Kolwen (preview)</title>
-<meta name="description" content="Kolwen plans preview: which plan opens first and how prices are set. Not an offer.">
+<title>Plans — Kolwen</title>
+<meta name="description" content="Kolwen plans and US prices. Nothing can be bought yet: every buy button is disabled until the plans open.">
+<link rel="canonical" href="https://kolwen.com/plans">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -28,27 +28,25 @@
   .thai{font-size:15px;color:var(--quiet);font-weight:500}
   h1{font-size:24px;font-weight:600;line-height:1.5}
   .sub{color:var(--txt2);font-size:14.5px;margin-top:8px}
-  .banner{border:1px solid rgba(232,131,58,.55);background:rgba(232,131,58,.10);color:var(--accent2);border-radius:10px;padding:10px 14px;font-size:13.5px;font-weight:600;font-family:'IBM Plex Mono',monospace}
   .card{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:18px 20px;display:flex;flex-direction:column;gap:10px}
   .card h2{font-size:13px;font-weight:600;color:var(--quiet);letter-spacing:.04em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace}
-  .card p,.card dd,.card li{font-size:14.5px;color:var(--txt2)}
+  .card p,.card li{font-size:14.5px;color:var(--txt2)}
   .card ul{padding-left:20px;display:flex;flex-direction:column;gap:6px}
   .card code{font-family:'IBM Plex Mono',monospace;font-size:13.5px;color:var(--txt)}
-  .card dt{font-size:12.5px;color:var(--quiet);font-family:'IBM Plex Mono',monospace}
-  .card dl{display:flex;flex-direction:column;gap:2px}
-  .card dd{margin-bottom:8px}
-  .card a{color:var(--accent2)}
   .plans{width:100%;border-collapse:collapse;font-size:14px}
   .plans caption{text-align:left;padding:0 0 8px;font-size:12.5px;color:var(--quiet);font-family:'IBM Plex Mono',monospace}
-  .plans th,.plans td{text-align:left;padding:8px 10px 8px 0;border-bottom:1px solid var(--line);color:var(--txt2);font-weight:400;vertical-align:top}
+  .plans th,.plans td{text-align:left;padding:8px 10px 8px 0;border-bottom:1px solid var(--line);color:var(--txt2);font-weight:400;vertical-align:middle}
   .plans thead th{font-size:12.5px;color:var(--quiet);font-family:'IBM Plex Mono',monospace}
+  .plans tbody th{color:var(--txt);font-weight:600}
+  .plans tbody th small{display:block;font-size:12.5px;color:var(--quiet);font-weight:400}
+  .plans button{font:inherit;font-size:12.5px;color:var(--quiet);background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;min-height:34px;cursor:not-allowed}
   .ch{display:flex;flex-wrap:wrap;gap:8px}
   .ch a{color:var(--txt);text-decoration:none;font-size:13.5px;border:1px solid var(--line);border-radius:9px;padding:7px 12px;background:var(--bg2);display:inline-flex;align-items:center;gap:7px;min-height:44px}
   .ch a:hover{border-color:rgba(232,131,58,.4);color:var(--accent2)}
   footer{margin-top:6px;font-size:12px;color:var(--quiet);display:flex;flex-direction:column;gap:4px}
   #doc-en > * + *,#doc-th > * + *{margin-top:28px}
   [hidden]{display:none !important}
-  @media (max-width:420px){.name{font-size:28px}h1{font-size:20px}}
+  @media (max-width:420px){.name{font-size:28px}h1{font-size:20px}.plans th,.plans td{padding-right:6px;font-size:13px}.plans button{padding:6px 8px}}
 </style>
 <noscript><style>
   .langbar{display:none}
@@ -76,18 +74,17 @@
       <h1>Plans</h1>
       <p class="sub">How Kolwen plans will be priced. Nothing here can be bought yet.</p>
     </div>
-    <div class="banner" role="note">PREVIEW — not an offer</div>
     <div class="card">
       <h2>Plans</h2>
       <p>The plans are named Lite, Standard, Premium and Exclusive.</p>
       <table class="plans">
-        <caption>Which plans open, and when</caption>
-        <thead><tr><th scope="col">Plan</th><th scope="col">Opens</th></tr></thead>
+        <caption>US prices, before tax. A year costs ten times the monthly price.</caption>
+        <thead><tr><th scope="col">Plan</th><th scope="col">Monthly</th><th scope="col">Yearly</th><th scope="col">Buy</th></tr></thead>
         <tbody>
-          <tr><th scope="row">Standard</th><td>Opens first: $20 a month (US price, before tax)</td></tr>
-          <tr><th scope="row">Lite</th><td>Open later</td></tr>
-          <tr><th scope="row">Premium</th><td>Open later</td></tr>
-          <tr><th scope="row">Exclusive</th><td>Open later</td></tr>
+          <tr><th scope="row">Lite<small>Opens later</small></th><td>$8</td><td>$80</td><td><button type="button" disabled>Coming soon</button></td></tr>
+          <tr><th scope="row">Standard<small>Opens first</small></th><td>$20</td><td>$200</td><td><button type="button" disabled>Coming soon</button></td></tr>
+          <tr><th scope="row">Premium<small>Opens later</small></th><td>$100</td><td>$1,000</td><td><button type="button" disabled>Coming soon</button></td></tr>
+          <tr><th scope="row">Exclusive<small>Opens later</small></th><td>$200</td><td>$2,000</td><td><button type="button" disabled>Coming soon</button></td></tr>
         </tbody>
       </table>
     </div>
@@ -103,18 +100,12 @@
     </div>
 
     <nav class="ch" aria-label="Pages">
-        <a href="/">Home</a>
-        <a href="/pricing">Pricing</a>
-        <a href="/plans">Plans</a>
-        <a href="/terms">Terms</a>
-        <a href="/privacy">Privacy</a>
-        <a href="/refund">Refunds</a>
-        <a href="/contact">Contact</a>
-      </nav>
+      <a href="/">Home</a>
+    </nav>
 
     <footer>
       <span>© 2026 Kolwen · trademark application pending</span>
-      <span>[analytics wording — pending legal review] · your language choice is stored locally in your browser · fonts are loaded from Google Fonts</span>
+      <span>This page: your language choice is stored locally in your browser · fonts are loaded from Google Fonts</span>
     </footer>
   </div>
 
@@ -123,18 +114,17 @@
       <h1>แผน</h1>
       <p class="sub">วิธีที่ Kolwen จะตั้งราคาแผน ตอนนี้ยังซื้ออะไรไม่ได้</p>
     </div>
-    <div class="banner" role="note">ตัวอย่าง — ไม่ใช่ข้อเสนอขาย</div>
     <div class="card">
       <h2>แผน</h2>
       <p>ชื่อแผนคือ Lite, Standard, Premium และ Exclusive</p>
       <table class="plans">
-        <caption>แผนใดเปิดเมื่อไร</caption>
-        <thead><tr><th scope="col">แผน</th><th scope="col">การเปิดให้ใช้</th></tr></thead>
+        <caption>ราคาสหรัฐ ก่อนภาษี ราคารายปีเป็นสิบเท่าของราคารายเดือน</caption>
+        <thead><tr><th scope="col">แผน</th><th scope="col">รายเดือน</th><th scope="col">รายปี</th><th scope="col">ซื้อ</th></tr></thead>
         <tbody>
-          <tr><th scope="row">Standard</th><td>เปิดก่อน: $20 ต่อเดือน (ราคาสหรัฐ ก่อนภาษี)</td></tr>
-          <tr><th scope="row">Lite</th><td>เปิดภายหลัง</td></tr>
-          <tr><th scope="row">Premium</th><td>เปิดภายหลัง</td></tr>
-          <tr><th scope="row">Exclusive</th><td>เปิดภายหลัง</td></tr>
+          <tr><th scope="row">Lite<small>เปิดภายหลัง</small></th><td>$8</td><td>$80</td><td><button type="button" disabled>เร็ว ๆ นี้</button></td></tr>
+          <tr><th scope="row">Standard<small>เปิดก่อน</small></th><td>$20</td><td>$200</td><td><button type="button" disabled>เร็ว ๆ นี้</button></td></tr>
+          <tr><th scope="row">Premium<small>เปิดภายหลัง</small></th><td>$100</td><td>$1,000</td><td><button type="button" disabled>เร็ว ๆ นี้</button></td></tr>
+          <tr><th scope="row">Exclusive<small>เปิดภายหลัง</small></th><td>$200</td><td>$2,000</td><td><button type="button" disabled>เร็ว ๆ นี้</button></td></tr>
         </tbody>
       </table>
     </div>
@@ -150,18 +140,12 @@
     </div>
 
     <nav class="ch" aria-label="หน้าอื่น">
-        <a href="/">หน้าแรก</a>
-        <a href="/pricing">ราคา</a>
-        <a href="/plans">แผน</a>
-        <a href="/terms">ข้อกำหนด</a>
-        <a href="/privacy">ความเป็นส่วนตัว</a>
-        <a href="/refund">การคืนเงิน</a>
-        <a href="/contact">ติดต่อ</a>
-      </nav>
+      <a href="/">หน้าแรก</a>
+    </nav>
 
     <footer>
       <span>© 2026 Kolwen · เครื่องหมายการค้าอยู่ระหว่างการจดทะเบียน</span>
-      <span>[ถ้อยคำเรื่องการวิเคราะห์ — รอที่ปรึกษากฎหมาย] · ภาษาที่เลือกถูกเก็บไว้ในเบราว์เซอร์ของคุณ · ฟอนต์โหลดจาก Google Fonts</span>
+      <span>หน้านี้: ภาษาที่เลือกถูกเก็บไว้ในเบราว์เซอร์ของคุณ · ฟอนต์โหลดจาก Google Fonts</span>
     </footer>
   </div>
 </main>

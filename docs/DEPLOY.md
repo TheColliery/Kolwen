@@ -100,15 +100,12 @@ which have that shape. **Production `kolwen.com` never carries it**: `kolwen.com
   exempt there by name; its `X-Robots-Tag` header is still refused. The rule trusts every `*.workers.dev`
   pattern as a preview host, which would include production's own alias if it were ever served again (the residual above). The script is the list of record for what it checks.
 
-## Preview pages: `pricing`, `plans`, `contact`, `terms`, `privacy`, `refund`
+## Preview pages: `pricing`, `contact`, `terms`, `privacy`, `refund`
 
-`pricing`, `contact`, `terms`, `privacy` and `refund` carry placeholder prices and unsigned legal text. `plans`
-(path `/plans`) shows only the opening order of the plans (Standard first, US $20 a month before tax; Lite,
-Premium and Exclusive open later, with no figure), the plan names, and the pricing formula with its four
-statements. It has no regional price, no legal text, no checkout and no plan description beyond the names and
-the opening order. All six show a "PREVIEW" banner in English
+`pricing`, `contact`, `terms`, `privacy` and `refund` carry placeholder prices and unsigned legal text. (`/plans` began as a
+sixth preview page and is now a production page; see "Two pages are production pages" below.) All five show a "PREVIEW" banner in English
 and Thai and carry `<meta name="robots" content="noindex">`. They load no Paddle.js or any other external
-script and take no payment. Their footers make no claim about cookies, trackers or ads. No preview page names a Free plan or a free tier, and the privacy page's cookies-and-ads sentence carries a pending-legal-review label (rule 14 holds both). They are meant to be read on a Workers Preview URL only; they are
+script and take no payment. Their footers make no claim about cookies, trackers or ads. No preview page names a Free plan or a free tier, and the privacy page's cookies-and-ads sentence carries a pending-legal-review label (rule 17 holds the first, on every page; rule 14 holds the label). They are meant to be read on a Workers Preview URL only; they are
 not meant to reach `kolwen.com` until the prices are set and the legal texts are signed. `scripts/surface-check.mjs`
 rule 14 holds the banner, the `noindex` tag, the absence of an external script and the pages' absence from
 `web/sitemap.xml`. It holds the page, not the host: nothing in this repository stops a merge to `main` from
@@ -208,6 +205,12 @@ that workflow's own header.
 Everything under `web/`, and nothing else. `scripts/surface-check.mjs` holds an allowlist of the
 files we ship and fails if anything else is tracked there, because every path under `web/` is a
 live URL.
+
+Two pages are production pages: the home page and `/plans`. `/plans` is listed in `web/sitemap.xml` and
+`web/robots.txt` allows it, so it is indexable on purpose, like the home page. It takes the same `/*` header
+rule, so the same CSP applies, with one extra `style-src` hash for its own style block. Its buy controls are
+disabled "Coming soon" buttons, and rule 17 of the surface check refuses a live one, a Paddle script or a
+checkout URL on any production page.
 
 ## Known behaviour: unmatched paths return 404
 
