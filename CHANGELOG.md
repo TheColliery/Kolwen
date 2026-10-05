@@ -158,6 +158,17 @@ the pointer to it.
 
 ### Added
 
+- A production `/plans` page (`web/plans.html`, English with a Thai twin), listed in `web/sitemap.xml`, so
+  it is indexable like the home page: no `noindex`, no preview banner. It shows four plans (Lite, Standard,
+  Premium, Exclusive) with static US prices, monthly and yearly, and the formula the prices follow. The buy
+  control on every row is a disabled "Coming soon" button: no link, no form, no payment script and no
+  checkout code. The home page does not link to it yet. The CSP gains one style hash for the page's own
+  `<style>` block; its inline script is byte-identical to the home page's and reuses that hash.
+- Rule 17 of `scripts/surface-check.mjs`, on the web pages. No page, preview or production, may name a Free
+  plan or a free tier, in English or Thai. A production page may carry no live buy control (a button
+  that is not disabled, a form, a link that reads as buy), no Paddle script and no checkout URL. Each clause
+  was proven red-first and by a mutant on a throwaway copy, and each stated limit is in the code; the script
+  is the list of record.
 - Two more rules in `scripts/surface-check.mjs`, both about the web pages. Rule 15 fails any tracked
   `web/` page, preview pages included, that says "no trackers" (any case, wrapped lines included) or its Thai
   twin, because the site runs Cloudflare Web Analytics; it stays until counsel's analytics wording lands. Rule 16
