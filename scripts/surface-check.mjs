@@ -691,7 +691,7 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
 // production page cannot carry what a preview page may not.
 // (b) NOTHING TO BUY: no production page (PRODUCTION_PAGES, rule 15's list minus PREVIEW_EXEMPT) carries a control that
 // can start a purchase. A <button> must be disabled (the two language-toggle buttons, by id, are the one allowance);
-// no <form> and no submit/button/image/reset <input>; no link that reads as a buy control (buy, purchase, subscribe,
+// no <form> and no submit/button/image/reset <input>; no link that reads as a buy control, by its text, its aria-label or title, or the alt of an image inside it (buy, purchase, subscribe,
 // checkout, order, pay, upgrade, sign up, and the Thai for buy, subscribe and pay) or has role=button; no <script src> from
 // a Paddle host and no Paddle global in an inline script; no URL attribute (href, action, src, formaction, data-*)
 // naming a Paddle host, a checkout path or a _ptxn query (a <script src> belongs to the payment-script clause alone,
@@ -703,7 +703,7 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
 // script enables at run time is not seen; the language-toggle allowance is by id, so a live button given the id lang-en
 // passes; a link that sells without saying so ("Continue", a bare arrow), a payment script served from the site's own
 // origin, a checkout URL on another word, a custom element and an onclick handler are not read (rule 13 already refuses
-// inline handlers and any script origin the CSP does not name). Clause (a) reads the capitalised word Free (so
+// inline handlers and any script origin the CSP does not name); a link named only by aria-labelledby, or by CSS content, is not read. Clause (a) reads the capitalised word Free (so
 // Free-form counts and freedom does not), free plan / free tier / free version in any case, and the Thai word for
 // free, and nothing else; style, script and svg text is skipped.
 {
@@ -714,6 +714,8 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
   const hasAttr = (attrs, name) => new RegExp('(?<![\\w-])' + name + '(?![\\w-])', 'i').test(bare(attrs));
   const TAG = /<([a-zA-Z][\w-]*)\b((?:"[^"]*"|'[^']*'|[^>"'])*)>/g;
   const ANCHOR = /<a\b((?:"[^"]*"|'[^']*'|[^>"'])*)>([\s\S]*?)<\/a\s*>/gi;
+  const LABEL_ATTR = /(?<![\w-])(?:aria-label|title)\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+)/gi; // what a link is called besides its text
+  const ALT_ATTR = /(?<![\w-])alt\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+)/gi;
   const LANG_TOGGLE = /(?<![\w-])id\s*=\s*["']?lang-(?:en|th)["']?(?![\w-])/i;
   const SUBMITTY = /(?<![\w-])type\s*=\s*["']?\s*(?:submit|button|image|reset)\b/i;
   const BUY_WORDS = /\b(?:buy|purchase|subscribe|checkout|check\s+out|order|pay|upgrade|sign\s+up)\b|ซื้อ|สมัคร|ชำระ|จ่ายเงิน/i;
@@ -758,7 +760,12 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
     }
     /* BUY_LINK:begin */
     for (const m of s.matchAll(ANCHOR)) {
-      const text = m[2].replace(/<[^>]*>/g, ' ');
+      let label = '';
+      /* BUY_LABEL:begin */
+      for (const a of m[1].matchAll(LABEL_ATTR)) label += ' ' + a[1].replace(/^["']|["']$/g, '');
+      for (const a of m[2].matchAll(ALT_ATTR)) label += ' ' + a[1].replace(/^["']|["']$/g, '');
+      /* BUY_LABEL:end */
+      const text = m[2].replace(/<[^>]*>/g, ' ') + label;
       if (BUY_WORDS.test(text) || /(?<![\w-])role\s*=\s*["']?button\b/i.test(m[1])) note(f, 'line ' + lineAt(s, m.index) + ': has a link that reads as a buy control ("' + text.replace(/\s+/g, ' ').trim().slice(0, 40) + '"); a production page sells nothing yet');
     }
     /* BUY_LINK:end */
