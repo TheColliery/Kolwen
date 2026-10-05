@@ -709,7 +709,8 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
 {
   const lineAt = (s, i) => s.slice(0, i).split('\n').length;
   const bare = attrs => attrs.replace(/"[^"]*"|'[^']*'/g, '""'); // attribute values out: title="disabled" is not the attribute
-  const hasAttr = (attrs, name) => new RegExp('(?<![\w-])' + name + '(?![\w-])', 'i').test(bare(attrs));
+  // The backslashes are doubled: in a plain string '\w' is just 'w', which made `notdisabled` and `disabledx` read as disabled.
+  const hasAttr = (attrs, name) => new RegExp('(?<![\\w-])' + name + '(?![\\w-])', 'i').test(bare(attrs));
   const TAG = /<([a-zA-Z][\w-]*)\b((?:"[^"]*"|'[^']*'|[^>"'])*)>/g;
   const ANCHOR = /<a\b((?:"[^"]*"|'[^']*'|[^>"'])*)>([\s\S]*?)<\/a\s*>/gi;
   const LANG_TOGGLE = /(?<![\w-])id\s*=\s*["']?lang-(?:en|th)["']?(?![\w-])/i;
