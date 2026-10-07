@@ -31,6 +31,7 @@
   .card{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:18px 20px;display:flex;flex-direction:column;gap:10px}
   .card h2{font-size:13px;font-weight:600;color:var(--quiet);letter-spacing:.04em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace}
   .card p,.card li{font-size:14.5px;color:var(--txt2)}
+  .card strong{color:var(--txt);font-weight:600}
   .card ul{padding-left:20px;display:flex;flex-direction:column;gap:6px}
   .card code{font-family:'IBM Plex Mono',monospace;font-size:13.5px;color:var(--txt)}
   .plans{width:100%;border-collapse:collapse;font-size:14px}
@@ -89,10 +90,24 @@
       </table>
     </div>
     <div class="card">
+      <h2>Ways to buy</h2>
+      <p>Three product shapes. None can be bought yet.</p>
+      <p>These purchase terms are a draft and are pending legal review.</p>
+      <p><strong>Subscription.</strong> Monthly or yearly, renewing until you cancel. It starts at once on your consent, and a refund inside the first period deducts the days you used. [pending legal review]</p>
+      <p><strong>Time key.</strong> Prepaid, bought once, for 7, 30, 90 or 365 days. A key gives exactly what a subscriber of the same plan has for the same number of days.</p>
+      <ul>
+        <li>A key adds time to your account, up to 36 months.</li>
+        <li>An unredeemed key is refundable in full within 14 days of purchase, and expires 12 months after purchase. [pending legal review]</li>
+        <li>2 keys per order, and 4 per account per sale window or per rolling 30 days.</li>
+        <li>A key is non-transferable and binds to your account when you activate it. [pending legal review]</li>
+      </ul>
+      <p><strong>Usage credits.</strong> Prepaid units of Kolwen’s own metered service. They are used only at Kolwen and cannot be moved to anyone else or cashed out. Unused credits are refundable at the price you paid, within 14 days. [pending legal review] Whether credits expire has not been decided yet.</p>
+    </div>
+    <div class="card">
       <h2>How prices are set</h2>
       <p><code>price(country, tier) = tier_ratio × 0.358% × mean monthly wage</code>, rounded.</p>
       <ul>
-        <li>Plans differ on one capacity axis.</li>
+        <li>Plans differ on one capacity axis: token quota. Against Standard, Lite carries 0.4x, Standard 1x, Premium 5x and Exclusive 10x. No quota amount is shown yet.</li>
         <li>Outside the US, the price shown is the total, tax included. In the US, prices are shown before tax.</li>
         <li>A live subscription keeps its price.</li>
         <li>Regional prices follow.</li>
@@ -129,10 +144,24 @@
       </table>
     </div>
     <div class="card">
+      <h2>วิธีซื้อ</h2>
+      <p>สินค้ามีสามรูปแบบ ตอนนี้ยังซื้อไม่ได้สักแบบ</p>
+      <p>เงื่อนไขการซื้อเหล่านี้เป็นฉบับร่างและรอที่ปรึกษากฎหมายตรวจสอบ</p>
+      <p><strong>การสมัครสมาชิก</strong> รายเดือนหรือรายปี ต่ออายุเองจนกว่าคุณจะยกเลิก เริ่มใช้ทันทีเมื่อคุณยินยอม และการขอคืนเงินภายในรอบแรกจะหักวันที่คุณใช้ไปแล้ว [รอที่ปรึกษากฎหมาย]</p>
+      <p><strong>คีย์เวลา</strong> จ่ายล่วงหน้าครั้งเดียว ใช้ได้ 7, 30, 90 หรือ 365 วัน คีย์ให้สิ่งเดียวกับที่ผู้สมัครแผนเดียวกันได้ในจำนวนวันเท่ากันทุกประการ</p>
+      <ul>
+        <li>คีย์เพิ่มเวลาให้บัญชีของคุณ สะสมได้สูงสุด 36 เดือน</li>
+        <li>คีย์ที่ยังไม่ได้ใช้ขอคืนเงินเต็มจำนวนได้ภายใน 14 วันนับจากวันซื้อ และหมดอายุ 12 เดือนหลังวันซื้อ [รอที่ปรึกษากฎหมาย]</li>
+        <li>2 คีย์ต่อคำสั่งซื้อ และ 4 คีย์ต่อบัญชีต่อช่วงลดราคา หรือต่อ 30 วันที่นับต่อเนื่อง</li>
+        <li>คีย์โอนให้ผู้อื่นไม่ได้ และผูกกับบัญชีของคุณเมื่อเปิดใช้งาน [รอที่ปรึกษากฎหมาย]</li>
+      </ul>
+      <p><strong>เครดิตการใช้งาน</strong> หน่วยการใช้งานที่จ่ายล่วงหน้าของบริการที่คิดตามการใช้งานของ Kolwen เอง ใช้ได้เฉพาะที่ Kolwen โอนให้ผู้อื่นหรือถอนเป็นเงินสดไม่ได้ เครดิตที่ยังไม่ได้ใช้ขอคืนตามราคาที่จ่ายได้ภายใน 14 วัน [รอที่ปรึกษากฎหมาย] ยังไม่ได้กำหนดว่าเครดิตจะหมดอายุหรือไม่</p>
+    </div>
+    <div class="card">
       <h2>วิธีตั้งราคา</h2>
       <p><code>price(country, tier) = tier_ratio × 0.358% × mean monthly wage</code> แล้วปัดเศษ</p>
       <ul>
-        <li>แผนต่างกันที่แกนความจุแกนเดียว</li>
+        <li>แผนต่างกันที่แกนความจุแกนเดียว คือโควตาโทเค็น เทียบกับ Standard แล้ว Lite ได้ 0.4 เท่า, Standard 1 เท่า, Premium 5 เท่า และ Exclusive 10 เท่า ตอนนี้ยังไม่แสดงปริมาณโควตา</li>
         <li>นอกสหรัฐ ราคาที่แสดงเป็นยอดรวมที่รวมภาษีแล้ว ในสหรัฐแสดงราคาก่อนภาษี</li>
         <li>การสมัครสมาชิกที่ใช้งานอยู่คงราคาเดิม</li>
         <li>ราคาของแต่ละภูมิภาคจะตามมา</li>
