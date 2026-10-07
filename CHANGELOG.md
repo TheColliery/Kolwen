@@ -158,6 +158,11 @@ the pointer to it.
 
 ### Added
 
+- The production `/plans` page gains a "Ways to buy" card (English and Thai) for the three product shapes, none of
+  them on sale: a subscription, a time key and usage credits, with the key limits and refund lines, labelled as a
+  draft pending legal review, and the plan capacity ratios against Standard (0.4x, 1x, 5x, 10x; no quota amount is
+  shown). The page's own style block changed, so its CSP style hash was updated.
+- The secret scanner and its test are re-copied from their source (the copy set is kept identical across the repos).
 - `TERMS.md` (still a draft, not linked from the site) now carries the signed commercial terms, each marked
   `[pending legal review]` where counsel decides: the age rule (18, or the local consent age if higher, a neutral
   confirmation, no identity image kept); outputs owned by the user, with "if any" and "similar outputs" wording and
