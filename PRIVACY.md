@@ -40,10 +40,10 @@ request handler, no logging, and no storage on our side.
 *Measured: `curl -sI https://kolwen.com/` and the same on an asset—no `Set-Cookie` header on
 either (re-measured 2026-10-08, after the zone's JavaScript Detections were switched off).*
 
-**A note on what could change that:** if Cloudflare's Bot Fight Mode or Turnstile is ever switched on for
-this site, Cloudflare sets its own security cookies on kolwen.com (`__cf_bm`, `cf_clearance`). They
-would be strictly necessary for that protection, but the sentence above, "no cookies at all", would
-then be reworded the same day. Bot Fight Mode is off today.
+**A note on what could change that:** per Cloudflare's own cookie and clearance pages (read 2026-10-08),
+Bot Fight Mode sets the `__cf_bm` cookie, and Turnstile sets `cf_clearance` only when its pre-clearance option is
+enabled. If either is ever switched on for this site, the sentence above, "no cookies at all", would be
+reworded the same day. Both are off today.
 
 Your language choice (English or Thai) is stored in your browser's `localStorage`, which is not a
 cookie, is never sent to a server, and never leaves your device. Clearing your browser data
