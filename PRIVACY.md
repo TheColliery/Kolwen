@@ -2,8 +2,8 @@
 
 > **Published as a DRAFT with legal gaps by the owner's order of 2026-09-05.** The
 > `[pending legal review]` / `[รอที่ปรึกษากฎหมาย]` markers below are the clauses awaiting counsel:
-> the four legal gaps, and seven statements about cookies, trackers and analytics marked the same way
-> because the home page's no-trackers claim was withdrawn.
+> the four legal gaps, and the statements about cookies, trackers, analytics and age checks marked the
+> same way (the cookie and tracker ones because the home page's no-trackers claim was withdrawn).
 > **Not yet reviewed by a lawyer.** Every statement about this site's own behaviour was MEASURED
 > on 2026-09-04 and carries the command that produced it; every statement that could not be
 > measured from this repository is marked ⚠️ and is a question returned to the owner, not a
@@ -12,8 +12,8 @@
 >
 > **เผยแพร่เป็นฉบับร่างที่ยังมีช่องว่างทางกฎหมาย ตามคำสั่งเจ้าของ 2026-09-05** —
 > เครื่องหมาย `[รอที่ปรึกษากฎหมาย]` / `[pending legal review]` คือข้อที่ยังรอทนายความ ได้แก่ช่องว่างทางกฎหมายสี่จุด
-> และข้อความอีกเจ็ดข้อเกี่ยวกับคุกกี้ ตัวติดตาม และการวิเคราะห์ ที่ทำเครื่องหมายแบบเดียวกัน
-> เพราะหน้าแรกถอนข้อความว่าไม่มีตัวติดตามแล้ว **ยังไม่ผ่านการตรวจโดยทนายความ**
+> และข้อความอื่น ๆ เกี่ยวกับคุกกี้ ตัวติดตาม การวิเคราะห์ และการตรวจอายุ ที่ทำเครื่องหมายแบบเดียวกัน
+> (ส่วนของคุกกี้และตัวติดตามเพราะหน้าแรกถอนข้อความว่าไม่มีตัวติดตามแล้ว) **ยังไม่ผ่านการตรวจโดยทนายความ**
 > **GAPPED 2026-09-06 (LWK-146, owner ruling of 2026-09-05): every clause below that is a legal
 > CONCLUSION — a statutory duty asserted as met, a controller/processor characterisation, a
 > DPO/representative status determination, or any other class the lawyer must confirm — is now marked
@@ -38,7 +38,12 @@ request handler, no logging, and no storage on our side.
 **[pending legal review] This site sets no cookies at all.**
 
 *Measured: `curl -sI https://kolwen.com/` and the same on an asset—no `Set-Cookie` header on
-either.*
+either (re-measured 2026-10-08, after the zone's JavaScript Detections were switched off).*
+
+**A note on what could change that:** if Cloudflare's Bot Fight Mode or Turnstile is ever switched on for
+this site, Cloudflare sets its own security cookies on kolwen.com (`__cf_bm`, `cf_clearance`). They
+would be strictly necessary for that protection, but the sentence above, "no cookies at all", would
+then be reworded the same day. Bot Fight Mode is off today.
 
 Your language choice (English or Thai) is stored in your browser's `localStorage`, which is not a
 cookie, is never sent to a server, and never leaves your device. Clearing your browser data
@@ -90,12 +95,23 @@ that the claim and the feature ship together rather than the page quietly going 
 **Cloudflare** serves this site, so it necessarily handles your request: your IP address, the URL
 you asked for, and your browser's user-agent reach their edge before any bytes reach you. That is
 how any hosted site works, and it is not something we can turn off while remaining online.
-Cloudflare also injects its own bot-detection script into the served HTML—we do not control it
-and do not receive its output.
+Cloudflare no longer injects its bot-detection script into the served HTML: the zone's JavaScript
+Detections setting was switched off on 2026-10-07, and Bot Fight Mode is off.
 
-⚠️ **[pending legal review] What Cloudflare retains, for how long, and whether any analytics product is enabled on this
-account is a dashboard setting that leaves no trace in this repository. It cannot be measured from
-here, and it is not stated as fact.** Returned as an owner question.
+*Measured 2026-10-08: `curl -s https://kolwen.com/ | grep -c challenge-platform` prints 0.*
+
+**Analytics.** [pending legal review] The site uses Cloudflare Web Analytics, which counts visits
+without cookies and without browser storage. It gives us aggregate statistics only: which page was
+viewed, the referring site, the visitor's country and the browser. No one is identified by them. A visitor's ad-blocker can block the counter, so the counts run
+low.
+
+> [รอที่ปรึกษากฎหมาย] เว็บไซต์ใช้ Cloudflare Web Analytics ซึ่งนับการเข้าชมโดยไม่ใช้คุกกี้และไม่เก็บข้อมูลในเบราว์เซอร์
+> ให้เราเห็นเฉพาะสถิติรวม ได้แก่ หน้าที่ถูกเปิด เว็บที่พามา ประเทศของผู้เข้าชม และเบราว์เซอร์ โดยไม่ระบุตัวบุคคลใด
+> ตัวบล็อกโฆษณาอาจบล็อกตัวนับนี้ ตัวเลขจึงอาจต่ำกว่าความจริง
+
+⚠️ **[pending legal review] What Cloudflare retains, and for how long, is a provider-side setting that leaves no
+trace in this repository. It cannot be measured from here, and it is not stated as fact.** Returned as an
+owner question.
 
 **Google Fonts** serves the two typefaces the page uses, so your browser makes a request to
 Google when the page loads. That request carries your IP address to Google.
@@ -107,6 +123,20 @@ addresses on the page are links you would have to click.*
 Self-hosting the fonts would remove this last third party. It is an open decision, not an
 oversight.
 
+## Age
+
+[pending legal review] Kolwen is for people who are at least 18, or the age at which the law where they live
+lets them consent, whichever is higher. At sign-up we ask for a neutral confirmation of that, and we do not
+ask for or keep an image of any identity document. If signals in how an account is used show that its holder
+is under that age, we disable the account and refund the unused part. Should a case ever need a stronger
+check, it is done by a verification provider that tells us only pass or fail, and we never hold the ID
+image.
+
+> [รอที่ปรึกษากฎหมาย] Kolwen สำหรับผู้ที่มีอายุอย่างน้อย 18 ปี หรืออายุที่กฎหมายถิ่นที่อยู่ให้ความยินยอมได้ แล้วแต่อย่างใดสูงกว่า
+> ตอนสมัครเราขอเพียงการยืนยันกลาง ๆ และไม่ขอหรือเก็บภาพเอกสารระบุตัวตนใด ๆ
+> หากสัญญาณจากการใช้งานบ่งว่าเจ้าของบัญชีอายุต่ำกว่าเกณฑ์ เราจะปิดบัญชีและคืนเงินส่วนที่ยังไม่ได้ใช้
+> หากกรณีใดต้องตรวจเข้มขึ้น ผู้ให้บริการตรวจสอบจะแจ้งเราเพียงผ่านหรือไม่ผ่าน และเราไม่เก็บภาพบัตรไว้
+
 ## Contact
 
 `privacy@kolwen.com` reaches the maintainer. Anything you send there is read by a person.
@@ -116,7 +146,8 @@ configuration outside this repository.** Not measurable here; returned rather th
 
 ## What we do not do
 
-- [pending legal review] No advertising, no ad networks, no third-party analytics on this page.
+- [pending legal review] No advertising and no ad networks. The only counter on this page is the Cloudflare
+  Web Analytics described above.
 - No account, no sign-up, and nothing to log in to.
 - Kolwen's own systems—the site and its Worker—collect and store nothing, so there is nothing
   there to sell or share. **Three parties outside those systems do handle data, as this notice
