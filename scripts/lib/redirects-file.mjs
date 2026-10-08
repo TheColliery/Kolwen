@@ -24,10 +24,12 @@ export const isDynamic = r => /[*:]/.test(r.source);
 // What an edge answer must look like for one static rule: null when it does, else the reason.
 export function redirectMiss(rule, status, location, origin) {
   if (status !== rule.status) return `${rule.source}: answered HTTP ${status}, expected ${rule.status} (web/_redirects line ${rule.line})`;
-  // The ORIGIN counts as well as the path: a 301 to the right path on another host, scheme or port is a miss.
+  // The whole destination counts: origin (a 301 to the right path on another host, scheme or port is a miss), path, query and
+  // fragment (Cloudflare permits both in a destination, and `/pricing` is not `/pricing?plan=standard`).
+  const whole = u => u.origin + u.pathname + u.search + u.hash;
   let got = null;
-  if (location) { try { const u = new URL(location, origin); got = u.origin + u.pathname; } catch { /* an unparsable Location is a miss below */ } }
-  const w = new URL(rule.dest, origin), want = w.origin + w.pathname;
+  if (location) { try { got = whole(new URL(location, origin)); } catch { /* an unparsable Location is a miss below */ } }
+  const want = whole(new URL(rule.dest, origin));
   if (got !== want) return `${rule.source}: Location is ${JSON.stringify(location)}, expected ${want}`;
   return null;
 }
