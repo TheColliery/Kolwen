@@ -158,6 +158,12 @@ the pointer to it.
 
 ### Added
 
+- The enforcement process in `TERMS.md` now covers a customer who does not answer: when the 14 business days close with
+  no answer, Kolwen still decides in writing within 7 business days, on the evidence it holds, and the appeal right is
+  unchanged. An upheld decision also keeps the account suspended, and the key's clock stopped, through the 30-business-day
+  appeal window and any appeal; the contract is terminated, with no refund, only when the appeal is dismissed or the window
+  passes with none filed, and a successful appeal restores the account and the key in full. The Thai version says the same,
+  and the missed-deadline paragraph reads consistently with both. Still under the pending-legal-review marker.
 - `legal/`: the switch for the Thai 7-day cancellation clause. `legal/legal-state.json` records the seller type and the
   dates on which a legal trigger was met (incorporation, direct-marketing registration, or annual revenue above
   1,800,000 baht), and only that: its keys and values are fixed to null or a calendar date, so a registration number,
