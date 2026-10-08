@@ -244,7 +244,7 @@ if (existsSync('web/ic.json')) {
 // merely describes what the marker means (a draft header) is not a gap and is never counted as one.
 // The Thai marker is deliberately NOT asserted per gap (the Thai rides as short blockquotes, not a
 // parallel legal text); it is only counted wrap-aware and reported.
-const LEGAL_DRAFTS = ['PRIVACY.md', 'TERMS.md'];
+const LEGAL_DRAFTS = ['PRIVACY.md', 'TERMS.md', 'legal/thai-7day-clause.md'];
 const gapNotes = [];
 for (const doc of LEGAL_DRAFTS) {
   if (!existsSync(doc)) {
@@ -852,6 +852,40 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
       /* R18_MAP:end */
     }
   } else if (tracked.includes(REDIRECTS)) note(REDIRECTS, 'is tracked but cannot be read, so rule 18 checked nothing');
+}
+
+// ── 19. The Thai 7-day clause in TERMS.md agrees with the legal-state record ──
+// The clause is in TERMS.md only while legal/legal-state.json says a legal trigger has been met (incorporation, direct-marketing
+// registration, or a revenue crossing that stands); the block between the two legal-state markers is a pure function of the
+// record and legal/thai-7day-clause.md, rendered by scripts/legal-state.mjs --write and never edited by hand. A clause that shows
+// while the record says it is not in force, or is missing once it is, would put a false legal statement on a public page.
+// One clause per marker, so a mutant can remove one at a time:
+//   L19_RECORD   the record is valid JSON of the fixed shape: exact keys, values null or a real date (a registration number, a tax
+//                identification number, a revenue figure or any owner identifier CANNOT be stored there), a company trigger needs a
+//                company seller, a veto sits inside 14 calendar days of its crossing; a missing file is a finding
+//   L19_MARKERS  TERMS.md holds exactly one begin and one end marker
+//   L19_SYNC     the block equals the rendering of (record, clause file)
+// STATED LIMITS: the one-way latch and the 14-day veto TIMING cannot be seen in one snapshot (git history is the audit log; a
+// veto inside the window is accepted whenever it is committed); that the trigger date is true is the owner's dated commit, not
+// this rule's; revenue is measured by a billing system that does not exist yet (legal/README.md holds the design); the rule reads
+// the English and Thai clause because the clause file carries both, and holds nothing about their legal wording.
+{
+  let ls = null;
+  try { ls = await import(pathToFileURL(resolve('scripts/lib/legal-state.mjs')).href); }
+  catch (e) { note('scripts/lib/legal-state.mjs', 'could not be loaded, so rule 19 could not read the legal-state record (' + (e.code || 'import failed') + ')'); }
+  if (ls) {
+    const text = p => (existsSync(p) ? read(p) : null);
+    const fs19 = ls.findings({ record: text(ls.STATE_FILE), clause: text(ls.CLAUSE_FILE), terms: text(ls.TERMS_FILE) });
+    /* L19_RECORD:begin */
+    for (const x of fs19.filter(x => x.kind === 'record')) note(ls.STATE_FILE, x.msg);
+    /* L19_RECORD:end */
+    /* L19_MARKERS:begin */
+    for (const x of fs19.filter(x => x.kind === 'markers')) note(ls.TERMS_FILE, x.msg);
+    /* L19_MARKERS:end */
+    /* L19_SYNC:begin */
+    for (const x of fs19.filter(x => x.kind === 'sync')) note(ls.TERMS_FILE, x.msg);
+    /* L19_SYNC:end */
+  }
 }
 
 if (fail.length) {
