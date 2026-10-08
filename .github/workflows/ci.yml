@@ -81,7 +81,8 @@ jobs:
       # bilingual structure · every stated contrast ratio recomputed from its own hex pair.
       - run: node scripts/surface-check.mjs
       # The one robots.txt comparison rule the post-deploy check applies (it cannot run here: it needs the live site).
-      - run: node --test scripts/robots-edge.test.mjs
+      # And the legal-state switch's tests: the Thai 7-day clause is in TERMS.md only while legal/legal-state.json says a trigger is met.
+      - run: node --test scripts/robots-edge.test.mjs scripts/legal-state.test.mjs
 
   reply-language:
     name: reply language (LWK-131)

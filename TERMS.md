@@ -104,8 +104,6 @@ adds to it:
 **GAP 6 — [pending legal review]: counsel signs the wording of this clause, and confirms the
 immediate-start consent works as the basis for deducting days used.**
 
-A separate Thai consumer cancellation right is drafted below, dormant.
-
 ## Ending the contract
 
 **By Kolwen without cause.** Kolwen refunds the unused part: a key's remaining days, a subscription's
@@ -200,38 +198,8 @@ directly.
 Code (ss.193/1, 193/4 and 193/8), and how the 90-calendar-day ceiling sits with business-day counting and
 a key clock that stops for the whole case.**
 
-## Thai consumer cancellation right — drafted, dormant
-
-*This clause is written now and switched on later. It has no effect until the trigger below is met.*
-
-Under the Direct Sales and Direct Marketing Act B.E. 2545, a consumer who buys from a business that
-sells directly or through direct marketing may cancel within **7 days** of receiving the service, and
-then gets the **full price back**, paid out within **15 days** of the business receiving the
-cancellation notice. As things stand, that right does not bind Kolwen: it applies to a natural person
-selling online only once that person enters the direct-marketing register or earns more than
-1,800,000 baht a year, and it applies to a company from incorporation.
-
-**The trigger:** this clause takes effect on the first of (a) incorporation of the seller, (b)
-registration as a direct-marketing business, or (c) annual revenue above 1,800,000 baht. **Until then
-the live rule is the Refunds section above.**
-
-Once it applies, a customer in Thailand cancels by notice through **support@kolwen.com**, and
-no consent-to-start waiver reduces the refund inside the 7 days. Kolwen's protection against use followed
-by a refund is a trial before payment, never a waiver of this right.
-
-> **[รอที่ปรึกษากฎหมาย] สิทธิยกเลิกของผู้บริโภคในประเทศไทย — ร่างไว้ ยังไม่มีผลบังคับ**
-> ตามพระราชบัญญัติขายตรงและตลาดแบบตรง พ.ศ. 2545 ผู้บริโภคที่ซื้อจากผู้ประกอบธุรกิจที่ขายตรงหรือขายผ่านตลาดแบบตรง
-> ยกเลิกได้ภายใน 7 วันนับแต่ได้รับบริการ และได้รับเงินคืนเต็มจำนวน โดยจ่ายคืนภายใน 15 วัน
-> นับแต่ได้รับการบอกเลิก ปัจจุบันสิทธินี้ยังไม่ผูกพัน Kolwen ผู้บริโภคในประเทศไทยแจ้งยกเลิกผ่าน **support@kolwen.com** ข้อนี้จะมีผลเมื่อครบเงื่อนไขข้อใดข้อหนึ่งก่อน คือ ผู้ขายจดทะเบียนเป็นนิติบุคคล
-> จดทะเบียนเป็นผู้ประกอบธุรกิจตลาดแบบตรง หรือมีรายได้เกิน 1,800,000 บาทต่อปี จนถึงวันนั้นให้ใช้หลักการคืนเงินในหัวข้อ
-> Refunds เป็นหลัก เมื่อข้อนี้มีผล ไม่มีการสละสิทธิเพื่อลดเงินคืนในช่วง 7 วัน วิธีที่ Kolwen ป้องกันตนเองจากการใช้แล้วขอคืนเงินคือการให้ทดลองใช้ก่อนชำระเงิน
-> ไม่ใช่การให้ลูกค้าสละสิทธิ
-
-**GAP 10 — [pending legal review]: counsel confirms the three readings this clause rests on: the 7-day
-right reaches only direct sales and direct marketing, and not a natural person under the 1,800,000 baht
-threshold who is not on the direct-marketing register; no regulation exempts digital services from it, so a consent-to-start
-waiver has no Thai basis once it binds; and the refund is due within 15 days of the cancellation notice.
-How the switch is flipped on the trigger date is not built.**
+<!-- legal-state:thai-7day:begin -->
+<!-- legal-state:thai-7day:end -->
 
 ## Retention
 
