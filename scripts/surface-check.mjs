@@ -788,7 +788,8 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
 //   R18_CHAIN   no redirect to itself and no destination that is another redirect's source
 //   R18_MAP     no sitemap URL is a redirect source
 // NON-VACUITY: a tracked web/_redirects that holds no redirect is a finding (rule 18 read nothing).
-// STATED LIMITS: only static redirects are read (a splat or placeholder is refused, not interpreted); that the edge answers
+// STATED LIMITS: only static redirects are read (a splat or placeholder is refused, not interpreted); a destination on the site's own
+// origin is read as a local path, and the site's origins are those its sitemap lists (no sitemap, no absolute destination is local); that the edge answers
 // as the file says is post-deploy-check's probe, not this rule's; a destination is checked to exist, not to be the page
 // the author meant; the 2,000-redirect and 100-dynamic-redirect caps are not counted (the file holds a handful).
 {
@@ -800,8 +801,11 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
     if (rl) {
       const rules = rl.parseRedirectsFile(read(REDIRECTS));
       if (rules.length === 0) note(REDIRECTS, 'holds no redirect, so rule 18 read nothing — remove the file, or restore the redirect it was shipped for');
+      const CONTROL_FILES = new Set(['_redirects', '_headers']);
       const served = p => {
         const clean = p.split(/[?#]/)[0];
+        // Cloudflare parses these two files and never serves them, so a redirect to one leads to the 404 page (docs: "will not itself be served as a static asset").
+        if (CONTROL_FILES.has(clean.split('/').pop())) return null;
         if (clean === '/') return 'web/index.html';
         const rel = 'web' + clean.replace(/\/+$/, '');
         return [rel + '.html', rel, rel + '/index.html'].find(f => tracked.includes(f)) || null;
@@ -809,8 +813,16 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
       const norm = p => (p.length > 1 ? p.replace(/\/+$/, '') : p);
       const sources = new Set(rules.map(r => norm(r.source)));
       const sitemap = existsSync('web/sitemap.xml') ? read('web/sitemap.xml') : '';
+      // The site's own origins are the ones its sitemap names; a destination on one of them is a LOCAL path (the same checks
+      // apply), and one on any other origin is left alone. A query or fragment never changes which page is meant.
+      const siteOrigins = new Set();
+      for (const m of sitemap.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)) { try { siteOrigins.add(new URL(m[1]).origin); } catch { /* not a URL */ } }
+      const target = d => {
+        if (d.startsWith('/')) return d.split(/[?#]/)[0];
+        try { const u = new URL(d); return siteOrigins.has(u.origin) ? u.pathname : null; } catch { return null; }
+      };
       for (const r of rules) {
-        const at = REDIRECTS + ' line ' + r.line;
+        const dest = r.dest === undefined ? null : target(r.dest); // a one-field line has no destination (R18_SYNTAX reports it)
         /* R18_SYNTAX:begin */
         if (r.fields < 2 || r.fields > 3) { note(REDIRECTS, 'line ' + r.line + ': has ' + r.fields + ' fields, expected a source, a destination and an optional status'); continue; }
         if (!r.source.startsWith('/')) note(REDIRECTS, 'line ' + r.line + ': the source "' + r.source + '" does not start with "/"');
@@ -820,14 +832,15 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
         if (rl.isDynamic(r)) note(REDIRECTS, 'line ' + r.line + ': is a dynamic redirect (a splat or placeholder), which rule 18 does not read — state it in the rule before shipping it');
         /* R18_SYNTAX:end */
         /* R18_DEST:begin */
-        if (r.dest.startsWith('/') && !served(r.dest)) note(REDIRECTS, 'line ' + r.line + ': the destination ' + r.dest + ' is no page under web/, so everyone who follows ' + r.source + ' would get a 404');
+        if (dest !== null && !served(dest)) note(REDIRECTS, 'line ' + r.line + ': the destination ' + r.dest + ' is no page under web/, so everyone who follows ' + r.source + ' would get a 404');
         /* R18_DEST:end */
         /* R18_SHADOW:begin */
         if (r.source.startsWith('/') && served(r.source)) note(REDIRECTS, 'line ' + r.line + ': the source ' + r.source + ' is a live page (' + served(r.source) + '), and a redirect is followed whether or not an asset matches, so it would hide that page');
         /* R18_SHADOW:end */
         /* R18_CHAIN:begin */
-        if (norm(r.source) === norm(r.dest)) note(REDIRECTS, 'line ' + r.line + ': redirects ' + r.source + ' to itself');
-        else if (sources.has(norm(r.dest))) note(REDIRECTS, 'line ' + r.line + ': the destination ' + r.dest + ' is itself a redirect source, a chain of hops');
+        if (dest === null) { /* another origin: not a hop of ours */ }
+        else if (norm(r.source) === norm(dest)) note(REDIRECTS, 'line ' + r.line + ': redirects ' + r.source + ' to itself');
+        else if (sources.has(norm(dest))) note(REDIRECTS, 'line ' + r.line + ': the destination ' + r.dest + ' is itself a redirect source, a chain of hops');
         /* R18_CHAIN:end */
       }
       /* R18_MAP:begin */
