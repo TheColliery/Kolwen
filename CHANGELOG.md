@@ -160,8 +160,8 @@ the pointer to it.
 
 - The pricing page is now `/pricing` (`web/pricing.html`), and `/plans`, `/plans/` and `/plans.html` answer a 301
   to it from the new `web/_redirects`, because the old address is the one given to the payment provider. The sitemap
-  lists `/pricing`. Rule 18 of `scripts/surface-check.mjs` holds the redirect file (valid lines, real destinations, no
-  page hidden behind a redirect, no chain, no sitemap URL that redirects), and `scripts/post-deploy-check.mjs` probes each
+  lists `/pricing`. Rule 18 of `scripts/surface-check.mjs` holds the redirect file (valid lines, same-site destinations that are
+  shipped pages, no page hidden behind a redirect, no chain, no sitemap URL that redirects), and `scripts/post-deploy-check.mjs` probes each
   redirect on the deployed origin without following it. The legal paths wait for their text; none is written or
   redirected here.
 - The production `/plans` page gains a "Ways to buy" card (English and Thai) for the three product shapes, none of

@@ -204,8 +204,8 @@ checkout URL on any production page.
 The pricing page first lived at `/plans`, which is the address given to the payment provider, so the old
 address must keep working. `web/_redirects` (Cloudflare Workers static assets: one redirect per line, parsed by
 the platform and never served) sends `/plans`, `/plans/` and `/plans.html` to `/pricing` with a 301. Rule 18 of
-the surface check holds the file: every destination is a page we ship, no source hides a page, no redirect chains
-to another, and no URL in the sitemap is a redirect source. After a deploy, `scripts/post-deploy-check.mjs` probes
+the surface check holds the file: every same-site destination is a page we ship (a destination on another site is not checked), no source
+hides a page, no redirect chains to another, and no URL in the sitemap is a redirect source. After a deploy, `scripts/post-deploy-check.mjs` probes
 each static line without following it and reports a miss when the status or the `Location` differs. Whether the
 edge answers a trailing-slash or `.html` source as the file says is proven only by that first live probe.
 

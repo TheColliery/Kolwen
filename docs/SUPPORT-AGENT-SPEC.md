@@ -60,8 +60,10 @@ cases. The requirements below are how the support surface behaves around that pr
    one, on any account action, on anything about money, when the same issue is raised a second time, and when
    its own confidence in an answer is low. **The AI never closes a thread that holds an open account action or
    dispute.**
-2. **Every suspension states the rule and the conduct,** unless the law or a live security investigation bars
-   it, and names the appeal route. This is the "notice" step of the process, in the customer's hands.
+2. **Every suspension states the rule and the conduct, and names the appeal route.** This is the "notice" step of
+   the process, in the customer's hands. Whether the law or a live security investigation can justify delaying
+   that notice is an open question for counsel, with its timing and content; the process in `TERMS.md` has no such
+   exception, so until counsel decides, notice comes first.
 3. **An appeal gets a case number, a status the customer can see, and a decision deadline that Kolwen sets and
    publishes** (**[N days]**, a placeholder until signed), **with an escalation when the deadline passes.**
 4. **One case across support, safety and billing.** Every door sees it, and no door sends the customer back to
