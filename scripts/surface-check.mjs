@@ -3,6 +3,10 @@
 // This repo's risk is not broken code: one zero-dependency generator is the only executable of
 // consequence. Its risk is a FALSE PUBLIC CLAIM. Every assertion below is a rule the room
 // already holds and has already caught a violation of. Zero dependencies, Node built-ins only.
+//
+// ponytail: 895 lines at declaration — every rule reads one tracked-file list (`git ls-files`), one set of
+// scope predicates and one failure list, and this file is the list of record that docs/TRUST.md and
+// governance/policies.md point at ("its numbered rules are the list"); a split would give two lists of record.
 import { readFileSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
