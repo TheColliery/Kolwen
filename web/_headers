@@ -68,9 +68,9 @@
 #    in 404.html) are admitted by hash too, so there is no 'unsafe-inline' anywhere. The Google Fonts
 #    stylesheet varies by user agent, so it cannot carry a fixed integrity hash; it is the named
 #    exception, pinned by origin. Self-hosting the two IBM Plex families would retire it.
-#  - The plans page (/plans) has its own <style> block (the home page's rules plus a price table and its disabled
+#  - The pricing page (/pricing; it began as /plans, which now answers a 301 from web/_redirects) has its own <style> block (the home page's rules plus a price table and its disabled
 #    buy buttons), so it carries the one added hash above. Its inline script and its <noscript> style are the same
-#    bytes as index.html's, so they reuse its hashes. It loads no payment script and no new origin; `/plans` takes
+#    bytes as index.html's, so they reuse its hashes. It loads no payment script and no new origin; `/pricing` takes
 #    the `/*` rule like `/`, and no rule here sets noindex on it.
 #  - The ld+json block in index.html is a DATA block, not script: CSP's script-src does not govern it.
 #  - NAMED CONSEQUENCE: on kolwen.com the edge appends an inline bot-detection script to the HTML (the

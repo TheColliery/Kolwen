@@ -162,8 +162,10 @@ const SHIPPED = new Set([
   // be served as a static asset" — shipped but never fetchable, which post-deploy-check must
   // also know.
   'web/404.html', 'web/_headers',
-  // The plans page: a PRODUCTION page (US prices, every buy button disabled), read by the rules that read every page.
-  'web/plans.html',
+  // `_redirects` is parsed by Workers and not served either (same docs page family); rule 18 holds its lines.
+  'web/_redirects',
+  // The pricing page (first published as /plans): a PRODUCTION page (US prices, every buy button disabled), read by the rules that read every page.
+  'web/pricing.html',
   'web/favicon.svg', 'web/favicon-32.png', 'web/apple-touch-icon.png', 'web/og.png',
 ]);
 for (const f of tracked.filter(f => f.startsWith('web/'))) {
@@ -771,6 +773,85 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
     /* BUY_LINK:end */
   }
   if (PRODUCTION_PAGES.length > 0 && buttonsSeen === 0) note('web/', 'holds no <button> on any production page, so the buy-button check read nothing — this CHECK is now empty, not the pages proven free of live buy controls');
+}
+
+// ── 18. The redirects point at pages we ship, and hide none ─────────────────────
+// web/_redirects (Workers static assets; syntax in scripts/lib/redirects-file.mjs, from Cloudflare's Redirects page) moved
+// the pricing page's first address to its canonical one. Cloudflare follows a redirect "regardless of whether or not an asset
+// matches", so a wrong line is not a harmless typo: a destination that is no page serves a 404 to everyone who followed the old
+// link, a source that is a live page hides that page, and a sitemap URL that redirects tells crawlers to index a hop.
+// One clause per marker, so a mutant can remove one at a time:
+//   R18_SYNTAX  two or three fields; source and destination start with "/" (a destination may also be an https URL);
+//               status one of 301 302 303 307 308; at most 1,000 characters a line; no splat or placeholder (not read here)
+//   R18_DEST    a relative destination is a tracked page or file under web/ ("/" is index.html, "/x" is x.html or x)
+//   R18_SHADOW  a source is not a tracked page (the redirect would hide it)
+//   R18_CHAIN   no redirect to itself and no destination that is another redirect's source
+//   R18_MAP     no sitemap URL is a redirect source
+// NON-VACUITY: a tracked web/_redirects that holds no redirect is a finding (rule 18 read nothing).
+// STATED LIMITS: only static redirects are read (a splat or placeholder is refused, not interpreted); a destination on the site's own
+// origin is read as a local path, and the site's origins are those its sitemap lists (no sitemap, no absolute destination is local); that the edge answers
+// as the file says is post-deploy-check's probe, not this rule's; a destination is checked to exist, not to be the page
+// the author meant; the 2,000-redirect and 100-dynamic-redirect caps are not counted (the file holds a handful).
+{
+  const REDIRECTS = 'web/_redirects';
+  if (tracked.includes(REDIRECTS) && existsSync(REDIRECTS)) {
+    let rl = null;
+    try { rl = await import(pathToFileURL(resolve('scripts/lib/redirects-file.mjs')).href); }
+    catch (e) { note('scripts/lib/redirects-file.mjs', 'could not be loaded, so rule 18 could not read web/_redirects (' + (e.code || 'import failed') + ')'); }
+    if (rl) {
+      const rules = rl.parseRedirectsFile(read(REDIRECTS));
+      if (rules.length === 0) note(REDIRECTS, 'holds no redirect, so rule 18 read nothing — remove the file, or restore the redirect it was shipped for');
+      const CONTROL_FILES = new Set(['_redirects', '_headers']);
+      const served = p => {
+        const clean = p.split(/[?#]/)[0];
+        // Cloudflare parses these two files and never serves them, so a redirect to one leads to the 404 page (docs: "will not itself be served as a static asset").
+        if (CONTROL_FILES.has(clean.split('/').pop())) return null;
+        if (clean === '/') return 'web/index.html';
+        const rel = 'web' + clean.replace(/\/+$/, '');
+        return [rel + '.html', rel, rel + '/index.html'].find(f => tracked.includes(f)) || null;
+      };
+      const norm = p => (p.length > 1 ? p.replace(/\/+$/, '') : p);
+      const sources = new Set(rules.map(r => norm(r.source)));
+      const sitemap = existsSync('web/sitemap.xml') ? read('web/sitemap.xml') : '';
+      // The site's own origins are the ones its sitemap names; a destination on one of them is a LOCAL path (the same checks
+      // apply), and one on any other origin is left alone. A query or fragment never changes which page is meant.
+      const siteOrigins = new Set();
+      for (const m of sitemap.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)) { try { siteOrigins.add(new URL(m[1]).origin); } catch { /* not a URL */ } }
+      const target = d => {
+        if (d.startsWith('/')) return d.split(/[?#]/)[0];
+        try { const u = new URL(d); return siteOrigins.has(u.origin) ? u.pathname : null; } catch { return null; }
+      };
+      for (const r of rules) {
+        const dest = r.dest === undefined ? null : target(r.dest); // a one-field line has no destination (R18_SYNTAX reports it)
+        /* R18_SYNTAX:begin */
+        if (r.fields < 2 || r.fields > 3) { note(REDIRECTS, 'line ' + r.line + ': has ' + r.fields + ' fields, expected a source, a destination and an optional status'); continue; }
+        if (!r.source.startsWith('/')) note(REDIRECTS, 'line ' + r.line + ': the source "' + r.source + '" does not start with "/"');
+        if (!(r.dest.startsWith('/') || /^https:\/\//i.test(r.dest))) note(REDIRECTS, 'line ' + r.line + ': the destination "' + r.dest + '" is neither a "/" path nor an https URL');
+        if (!rl.REDIRECT_STATUSES.has(r.status)) note(REDIRECTS, 'line ' + r.line + ': the status is not one of 301 302 303 307 308');
+        if (r.length > 1000) note(REDIRECTS, 'line ' + r.line + ': is ' + r.length + ' characters; Cloudflare allows 1,000 per redirect');
+        if (rl.isDynamic(r)) note(REDIRECTS, 'line ' + r.line + ': is a dynamic redirect (a splat or placeholder), which rule 18 does not read — state it in the rule before shipping it');
+        /* R18_SYNTAX:end */
+        /* R18_DEST:begin */
+        if (dest !== null && !served(dest)) note(REDIRECTS, 'line ' + r.line + ': the destination ' + r.dest + ' is no page under web/, so everyone who follows ' + r.source + ' would get a 404');
+        /* R18_DEST:end */
+        /* R18_SHADOW:begin */
+        if (r.source.startsWith('/') && served(r.source)) note(REDIRECTS, 'line ' + r.line + ': the source ' + r.source + ' is a live page (' + served(r.source) + '), and a redirect is followed whether or not an asset matches, so it would hide that page');
+        /* R18_SHADOW:end */
+        /* R18_CHAIN:begin */
+        if (dest === null) { /* another origin: not a hop of ours */ }
+        else if (norm(r.source) === norm(dest)) note(REDIRECTS, 'line ' + r.line + ': redirects ' + r.source + ' to itself');
+        else if (sources.has(norm(dest))) note(REDIRECTS, 'line ' + r.line + ': the destination ' + r.dest + ' is itself a redirect source, a chain of hops');
+        /* R18_CHAIN:end */
+      }
+      /* R18_MAP:begin */
+      for (const m of sitemap.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)) {
+        let p = null;
+        try { p = norm(new URL(m[1]).pathname); } catch { /* an unparsable loc is not this rule's */ }
+        if (p && sources.has(p)) note('web/sitemap.xml', 'lists ' + m[1] + ', which web/_redirects redirects: the sitemap names the destination, never the old address');
+      }
+      /* R18_MAP:end */
+    }
+  } else if (tracked.includes(REDIRECTS)) note(REDIRECTS, 'is tracked but cannot be read, so rule 18 checked nothing');
 }
 
 if (fail.length) {

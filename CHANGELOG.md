@@ -158,6 +158,12 @@ the pointer to it.
 
 ### Added
 
+- The pricing page is now `/pricing` (`web/pricing.html`), and `/plans`, `/plans/` and `/plans.html` answer a 301
+  to it from the new `web/_redirects`, because the old address is the one given to the payment provider. The sitemap
+  lists `/pricing`. Rule 18 of `scripts/surface-check.mjs` holds the redirect file (valid lines, same-site destinations that are
+  shipped pages, no page hidden behind a redirect, no chain, no sitemap URL that redirects), and `scripts/post-deploy-check.mjs` probes each
+  redirect on the deployed origin without following it. The legal paths wait for their text; none is written or
+  redirected here.
 - The production `/plans` page gains a "Ways to buy" card (English and Thai) for the three product shapes, none of
   them on sale: a subscription, a time key and usage credits, with the key limits and refund lines, labelled as a
   draft pending legal review, and the plan capacity ratios against Standard (0.4x, 1x, 5x, 10x; no quota amount is
@@ -172,7 +178,10 @@ the pointer to it.
   part when Kolwen ends the contract without cause; 30 days' notice of a change by email and banner; and the key
   limits (2 per order, 4 per account per sale window or rolling 30 days, stacking to a 36-month ceiling, an unredeemed
   key expiring at 12 months, non-transferable and bound to the account on activation). The acceptable-use list and the
-  licence for any downloadable weights are named as open and not written.
+  end-user licence for any downloadable software are named as open and not written. The acceptable-use and licence
+  terms are named by section headings inside `TERMS.md` ("Acceptable use and how it is enforced", "Keys, subscriptions and
+  credits", "Limits on keys"), not by separate files, because the surface check's legal-gap rule reads only `PRIVACY.md` and
+  `TERMS.md`.
 - `TERMS.md` also carries the enforcement process for a customer's fault as due process (notice, suspension rather
   than termination, a window to answer, a written decision, one appeal to a human, a register of cases; a chargeback
   suspends and is restored or terminated by how the dispute closes, on Paddle's track). The day counts and the appeal

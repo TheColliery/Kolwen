@@ -8,8 +8,9 @@
 // Exit 1 = a mismatch, or nothing could be observed. Exit 2 = a bad argument, or nothing declared to compare.
 // --origin checks ONE host instead of the production origin: a preview URL, a workers.dev host, or a local
 // server. Zone-only headers (HSTS, nosniff) and the production noindex rail apply to kolwen.com hosts alone.
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { parseRedirectsFile, isDynamic, redirectMiss } from './lib/redirects-file.mjs';
 import { parseHeadersFile, declaredSecurityHeaders, servedHeaderMisses, robotsRailMisses, notFoundVerdict, robotsVerdict } from './lib/headers-file.mjs';
 
 const args = process.argv.slice(2);
@@ -108,14 +109,14 @@ const TEXT = /\.(html|xml|txt|svg|json)$/i;
 // started once none is left. An abort throws out of probe() into the round's own catch, so it is
 // reported as an origin that did not answer -- the reachability message -- never read as a pass.
 const REQUEST_CEILING_MS = 15_000;
-async function get(url, until) {
+async function get(url, until, init = {}) {
   const left = until - Date.now();
   if (left <= 0) throw new Error(`this origin's share of the --wait budget was used up before this request started`);
   // AbortSignal.timeout takes an INTEGER of milliseconds: a share divided by two is routinely
   // fractional, and a fractional value throws a RangeError before any request is made.
   const ms = Math.max(1, Math.floor(Math.min(left, REQUEST_CEILING_MS)));
   try {
-    return await fetch(url, { headers: { 'Cache-Control': 'no-cache' }, signal: AbortSignal.timeout(ms) });
+    return await fetch(url, { headers: { 'Cache-Control': 'no-cache' }, signal: AbortSignal.timeout(ms), ...init });
   } catch (e) {
     if (e?.name === 'TimeoutError') throw new Error(`no answer within ${(ms / 1000).toFixed(1)}s`);
     throw e;
@@ -147,6 +148,15 @@ async function probe(origin, until) {
       const v = notFoundVerdict(host, isOurs, r404.headers, DECLARED);
       misses.push(...v.misses.map(m => `/${miss} (the 404 page): ${m}`));
       v.notes.forEach(n => NOTES.add(n));
+    }
+  }
+  // web/_redirects: each static redirect must answer as the file says (status and Location), read WITHOUT following it.
+  // A redirect that does not deploy sends the old address, the one given to Paddle, to a 404.
+  if (existsSync('web/_redirects')) {
+    for (const rule of parseRedirectsFile(readFileSync('web/_redirects', 'utf8')).filter(r => !isDynamic(r))) {
+      const r = await get(origin + rule.source.replace(/^\//, ''), until, { redirect: 'manual' });
+      const miss = redirectMiss(rule, r.status, r.headers.get('location'), origin);
+      if (miss) misses.push(miss);
     }
   }
   for (const f of files) {
