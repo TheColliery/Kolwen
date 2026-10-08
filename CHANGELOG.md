@@ -176,6 +176,31 @@ the pointer to it.
   them, in both languages, as the page's other open points do; the words themselves are unchanged. The check was proven red-first
   and the check removed lets its fixture through; the limits are stated in the code. The no-Free-plan check, first written here for
   the preview pages, is rule 17's clause (a) and reads every page.
+- The production `/plans` page gains a "Ways to buy" card (English and Thai) for the three product shapes, none of
+  them on sale: a subscription, a time key and usage credits, with the key limits and refund lines, labelled as a
+  draft pending legal review, and the plan capacity ratios against Standard (0.4x, 1x, 5x, 10x; no quota amount is
+  shown). The page's own style block changed, so its CSP style hash was updated.
+- The secret scanner and its test are re-copied from their source (the copy set is kept identical across the repos).
+- `TERMS.md` (still a draft, not linked from the site) now carries the signed commercial terms, each marked
+  `[pending legal review]` where counsel decides: the age rule (18, or the local consent age if higher, a neutral
+  confirmation, no identity image kept); outputs owned by the user, with "if any" and "similar outputs" wording and
+  training only on opt-in; Thai law and courts with consumer rights preserved; a liability cap of the amount paid in
+  the 12 months before the event or US$100, whichever is higher; refunds (an unredeemed key in full within 14 days,
+  days used deducted inside a subscription's first period, unused credits at the price paid); a refund of the unused
+  part when Kolwen ends the contract without cause; 30 days' notice of a change by email and banner; and the key
+  limits (2 per order, 4 per account per sale window or rolling 30 days, stacking to a 36-month ceiling, an unredeemed
+  key expiring at 12 months, non-transferable and bound to the account on activation). The acceptable-use list and the
+  licence for any downloadable weights are named as open and not written.
+- `TERMS.md` also carries the enforcement process for a customer's fault as due process (notice, suspension rather
+  than termination, a window to answer, a written decision, one appeal to a human, a register of cases; a chargeback
+  suspends and is restored or terminated by how the dispute closes, on Paddle's track). The day counts and the appeal
+  channel are placeholders. The Thai 7-day cancellation right is written in both languages as a dormant clause that
+  takes effect on incorporation, direct-marketing registration or revenue above 1,800,000 baht a year; until then the
+  refunds above are the live rule. Nothing flips the switch yet.
+- `PRIVACY.md` names Cloudflare Web Analytics (aggregate statistics only: page, referrer, country, browser; no one
+  identified; counts run low behind an ad-blocker) and adds a short Age section. Its sentence about an injected
+  bot-detection script is replaced, because the zone's JavaScript Detections were switched off on 2026-10-07 and a
+  curl check on 2026-10-08 finds no such script and no `Set-Cookie` header.
 - A production `/plans` page (`web/plans.html`, English with a Thai twin), listed in `web/sitemap.xml`, so
   it is indexable like the home page: no `noindex`, no preview banner. It shows four plans (Lite, Standard,
   Premium, Exclusive) with static US prices, monthly and yearly, and the formula the prices follow. The buy

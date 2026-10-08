@@ -101,7 +101,7 @@
 # Permissions-Policy: every standardized feature the page does not use, names from the W3C
 # webappsec-permissions-policy feature registry (read 2026-09-25). The page uses none of them.
 /*
-  Content-Security-Policy: default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; script-src 'self' 'sha256-loIfZEEZsGRc+OUW6Qn2FqqBy/dPc0m0OlkLDXwFryM=' https://static.cloudflareinsights.com/beacon.min.js/; style-src 'sha256-ISb4QdfsQOLp1M+Ovnc1EM7Q4RVP8HKyQeEoJd7VHKg=' 'sha256-Gq8k+8DNN4RStI9EUl5KO/5BmbVotx6ZB0JmUcZtYJE=' 'sha256-QoMFVwdguQ6oxyAfNLEvhGddY6ZXY7ZCFtszch64EW8=' 'sha256-/B0nPbTwiKZx8nNrDqEFL4xY+jNjZQs1tAySd+hG+sQ=' 'sha256-xOK+OWYJ2dyl8lTDnuvfu33TDK090brUYLEOS1s9kyU=' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; form-action 'self'
+  Content-Security-Policy: default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; script-src 'self' 'sha256-loIfZEEZsGRc+OUW6Qn2FqqBy/dPc0m0OlkLDXwFryM=' https://static.cloudflareinsights.com/beacon.min.js/; style-src 'sha256-ISb4QdfsQOLp1M+Ovnc1EM7Q4RVP8HKyQeEoJd7VHKg=' 'sha256-Gq8k+8DNN4RStI9EUl5KO/5BmbVotx6ZB0JmUcZtYJE=' 'sha256-QoMFVwdguQ6oxyAfNLEvhGddY6ZXY7ZCFtszch64EW8=' 'sha256-/B0nPbTwiKZx8nNrDqEFL4xY+jNjZQs1tAySd+hG+sQ=' 'sha256-sTWwg4DrhPXVkRVnPEfAd7cmgghKBEresICgA3uKV74=' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; form-action 'self'
   Referrer-Policy: strict-origin-when-cross-origin
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin
