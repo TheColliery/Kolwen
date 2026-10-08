@@ -1,0 +1,7 @@
+# Permanent redirects for Kolwen (Cloudflare Workers static assets; this file is parsed, never served).
+# /plans was the first address of the pricing page and is the URL given to Paddle, so it must keep working:
+# the page moved to /pricing, the conventional path, and the old paths answer 301 to it.
+# surface-check rule 18 holds this file: every destination is a page we ship, no source hides a page, no chain.
+/plans /pricing 301
+/plans/ /pricing 301
+/plans.html /pricing 301
