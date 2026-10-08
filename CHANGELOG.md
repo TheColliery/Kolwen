@@ -158,6 +158,10 @@ the pointer to it.
 
 ### Added
 
+- The open-weights plan is now written in the future tense in `README.md`, `LICENSE`, `py/LICENSE` and `SECURITY.md`:
+  planned, not released, no release date set, nothing on sale, each release to carry its own license, and no claim about
+  the model's quality or performance. The free-weights-first intent stays; nothing was removed. No test or gate held the
+  old wording.
 - The pricing page is now `/pricing` (`web/pricing.html`), and `/plans`, `/plans/` and `/plans.html` answer a 301
   to it from the new `web/_redirects`, because the old address is the one given to the payment provider. The sitemap
   lists `/pricing`. Rule 18 of `scripts/surface-check.mjs` holds the redirect file (valid lines, same-site destinations that are

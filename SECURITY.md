@@ -43,8 +43,9 @@ This repository is the public face of Kolwen. What ships from it:
   weakened path filter or config is as much a finding as a change to a workflow itself.
 
 **Out of scope**
-- **The model.** Kolwen is in development and no model, weights, or inference service has been
-  released. There is nothing here that runs a model.
+- **The model.** Kolwen is in development. No model, weights, or inference service has been
+  released and no release date is set, so there is nothing here that runs a model. If and when
+  one is released, this scope will be updated.
 - Vulnerabilities in third-party services this repo depends on—Cloudflare, GitHub, PyPI, npm,
   Google Fonts. Report those to the vendor.
 - The npm package `kolwen`, which is published from outside this repository. It is ours, so
