@@ -119,6 +119,16 @@ test('the record must agree with itself: a company trigger needs sellerType comp
   assert.equal(ok.status, 0, 'a veto on day 14 is inside the window: ' + ok.stdout + ok.stderr);
 });
 
+test('a record that starts with a byte-order mark is read like any other: --write exits 0 and renders, --check passes after', t => {
+  const bom = String.fromCharCode(0xfeff);
+  const d = fixture(t, { record: bom + rec({ sellerType: 'company', incorporated: { on: '2026-12-01' } }) });
+  const w = run(d, ['--write']);
+  assert.equal(w.status, 0, w.stdout + w.stderr);
+  assert.match(termsOf(d), /Binds from 2026-12-01\./);
+  assert.doesNotMatch(w.stderr, /SyntaxError/);
+  assert.equal(run(d).status, 0);
+});
+
 test('TERMS.md without the marker pair, or with two pairs, is refused (the check is not vacuous)', t => {
   const none = run(fixture(t, { terms: '# Terms\n\nNo block.\n' }));
   assert.equal(none.status, 1, none.stdout + none.stderr);
