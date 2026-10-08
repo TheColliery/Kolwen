@@ -105,6 +105,7 @@ test('the record carries STATE ONLY: an unknown key, a registration-number-shape
 test('the record must agree with itself: a company trigger needs sellerType company; a veto needs a crossing and a window of 14 calendar days', t => {
   const bad = [
     ['incorporation entered while the seller is a natural person', { incorporated: { on: '2026-12-01' } }, /sellerType is not company/],
+    ['a company seller with no incorporation date (the trigger would never arm)', { sellerType: 'company' }, /sellerType is company but incorporated[.]on is not set/],
     ['a veto with no crossing', { revenueThreshold: { crossedOn: null, vetoedOn: '2027-05-20' } }, /vetoedOn is set with no crossedOn/],
     ['a veto after 14 calendar days', { revenueThreshold: { crossedOn: '2027-05-10', vetoedOn: '2027-05-25' } }, /within 14 calendar days/],
     ['a veto before the crossing', { revenueThreshold: { crossedOn: '2027-05-10', vetoedOn: '2027-05-09' } }, /within 14 calendar days/],

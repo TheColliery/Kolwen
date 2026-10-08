@@ -36,6 +36,7 @@ export function validateState(rec) {
   }
   if (errs.length) return errs;
   if (rec.incorporated.on !== null && rec.sellerType !== 'company') errs.push('incorporated.on is set but sellerType is not company');
+  if (rec.sellerType === 'company' && rec.incorporated.on === null) errs.push('sellerType is company but incorporated.on is not set (the incorporation trigger would never arm the clause)');
   const { crossedOn, vetoedOn } = rec.revenueThreshold;
   if (vetoedOn !== null) {
     if (crossedOn === null) errs.push('revenueThreshold.vetoedOn is set with no crossedOn');
