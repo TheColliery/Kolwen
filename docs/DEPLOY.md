@@ -193,11 +193,24 @@ Everything under `web/`, and nothing else. `scripts/surface-check.mjs` holds an 
 files we ship and fails if anything else is tracked there, because every path under `web/` is a
 live URL.
 
-Two pages are production pages: the home page and `/plans`. `/plans` is listed in `web/sitemap.xml` and
+Two pages are production pages: the home page and `/pricing`. `/pricing` is listed in `web/sitemap.xml` and
 `web/robots.txt` allows it, so it is indexable on purpose, like the home page. It takes the same `/*` header
 rule, so the same CSP applies, with one extra `style-src` hash for its own style block. Its buy controls are
 disabled "Coming soon" buttons, and rule 17 of the surface check refuses a live one, a Paddle script or a
 checkout URL on any production page.
+
+### Redirects: `web/_redirects`
+
+The pricing page first lived at `/plans`, which is the address given to the payment provider, so the old
+address must keep working. `web/_redirects` (Cloudflare Workers static assets: one redirect per line, parsed by
+the platform and never served) sends `/plans`, `/plans/` and `/plans.html` to `/pricing` with a 301. Rule 18 of
+the surface check holds the file: every destination is a page we ship, no source hides a page, no redirect chains
+to another, and no URL in the sitemap is a redirect source. After a deploy, `scripts/post-deploy-check.mjs` probes
+each static line without following it and reports a miss when the status or the `Location` differs. Whether the
+edge answers a trailing-slash or `.html` source as the file says is proven only by that first live probe.
+
+The legal paths (for example `/terms`, `/privacy`, `/refund`) have no page and no redirect yet: they wait for
+their text, which waits on the lawyer. Nothing here writes or reserves that text.
 
 ## Known behaviour: unmatched paths return 404
 
