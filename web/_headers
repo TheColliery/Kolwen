@@ -68,7 +68,7 @@
 #    in 404.html) are admitted by hash too, so there is no 'unsafe-inline' anywhere. The Google Fonts
 #    stylesheet varies by user agent, so it cannot carry a fixed integrity hash; it is the named
 #    exception, pinned by origin. Self-hosting the two IBM Plex families would retire it.
-#  - PREVIEW PAGES: the five preview pages (pricing, contact, terms, privacy, refund) share ONE inline <style> block,
+#  - PREVIEW PAGES: the four preview pages (contact, terms, privacy, refund) share ONE inline <style> block,
 #    which is the second added hash below. Their inline script and their <noscript> style are byte-identical to
 #    index.html's, so they reuse its hashes; no page here loads Paddle.js or any other new origin.
 #  - The plans page (/plans) is a production page with its own <style> block (the home page's rules plus a price table

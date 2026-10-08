@@ -158,8 +158,8 @@ the pointer to it.
 
 ### Added
 
-- Five PREVIEW pages on the `lwk-201-pricing-preview` branch, served only by its Workers Preview URL and not
-  merged: `pricing`, `contact`, `terms`, `privacy` and `refund`, each in English with a Thai toggle. Every one
+- Four PREVIEW pages on the `lwk-201-pricing-preview` branch (a fifth, the preview `pricing` page, was retired once the production pricing page shipped), served only by its Workers Preview URL and not
+  merged: `contact`, `terms`, `privacy` and `refund`, each in English with a Thai toggle. Every one
   carries a visible "PREVIEW — not an offer" banner in both languages (one text true on every preview page) and
   `<meta name="robots" content="noindex">`. They show placeholder plans and prices (labelled, none decided),
   the total-price-with-tax and renewal statements, a cancellation-path statement with a placeholder link,

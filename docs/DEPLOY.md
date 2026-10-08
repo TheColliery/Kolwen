@@ -100,10 +100,10 @@ which have that shape. **Production `kolwen.com` never carries it**: `kolwen.com
   exempt there by name; its `X-Robots-Tag` header is still refused. The rule trusts every `*.workers.dev`
   pattern as a preview host, which would include production's own alias if it were ever served again (the residual above). The script is the list of record for what it checks.
 
-## Preview pages: `pricing`, `contact`, `terms`, `privacy`, `refund`
+## Preview pages: `contact`, `terms`, `privacy`, `refund`
 
-`pricing`, `contact`, `terms`, `privacy` and `refund` carry placeholder prices and unsigned legal text. (`/plans` began as a
-sixth preview page and is now a production page; see "Two pages are production pages" below.) All five show a "PREVIEW" banner in English
+`contact`, `terms`, `privacy` and `refund` carry unsigned legal text. (`/plans` began as a
+preview page and is now a production page; see "Two pages are production pages" below. The preview `pricing` page was retired when the production pricing page shipped.) All four show a "PREVIEW" banner in English
 and Thai and carry `<meta name="robots" content="noindex">`. They load no Paddle.js or any other external
 script and take no payment. Their footers make no claim about cookies, trackers or ads. No preview page names a Free plan or a free tier, and the privacy page's cookies-and-ads sentence carries a pending-legal-review label (rule 17 holds the first, on every page; rule 14 holds the label). They are meant to be read on a Workers Preview URL only; they are
 not meant to reach `kolwen.com` until the prices are set and the legal texts are signed. `scripts/surface-check.mjs`
