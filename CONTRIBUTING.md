@@ -38,12 +38,13 @@ nothing here needs an `npm install` to run.
 ```bash
 node scripts/surface-check.mjs      # the room's own laws: claims, leakage, orthography, contrast, the tracker claim, production noindex
 node scripts/secret-gate.mjs        # the house secret scan over the tracked tree (the hooks also scan what a commit or push adds)
-node --test scripts/secret-scan.test.mjs scripts/secret-gate.test.mjs   # the scanner's and the gate's own tests
+node --test scripts/secret-scan.test.mjs scripts/secret-gate.test.mjs scripts/legal-state.test.mjs   # the scanner's, the gate's and the legal-state switch's own tests
+node scripts/legal-state.mjs        # check TERMS.md against legal/legal-state.json; --write renders it, and is the only way to flip the Thai 7-day clause
 node brand/make-brand.mjs           # regenerate every brand asset; must leave git clean
 node scripts/post-deploy-check.mjs  # compare the live site to what is committed (needs network); --origin <url> checks one host
 ```
 
-The surface check, the brand byte-identity check and the secret gate (with its two test files) run in CI on every push and must pass. The post-deploy check runs after a deploy.
+The surface check, the brand byte-identity check and the secret gate (with its test files) run in CI on every push and must pass. The post-deploy check runs after a deploy.
 
 The repository also ships a `pre-commit` and a `pre-push` hook in `.githooks/` that run the secret scan, then the surface check. `pre-commit` scans the working-tree copy of each tracked file, not what is staged, so a key that is staged and then removed from the working copy passes it; `pre-push` scans the added lines, commit messages and tags of every pushed commit, and CI scans the tree, so that key is caught there. They run only in a clone that ran `git config core.hooksPath .githooks`, and `git push --no-verify` bypasses them; GitHub's server-side secret scanning and push protection stay this repository's other wall.
 
