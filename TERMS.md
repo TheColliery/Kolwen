@@ -6,7 +6,7 @@
 >
 > **Where things live.** This one file carries the Terms, the acceptable-use and enforcement process,
 > and the licence terms for a key or subscription, so the legal-gap markers below are all checked in one
-> place. The list of prohibited conduct and the licence for any downloadable model weights are NOT
+> place. The list of prohibited conduct and the end-user licence for any downloadable software are NOT
 > written here: they are open decisions, named where they would sit.
 
 ## Customer Content and training
