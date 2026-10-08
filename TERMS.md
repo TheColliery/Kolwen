@@ -6,7 +6,7 @@
 >
 > **Where things live.** This one file carries the Terms, the acceptable-use and enforcement process,
 > and the licence terms for a key or subscription, so the legal-gap markers below are all checked in one
-> place. The list of prohibited conduct and the licence for any downloadable model weights are NOT
+> place. The list of prohibited conduct and the end-user licence for any downloadable software are NOT
 > written here: they are open decisions, named where they would sit.
 
 ## Customer Content and training
@@ -104,8 +104,6 @@ adds to it:
 **GAP 6 — [pending legal review]: counsel signs the wording of this clause, and confirms the
 immediate-start consent works as the basis for deducting days used.**
 
-A separate Thai consumer cancellation right is drafted below, dormant.
-
 ## Ending the contract
 
 **By Kolwen without cause.** Kolwen refunds the unused part: a key's remaining days, a subscription's
@@ -153,13 +151,24 @@ has broken a rule, which is a process, in this order:
 
 1. **Notice.** Kolwen tells you which clause it believes you broke and gives a summary of the evidence.
 2. **Suspension, not termination,** while the case is open. If the product is a key, its clock of days
-   stops while the account is suspended.
-3. **A window to answer.** You have **[N days]** to respond.
-4. **A written decision.** Either the case is dismissed and the account and its key are restored in
-   full, or it is upheld and the contract is terminated. The refund follows the outcome: dismissed means
-   full restoration; upheld means no refund.
-5. **One appeal to a human** against an upheld decision, through **[appeal channel]**.
+   stops for the whole case.
+3. **A window to answer.** You have **14 business days** to answer the notice.
+4. **A written decision,** within **7 business days** after your answer. Either the case is dismissed and
+   the account and its key are restored in full, or it is upheld and the contract is terminated. The refund
+   follows the outcome: dismissed means full restoration; upheld means no refund.
+5. **One appeal to a human** against an upheld decision. You have **30 business days** after the written
+   decision to file it, through **appeals@kolwen.com**, and Kolwen answers within **14 business days**.
 6. **A register of cases** is kept, so that the same conduct draws the same answer.
+
+**Business days.** In this section a business day is a normal working day in Thailand: Monday to Friday,
+excluding the public holidays announced by the Prime Minister's Office in the Royal Gazette. The holidays
+of banks are not used.
+
+**A ceiling and what a missed deadline does.** No case runs longer than **90 calendar days**, counted from
+the date of the notice. If Kolwen misses a deadline of its own (the 7 business days for the decision, the
+14 business days for the appeal answer, or the 90-day ceiling), the suspension is lifted and the key comes
+back into use. If a deadline of yours lapses (the 14 business days to answer, or the 30 business days to
+appeal), the case proceeds to its next step.
 
 **Chargebacks run on Paddle's track.** A bank dispute is handled through Paddle as merchant of record,
 and Paddle asks Kolwen for evidence. The account is **suspended** when a chargeback is filed, because the
@@ -167,42 +176,37 @@ money is gone. It is **restored** if the dispute resolves in Kolwen's favour or 
 **terminated only when the dispute closes against Kolwen.** Kolwen does not argue a chargeback with you
 directly.
 
+> **[รอที่ปรึกษากฎหมาย] ขั้นตอนเมื่อ Kolwen เห็นว่าลูกค้าฝ่าฝืนกฎ**
+> รายการพฤติกรรมที่ห้ามยังไม่ได้เขียน เป็นเรื่องที่เจ้าของและที่ปรึกษากฎหมายต้องตัดสิน และหัวข้อนี้ไม่เดาแทน
+> สิ่งที่เขียนไว้คือวิธีที่ Kolwen ปฏิบัติเมื่อเห็นว่าลูกค้าฝ่าฝืนกฎ ตามลำดับนี้
+> 1. แจ้งข้อกำหนดที่เห็นว่าฝ่าฝืน พร้อมสรุปพยานหลักฐาน
+> 2. ระงับบัญชี ไม่ใช่เลิกสัญญา ระหว่างที่เคสยังเปิด ถ้าสินค้าเป็นคีย์ นาฬิกานับวันของคีย์หยุดตลอดทั้งเคส
+> 3. ลูกค้ามีเวลา **14 วันทำการ** เพื่อตอบข้อแจ้ง
+> 4. คำตัดสินเป็นลายลักษณ์อักษรภายใน **7 วันทำการ** หลังลูกค้าตอบ ยกคำร้องและคืนบัญชีกับคีย์เต็มที่ หรือยืนตามและเลิกสัญญา
+>    เงินคืนเป็นไปตามผล ยกคำร้องคืนสถานะเต็มที่ ยืนตามไม่คืนเงิน
+> 5. อุทธรณ์ต่อมนุษย์ได้หนึ่งครั้งเมื่อคำตัดสินยืนตาม ภายใน **30 วันทำการ** หลังคำตัดสิน ผ่าน **appeals@kolwen.com** และ Kolwen
+>    ตอบภายใน **14 วันทำการ**
+> 6. เก็บทะเบียนเคส เพื่อให้พฤติกรรมเดียวกันได้คำตอบเดียวกัน
+>
+> **วันทำการ** ในหัวข้อนี้คือวันทำงานปกติในประเทศไทย ตั้งแต่วันจันทร์ถึงวันศุกร์ ไม่รวมวันหยุดราชการที่สำนักนายกรัฐมนตรีประกาศในราชกิจจานุเบกษา
+> และไม่ใช้วันหยุดของธนาคาร
+>
+> **เพดานและผลของการพลาดกำหนด** เคสหนึ่งยาวไม่เกิน **90 วันตามปฏิทิน** นับจากวันที่แจ้ง หาก Kolwen พลาดกำหนดของตนเอง
+> (7 วันทำการสำหรับคำตัดสิน 14 วันทำการสำหรับตอบอุทธรณ์ หรือเพดาน 90 วัน) การระงับจะหลุดและคีย์กลับมาใช้ได้ หากกำหนดของลูกค้าหมดลง
+> (14 วันทำการสำหรับตอบ หรือ 30 วันทำการสำหรับอุทธรณ์) เคสเดินต่อไปยังขั้นถัดไป
+>
+> **การเรียกเงินคืนผ่านธนาคาร (chargeback)** ดำเนินตามขั้นตอนของ Paddle ข้อพิพาทกับธนาคารจัดการผ่าน Paddle ในฐานะผู้ขายตามกฎหมาย
+> (merchant of record) และ Paddle ขอหลักฐานจาก Kolwen บัญชีจะถูกระงับเมื่อมีการยื่น chargeback เพราะเงินหลุดไปแล้ว
+> จะคืนสถานะหากข้อพิพาทจบเป็นคุณแก่ Kolwen หรือลูกค้าชำระใหม่ และจะเลิกสัญญาก็ต่อเมื่อข้อพิพาทจบเป็นผลร้ายต่อ Kolwen เท่านั้น
+> Kolwen ไม่โต้แย้ง chargeback กับลูกค้าโดยตรง
+
 **GAP 9 — [pending legal review]: counsel confirms the notice duties before suspension or termination
-(consumer law favours notice first), and the day counts and the appeal channel above are placeholders
-the owner signs later.**
+(consumer law favours notice first), the definition of a business day against the Civil and Commercial
+Code (ss.193/1, 193/4 and 193/8), and how the 90-calendar-day ceiling sits with business-day counting and
+a key clock that stops for the whole case.**
 
-## Thai consumer cancellation right — drafted, dormant
-
-*This clause is written now and switched on later. It has no effect until the trigger below is met.*
-
-Under the Direct Sales and Direct Marketing Act B.E. 2545, a consumer who buys from a business that
-sells directly or through direct marketing may cancel within **7 days** of receiving the service, and
-then gets the **full price back**, paid out within **15 days** of the business receiving the
-cancellation notice. As things stand, that right does not bind Kolwen: it applies to a natural person
-selling online only once that person enters the direct-marketing register or earns more than
-1,800,000 baht a year, and it applies to a company from incorporation.
-
-**The trigger:** this clause takes effect on the first of (a) incorporation of the seller, (b)
-registration as a direct-marketing business, or (c) annual revenue above 1,800,000 baht. **Until then
-the live rule is the Refunds section above.**
-
-Once it applies, a customer in Thailand cancels by notice through **[cancellation notice channel]**, and
-no consent-to-start waiver reduces the refund inside the 7 days. Kolwen's protection against use followed
-by a refund is a trial before payment, never a waiver of this right.
-
-> **[รอที่ปรึกษากฎหมาย] สิทธิยกเลิกของผู้บริโภคในประเทศไทย — ร่างไว้ ยังไม่มีผลบังคับ**
-> ตามพระราชบัญญัติขายตรงและตลาดแบบตรง พ.ศ. 2545 ผู้บริโภคที่ซื้อจากผู้ประกอบธุรกิจที่ขายตรงหรือขายผ่านตลาดแบบตรง
-> ยกเลิกได้ภายใน 7 วันนับแต่ได้รับบริการ และได้รับเงินคืนเต็มจำนวน โดยจ่ายคืนภายใน 15 วัน
-> นับแต่ได้รับการบอกเลิก ปัจจุบันสิทธินี้ยังไม่ผูกพัน Kolwen ผู้บริโภคในประเทศไทยแจ้งยกเลิกผ่านช่องทาง **[ช่องทางแจ้งยกเลิก]** ข้อนี้จะมีผลเมื่อครบเงื่อนไขข้อใดข้อหนึ่งก่อน คือ ผู้ขายจดทะเบียนเป็นนิติบุคคล
-> จดทะเบียนเป็นผู้ประกอบธุรกิจตลาดแบบตรง หรือมีรายได้เกิน 1,800,000 บาทต่อปี จนถึงวันนั้นให้ใช้หลักการคืนเงินในหัวข้อ
-> Refunds เป็นหลัก เมื่อข้อนี้มีผล ไม่มีการสละสิทธิเพื่อลดเงินคืนในช่วง 7 วัน วิธีที่ Kolwen ป้องกันตนเองจากการใช้แล้วขอคืนเงินคือการให้ทดลองใช้ก่อนชำระเงิน
-> ไม่ใช่การให้ลูกค้าสละสิทธิ
-
-**GAP 10 — [pending legal review]: counsel confirms the three readings this clause rests on: the 7-day
-right reaches only direct sales and direct marketing, and not a natural person under the 1,800,000 baht
-threshold who is not on the direct-marketing register; no regulation exempts digital services from it, so a consent-to-start
-waiver has no Thai basis once it binds; and the refund is due within 15 days of the cancellation notice.
-How the switch is flipped on the trigger date is not built.**
+<!-- legal-state:thai-7day:begin -->
+<!-- legal-state:thai-7day:end -->
 
 ## Retention
 

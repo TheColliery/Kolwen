@@ -3,6 +3,11 @@
 // This repo's risk is not broken code: one zero-dependency generator is the only executable of
 // consequence. Its risk is a FALSE PUBLIC CLAIM. Every assertion below is a rule the room
 // already holds and has already caught a violation of. Zero dependencies, Node built-ins only.
+//
+// Declared reason (over the 800-line review signal): every rule reports through one failure list,
+// the scope predicates the rules use are defined once here, and the numbered rules in this file are
+// the list of record that docs/TRUST.md and governance/policies.md point at. Helpers can move to
+// scripts/lib/; the rules stay in one entry script, so there is one list and not two.
 import { readFileSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -166,8 +171,10 @@ const SHIPPED = new Set([
   // be served as a static asset" — shipped but never fetchable, which post-deploy-check must
   // also know.
   'web/404.html', 'web/_headers',
-  // The plans page: a PRODUCTION page (US prices, every buy button disabled), read by the rules that read every page.
-  'web/plans.html',
+  // `_redirects` is parsed by Workers and not served either (same docs page family); rule 18 holds its lines.
+  'web/_redirects',
+  // The pricing page (first published as /plans): a PRODUCTION page (US prices, every buy button disabled), read by the rules that read every page.
+  'web/pricing.html',
   'web/favicon.svg', 'web/favicon-32.png', 'web/apple-touch-icon.png', 'web/og.png',
   // LWK-215: the PREVIEW pages. The ONE list is PREVIEW_PAGES above; rule 14 holds what makes them previews.
   ...PREVIEW_PAGES,
@@ -248,7 +255,7 @@ if (existsSync('web/ic.json')) {
 // merely describes what the marker means (a draft header) is not a gap and is never counted as one.
 // The Thai marker is deliberately NOT asserted per gap (the Thai rides as short blockquotes, not a
 // parallel legal text); it is only counted wrap-aware and reported.
-const LEGAL_DRAFTS = ['PRIVACY.md', 'TERMS.md'];
+const LEGAL_DRAFTS = ['PRIVACY.md', 'TERMS.md', 'legal/thai-7day-clause.md'];
 const gapNotes = [];
 for (const doc of LEGAL_DRAFTS) {
   if (!existsSync(doc)) {
@@ -601,7 +608,7 @@ const CSP_STATS = { scripts: 0, styles: 0 };
 }
 
 // ── 14. The preview pages stay previews (LWK-215) ────────────────────────────
-// The pages in PREVIEW_PAGES (rule 7) are not for sale: they carry PLACEHOLDER prices and unsigned legal text (the plans page, which
+// The pages in PREVIEW_PAGES (rule 7) are not for sale: they carry PLACEHOLDER prices and unsigned legal text (the pricing page, which
 // shows the ratified US prices, is a production page and is held by rules 15 to 17). Until the owner's prices and the lawyer's words are in, each must say on the page, in both
 // languages, that it is a preview and not an offer (one banner text true on every page), ask search engines to
 // skip it, load no third-party script (no payment code is shipped), and stay out of the sitemap. This holds the
@@ -625,8 +632,8 @@ const CSP_STATS = { scripts: 0, styles: 0 };
 // must be the next element after the sentence.
 {
   const BANNERS = ['PREVIEW — not an offer', 'ตัวอย่าง — ไม่ใช่ข้อเสนอขาย'];
-  // The home page, the 404 and /plans are production pages: rules 15 to 17 hold them, not this rule.
-  const NOT_PREVIEW = new Set(['web/index.html', 'web/404.html', 'web/plans.html']);
+  // The home page, the 404 and /pricing are production pages: rules 15 to 17 hold them, not this rule.
+  const NOT_PREVIEW = new Set(['web/index.html', 'web/404.html', 'web/pricing.html']);
   const sitemap = existsSync('web/sitemap.xml') ? read('web/sitemap.xml') : '';
   for (const f of tracked.filter(f => f.startsWith('web/') && f.endsWith('.html'))) {
     if (!NOT_PREVIEW.has(f) && !PREVIEW_PAGES.includes(f)) note(f, 'is a tracked HTML page that is neither the home page, the 404 nor a declared preview page, so rule 14 does not hold it — declare it in PREVIEW_PAGES, or, once it is a real production page, say so by adding it to NOT_PREVIEW in rule 14');
@@ -833,6 +840,119 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
     /* BUY_LINK:end */
   }
   if (PRODUCTION_PAGES.length > 0 && buttonsSeen === 0) note('web/', 'holds no <button> on any production page, so the buy-button check read nothing — this CHECK is now empty, not the pages proven free of live buy controls');
+}
+
+// ── 18. The redirects point at pages we ship, and hide none ─────────────────────
+// web/_redirects (Workers static assets; syntax in scripts/lib/redirects-file.mjs, from Cloudflare's Redirects page) moved
+// the pricing page's first address to its canonical one. Cloudflare follows a redirect "regardless of whether or not an asset
+// matches", so a wrong line is not a harmless typo: a destination that is no page serves a 404 to everyone who followed the old
+// link, a source that is a live page hides that page, and a sitemap URL that redirects tells crawlers to index a hop.
+// One clause per marker, so a mutant can remove one at a time:
+//   R18_SYNTAX  two or three fields; source and destination start with "/" (a destination may also be an https URL);
+//               status one of 301 302 303 307 308; at most 1,000 characters a line; no splat or placeholder (not read here)
+//   R18_DEST    a relative destination is a tracked page or file under web/ ("/" is index.html, "/x" is x.html or x)
+//   R18_SHADOW  a source is not a tracked page (the redirect would hide it)
+//   R18_CHAIN   no redirect to itself and no destination that is another redirect's source
+//   R18_MAP     no sitemap URL is a redirect source
+// NON-VACUITY: a tracked web/_redirects that holds no redirect is a finding (rule 18 read nothing).
+// STATED LIMITS: only static redirects are read (a splat or placeholder is refused, not interpreted); a destination on the site's own
+// origin is read as a local path, and the site's origins are those its sitemap lists (no sitemap, no absolute destination is local); that the edge answers
+// as the file says is post-deploy-check's probe, not this rule's; a destination is checked to exist, not to be the page
+// the author meant; the 2,000-redirect and 100-dynamic-redirect caps are not counted (the file holds a handful).
+{
+  const REDIRECTS = 'web/_redirects';
+  if (tracked.includes(REDIRECTS) && existsSync(REDIRECTS)) {
+    let rl = null;
+    try { rl = await import(pathToFileURL(resolve('scripts/lib/redirects-file.mjs')).href); }
+    catch (e) { note('scripts/lib/redirects-file.mjs', 'could not be loaded, so rule 18 could not read web/_redirects (' + (e.code || 'import failed') + ')'); }
+    if (rl) {
+      const rules = rl.parseRedirectsFile(read(REDIRECTS));
+      if (rules.length === 0) note(REDIRECTS, 'holds no redirect, so rule 18 read nothing — remove the file, or restore the redirect it was shipped for');
+      const CONTROL_FILES = new Set(['_redirects', '_headers']);
+      const served = p => {
+        const clean = p.split(/[?#]/)[0];
+        // Cloudflare parses these two files and never serves them, so a redirect to one leads to the 404 page (docs: "will not itself be served as a static asset").
+        if (CONTROL_FILES.has(clean.split('/').pop())) return null;
+        if (clean === '/') return 'web/index.html';
+        const rel = 'web' + clean.replace(/\/+$/, '');
+        return [rel + '.html', rel, rel + '/index.html'].find(f => tracked.includes(f)) || null;
+      };
+      const norm = p => (p.length > 1 ? p.replace(/\/+$/, '') : p);
+      const sources = new Set(rules.map(r => norm(r.source)));
+      const sitemap = existsSync('web/sitemap.xml') ? read('web/sitemap.xml') : '';
+      // The site's own origins are the ones its sitemap names; a destination on one of them is a LOCAL path (the same checks
+      // apply), and one on any other origin is left alone. A query or fragment never changes which page is meant.
+      const siteOrigins = new Set();
+      for (const m of sitemap.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)) { try { siteOrigins.add(new URL(m[1]).origin); } catch { /* not a URL */ } }
+      const target = d => {
+        if (d.startsWith('/')) return d.split(/[?#]/)[0];
+        try { const u = new URL(d); return siteOrigins.has(u.origin) ? u.pathname : null; } catch { return null; }
+      };
+      for (const r of rules) {
+        const dest = r.dest === undefined ? null : target(r.dest); // a one-field line has no destination (R18_SYNTAX reports it)
+        /* R18_SYNTAX:begin */
+        if (r.fields < 2 || r.fields > 3) { note(REDIRECTS, 'line ' + r.line + ': has ' + r.fields + ' fields, expected a source, a destination and an optional status'); continue; }
+        if (!r.source.startsWith('/')) note(REDIRECTS, 'line ' + r.line + ': the source "' + r.source + '" does not start with "/"');
+        if (!(r.dest.startsWith('/') || /^https:\/\//i.test(r.dest))) note(REDIRECTS, 'line ' + r.line + ': the destination "' + r.dest + '" is neither a "/" path nor an https URL');
+        if (!rl.REDIRECT_STATUSES.has(r.status)) note(REDIRECTS, 'line ' + r.line + ': the status is not one of 301 302 303 307 308');
+        if (r.length > 1000) note(REDIRECTS, 'line ' + r.line + ': is ' + r.length + ' characters; Cloudflare allows 1,000 per redirect');
+        if (rl.isDynamic(r)) note(REDIRECTS, 'line ' + r.line + ': is a dynamic redirect (a splat or placeholder), which rule 18 does not read — state it in the rule before shipping it');
+        /* R18_SYNTAX:end */
+        /* R18_DEST:begin */
+        if (dest !== null && !served(dest)) note(REDIRECTS, 'line ' + r.line + ': the destination ' + r.dest + ' is no page under web/, so everyone who follows ' + r.source + ' would get a 404');
+        /* R18_DEST:end */
+        /* R18_SHADOW:begin */
+        if (r.source.startsWith('/') && served(r.source)) note(REDIRECTS, 'line ' + r.line + ': the source ' + r.source + ' is a live page (' + served(r.source) + '), and a redirect is followed whether or not an asset matches, so it would hide that page');
+        /* R18_SHADOW:end */
+        /* R18_CHAIN:begin */
+        if (dest === null) { /* another origin: not a hop of ours */ }
+        else if (norm(r.source) === norm(dest)) note(REDIRECTS, 'line ' + r.line + ': redirects ' + r.source + ' to itself');
+        else if (sources.has(norm(dest))) note(REDIRECTS, 'line ' + r.line + ': the destination ' + r.dest + ' is itself a redirect source, a chain of hops');
+        /* R18_CHAIN:end */
+      }
+      /* R18_MAP:begin */
+      for (const m of sitemap.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)) {
+        let p = null;
+        try { p = norm(new URL(m[1]).pathname); } catch { /* an unparsable loc is not this rule's */ }
+        if (p && sources.has(p)) note('web/sitemap.xml', 'lists ' + m[1] + ', which web/_redirects redirects: the sitemap names the destination, never the old address');
+      }
+      /* R18_MAP:end */
+    }
+  } else if (tracked.includes(REDIRECTS)) note(REDIRECTS, 'is tracked but cannot be read, so rule 18 checked nothing');
+}
+
+// ── 19. The Thai 7-day clause in TERMS.md agrees with the legal-state record ──
+// The clause is in TERMS.md only while legal/legal-state.json says a legal trigger has been met (incorporation, direct-marketing
+// registration, or a revenue crossing that stands); the block between the two legal-state markers is a pure function of the
+// record and legal/thai-7day-clause.md, rendered by scripts/legal-state.mjs --write and never edited by hand. A clause that shows
+// while the record says it is not in force, or is missing once it is, would put a false legal statement on a public page.
+// One clause per marker, so a mutant can remove one at a time:
+//   L19_RECORD   the record is valid JSON of the fixed shape: exact keys, values null or a real date (a registration number, a tax
+//                identification number, a revenue figure or any owner identifier CANNOT be stored there), a company trigger needs a
+//                company seller, a veto sits inside 14 calendar days of its crossing; a missing file is a finding
+//   L19_MARKERS  TERMS.md holds exactly one begin and one end marker
+//   L19_SYNC     the block equals the rendering of (record, clause file)
+// STATED LIMITS: the one-way latch and the 14-day veto TIMING cannot be seen in one snapshot (git history is the audit log; a
+// veto inside the window is accepted whenever it is committed); that the trigger date is true is the owner's dated commit, not
+// this rule's; revenue is measured by a billing system that does not exist yet (legal/README.md holds the design); the rule reads
+// the English and Thai clause because the clause file carries both, and holds nothing about their legal wording.
+{
+  let ls = null;
+  try { ls = await import(pathToFileURL(resolve('scripts/lib/legal-state.mjs')).href); }
+  catch (e) { note('scripts/lib/legal-state.mjs', 'could not be loaded, so rule 19 could not read the legal-state record (' + (e.code || 'import failed') + ')'); }
+  if (ls) {
+    const text = p => (existsSync(p) ? read(p) : null);
+    const fs19 = ls.findings({ record: text(ls.STATE_FILE), clause: text(ls.CLAUSE_FILE), terms: text(ls.TERMS_FILE) });
+    /* L19_RECORD:begin */
+    for (const x of fs19.filter(x => x.kind === 'record')) note(ls.STATE_FILE, x.msg);
+    /* L19_RECORD:end */
+    /* L19_MARKERS:begin */
+    for (const x of fs19.filter(x => x.kind === 'markers')) note(ls.TERMS_FILE, x.msg);
+    /* L19_MARKERS:end */
+    /* L19_SYNC:begin */
+    for (const x of fs19.filter(x => x.kind === 'sync')) note(ls.TERMS_FILE, x.msg);
+    /* L19_SYNC:end */
+  }
 }
 
 if (fail.length) {
