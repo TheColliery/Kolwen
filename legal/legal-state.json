@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "sellerType": "natural-person",
+  "incorporated": { "on": null },
+  "directMarketingRegistered": { "on": null },
+  "revenueThreshold": { "crossedOn": null, "vetoedOn": null }
+}

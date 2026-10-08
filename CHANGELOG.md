@@ -158,6 +158,27 @@ the pointer to it.
 
 ### Added
 
+- `legal/`: the switch for the Thai 7-day cancellation clause. `legal/legal-state.json` records the seller type and the
+  dates on which a legal trigger was met (incorporation, direct-marketing registration, or annual revenue above
+  1,800,000 baht), and only that: its keys and values are fixed to null or a calendar date, so a registration number,
+  a tax identification number, a revenue figure or any owner identifier cannot be stored in this public repository.
+  The clause text (English and Thai) is `legal/thai-7day-clause.md`. `TERMS.md` holds one marked block that is empty
+  while no trigger has been met and holds the dated clause once one has; `node scripts/legal-state.mjs --write` renders
+  it and is the only way to flip the clause, and `node scripts/legal-state.mjs` (or rule 19 of the surface check)
+  refuses a `TERMS.md` that disagrees with the record. Its tests run in CI. The revenue trigger is written as a design
+  in `legal/README.md`; no billing system measures it yet. The record ships inactive, so the clause is absent from
+  `TERMS.md` today.
+- The enforcement process in `TERMS.md` now has its numbers, in English and in a new Thai version: 14 business days to answer
+  a notice, a written decision 7 business days after the answer, 30 business days to file the one appeal through the
+  appeals role address, an answer within 14 business days, the key's clock stopped for the whole case, a ceiling of 90
+  calendar days from the notice, and a missed deadline on Kolwen's side lifting the suspension. A business day is a normal
+  working day in Thailand, Monday to Friday, without the public holidays announced in the Royal Gazette. The Thai
+  7-day clause (kept in `legal/`, see below) names the support role address as its cancellation channel. All of it stays under the pending-legal-review
+  marker and unlinked.
+- The open-weights plan is now written in the future tense in `README.md`, `LICENSE`, `py/LICENSE` and `SECURITY.md`:
+  planned, not released, no release date set, nothing on sale, each release to carry its own license, and no claim about
+  the model's quality or performance. The free-weights-first intent stays; nothing was removed. No test or gate held the
+  old wording.
 - The pricing page is now `/pricing` (`web/pricing.html`), and `/plans`, `/plans/` and `/plans.html` answer a 301
   to it from the new `web/_redirects`, because the old address is the one given to the payment provider. The sitemap
   lists `/pricing`. Rule 18 of `scripts/surface-check.mjs` holds the redirect file (valid lines, same-site destinations that are
@@ -184,10 +205,10 @@ the pointer to it.
   `TERMS.md`.
 - `TERMS.md` also carries the enforcement process for a customer's fault as due process (notice, suspension rather
   than termination, a window to answer, a written decision, one appeal to a human, a register of cases; a chargeback
-  suspends and is restored or terminated by how the dispute closes, on Paddle's track). The day counts and the appeal
-  channel are placeholders. The Thai 7-day cancellation right is written in both languages as a dormant clause that
-  takes effect on incorporation, direct-marketing registration or revenue above 1,800,000 baht a year; until then the
-  refunds above are the live rule. Nothing flips the switch yet.
+  suspends and is restored or terminated by how the dispute closes, on Paddle's track). The Thai 7-day cancellation right is
+  written in both languages in `legal/thai-7day-clause.md`, outside `TERMS.md`; it appears in `TERMS.md` only when
+  `legal/legal-state.json` says a trigger has been met (see the `legal/` bullet below). Until then the refunds above are
+  the live rule.
 - `PRIVACY.md` names Cloudflare Web Analytics (aggregate statistics only: page, referrer, country, browser; no one
   identified; counts run low behind an ad-blocker) and adds a short Age section. Its sentence about an injected
   bot-detection script is replaced, because the zone's JavaScript Detections were switched off on 2026-10-07 and a
