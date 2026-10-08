@@ -153,13 +153,24 @@ has broken a rule, which is a process, in this order:
 
 1. **Notice.** Kolwen tells you which clause it believes you broke and gives a summary of the evidence.
 2. **Suspension, not termination,** while the case is open. If the product is a key, its clock of days
-   stops while the account is suspended.
-3. **A window to answer.** You have **[N days]** to respond.
-4. **A written decision.** Either the case is dismissed and the account and its key are restored in
-   full, or it is upheld and the contract is terminated. The refund follows the outcome: dismissed means
-   full restoration; upheld means no refund.
-5. **One appeal to a human** against an upheld decision, through **[appeal channel]**.
+   stops for the whole case.
+3. **A window to answer.** You have **14 business days** to answer the notice.
+4. **A written decision,** within **7 business days** after your answer. Either the case is dismissed and
+   the account and its key are restored in full, or it is upheld and the contract is terminated. The refund
+   follows the outcome: dismissed means full restoration; upheld means no refund.
+5. **One appeal to a human** against an upheld decision. You have **30 business days** after the written
+   decision to file it, through **appeals@kolwen.com**, and Kolwen answers within **14 business days**.
 6. **A register of cases** is kept, so that the same conduct draws the same answer.
+
+**Business days.** In this section a business day is a normal working day in Thailand: Monday to Friday,
+excluding the public holidays announced by the Prime Minister's Office in the Royal Gazette. The holidays
+of banks are not used.
+
+**A ceiling and what a missed deadline does.** No case runs longer than **90 calendar days**, counted from
+the date of the notice. If Kolwen misses a deadline of its own (the 7 business days for the decision, the
+14 business days for the appeal answer, or the 90-day ceiling), the suspension is lifted and the key comes
+back into use. If a deadline of yours lapses (the 14 business days to answer, or the 30 business days to
+appeal), the case proceeds to its next step.
 
 **Chargebacks run on Paddle's track.** A bank dispute is handled through Paddle as merchant of record,
 and Paddle asks Kolwen for evidence. The account is **suspended** when a chargeback is filed, because the
@@ -167,9 +178,27 @@ money is gone. It is **restored** if the dispute resolves in Kolwen's favour or 
 **terminated only when the dispute closes against Kolwen.** Kolwen does not argue a chargeback with you
 directly.
 
+> **[รอที่ปรึกษากฎหมาย] ขั้นตอนเมื่อ Kolwen เห็นว่าลูกค้าฝ่าฝืนกฎ**
+> 1. แจ้งข้อกำหนดที่เห็นว่าฝ่าฝืน พร้อมสรุปพยานหลักฐาน
+> 2. ระงับบัญชี ไม่ใช่เลิกสัญญา ระหว่างที่เคสยังเปิด ถ้าสินค้าเป็นคีย์ นาฬิกานับวันของคีย์หยุดตลอดทั้งเคส
+> 3. ลูกค้ามีเวลา **14 วันทำการ** เพื่อตอบข้อแจ้ง
+> 4. คำตัดสินเป็นลายลักษณ์อักษรภายใน **7 วันทำการ** หลังลูกค้าตอบ ยกคำร้องและคืนบัญชีกับคีย์เต็มที่ หรือยืนตามและเลิกสัญญา
+>    เงินคืนเป็นไปตามผล ยกคำร้องคืนสถานะเต็มที่ ยืนตามไม่คืนเงิน
+> 5. อุทธรณ์ต่อมนุษย์ได้หนึ่งครั้งเมื่อคำตัดสินยืนตาม ภายใน **30 วันทำการ** หลังคำตัดสิน ผ่าน **appeals@kolwen.com** และ Kolwen
+>    ตอบภายใน **14 วันทำการ**
+> 6. เก็บทะเบียนเคส เพื่อให้พฤติกรรมเดียวกันได้คำตอบเดียวกัน
+>
+> **วันทำการ** ในหัวข้อนี้คือวันทำงานปกติในประเทศไทย ตั้งแต่วันจันทร์ถึงวันศุกร์ ไม่รวมวันหยุดราชการที่สำนักนายกรัฐมนตรีประกาศในราชกิจจานุเบกษา
+> และไม่ใช้วันหยุดของธนาคาร
+>
+> **เพดานและผลของการพลาดกำหนด** เคสหนึ่งยาวไม่เกิน **90 วันตามปฏิทิน** นับจากวันที่แจ้ง หาก Kolwen พลาดกำหนดของตนเอง
+> (7 วันทำการสำหรับคำตัดสิน 14 วันทำการสำหรับตอบอุทธรณ์ หรือเพดาน 90 วัน) การระงับจะหลุดและคีย์กลับมาใช้ได้ หากกำหนดของลูกค้าหมดลง
+> (14 วันทำการสำหรับตอบ หรือ 30 วันทำการสำหรับอุทธรณ์) เคสเดินต่อไปยังขั้นถัดไป
+
 **GAP 9 — [pending legal review]: counsel confirms the notice duties before suspension or termination
-(consumer law favours notice first), and the day counts and the appeal channel above are placeholders
-the owner signs later.**
+(consumer law favours notice first), the definition of a business day against the Civil and Commercial
+Code (ss.193/1, 193/4 and 193/8), and how the 90-calendar-day ceiling sits with business-day counting and
+a key clock that stops for the whole case.**
 
 ## Thai consumer cancellation right — drafted, dormant
 
@@ -186,14 +215,14 @@ selling online only once that person enters the direct-marketing register or ear
 registration as a direct-marketing business, or (c) annual revenue above 1,800,000 baht. **Until then
 the live rule is the Refunds section above.**
 
-Once it applies, a customer in Thailand cancels by notice through **[cancellation notice channel]**, and
+Once it applies, a customer in Thailand cancels by notice through **support@kolwen.com**, and
 no consent-to-start waiver reduces the refund inside the 7 days. Kolwen's protection against use followed
 by a refund is a trial before payment, never a waiver of this right.
 
 > **[รอที่ปรึกษากฎหมาย] สิทธิยกเลิกของผู้บริโภคในประเทศไทย — ร่างไว้ ยังไม่มีผลบังคับ**
 > ตามพระราชบัญญัติขายตรงและตลาดแบบตรง พ.ศ. 2545 ผู้บริโภคที่ซื้อจากผู้ประกอบธุรกิจที่ขายตรงหรือขายผ่านตลาดแบบตรง
 > ยกเลิกได้ภายใน 7 วันนับแต่ได้รับบริการ และได้รับเงินคืนเต็มจำนวน โดยจ่ายคืนภายใน 15 วัน
-> นับแต่ได้รับการบอกเลิก ปัจจุบันสิทธินี้ยังไม่ผูกพัน Kolwen ผู้บริโภคในประเทศไทยแจ้งยกเลิกผ่านช่องทาง **[ช่องทางแจ้งยกเลิก]** ข้อนี้จะมีผลเมื่อครบเงื่อนไขข้อใดข้อหนึ่งก่อน คือ ผู้ขายจดทะเบียนเป็นนิติบุคคล
+> นับแต่ได้รับการบอกเลิก ปัจจุบันสิทธินี้ยังไม่ผูกพัน Kolwen ผู้บริโภคในประเทศไทยแจ้งยกเลิกผ่าน **support@kolwen.com** ข้อนี้จะมีผลเมื่อครบเงื่อนไขข้อใดข้อหนึ่งก่อน คือ ผู้ขายจดทะเบียนเป็นนิติบุคคล
 > จดทะเบียนเป็นผู้ประกอบธุรกิจตลาดแบบตรง หรือมีรายได้เกิน 1,800,000 บาทต่อปี จนถึงวันนั้นให้ใช้หลักการคืนเงินในหัวข้อ
 > Refunds เป็นหลัก เมื่อข้อนี้มีผล ไม่มีการสละสิทธิเพื่อลดเงินคืนในช่วง 7 วัน วิธีที่ Kolwen ป้องกันตนเองจากการใช้แล้วขอคืนเงินคือการให้ทดลองใช้ก่อนชำระเงิน
 > ไม่ใช่การให้ลูกค้าสละสิทธิ

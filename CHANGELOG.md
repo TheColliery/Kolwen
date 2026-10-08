@@ -158,6 +158,13 @@ the pointer to it.
 
 ### Added
 
+- The enforcement process in `TERMS.md` now has its numbers, in English and in a new Thai version: 14 business days to answer
+  a notice, a written decision 7 business days after the answer, 30 business days to file the one appeal through the
+  appeals role address, an answer within 14 business days, the key's clock stopped for the whole case, a ceiling of 90
+  calendar days from the notice, and a missed deadline on Kolwen's side lifting the suspension. A business day is a normal
+  working day in Thailand, Monday to Friday, without the public holidays announced in the Royal Gazette. The dormant Thai
+  7-day clause names the support role address as its cancellation channel. All of it stays under the pending-legal-review
+  marker and unlinked.
 - The open-weights plan is now written in the future tense in `README.md`, `LICENSE`, `py/LICENSE` and `SECURITY.md`:
   planned, not released, no release date set, nothing on sale, each release to carry its own license, and no claim about
   the model's quality or performance. The free-weights-first intent stays; nothing was removed. No test or gate held the
@@ -188,10 +195,9 @@ the pointer to it.
   `TERMS.md`.
 - `TERMS.md` also carries the enforcement process for a customer's fault as due process (notice, suspension rather
   than termination, a window to answer, a written decision, one appeal to a human, a register of cases; a chargeback
-  suspends and is restored or terminated by how the dispute closes, on Paddle's track). The day counts and the appeal
-  channel are placeholders. The Thai 7-day cancellation right is written in both languages as a dormant clause that
-  takes effect on incorporation, direct-marketing registration or revenue above 1,800,000 baht a year; until then the
-  refunds above are the live rule. Nothing flips the switch yet.
+  suspends and is restored or terminated by how the dispute closes, on Paddle's track). The Thai 7-day cancellation right is
+  written in both languages as a dormant clause that takes effect on incorporation, direct-marketing registration or
+  revenue above 1,800,000 baht a year; until then the refunds above are the live rule. Nothing flips the switch yet.
 - `PRIVACY.md` names Cloudflare Web Analytics (aggregate statistics only: page, referrer, country, browser; no one
   identified; counts run low behind an ad-blocker) and adds a short Age section. Its sentence about an injected
   bot-detection script is replaced, because the zone's JavaScript Detections were switched off on 2026-10-07 and a

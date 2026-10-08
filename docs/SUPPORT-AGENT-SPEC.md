@@ -65,7 +65,7 @@ cases. The requirements below are how the support surface behaves around that pr
    that notice is an open question for counsel, with its timing and content; the process in `TERMS.md` has no such
    exception, so until counsel decides, notice comes first.
 3. **An appeal gets a case number, a status the customer can see, and a decision deadline that Kolwen sets and
-   publishes** (**[N days]**, a placeholder until signed), **with an escalation when the deadline passes.**
+   publishes** (the Terms set **14 business days** to answer an appeal), **with an escalation when the deadline passes.**
 4. **One case across support, safety and billing.** Every door sees it, and no door sends the customer back to
    a door already tried.
 5. **Money waits for the decision.** No refund is refused while an appeal is open, and a reversed suspension
