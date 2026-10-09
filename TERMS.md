@@ -169,8 +169,11 @@ has broken a rule, which is a process, in this order:
 excluding the public holidays announced by the Prime Minister's Office in the Royal Gazette. The holidays
 of banks are not used.
 
-**A ceiling and what a missed deadline does.** No case runs longer than **90 calendar days**, counted from
-the date of the notice. If Kolwen misses a deadline of its own (the 7 business days for the decision, the
+**A ceiling and what a missed deadline does.** The case ceiling is **90 calendar days** of Kolwen's own time,
+counted from the date of the notice. The count pauses while your 14-business-day window to answer is open, from the notice until you
+answer or the 14 business days close, whichever comes first, and while your 30-business-day window to file an appeal is open, from the
+written decision until you file the appeal or the 30 business days close, whichever comes first. Only the days outside those windows count
+toward the 90. If Kolwen misses a deadline of its own (the 7 business days for the decision, the
 14 business days for the appeal answer, or the 90-day ceiling), the suspension, including one that follows
 an upheld decision, is lifted and the key comes back into use. If a deadline of yours lapses (the 14 business days to answer, or the 30 business days to
 appeal), the case proceeds to its next step.
@@ -199,7 +202,7 @@ directly.
 > **วันทำการ** ในหัวข้อนี้คือวันทำงานปกติในประเทศไทย ตั้งแต่วันจันทร์ถึงวันศุกร์ ไม่รวมวันหยุดราชการที่สำนักนายกรัฐมนตรีประกาศในราชกิจจานุเบกษา
 > และไม่ใช้วันหยุดของธนาคาร
 >
-> **เพดานและผลของการพลาดกำหนด** เคสหนึ่งยาวไม่เกิน **90 วันตามปฏิทิน** นับจากวันที่แจ้ง หาก Kolwen พลาดกำหนดของตนเอง
+> **เพดานและผลของการพลาดกำหนด** เพดานของเคสคือ **90 วันตามปฏิทิน** ของเวลาฝั่ง Kolwen เอง นับจากวันที่แจ้ง การนับหยุดชั่วคราวระหว่างที่หน้าต่าง 14 วันทำการสำหรับตอบของลูกค้ายังเปิดอยู่ ตั้งแต่วันที่แจ้งจนกว่าลูกค้าจะตอบหรือครบ 14 วันทำการ แล้วแต่อย่างใดมาก่อน และระหว่างที่หน้าต่าง 30 วันทำการสำหรับยื่นอุทธรณ์ของลูกค้ายังเปิดอยู่ ตั้งแต่วันที่มีคำตัดสินเป็นลายลักษณ์อักษรจนกว่าลูกค้าจะยื่นอุทธรณ์หรือครบ 30 วันทำการ แล้วแต่อย่างใดมาก่อน นับเฉพาะวันนอกหน้าต่างเหล่านั้นเข้าเพดาน 90 วัน หาก Kolwen พลาดกำหนดของตนเอง
 > (7 วันทำการสำหรับคำตัดสิน 14 วันทำการสำหรับตอบอุทธรณ์ หรือเพดาน 90 วัน) การระงับ รวมถึงการระงับที่ต่อเนื่องจากคำตัดสินที่ยืนตาม จะหลุดและคีย์กลับมาใช้ได้ หากกำหนดของลูกค้าหมดลง
 > (14 วันทำการสำหรับตอบ หรือ 30 วันทำการสำหรับอุทธรณ์) เคสเดินต่อไปยังขั้นถัดไป
 >
@@ -210,8 +213,8 @@ directly.
 
 **GAP 9 — [pending legal review]: counsel confirms the notice duties before suspension or termination
 (consumer law favours notice first), the definition of a business day against the Civil and Commercial
-Code (ss.193/1, 193/4 and 193/8), and how the 90-calendar-day ceiling sits with business-day counting and
-a key clock that stops for the whole case.**
+Code (ss.193/1, 193/4 and 193/8), how the 90-calendar-day ceiling, which now pauses during your answer and appeal-filing windows, sits with business-day counting and
+a key clock that stops for the whole case, and, as a question only: if Kolwen misses a deadline of its own while an appeal runs, does the case end in the customer's favour, or does only the suspension lift while the appeal continues.**
 
 <!-- legal-state:thai-7day:begin -->
 <!-- legal-state:thai-7day:end -->

@@ -158,6 +158,7 @@ the pointer to it.
 
 ### Added
 
+- `TERMS.md`: the 90-calendar-day case ceiling counts only Kolwen's own days and pauses while the customer's answer window and appeal-filing window are open, in English and Thai; the open question to counsel on a missed Kolwen deadline during an appeal is named in the enforcement marker.
 - The enforcement process in `TERMS.md` now covers a customer who does not answer: when the 14 business days close with
   no answer, Kolwen still decides in writing within 7 business days, on the evidence it holds, and the appeal right is
   unchanged. An upheld decision also keeps the account suspended, and the key's clock stopped, through the 30-business-day
