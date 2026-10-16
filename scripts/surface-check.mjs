@@ -627,18 +627,23 @@ const WEB_PAGES = tracked.filter(f => f.startsWith('web/') && f.endsWith('.html'
 // HISTORY_PINS: web/changelog.html renders the repository's own CHANGELOG.md word for word, so it QUOTES claims the repository withdrew ("no trackers",
 // a Free plan). Rules 15 and 17(a) read that page like every other. The hits that exist on it today are exactly the passages pinned below, each by a
 // fingerprint of its normalized text (tags removed, whitespace collapsed, sha256, the first 16 hex characters) with its reason. A hit in any other
-// passage fires, and a pin that matches no passage of the page is STALE and fires, so the list cannot go on excusing text that is gone.
+// passage fires, and a pin that matches no passage of the page is STALE and fires, so the list cannot go on excusing text that is gone. A pin also
+// carries `count`, the number of times its passage appears on the page (2: the English and the Thai document); while the page holds any other number
+// of copies (a pinned passage pasted into a new entry) the pin exempts none of them and a finding names the count, so a copy cannot ride on a pin.
 // STATED LIMITS: a pin compares text, not meaning. Editing a pinned passage changes its fingerprint and fires both a new hit and a stale pin, so a person
 // re-confirms the pin; and it holds only the rendered page, not CHANGELOG.md itself (where the same words are history).
 const HISTORY_PINS = [
-  { file: 'web/changelog.html', fp: '518613b551644633', start: "The home page footer no longer says \"no trackers ...\"", reason: 'a record of a withdrawn claim' },
-  { file: 'web/changelog.html', fp: '510c767ab5d9bc0c', start: "Rule 17 of scripts/surface-check.mjs, on the web pages", reason: 'a record of a withdrawn claim' },
-  { file: 'web/changelog.html', fp: '5a476948bbcbd9d8', start: "Two more rules in scripts/surface-check.mjs, both about the web pages", reason: 'a record of a withdrawn claim' },
+  { file: 'web/changelog.html', fp: '518613b551644633', start: "The home page footer no longer says \"no trackers ...\"", count: 2, reason: 'a record of a withdrawn claim' },
+  { file: 'web/changelog.html', fp: '510c767ab5d9bc0c', start: "Rule 17 of scripts/surface-check.mjs, on the web pages", count: 2, reason: 'a record of a withdrawn claim' },
+  { file: 'web/changelog.html', fp: '5a476948bbcbd9d8', start: "Two more rules in scripts/surface-check.mjs, both about the web pages", count: 2, reason: 'a record of a withdrawn claim' },
 ];
 const normText = html => html.split('<').map((part, i) => (i === 0 ? part : part.slice(part.indexOf('>') + 1))).join('').replace(/\s+/g, ' ').trim();
 const passageFp = html => createHash('sha256').update(normText(html), 'utf8').digest('hex').slice(0, 16);
 const passagesOf = s => [...s.matchAll(/<(p|li) class="t"[^>]*>([\s\S]*?)<\/\1>/g)].map(m => ({ start: m.index, end: m.index + m[0].length, fp: passageFp(m[2]) }));
-const pinnedHit = (f, s, index) => HISTORY_PINS.some(p => p.file === f) && passagesOf(s).some(p => p.start <= index && index < p.end && HISTORY_PINS.some(q => q.file === f && q.fp === p.fp));
+const pinnedHit = (f, s, index) => {
+  const ps = passagesOf(s);
+  return ps.some(p => p.start <= index && index < p.end && HISTORY_PINS.some(q => q.file === f && q.fp === p.fp && ps.filter(x => x.fp === q.fp).length === q.count));
+};
 const PRODUCTION_PAGES = WEB_PAGES.filter(f => !PREVIEW_EXEMPT.has(f));
 const lineOf = (s, i) => s.slice(0, i).split('\n').length;
 {
@@ -767,8 +772,9 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
   /* FREE_ALL:end */
   // A pin that matches no passage of its page is stale (rules 15 and 17a share the list).
   for (const p of HISTORY_PINS) {
-    const have = tracked.includes(p.file) ? passagesOf(read(p.file)).some(x => x.fp === p.fp) : false;
-    if (!have) note(p.file, `pinned passage ${p.fp} (${p.start}) matches no passage of the page, so the pin excuses nothing: remove it, or re-pin the passage if its words changed`);
+    const n = tracked.includes(p.file) ? passagesOf(read(p.file)).filter(x => x.fp === p.fp).length : 0;
+    if (n === 0) note(p.file, `pinned passage ${p.fp} (${p.start}) matches no passage of the page, so the pin excuses nothing: remove it, or re-pin the passage if its words changed`);
+    else if (n !== p.count) note(p.file, `pinned passage ${p.fp} (${p.start}) appears ${n} time(s) on the page, the pin allows ${p.count}: a copy of a withdrawn quote is a new occurrence, so the pin exempts none of them until the extra copy is removed or the count is re-confirmed`);
   }
   for (const f of PRODUCTION_PAGES) {
     const s = read(f);
