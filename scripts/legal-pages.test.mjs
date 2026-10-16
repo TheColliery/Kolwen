@@ -91,8 +91,8 @@ test('no passage is dropped: for each source, passages = shown as written + held
 test('the counts of the three sources today', () => {
   const i = inputs();
   const s = file => classify(file, i[{ 'TERMS.md': 'terms', 'PRIVACY.md': 'privacy', 'legal/thai-7day-clause.md': 'clause' }[file]], { holds: holds.holds }).stats;
-  assert.deepEqual(s('TERMS.md'), { passages: 61, text: 27, held: 34 });
-  assert.deepEqual(s('PRIVACY.md'), { passages: 55, text: 15, held: 40 });
+  assert.deepEqual(s('TERMS.md'), { passages: 71, text: 27, held: 44 });
+  assert.deepEqual(s('PRIVACY.md'), { passages: 57, text: 16, held: 41 });
   assert.deepEqual(s('legal/thai-7day-clause.md'), { passages: 4, text: 0, held: 4 });
 });
 
