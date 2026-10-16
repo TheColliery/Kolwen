@@ -158,6 +158,7 @@ the pointer to it.
 
 ### Added
 
+- `PRIVACY.md`: a conditional "Worker logs" paragraph. Today the Worker runs no code of ours and logs nothing; when it does, Cloudflare Workers Logs will record each request, kept 3 days on Cloudflare's plan without a monthly charge and 7 days on its paid Workers plan (Cloudflare documentation, read 2026-10-17). Whether a log line holds the IP address or headers is a pending line to measure when the Worker ships.
 - `TERMS.md`: a "Price changes" section (draft, every part under the pending-legal-review marker): at least 30 days' notice by email and in the app, a change only at the first renewal after the notice and never inside a paid period, a key or prepaid credit, the customer's acceptance where their home law requires it, a refund on rejection of only the charges taken after the effective date, and a price kept for an open number of months. Model versions keep their per-million-token prices for their life, and retire only on notice. The values of N are left open.
 - `/changelog`: a page rendered from this file by `scripts/legal-pages.mjs`, every passage shown as written (nothing here waits for counsel, so no
   passage is held), in the site's own shell with the English and Thai chrome. `node scripts/legal-pages.mjs --check` fails in CI when the page is not

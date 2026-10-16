@@ -87,6 +87,17 @@ number.
 > บันทึกไว้ และบังคับใช้ด้วยกลไกการลบ มาตรา 23(3) มาตรา 37(3) และมาตรา 39(4) กำหนดให้ต้องระบุ
 > บันทึก และบังคับใช้ระยะเวลาการเก็บ และไม่มีกฎหมายฉบับใดกำหนดตัวเลขไว้
 
+**Worker logs.** Today the Worker runs no code of ours and logs nothing (see "What this site is"). When the
+Worker first runs code of ours (an API, a payment-provider webhook or a chat endpoint), Cloudflare Workers Logs
+will record each request. Cloudflare's documentation (https://developers.cloudflare.com/workers/observability/logs/workers-logs/,
+page last updated Oct 12, 2026, read 2026-10-17) says an invocation log contains details such as the request, the
+response and related metadata, that a fetch request's message shows the request method and the request URL, and that
+anything the Worker prints with console.log is stored too. Cloudflare keeps these logs for 3 days on Cloudflare's plan without a monthly charge
+and 7 days on its paid Workers plan, which is the maximum.
+
+[pending legal review] Whether a log line also holds the visitor's IP address or request headers is not itemised
+by that page, so it is not claimed either way here. It is to be measured on a live log line when the Worker ships.
+
 **This section is a commitment about a thing that does not exist yet.** It is written here now so
 that the claim and the feature ship together rather than the page quietly going out of date.
 
