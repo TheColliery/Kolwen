@@ -158,6 +158,9 @@ the pointer to it.
 
 ### Added
 
+- `README.md`: a CodeRabbit pull-request reviews badge under the tagline, in the organisation's standard form for this repository.
+- `PRIVACY.md`: a conditional "Worker logs" paragraph. Today the Worker runs no code of ours and logs nothing; when it does and Workers Logs is switched on (Cloudflare's default for a new Worker), Cloudflare Workers Logs will record each request, kept 3 days on the Workers plan without a monthly charge and 7 days on the paid plan until 30 November 2026; from 1 December 2026 the page names Observability pricing and no retention per plan (Cloudflare documentation, read 2026-10-17). Whether a log line holds the IP address or headers is a pending line to measure when the Worker ships.
+- `TERMS.md`: a "Price changes" section (draft, every part under the pending-legal-review marker): at least 30 days' notice by email and in the app, a change only at the first renewal on or after the later of the notice's end and the price hold's end, and never inside a paid period, a key or prepaid credit, the customer's acceptance where their home law requires it, a refund on rejection of only the charges taken after the effective date, and a price kept for an open number of months. Model versions keep their per-million-token prices for their life, and retire only on notice. An extraordinary-cost valve can shorten only the hold and a version's fixed price, never a paid period, a key or prepaid credit. The values are left open.
 - `/changelog`: a page rendered from this file by `scripts/legal-pages.mjs`, every passage shown as written (nothing here waits for counsel, so no
   passage is held), in the site's own shell with the English and Thai chrome. `node scripts/legal-pages.mjs --check` fails in CI when the page is not
   the render of this file, so a change to the changelog without a re-render cannot merge. The page is in `web/sitemap.xml` and `web/llms.txt`, and

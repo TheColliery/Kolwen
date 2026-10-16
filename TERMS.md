@@ -1,4 +1,4 @@
-# Terms — DRAFT
+# Terms—DRAFT
 
 > **DRAFT with legal gaps. Not signed, not in force, not linked from the site.** Published in the
 > repository so the shape is reviewable; the clauses marked `[pending legal review]` are the ones
@@ -23,13 +23,13 @@ Terms §B uses (*"Anthropic may not train models on Customer Content from Servic
 if they press an opt-in button (see "Outputs and training" below), never by default. Those are two
 different tiers on purpose.
 
-**GAP 1 — [pending legal review]: whether the enterprise Terms carry this absolute sentence while a
+**GAP 1—[pending legal review]: whether the enterprise Terms carry this absolute sentence while a
 separate consumer document carries the opt-in, or whether one document must reconcile both, is
 counsel's question and the owner's decision.**
 
 ## Rights in Inputs and Outputs
 
-**GAP 2 — [pending legal review]** — the companion clauses in the same source Terms state that the
+**GAP 2—[pending legal review]**—the companion clauses in the same source Terms state that the
 customer retains rights to its Inputs, and that Customer Content is the customer's confidential
 information. Whether Kolwen adopts that allocation verbatim is counsel's call. The allocation for
 Outputs is drafted below.
@@ -47,7 +47,7 @@ whichever is higher. At sign-up you confirm this. Kolwen does not ask for, or ke
 identity document. If the way an account is used shows that its holder is under that age, the account is
 disabled and the unused part is refunded.
 
-**GAP 3 — [pending legal review]: counsel confirms that, for this service, Thailand's age of consent
+**GAP 3—[pending legal review]: counsel confirms that, for this service, Thailand's age of consent
 is 20 (Civil and Commercial Code ss.19-21; PDPA s.20). The clause holds whichever number the answer is,
 because it follows the higher of 18 and the local age.**
 
@@ -60,7 +60,7 @@ other users, and the assignment gives you no right against that.
 Kolwen uses your content to train its models only if you press the opt-in button, and only for what you
 opted in to. Without that press, it does not.
 
-**GAP 4 — [pending legal review]: whether an AI Output carries any copyright for the person who prompted
+**GAP 4—[pending legal review]: whether an AI Output carries any copyright for the person who prompted
 it under the Thai Copyright Act's human-author requirement is counsel's reading. The "if any" wording is
 there so the assignment works in a country where an Output carries none.**
 
@@ -85,7 +85,7 @@ These limits exist to stop bulk buying for resale, and are set at what one house
 - **A key adds time to your account** (keys stack), up to a **36-month ceiling**.
 - **An unredeemed key expires 12 months after purchase.**
 
-**GAP 5 — [pending legal review]: whether a ban on reselling a time-boxed key is enforceable under Thai
+**GAP 5—[pending legal review]: whether a ban on reselling a time-boxed key is enforceable under Thai
 law as it is under EU law (the CJEU's UsedSoft ruling, C-128/11, treats it as enforceable for a
 time-boxed key) is counsel's reading.**
 
@@ -101,7 +101,7 @@ adds to it:
 - **Unused prepaid credits are refundable at the price you paid, in the same 14-day window.**
 - When Kolwen ends the contract without cause, it refunds the unused part (see "Ending the contract").
 
-**GAP 6 — [pending legal review]: counsel signs the wording of this clause, and confirms the
+**GAP 6—[pending legal review]: counsel signs the wording of this clause, and confirms the
 immediate-start consent works as the basis for deducting days used.**
 
 ## Ending the contract
@@ -123,6 +123,46 @@ in "Ending the contract". At your first sign-in after a change takes effect, you
 review and accept it. A public dated record of each change to these Terms is kept. If an email bounces,
 that is logged and the in-app screen carries the notice.
 
+## Price changes
+
+[pending legal review] This section governs a change to the price of a subscription, a key or credits.
+For a rejected price change it applies in place of "Ending the contract" and of the sentence about
+rejecting a changed term in "Changes to these Terms". Every other change to these Terms is handled as
+"Changes to these Terms" says.
+
+- [pending legal review] **Notice.** Before a price change that raises what you pay, Kolwen gives at
+  least **30 days' notice**, by email to the address on your account **and** in the app.
+- [pending legal review] **When it takes effect.** A price rise takes effect at the first renewal on or
+  after the later of the day the 30 days' notice ends and the day the hold in "A price you already pay"
+  ends. Never inside a period you have already paid for, never on a key you have already bought, and
+  never on prepaid credit you have already bought: those keep the price you paid. For a key or credits,
+  a new price applies only to a purchase made after the notice ends.
+- [pending legal review] **Your acceptance.** Where the law of the place where you live requires your
+  consent to a price rise, the new price applies only after you accept it. If you do not accept, your
+  subscription ends at the end of the period you have paid for.
+- [pending legal review] **If you reject a price change.** You may end the subscription, and Kolwen
+  refunds only the charges taken after the effective date of the change. Nothing paid before that date
+  is refunded because of a rejected price change, and that includes the unused part of a key.
+- [pending legal review] **A price you already pay.** An existing subscriber keeps the price they pay
+  for at least **[N months]**, and no price rise takes effect before that hold ends. When a rise takes
+  effect is set only by "When it takes effect".
+- [pending legal review] **Model versions.** The prices per million tokens published for a model version
+  stay fixed for as long as that version is offered. A new version carries its own price.
+- [pending legal review] **Retiring a model version.** Kolwen retires a model version only after
+  notice of at least **[M]**, and not before the date it published for that version when it launched.
+- [pending legal review] **A cost outside Kolwen's control.** If a cost Kolwen does not control makes
+  it impossible to keep a price for the periods above, Kolwen may shorten the **[N months]** hold in "A
+  price you already pay" and end the fixed price of a model version in "Model versions", and only after
+  the 30 days' notice above. It never reaches a period you have already paid for, a key you have already
+  bought or prepaid credit you have already bought: those keep the price you paid. In that case you may
+  end the subscription, and Kolwen refunds the charges taken after the effective date of the change.
+
+**GAP 11—[pending legal review]: counsel confirms that the opt-in rule where the customer's home
+law requires consent, and the refund of only the charges taken after the effective date, hold under
+Thailand's Unfair Contract Terms Act B.E. 2540 and the law of the place where the customer lives, and
+words the values the owner sets for **[N months]**, including the point from which that hold is
+counted, and for **[M]**.**
+
 ## Limit of liability
 
 To the extent permitted by law, Kolwen's total liability for a claim arising from a product is limited
@@ -131,7 +171,7 @@ or US$100, whichever is higher.** This is a ceiling on damages you prove, not an
 does not apply to acts done wilfully or with gross negligence, and it takes away no right that a
 consumer has by law.
 
-**GAP 7 — [pending legal review]: Thailand's Unfair Contract Terms Act B.E. 2540 may trim a cap like this
+**GAP 7—[pending legal review]: Thailand's Unfair Contract Terms Act B.E. 2540 may trim a cap like this
 one in a consumer contract of adhesion. Counsel confirms the wording and how far it holds.**
 
 ## Governing law and courts
@@ -139,7 +179,7 @@ one in a consumer contract of adhesion. Counsel confirms the wording and how far
 Thai law governs these Terms, and the Thai courts have jurisdiction. Your rights as a consumer under the
 law of the place where you live are not taken away by this clause. There is no arbitration clause.
 
-**GAP 8 — [pending legal review]: whether a consumer's home mandatory law overrides the choice of Thai
+**GAP 8—[pending legal review]: whether a consumer's home mandatory law overrides the choice of Thai
 law and courts (for a consumer in the EU, Rome I art. 6) is counsel's reading; the clause is written to
 preserve consumer rights either way.**
 
@@ -211,7 +251,7 @@ directly.
 > จะคืนสถานะหากข้อพิพาทจบเป็นคุณแก่ Kolwen หรือลูกค้าชำระใหม่ และจะเลิกสัญญาก็ต่อเมื่อข้อพิพาทจบเป็นผลร้ายต่อ Kolwen เท่านั้น
 > Kolwen ไม่โต้แย้ง chargeback กับลูกค้าโดยตรง
 
-**GAP 9 — [pending legal review]: counsel confirms the notice duties before suspension or termination
+**GAP 9—[pending legal review]: counsel confirms the notice duties before suspension or termination
 (consumer law favours notice first), the definition of a business day against the Civil and Commercial
 Code (ss.193/1, 193/4 and 193/8), how the 90-calendar-day ceiling, which now pauses during your answer and appeal-filing windows, sits with business-day counting and
 a key clock that stops for the whole case, and, as a question only: if Kolwen misses a deadline of its own while an appeal runs, does the case end in the customer's favour, or does only the suspension lift while the appeal continues.**
@@ -223,7 +263,7 @@ a key clock that stops for the whole case, and, as a question only: if Kolwen mi
 
 No conversation content is retained today, because no conversational service exists.
 When one does, conversation content is retained for **[N days]** and then deleted or anonymised. N
-is set before launch, stated here, recorded, and enforced by a deletion mechanism — §23(3), §37(3)
+is set before launch, stated here, recorded, and enforced by a deletion mechanism—§23(3), §37(3)
 and §39(4) require that a period be stated, recorded and enforced, and no statute supplies the
 number.
 

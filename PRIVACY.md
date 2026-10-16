@@ -7,7 +7,7 @@
 > **Not yet reviewed by a lawyer.** Every statement about this site's own behaviour was MEASURED
 > on 2026-09-04 and carries the command that produced it; every statement that could not be
 > measured from this repository is marked ⚠️ and is a question returned to the owner, not a
-> guess. **A privacy notice is the last document that should contain an assumption** — which is
+> guess. **A privacy notice is the last document that should contain an assumption**—which is
 > why the unanswered parts are marked rather than filled in.
 >
 > **เผยแพร่เป็นฉบับร่างที่ยังมีช่องว่างทางกฎหมาย ตามคำสั่งเจ้าของ 2026-09-05** —
@@ -15,8 +15,8 @@
 > และข้อความอื่น ๆ เกี่ยวกับคุกกี้ ตัวติดตาม การวิเคราะห์ และการตรวจอายุ ที่ทำเครื่องหมายแบบเดียวกัน
 > (ส่วนของคุกกี้และตัวติดตามเพราะหน้าแรกถอนข้อความว่าไม่มีตัวติดตามแล้ว) **ยังไม่ผ่านการตรวจโดยทนายความ**
 > **GAPPED 2026-09-06 (LWK-146, owner ruling of 2026-09-05): every clause below that is a legal
-> CONCLUSION — a statutory duty asserted as met, a controller/processor characterisation, a
-> DPO/representative status determination, or any other class the lawyer must confirm — is now marked
+> CONCLUSION—a statutory duty asserted as met, a controller/processor characterisation, a
+> DPO/representative status determination, or any other class the lawyer must confirm—is now marked
 > `[pending legal review]` at the exact spot, replacing an asserted sentence. Facts this
 > repository can already back (what the site does today, the contact) stay asserted,
 > unchanged. Four gaps total; the numbered list with the exact question for the lawyer is at
@@ -56,7 +56,7 @@ removes it.
 The chat will set **one strictly necessary cookie** so that a conversation works. [pending legal review] There will be no
 advertising cookie and no tracker.
 
-**GAP 1 — [pending legal review]: whether this specific cookie qualifies for the "strictly
+**GAP 1—[pending legal review]: whether this specific cookie qualifies for the "strictly
 necessary" exemption that removes the need for a consent banner is a legal characterisation, not
 a fact this repository can measure ahead of the feature existing. Not asserted here as settled.**
 
@@ -78,7 +78,7 @@ a non-essential cookie is added, a banner ships with it.
 
 **Retention.** No conversation content is retained today, because no conversational service exists.
 When one does, conversation content is retained for **[N days]** and then deleted or anonymised. N
-is set before launch, stated here, recorded, and enforced by a deletion mechanism — §23(3), §37(3)
+is set before launch, stated here, recorded, and enforced by a deletion mechanism—§23(3), §37(3)
 and §39(4) require that a period be stated, recorded and enforced, and no statute supplies the
 number.
 
@@ -86,6 +86,21 @@ number.
 > **[N วัน]** แล้วลบหรือทำให้ไม่สามารถระบุตัวบุคคลได้ โดย N จะถูกกำหนดก่อนเปิดใช้ ระบุไว้ที่นี่
 > บันทึกไว้ และบังคับใช้ด้วยกลไกการลบ มาตรา 23(3) มาตรา 37(3) และมาตรา 39(4) กำหนดให้ต้องระบุ
 > บันทึก และบังคับใช้ระยะเวลาการเก็บ และไม่มีกฎหมายฉบับใดกำหนดตัวเลขไว้
+
+**Worker logs.** Today the Worker runs no code of ours and logs nothing (see "What this site is"). When the
+Worker first runs code of ours (an API, a payment-provider webhook or a chat endpoint) with Workers Logs switched on, Cloudflare Workers
+Logs will record each request. Switching it on is Cloudflare's setting, and the page says "All newly created Workers
+will come with the observability setting enabled by default". Cloudflare's documentation (https://developers.cloudflare.com/workers/observability/logs/workers-logs/,
+page last updated Oct 12, 2026, read 2026-10-17) says an invocation log contains details such as the request, the
+response and related metadata, that a fetch request's message shows the request method and the request URL, and that
+anything the Worker prints with console.log is stored too. The same page gives a retention of 3 days on the Workers plan without a monthly charge and 7 days on the paid
+Workers plan, in its table "until then" (until 30 November 2026), and says "Beginning December 1, 2026, Workers Logs will use
+Cloudflare Observability pricing". For the period after that date it names no retention for either plan; its limits table
+gives only a "Maximum log retention period" of 7 days.
+
+[pending legal review] Whether a log line also holds the visitor's IP address or request headers is not itemised
+by that page, so it is not claimed either way here. It is to be measured on a live log line when the Worker ships.
+Which retention applies from 1 December 2026 is likewise not claimed here; the page is to be read again when the Worker ships.
 
 **This section is a commitment about a thing that does not exist yet.** It is written here now so
 that the claim and the feature ship together rather than the page quietly going out of date.
@@ -163,11 +178,11 @@ launch has to answer before this document can describe it:
 - What a conversation sends, and to which providers.
 - Whether any provider may retain or train on it, and the exact retention period.
 - How someone asks for their data or its deletion, and how quickly that is answered.
-- **Which Thai PDPA obligations attach once real conversation content is processed — the LAW's
+- **Which Thai PDPA obligations attach once real conversation content is processed—the LAW's
   general shape is answered at primary text (Royal Gazette เล่ม 136 ตอนที่ 69 ก, 27 พฤษภาคม 2562);
   whether and how each provision applies to Kolwen's own specific processing is not yet a product
   or legal decision:**
-  - **Retrieval within a conversation** — GAP 2 — **[pending legal review]: whether this needs
+  - **Retrieval within a conversation**—GAP 2—**[pending legal review]: whether this needs
     separate consent, and whether §24(3) (contract necessity) or §24(5) (legitimate interest),
     read with §21, actually covers Kolwen's own specific processing here, is a legal conclusion
     applying the statute to Kolwen's own facts.** The general shape of these sections is described
@@ -189,10 +204,10 @@ launch has to answer before this document can describe it:
     > เป็นไปตามข้อถัดไป
   - **Any use beyond that purpose (training an AI model on conversation content, for example)
     is a NEW purpose under §21 and needs its own explicit, separately-obtained, written or
-    electronic consent under §19** — opt-in by construction, never opt-out. *(This states the
+    electronic consent under §19**—opt-in by construction, never opt-out. *(This states the
     general rule §19/§21 impose on any new purpose; it does not itself characterise Kolwen's own
-    processing as compliant — no gap needed on this general statement of law.)*
-  - **A third-party AI provider Kolwen routes conversations through** — GAP 3 — **[pending legal
+    processing as compliant—no gap needed on this general statement of law.)*
+  - **A third-party AI provider Kolwen routes conversations through**—GAP 3—**[pending legal
     review]: whether such a provider is a "processor" under §40, versus a controller in its own
     right, is a controller/processor characterisation.** §40's general shape (a processor acts
     only on documented instructions; a written agreement is required; a processor that steps
@@ -212,16 +227,16 @@ launch has to answer before this document can describe it:
     > จนกว่าจะมีข้อตกลงเป็นลายลักษณ์อักษรที่ผูกมัดให้ทำตามคำสั่งที่บันทึกไว้ของ Kolwen
     > หากเงื่อนไขของผู้ให้บริการเปิดให้ใช้เนื้อหานั้นเพื่อวัตถุประสงค์ของตนเอง
     > Kolwen จะถือว่าผู้ให้บริการนั้นเป็นผู้ควบคุมข้อมูลในการประมวลผลดังกล่าว และจะไม่ส่งเนื้อหาของผู้ใช้ไปให้
-  - **Retention has no PDPA-fixed number** — §37(3) requires an erasure/anonymization system once
+  - **Retention has no PDPA-fixed number**—§37(3) requires an erasure/anonymization system once
     the (self-set) retention period lapses; §23(3) requires the period to be stated in the
     notice; §39(4) requires it be recorded. The NUMBER is Kolwen's own product/legal decision,
     not something either PDPA or GDPR supplies. *(This states that no number is set and that the
-    Act fixes none — it does not assert any retention number of Kolwen's own as lawful, so no gap
+    Act fixes none—it does not assert any retention number of Kolwen's own as lawful, so no gap
     is needed on this sentence itself.)*
   - **A data breach must be notified to the PDPC within 72 hours of becoming aware, and to
     affected users too where the risk is high (§37(4)).** *(A general statement of the statutory
-    duty's own terms — not an assertion that Kolwen has met or will meet it, so no gap.)*
-  - **A DPO** — GAP 4 — **[pending legal review]: whether Kolwen needs a Data Protection Officer
+    duty's own terms—not an assertion that Kolwen has met or will meet it, so no gap.)*
+  - **A DPO**—GAP 4—**[pending legal review]: whether Kolwen needs a Data Protection Officer
     under §41 is a DPO-status determination.** §41's general triggers (state agencies per
     Committee designation; regular, systematic large-scale monitoring; processing of §26
     sensitive data, each per Committee-set thresholds) are accurately described at
@@ -240,13 +255,13 @@ launch has to answer before this document can describe it:
     > จะประเมินซ้ำก่อนเปิดตัวผู้ช่วย และอีกครั้งหากขนาดหรือประเภทข้อมูลเปลี่ยน
   - **The PDPA's "small enterprise" exemption (PDPC Notification B.E. 2565) excuses ONLY the
     §39 record-of-processing-activities requirement, and loses even that once processing is
-    non-occasional or touches §26 data — a chat product processing messages continuously is not
+    non-occasional or touches §26 data—a chat product processing messages continuously is not
     "occasional."** Every other obligation above (consent, notice, security, breach notification,
     processor binding) applies regardless of company size. *(A general statement of how the
-    exemption's scope works, not a claim that Kolwen qualifies or does not — no gap needed on this
+    exemption's scope works, not a claim that Kolwen qualifies or does not—no gap needed on this
     sentence itself.)*
   - **Source:** main's own primary Gazette read, and this room's legal seat's delta table against
-    GDPR. **This list states WHICH obligations attach — it is not the product's own retention
+    GDPR. **This list states WHICH obligations attach—it is not the product's own retention
     period, consent-flow copy, or DPO appointment, all of which remain unwritten per this
     section's own header until Kolwen actually ships a conversational feature.**
 
