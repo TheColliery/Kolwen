@@ -167,7 +167,7 @@ the pointer to it.
   there, and `node scripts/legal-pages.mjs --check` fails when the home, pricing or not-found page holds a footer that differs from it byte for byte, or
   lacks the footer rules in its own style block. The page-specific note about the stored language choice and the fonts moves just below the footer.
 - `/llms.txt`: a short plain-text guide for language models in the llmstxt.org shape. It says Kolwen is in development and nothing can be bought, and
-  lists the five pages with one line each that repeats only what the page says. It is not in `web/sitemap.xml`.
+  lists the six pages with one line each that repeats only what the page says. It is not in `web/sitemap.xml`.
 - `/pricing`: the plans as four cards (Lite, Standard, Premium, Exclusive) with a monthly or yearly switch that needs no script, a comparison
   table and four questions, in English and Thai. The yearly price is ten times the monthly price, so two months are not charged, and the
   page shows the sums beside it; the dates and conditions of that offer are a pending line. Every plan is worded as what it will include,
@@ -179,7 +179,7 @@ the pointer to it.
   opens with a banner saying it is a draft, not in force, with nothing for sale. The refund page states the 14-day refund of an unredeemed key and
   points at Paddle, the merchant of record, and its standard refund policy; the rules for days used and for credits stay pending lines. The pages sell
   nothing and carry no payment script. `node scripts/legal-pages.mjs --check` (a CI step, with `scripts/legal-pages.test.mjs`) fails when a committed
-  page differs from the render of its sources. The pricing page shares the legal pages' style block, so the four carry one CSP hash. Footer links to
+  page differs from the render of its sources. The pricing page shares the legal pages' style block, so the five carry one CSP hash. Footer links to
   the three pages sit on the home, pricing and not-found pages, and the pages are in `web/sitemap.xml`.
 - `TERMS.md`: the 90-calendar-day case ceiling counts only Kolwen's own days and pauses while the customer's answer window and appeal-filing window are open, in English and Thai; the open question to counsel on a missed Kolwen deadline during an appeal is named in the enforcement marker.
 - The enforcement process in `TERMS.md` now covers a customer who does not answer: when the 14 business days close with
