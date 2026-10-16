@@ -8,7 +8,7 @@
 
 ## Today
 
-**Assets:** one public GitHub repository · one Cloudflare Worker serving a static page at
+**Assets:** one public GitHub repository · one Cloudflare Worker serving static pages at
 kolwen.com · reserved package names on PyPI and npm · the brand assets, all generated from one
 script · a filed Thai trade-mark application (the number is held privately).
 
