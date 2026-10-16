@@ -158,6 +158,11 @@ the pointer to it.
 
 ### Added
 
+- `/pricing`: the plans as four cards (Lite, Standard, Premium, Exclusive) with a monthly or yearly switch that needs no script, a comparison
+  table and four questions, in English and Thai. The yearly price is ten times the monthly price, so two months are not charged, and the
+  page shows the sums beside it; the dates and conditions of that offer are a pending line. Every plan is worded as what it will include,
+  every buy button stays disabled, and no quota amount or competitor price is shown. The Subscription paragraph no longer says a refund
+  deducts the days used: that rule is a pending line until counsel signs it.
 - `TERMS.md`: the 90-calendar-day case ceiling counts only Kolwen's own days and pauses while the customer's answer window and appeal-filing window are open, in English and Thai; the open question to counsel on a missed Kolwen deadline during an appeal is named in the enforcement marker.
 - The enforcement process in `TERMS.md` now covers a customer who does not answer: when the 14 business days close with
   no answer, Kolwen still decides in writing within 7 business days, on the evidence it holds, and the appeal right is
