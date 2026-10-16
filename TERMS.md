@@ -123,6 +123,41 @@ in "Ending the contract". At your first sign-in after a change takes effect, you
 review and accept it. A public dated record of each change to these Terms is kept. If an email bounces,
 that is logged and the in-app screen carries the notice.
 
+## Price changes
+
+[pending legal review] This section governs a change to the price of a subscription, a key or credits.
+For a rejected price change it applies in place of "Ending the contract" and of the sentence about
+rejecting a changed term in "Changes to these Terms". Every other change to these Terms is handled as
+"Changes to these Terms" says.
+
+- [pending legal review] **Notice.** Before a price change that raises what you pay, Kolwen gives at
+  least **30 days' notice**, by email to the address on your account **and** in the app.
+- [pending legal review] **When it takes effect.** At the first renewal after the notice ends. Never
+  inside a period you have already paid for, never on a key you have already bought, and never on
+  prepaid credit you have already bought: those keep the price you paid.
+- [pending legal review] **Your acceptance.** Where the law of the place where you live requires your
+  consent to a price rise, the new price applies only after you accept it. If you do not accept, your
+  subscription ends at the end of the period you have paid for.
+- [pending legal review] **If you reject a price change.** You may end the subscription, and Kolwen
+  refunds only the charges taken after the effective date of the change. Nothing paid before that date
+  is refunded because of a rejected price change, and that includes the unused part of a key.
+- [pending legal review] **A price you already pay.** An existing subscriber keeps the price they pay
+  for at least **[N months]**. A price rise takes effect on the later of the end of those **[N months]**
+  and the end of the period you have paid for, and never before the notice above has ended.
+- [pending legal review] **Model versions.** The prices per million tokens published for a model version
+  stay fixed for as long as that version is offered. A new version carries its own price.
+- [pending legal review] **Retiring a model version.** Kolwen retires a model version only after
+  notice of at least **[N]**, and not before the date it published for that version when it launched.
+- [pending legal review] **A cost outside Kolwen's control.** If a cost Kolwen does not control makes
+  it impossible to keep a price for the periods above, Kolwen may change that price earlier, after the
+  30 days' notice above. In that case you may end the subscription, and Kolwen refunds the charges
+  taken after the effective date of the change.
+
+**GAP 11 — [pending legal review]: counsel confirms that the opt-in rule where the customer's home
+law requires consent, and the refund of only the charges taken after the effective date, hold under
+Thailand's Unfair Contract Terms Act B.E. 2540 and the law of the place where the customer lives, and
+words the values the owner sets for N.**
+
 ## Limit of liability
 
 To the extent permitted by law, Kolwen's total liability for a claim arising from a product is limited
