@@ -200,15 +200,16 @@ function refundBody(clauseMd, termsClass, lang, opts) {
 // ── 5. The shared footer, and the page shell
 // The footer is ONE block per language, written here and nowhere else. Its lines carry no indentation so the block is byte-identical
 // wherever it sits; the hand-kept pages (index, pricing, 404) hold a copy and `legal-pages.mjs --check` compares it byte for byte.
-// FOOTER_CSS uses no page variable (currentColor and opacity only) so the same rules sit in every page's own style block.
+// FOOTER_CSS uses no page variable and no opacity: every footer text takes the colour its page gives the footer at full strength (WCAG 2.2 SC 1.4.3
+// measures that colour against the page, and a test computes it), and hover changes the underline, not the colour. The same rules sit in every page's own style block.
 export const FOOTER_CSS = [
   "  .site-footer{margin-top:28px;padding-top:20px;border-top:1px solid rgba(128,128,128,.35);font-size:13.5px;line-height:1.7;display:flex;flex-direction:column;gap:14px}",
   "  .site-footer .fgroups{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:18px}",
   "  .site-footer .fgroup{display:flex;flex-direction:column;align-items:flex-start;gap:2px}",
-  "  .site-footer .fh{font-size:12px;opacity:.7;letter-spacing:.04em;text-transform:uppercase;margin:0}",
+  "  .site-footer .fh{font-size:12px;letter-spacing:.04em;text-transform:uppercase;margin:0}",
   "  .site-footer a{color:inherit;text-decoration:underline;text-underline-offset:3px;display:inline-block;padding:5px 0;min-height:32px}",
-  "  .site-footer a:hover{color:#e8833a}",
-  "  .fine{font-size:12px;opacity:.75;margin:0}",
+  "  .site-footer a:hover{text-decoration-thickness:2px}",
+  "  .fine{font-size:12px;margin:0}",
   ""].join('\n');
 
 const FOOTER = {

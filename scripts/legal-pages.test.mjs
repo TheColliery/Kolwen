@@ -372,3 +372,43 @@ test('--check fails, naming web/changelog.html, when CHANGELOG.md changes by one
     assert.equal(check(dir).status, 0);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+// ── WCAG 2.2 SC 1.4.3: every footer text colour against the background it sits on, at least 4.5:1 ──────────
+// The footer takes its page's colour at full strength (no opacity anywhere in FOOTER_CSS) and hover does not change the colour, so what is
+// measured is the colour each page gives the footer. WCAG 2.x relative luminance and contrast ratio.
+const lin = c => { const v = c / 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+const lum = ([r, g, b]) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+const ratio = (a, b) => { const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x); return (hi + 0.05) / (lo + 0.05); };
+const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const mix = (fg, a, bg) => fg.map((c, i) => Math.round(c * a + bg[i] * (1 - a)));
+const css = html => (html.match(/<style>[\s\S]*?<\/style>/g) || []).join('\n');
+const varIn = (text, name) => { const m = new RegExp('--' + name + ':(#[0-9a-fA-F]{6})').exec(text); assert.ok(m, 'var --' + name); return rgb(m[1]); };
+
+test('the footer css has no opacity and no hover colour, so no footer text is dimmed below its page colour', () => {
+  assert.ok(!/opacity/.test(FOOTER_CSS), 'no opacity in the footer rules');
+  for (const m of FOOTER_CSS.matchAll(/[{;]\s*color:([^;}]*)/g)) assert.equal(m[1], 'inherit', 'the only colour a footer rule sets is inherit');
+  assert.ok(!/:hover\{[^}]*color/.test(FOOTER_CSS), 'hover does not change the colour');
+});
+
+test('every footer text colour measures at least 4.5:1 on every page background (dark pages with the brightest gradient point, the 404 page in both colour schemes)', () => {
+  const { pages } = renderPages(inputs());
+  const dark = { ...pages, 'web/index.html': read('web/index.html'), 'web/pricing.html': read('web/pricing.html') };
+  const rows = [];
+  for (const [file, html] of Object.entries(dark)) {
+    const c = css(html);
+    assert.match(c, /footer\{[^}]*color:var\(--quiet\)/, file + ': the footer takes --quiet');
+    const text = varIn(c, 'quiet'), bg = varIn(c, 'bg');
+    const g = /radial-gradient\(circle at [^,]+,rgba\((\d+),(\d+),(\d+),([.\d]+)\)/.exec(c);
+    assert.ok(g, file + ': the body gradient');
+    const peak = mix([+g[1], +g[2], +g[3]], +g[4], bg);
+    rows.push([file + ' (base)', ratio(text, bg)], [file + ' (gradient peak)', ratio(text, peak)]);
+  }
+  const nf = css(read('web/404.html'));
+  const light = { ink: varIn(nf.split('@media')[0], 'ink'), bg: varIn(nf.split('@media')[0], 'bg') };
+  const darkM = /@media \(prefers-color-scheme:dark\)\{:root\{([^}]*)\}/.exec(nf);
+  assert.ok(darkM, '404 dark scheme');
+  rows.push(['web/404.html (light)', ratio(light.ink, light.bg)], ['web/404.html (dark)', ratio(varIn(darkM[1], 'ink'), varIn(darkM[1], 'bg'))]);
+  assert.match(nf, /color:var\(--ink\)/, '404: the body colour, which the footer inherits, is --ink');
+  for (const [name, r] of rows) assert.ok(r >= 4.5, name + ' measures ' + r.toFixed(2) + ':1');
+  assert.ok(rows.length >= 14, 'the sample covers seven pages, two backgrounds on the dark ones');
+});
