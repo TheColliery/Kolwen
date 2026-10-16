@@ -108,12 +108,12 @@
       <p class="t">Kolwen has not launched. This page describes what <strong>kolwen.com</strong> does today, and says plainly which parts change on the day the assistant itself ships.</p>
       <h2>What this site is</h2>
       <p class="t">Static pages, served by a Cloudflare Worker. <strong>The Worker runs no code of ours</strong>—it is configured with an assets directory and nothing else, with no <code>main</code> entry point, so there is no request handler, no logging, and no storage on our side.</p>
-      <p class="t"><em>Measured: <code>grep -nE '^[[:space:]]*"main"' wrangler.jsonc</code> returns nothing; the config declares a name, a compatibility date, the <code>assets</code> block and an empty <code>previews</code> block, and no binding, variable or secret.</em></p>
+      <p class="t"><em>Measured: <code>grep -nE &#39;^[[:space:]]*&quot;main&quot;&#39; wrangler.jsonc</code> returns nothing; the config declares a name, a compatibility date, the <code>assets</code> block and an empty <code>previews</code> block, and no binding, variable or secret.</em></p>
       <h2>Cookies</h2>
       <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
-      <p class="t"><em>Measured: <code>curl -sI https://kolwen.com/</code> and the same on an asset—no <code>Set-Cookie</code> header on either (re-measured 2026-10-08, after the zone's JavaScript Detections were switched off).</em></p>
-      <p class="t"><strong>A note on what could change that:</strong> per Cloudflare's own cookie and clearance pages (read 2026-10-08), Bot Fight Mode sets the <code>__cf_bm</code> cookie, and Turnstile sets <code>cf_clearance</code> only when its pre-clearance option is enabled. If either is ever switched on for this site, the sentence above, "no cookies at all", would be reworded the same day. Both are off today.</p>
-      <p class="t">Your language choice (English or Thai) is stored in your browser's <code>localStorage</code>, which is not a cookie, is never sent to a server, and never leaves your device. Clearing your browser data removes it.</p>
+      <p class="t"><em>Measured: <code>curl -sI https://kolwen.com/</code> and the same on an asset—no <code>Set-Cookie</code> header on either (re-measured 2026-10-08, after the zone&#39;s JavaScript Detections were switched off).</em></p>
+      <p class="t"><strong>A note on what could change that:</strong> per Cloudflare&#39;s own cookie and clearance pages (read 2026-10-08), Bot Fight Mode sets the <code>__cf_bm</code> cookie, and Turnstile sets <code>cf_clearance</code> only when its pre-clearance option is enabled. If either is ever switched on for this site, the sentence above, &quot;no cookies at all&quot;, would be reworded the same day. Both are off today.</p>
+      <p class="t">Your language choice (English or Thai) is stored in your browser&#39;s <code>localStorage</code>, which is not a cookie, is never sent to a server, and never leaves your device. Clearing your browser data removes it.</p>
       <p class="t"><em>Measured: <code>web/index.html</code> uses <code>localStorage.setItem</code> / <code>getItem</code> for one key, and nothing else.</em></p>
       <h3>When the assistant ships, this changes, and here is exactly how</h3>
       <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
@@ -126,7 +126,7 @@
       <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
       <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
       <h2>Who else sees your request</h2>
-      <p class="t"><strong>Cloudflare</strong> serves this site, so it necessarily handles your request: your IP address, the URL you asked for, and your browser's user-agent reach their edge before any bytes reach you. That is how any hosted site works, and it is not something we can turn off while remaining online. Cloudflare no longer injects its bot-detection script into the served HTML: the zone's JavaScript Detections setting was switched off on 2026-10-07, and Bot Fight Mode is off.</p>
+      <p class="t"><strong>Cloudflare</strong> serves this site, so it necessarily handles your request: your IP address, the URL you asked for, and your browser&#39;s user-agent reach their edge before any bytes reach you. That is how any hosted site works, and it is not something we can turn off while remaining online. Cloudflare no longer injects its bot-detection script into the served HTML: the zone&#39;s JavaScript Detections setting was switched off on 2026-10-07, and Bot Fight Mode is off.</p>
       <p class="t"><em>Measured 2026-10-08: <code>curl -s https://kolwen.com/ | grep -c challenge-platform</code> prints 0.</em></p>
       <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
       <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
@@ -141,7 +141,7 @@
       <p class="t"><code>privacy@kolwen.com</code> reaches the maintainer. Anything you send there is read by a person.</p>
       <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
       <h2>What we do not do</h2>
-      <ul><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li><li class="t">No account, no sign-up, and nothing to log in to.</li><li class="t">Kolwen's own systems—the site and its Worker—collect and store nothing, so there is nothing there to sell or share. <strong>Three parties outside those systems do handle data, as this notice already says:</strong> Cloudflare handles every request; Google Fonts receives your IP address when the page loads; and the mailbox behind the contact address holds what you send to it. What each retains cannot be measured from this repository.</li></ul>
+      <ul><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li><li class="t">No account, no sign-up, and nothing to log in to.</li><li class="t">Kolwen&#39;s own systems—the site and its Worker—collect and store nothing, so there is nothing there to sell or share. <strong>Three parties outside those systems do handle data, as this notice already says:</strong> Cloudflare handles every request; Google Fonts receives your IP address when the page loads; and the mailbox behind the contact address holds what you send to it. What each retains cannot be measured from this repository.</li></ul>
       <h2>When the assistant ships</h2>
       <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
       <ul><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li></ul>
@@ -156,7 +156,7 @@
       <ul><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li></ul>
       <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
       <h2>Changes</h2>
-      <p class="t">This notice is versioned with the site in git; its history is the change log. There is no separate "last updated" line to fall out of date.</p>
+      <p class="t">This notice is versioned with the site in git; its history is the change log. There is no separate &quot;last updated&quot; line to fall out of date.</p>
       <p class="pending">[pending legal review] Full Thai versions of the Terms, the Refunds and the Privacy pages, equal in substance to the English, are still to come.</p>
     </div>
 
@@ -185,12 +185,12 @@
       <p class="t" lang="en">Kolwen has not launched. This page describes what <strong>kolwen.com</strong> does today, and says plainly which parts change on the day the assistant itself ships.</p>
       <h2 lang="en">What this site is</h2>
       <p class="t" lang="en">Static pages, served by a Cloudflare Worker. <strong>The Worker runs no code of ours</strong>—it is configured with an assets directory and nothing else, with no <code>main</code> entry point, so there is no request handler, no logging, and no storage on our side.</p>
-      <p class="t" lang="en"><em>Measured: <code>grep -nE '^[[:space:]]*"main"' wrangler.jsonc</code> returns nothing; the config declares a name, a compatibility date, the <code>assets</code> block and an empty <code>previews</code> block, and no binding, variable or secret.</em></p>
+      <p class="t" lang="en"><em>Measured: <code>grep -nE &#39;^[[:space:]]*&quot;main&quot;&#39; wrangler.jsonc</code> returns nothing; the config declares a name, a compatibility date, the <code>assets</code> block and an empty <code>previews</code> block, and no binding, variable or secret.</em></p>
       <h2 lang="en">Cookies</h2>
       <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
-      <p class="t" lang="en"><em>Measured: <code>curl -sI https://kolwen.com/</code> and the same on an asset—no <code>Set-Cookie</code> header on either (re-measured 2026-10-08, after the zone's JavaScript Detections were switched off).</em></p>
-      <p class="t" lang="en"><strong>A note on what could change that:</strong> per Cloudflare's own cookie and clearance pages (read 2026-10-08), Bot Fight Mode sets the <code>__cf_bm</code> cookie, and Turnstile sets <code>cf_clearance</code> only when its pre-clearance option is enabled. If either is ever switched on for this site, the sentence above, "no cookies at all", would be reworded the same day. Both are off today.</p>
-      <p class="t" lang="en">Your language choice (English or Thai) is stored in your browser's <code>localStorage</code>, which is not a cookie, is never sent to a server, and never leaves your device. Clearing your browser data removes it.</p>
+      <p class="t" lang="en"><em>Measured: <code>curl -sI https://kolwen.com/</code> and the same on an asset—no <code>Set-Cookie</code> header on either (re-measured 2026-10-08, after the zone&#39;s JavaScript Detections were switched off).</em></p>
+      <p class="t" lang="en"><strong>A note on what could change that:</strong> per Cloudflare&#39;s own cookie and clearance pages (read 2026-10-08), Bot Fight Mode sets the <code>__cf_bm</code> cookie, and Turnstile sets <code>cf_clearance</code> only when its pre-clearance option is enabled. If either is ever switched on for this site, the sentence above, &quot;no cookies at all&quot;, would be reworded the same day. Both are off today.</p>
+      <p class="t" lang="en">Your language choice (English or Thai) is stored in your browser&#39;s <code>localStorage</code>, which is not a cookie, is never sent to a server, and never leaves your device. Clearing your browser data removes it.</p>
       <p class="t" lang="en"><em>Measured: <code>web/index.html</code> uses <code>localStorage.setItem</code> / <code>getItem</code> for one key, and nothing else.</em></p>
       <h3 lang="en">When the assistant ships, this changes, and here is exactly how</h3>
       <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
@@ -203,7 +203,7 @@
       <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
       <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
       <h2 lang="en">Who else sees your request</h2>
-      <p class="t" lang="en"><strong>Cloudflare</strong> serves this site, so it necessarily handles your request: your IP address, the URL you asked for, and your browser's user-agent reach their edge before any bytes reach you. That is how any hosted site works, and it is not something we can turn off while remaining online. Cloudflare no longer injects its bot-detection script into the served HTML: the zone's JavaScript Detections setting was switched off on 2026-10-07, and Bot Fight Mode is off.</p>
+      <p class="t" lang="en"><strong>Cloudflare</strong> serves this site, so it necessarily handles your request: your IP address, the URL you asked for, and your browser&#39;s user-agent reach their edge before any bytes reach you. That is how any hosted site works, and it is not something we can turn off while remaining online. Cloudflare no longer injects its bot-detection script into the served HTML: the zone&#39;s JavaScript Detections setting was switched off on 2026-10-07, and Bot Fight Mode is off.</p>
       <p class="t" lang="en"><em>Measured 2026-10-08: <code>curl -s https://kolwen.com/ | grep -c challenge-platform</code> prints 0.</em></p>
       <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
       <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
@@ -218,7 +218,7 @@
       <p class="t" lang="en"><code>privacy@kolwen.com</code> reaches the maintainer. Anything you send there is read by a person.</p>
       <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
       <h2 lang="en">What we do not do</h2>
-      <ul><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li><li class="t" lang="en">No account, no sign-up, and nothing to log in to.</li><li class="t" lang="en">Kolwen's own systems—the site and its Worker—collect and store nothing, so there is nothing there to sell or share. <strong>Three parties outside those systems do handle data, as this notice already says:</strong> Cloudflare handles every request; Google Fonts receives your IP address when the page loads; and the mailbox behind the contact address holds what you send to it. What each retains cannot be measured from this repository.</li></ul>
+      <ul><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li><li class="t" lang="en">No account, no sign-up, and nothing to log in to.</li><li class="t" lang="en">Kolwen&#39;s own systems—the site and its Worker—collect and store nothing, so there is nothing there to sell or share. <strong>Three parties outside those systems do handle data, as this notice already says:</strong> Cloudflare handles every request; Google Fonts receives your IP address when the page loads; and the mailbox behind the contact address holds what you send to it. What each retains cannot be measured from this repository.</li></ul>
       <h2 lang="en">When the assistant ships</h2>
       <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
       <ul><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li></ul>
@@ -233,7 +233,7 @@
       <ul><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li></ul>
       <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
       <h2 lang="en">Changes</h2>
-      <p class="t" lang="en">This notice is versioned with the site in git; its history is the change log. There is no separate "last updated" line to fall out of date.</p>
+      <p class="t" lang="en">This notice is versioned with the site in git; its history is the change log. There is no separate &quot;last updated&quot; line to fall out of date.</p>
       <p class="pending">[รอที่ปรึกษากฎหมาย] ฉบับภาษาไทยเต็มของข้อกำหนด การคืนเงิน และความเป็นส่วนตัว ที่เนื้อหาเท่ากับฉบับภาษาอังกฤษ ยังจะตามมา</p>
     </div>
 

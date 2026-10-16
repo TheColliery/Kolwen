@@ -36,7 +36,9 @@ export function splitSource(md) {
   let cur = null, block = 0, inBlock = false;
   const close = () => { if (cur) { items.push(cur); cur = null; } };
   const start = (text, depth, list) => { close(); cur = { kind: 'passage', text, depth, list, block: depth > 0 ? block : 0 }; };
-  for (const raw of md.replace(/\r\n/g, '\n').split('\n')) {
+  // An HTML comment is structure: removed whole, newlines inside it kept, so a comment that spans lines (or ends with --!>) cannot become a passage.
+  const noComments = md.replace(/\r\n/g, '\n').replace(/<!--[\s\S]*?--!?>/g, c => c.replace(/[^\n]/g, ''));
+  for (const raw of noComments.split('\n')) {
     let s = raw, depth = 0, m;
     while ((m = /^\s*>\s?/.exec(s))) { s = s.slice(m[0].length); depth++; }
     const t = s.trim();
@@ -45,7 +47,6 @@ export function splitSource(md) {
     if (t === '') { close(); continue; }
     const heading = /^(#{1,6})\s+(.*)$/.exec(t);
     if (heading) { close(); items.push({ kind: 'heading', level: heading[1].length, text: heading[2].trim() }); continue; }
-    if (/^<!--.*-->$/.test(t)) { close(); continue; }
     const item = /^([-*+]|[0-9]+[.)])\s+(.*)$/.exec(t);
     if (item) { start(item[2], depth, /^[0-9]/.test(item[1]) ? 'ol' : 'ul'); continue; }
     if (cur && cur.depth === depth) cur.text += ' ' + t;
@@ -105,16 +106,19 @@ export function holdProblems(holds, perFile) {
 }
 
 // ── 3. Inline Markdown → HTML, and the plain text it must equal ──────────────────────────────────
-const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+// Escaping, never stripping: one function for text and one for attribute values, each covering & < > " and '.
+const ENT = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+export const escText = s => s.replace(/[&<>"']/g, c => ENT[c]);
+export const escAttr = s => s.replace(/[&<>"']/g, c => ENT[c]);
 const SLOT = String.fromCharCode(0xE000); // private-use delimiter for a code span parked while emphasis is read
 
 export function inline(md) {
   const codes = [];
   let s = md.replace(/`([^`]+)`/g, (_, c) => { codes.push(c); return SLOT + (codes.length - 1) + SLOT; });
-  s = esc(s);
+  s = escText(s);
   s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   s = s.replace(/(^|[^*])\*([^*\s][^*]*?)\*(?!\*)/g, '$1<em>$2</em>');
-  return s.replace(new RegExp(SLOT + '([0-9]+)' + SLOT, 'g'), (_, i) => '<code>' + esc(codes[Number(i)]) + '</code>');
+  return s.replace(new RegExp(SLOT + '([0-9]+)' + SLOT, 'g'), (_, i) => '<code>' + escText(codes[Number(i)]) + '</code>');
 }
 // The text a reader sees for a Markdown passage: its marks removed, nothing else changed.
 export function plain(md) {
@@ -123,7 +127,6 @@ export function plain(md) {
   s = s.replace(/\*\*(.+?)\*\*/g, '$1').replace(/(^|[^*])\*([^*\s][^*]*?)\*(?!\*)/g, '$1$2');
   return squash(s.replace(new RegExp(SLOT + '([0-9]+)' + SLOT, 'g'), (_, i) => codes[Number(i)]));
 }
-export const textOf = html => squash(html.replace(/<[^>]*>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&'));
 
 // ── 4. Rendering a source for one language ──────────────────────────────────────────────────────
 function pendingFor(file, anchor, lang) {
@@ -147,12 +150,12 @@ export function renderSource(file, md, lang, opts) {
       continue;
     }
     let cls, body, attr = '';
-    if (it.held) { cls = 'pending'; body = esc(pendingFor(file, it.anchor, lang)); }
+    if (it.held) { cls = 'pending'; body = escText(pendingFor(file, it.anchor, lang)); }
     else {
       cls = 't';
       const twin = TEXT_TWINS.find(t => t.anchor === it.anchor);
       if (twin && plain(it.text) !== twin.en) errors.push(`the Thai twin for "${twin.anchor}" is out of step with the source passage`);
-      if (twin && lang === 'th') { body = esc(twin.th); } else { body = inline(it.text); attr = enAttr; }
+      if (twin && lang === 'th') { body = escText(twin.th); } else { body = inline(it.text); attr = enAttr; }
     }
     if (it.list) {
       if (!list || list.kind !== it.list) { flush(); list = { kind: it.list, rows: [] }; }
@@ -176,7 +179,7 @@ function refundBody(clauseMd, lang, opts) {
       out.push(c.html);
       continue;
     }
-    out.push(`<p class="${r.kind === 'text' ? 't' : 'pending'}">${esc(r[lang])}</p>`);
+    out.push(`<p class="${r.kind === 'text' ? 't' : 'pending'}">${escText(r[lang])}</p>`);
   }
   const text = REFUND_ROWS.filter(r => r.kind === 'text').length;
   const pending = REFUND_ROWS.filter(r => r.kind === 'pending').length;
@@ -316,9 +319,9 @@ export function shell({ title, description, path, en, th }) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(title)} — Kolwen</title>
-<meta name="description" content="${esc(description)}">
-<link rel="canonical" href="https://kolwen.com${path}">
+<title>${escText(title)} — Kolwen</title>
+<meta name="description" content="${escAttr(description)}">
+<link rel="canonical" href="https://kolwen.com${escAttr(path)}">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -356,12 +359,12 @@ ${th}
 
 function docHtml(lang, title, body) {
   return `    <div>
-      <h1>${esc(title)}</h1>
-      <p class="banner" role="note">${esc(BANNER[lang])}</p>
+      <h1>${escText(title)}</h1>
+      <p class="banner" role="note">${escText(BANNER[lang])}</p>
     </div>
     <div class="legal">
       ${body}
-      <p class="pending">${esc(THAI_OWED[lang])}</p>
+      <p class="pending">${escText(THAI_OWED[lang])}</p>
     </div>
 
     ${navHtml(lang)}

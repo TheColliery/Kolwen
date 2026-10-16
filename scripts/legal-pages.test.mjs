@@ -11,7 +11,9 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const lib = await import(new URL('./lib/legal-render.mjs', import.meta.url));
 const { REFUND_ROWS } = await import(new URL('./lib/legal-page-text.mjs', import.meta.url));
-const { splitSource, classify, renderPages, renderSource, inline, plain, textOf, anchorOf, holdProblems, SOURCES } = lib;
+const { classify, renderPages, renderSource, shell, inline, plain, escText, escAttr, anchorOf, holdProblems, SOURCES } = lib;
+// The text of rendered HTML with its tags removed, entities left as they are (so it compares with escText(plain(markdown))).
+const textOf = html => html.split('<').map((part, i) => (i === 0 ? part : part.slice(part.indexOf('>') + 1))).join('').replace(/\s+/g, ' ').trim();
 const read = rel => readFileSync(join(ROOT, rel), 'utf8').replace(/\r\n/g, '\n');
 const holds = JSON.parse(read('scripts/lib/legal-holds.json'));
 const state = JSON.parse(read('legal/legal-state.json'));
@@ -99,18 +101,32 @@ test('every passage shown as written is verbatim: its text on the page equals th
     const c = classify(file, inputs()[key], { holds: holds.holds });
     const html = renderSource(file, inputs()[key], 'en', { holds: holds.holds }).html;
     const shown = [...html.matchAll(/<(?:p|li) class="t"[^>]*>([\s\S]*?)<\/(?:p|li)>/g)].map(m => textOf(m[1]));
-    const want = c.items.filter(i => i.kind === 'passage' && !i.held).map(i => plain(i.text));
+    const want = c.items.filter(i => i.kind === 'passage' && !i.held).map(i => escText(plain(i.text)));
     assert.deepEqual(shown, want, file);
   }
 });
 
 test('a held passage never shows its own text', () => {
   const i = inputs();
-  const html = renderSource(SOURCES.terms, i.terms, 'en', { holds: holds.holds }).html;
+  const shown = textOf(renderSource(SOURCES.terms, i.terms, 'en', { holds: holds.holds }).html);
   const c = classify(SOURCES.terms, i.terms, { holds: holds.holds });
-  for (const p of c.items.filter(x => x.kind === 'passage' && x.held)) assert.ok(!html.includes(esc(p.text.slice(0, 40))), p.text.slice(0, 40));
+  const held = c.items.filter(x => x.kind === 'passage' && x.held);
+  assert.ok(held.some(p => p.text.startsWith('**')), 'the sample must include held passages that open with Markdown marks');
+  for (const p of held) assert.ok(!shown.includes(escText(plain(p.text)).slice(0, 40)), p.text.slice(0, 40));
 });
-const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+test('escaping covers & < > " and \' for text and for attribute values, and a description cannot leave its attribute', () => {
+  for (const fn of [escText, escAttr]) assert.equal(fn('a&b<c>d"e\'f'), 'a&amp;b&lt;c&gt;d&quot;e&#39;f');
+  const page = shell({ title: 'T <b>', description: 'x" onmouseover="alert(1)" <script>', path: '/p"q', en: '', th: '' });
+  assert.match(page, /<meta name="description" content="x&quot; onmouseover=&quot;alert\(1\)&quot; &lt;script&gt;">/);
+  assert.ok(page.includes('<title>T &lt;b&gt; — Kolwen</title>'));
+  assert.ok(page.includes('href="https://kolwen.com/p&quot;q"'));
+});
+
+test('an HTML comment is structure: removed whole across lines, including one that ends with --!>', () => {
+  const c = classify('X.md', 'A\n\n<!-- one\ntwo -->\n\nB\n\n<!-- three --!>\n\nC\n', {});
+  assert.deepEqual(c.items.filter(i => i.kind === 'passage').map(i => i.text), ['A', 'B', 'C']);
+});
 
 test('the pages carry no raw {{token}}, no marker-less pending line, and nothing a production page must not have', () => {
   const { pages } = renderPages(inputs());
