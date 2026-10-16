@@ -17,6 +17,13 @@ h1{font-size:1.35rem;margin:0 0 .75rem;font-weight:600}
 p{margin:0 0 .6rem;color:var(--dim)}
 .th{margin-top:1.6rem;padding-top:1.2rem;border-top:1px solid color-mix(in srgb,var(--dim) 25%,transparent)}
 a{color:var(--amber)}
+  .site-footer{margin-top:28px;padding-top:20px;border-top:1px solid rgba(128,128,128,.35);font-size:13.5px;line-height:1.7;display:flex;flex-direction:column;gap:14px}
+  .site-footer .fgroups{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:18px}
+  .site-footer .fgroup{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
+  .site-footer .fh{font-size:12px;opacity:.7;letter-spacing:.04em;text-transform:uppercase;margin:0}
+  .site-footer a{color:inherit;text-decoration:underline;text-underline-offset:3px;display:inline-block;padding:5px 0;min-height:32px}
+  .site-footer a:hover{color:#e8833a}
+  .fine{font-size:12px;opacity:.75;margin:0}
 </style>
 </head>
 <body>
@@ -24,12 +31,30 @@ a{color:var(--amber)}
   <h1>This page does not exist.</h1>
   <p>Nothing is hidden here and nothing was moved — the address simply has no page behind it.</p>
   <p><a href="/">Go to the Kolwen home page</a></p>
-  <p><a href="/pricing">Plans</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a> · <a href="/refund">Refunds</a></p>
+<footer class="site-footer">
+<nav class="fgroups" aria-label="Footer">
+<div class="fgroup"><p class="fh">Kolwen</p><a href="/">Home</a></div>
+<div class="fgroup"><p class="fh">Product</p><a href="/pricing">Pricing</a><a href="/changelog">Changelog</a></div>
+<div class="fgroup"><p class="fh">Legal</p><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/refund">Refunds</a></div>
+<div class="fgroup"><p class="fh">Code</p><a href="https://github.com/TheColliery/Kolwen">GitHub</a><a href="https://huggingface.co/kolwen">Hugging Face</a><a href="https://www.npmjs.com/package/kolwen">npm</a></div>
+<div class="fgroup"><p class="fh">Contact</p><a href="mailto:info@kolwen.com">Email</a><a href="https://kolwen.com/.well-known/security.txt">Security</a></div>
+</nav>
+<p class="fine">© 2026 Kolwen · trademark application pending</p>
+</footer>
   <div class="th" lang="th">
     <h1>ไม่มีหน้านี้</h1>
     <p>ไม่ได้ซ่อนอะไรไว้ และไม่ได้ย้ายไปไหน — ที่อยู่นี้ไม่มีหน้าอยู่จริง</p>
     <p><a href="/">กลับไปหน้าแรกของ Kolwen</a></p>
-    <p><a href="/pricing">แผน</a> · <a href="/terms">ข้อกำหนด</a> · <a href="/privacy">ความเป็นส่วนตัว</a> · <a href="/refund">การคืนเงิน</a></p>
+<footer class="site-footer">
+<nav class="fgroups" aria-label="ส่วนท้ายเว็บ">
+<div class="fgroup"><p class="fh">Kolwen</p><a href="/">หน้าแรก</a></div>
+<div class="fgroup"><p class="fh">สินค้า</p><a href="/pricing">ราคา</a><a href="/changelog">บันทึกการเปลี่ยนแปลง</a></div>
+<div class="fgroup"><p class="fh">กฎหมาย</p><a href="/terms">ข้อกำหนด</a><a href="/privacy">ความเป็นส่วนตัว</a><a href="/refund">การคืนเงิน</a></div>
+<div class="fgroup"><p class="fh">โค้ด</p><a href="https://github.com/TheColliery/Kolwen">GitHub</a><a href="https://huggingface.co/kolwen">Hugging Face</a><a href="https://www.npmjs.com/package/kolwen">npm</a></div>
+<div class="fgroup"><p class="fh">ติดต่อ</p><a href="mailto:info@kolwen.com">อีเมล</a><a href="https://kolwen.com/.well-known/security.txt">ความปลอดภัย</a></div>
+</nav>
+<p class="fine">© 2026 Kolwen · เครื่องหมายการค้าอยู่ระหว่างการจดทะเบียน</p>
+</footer>
   </div>
 </main>
 </body>

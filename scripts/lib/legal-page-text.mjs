@@ -25,6 +25,12 @@ export const PAGES = {
   },
 };
 
+PAGES.changelog = {
+  file: 'web/changelog.html', path: '/changelog',
+  titleEn: 'Changelog', titleTh: 'บันทึกการเปลี่ยนแปลง',
+  descEn: "Kolwen's changelog, rendered from the repository's CHANGELOG.md. Nothing has been released yet.",
+};
+
 export const BANNER = {
   en: 'This page is a draft. It is not in force, nothing is for sale, and parts of it wait for review by counsel.',
   th: 'หน้านี้เป็นฉบับร่าง ยังไม่มีผลใช้บังคับ ยังไม่มีสินค้าให้ซื้อ และบางส่วนรอที่ปรึกษากฎหมายตรวจสอบ',

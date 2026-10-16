@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const lib = await import(new URL('./lib/legal-render.mjs', import.meta.url));
 const { REFUND_ROWS } = await import(new URL('./lib/legal-page-text.mjs', import.meta.url));
-const { classify, renderPages, renderSource, shell, inline, plain, escText, escAttr, anchorOf, holdProblems, SOURCES } = lib;
+const { classify, renderPages, renderSource, shell, inline, plain, escText, escAttr, anchorOf, holdProblems, siteFooterHtml, footersOf, FOOTER_CSS, STYLE, SOURCES } = lib;
 // The text of rendered HTML with its tags removed, entities left as they are (so it compares with escText(plain(markdown))).
 const textOf = html => html.split('<').map((part, i) => (i === 0 ? part : part.slice(part.indexOf('>') + 1))).join('').replace(/\s+/g, ' ').trim();
 const read = rel => readFileSync(join(ROOT, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -148,7 +148,7 @@ test('refund rows R1 and R2 are the TERMS.md passages: a changed passage is repo
 test('the pages carry no raw {{token}}, no marker-less pending line, and nothing a production page must not have', () => {
   const { pages } = renderPages(inputs());
   assert.equal(Object.keys(pages).length, 3);
-  for (const [file, html] of Object.entries(pages)) {
+  for (const [file, html] of Object.entries(pages).filter(([name]) => name !== 'web/changelog.html')) {
     assert.ok(!html.includes('{{'), file + ' has a raw token');
     assert.ok(!/noindex/i.test(html), file + ' asks search engines to skip it');
     assert.ok(!/PREVIEW/.test(html), file + ' is marked as a preview');
@@ -213,7 +213,7 @@ test('the same inputs give the same pages', () => {
 });
 
 // ── the CLI, against a throwaway copy of the tree ──────────────────────────────────────────────
-const FILES = ['scripts/legal-pages.mjs', 'scripts/lib/legal-render.mjs', 'scripts/lib/legal-page-text.mjs', 'scripts/lib/legal-state.mjs', 'scripts/lib/legal-holds.json', 'TERMS.md', 'PRIVACY.md', 'legal/thai-7day-clause.md', 'legal/legal-state.json', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/pricing.html'];
+const FILES = ['scripts/legal-pages.mjs', 'scripts/lib/legal-render.mjs', 'scripts/lib/legal-page-text.mjs', 'scripts/lib/legal-state.mjs', 'scripts/lib/legal-holds.json', 'TERMS.md', 'PRIVACY.md', 'legal/thai-7day-clause.md', 'legal/legal-state.json', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/pricing.html', 'web/index.html', 'web/404.html'];
 function copyTree() {
   const dir = mkdtempSync(join(tmpdir(), 'legal-pages-'));
   for (const f of FILES) { mkdirSync(dirname(join(dir, f)), { recursive: true }); writeFileSync(join(dir, f), readFileSync(join(ROOT, f))); }
@@ -272,4 +272,65 @@ test('the CLI refuses an unknown flag with exit 2 and prints usage on --help', (
     assert.match(help.stdout, /usage: node scripts\/legal-pages\.mjs/);
     assert.ok(existsSync(join(dir, 'web/terms.html')));
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ── the shared footer and the changelog page ────────────────────────────────────────────────────
+const LINKS = ['/', '/pricing', '/changelog', '/terms', '/privacy', '/refund', 'https://github.com/TheColliery/Kolwen', 'https://huggingface.co/kolwen', 'https://www.npmjs.com/package/kolwen', 'mailto:info@kolwen.com', 'https://kolwen.com/.well-known/security.txt'];
+const hrefs = block => [...block.matchAll(/<a href="([^"]*)"/g)].map(m => m[1]);
+
+test('the shared footer links the same eleven places in both languages, in one order, with no buy word and no payment address', () => {
+  for (const lang of ['en', 'th']) {
+    const b = siteFooterHtml(lang);
+    assert.deepEqual(hrefs(b), [LINKS[0], LINKS[1], LINKS[2], LINKS[3], LINKS[4], LINKS[5], LINKS[6], LINKS[7], LINKS[8], LINKS[9], LINKS[10]].map(x => x), lang);
+    assert.ok(!/^\s/m.test(b), 'no line of the block is indented, so it is byte-identical wherever it sits');
+    assert.ok(!/paddle|checkout|_ptxn/i.test(b));
+  }
+  assert.deepEqual(hrefs(siteFooterHtml('en')), hrefs(siteFooterHtml('th')));
+});
+
+test('every generated page holds the shared footer, English then Thai, byte for byte', () => {
+  const { pages } = renderPages(inputs());
+  for (const [file, html] of Object.entries(pages)) assert.deepEqual(footersOf(html), [siteFooterHtml('en'), siteFooterHtml('th')], file);
+});
+
+test('the hand-kept pages hold the same two footer blocks and carry the footer rules in a style block', () => {
+  for (const file of ['web/index.html', 'web/pricing.html', 'web/404.html']) {
+    const html = read(file);
+    assert.deepEqual(footersOf(html), [siteFooterHtml('en'), siteFooterHtml('th')], file);
+    assert.ok((html.match(/<style>[\s\S]*?<\/style>/g) || []).some(b => b.includes(FOOTER_CSS)), file + ' has the footer rules');
+    assert.equal(hrefs(footersOf(html)[0]).length, LINKS.length, file + ' footer link count');
+  }
+  assert.ok(STYLE.includes(FOOTER_CSS));
+});
+
+test('a [text](https://...) link is a link and anything else stays text', () => {
+  assert.equal(inline('see [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ok'), 'see <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>; ok');
+  assert.equal(inline('[x](javascript:alert(1))'), '[x](javascript:alert(1))');
+  assert.equal(plain('see [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)'), 'see Keep a Changelog');
+});
+
+test('--check fails, naming the page and the language, when the footer of a hand-kept page drifts', () => {
+  for (const [file, from, to, re] of [
+    ['web/index.html', '<a href="/terms">Terms</a>', '<a href="/terms">Terms </a>', /FAIL web\/index\.html en footer differs from the shared footer, line \d+/],
+    ['web/pricing.html', '<a href="/privacy">ความเป็นส่วนตัว</a>', '<a href="/privacy">ความเป็นส่วนตัว </a>', /FAIL web\/pricing\.html th footer differs from the shared footer/],
+    ['web/404.html', '<a href="/changelog">Changelog</a>', '<a href="/changelogs">Changelog</a>', /FAIL web\/404\.html en footer differs from the shared footer/],
+  ]) {
+    const dir = copyTree();
+    try {
+      edit(dir, file, x => { assert.ok(x.includes(from), file + ' holds the anchor'); return x.replace(from, to); });
+      const r = check(dir);
+      assert.equal(r.status, 1, file + '\n' + r.stdout + r.stderr);
+      assert.match(r.stdout, re, file);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }
+});
+
+test('--check fails when a hand-kept page loses its footer or its footer rules', () => {
+  for (const [file, fn, re] of [
+    ['web/index.html', x => x.replace(/<footer class="site-footer">[\s\S]*?<\/footer>/, ''), /web\/index\.html holds 1 shared footer block\(s\), expected 2/],
+    ['web/404.html', x => x.replace(FOOTER_CSS, ''), /web\/404\.html has no <style> block carrying the footer rules/],
+  ]) {
+    const dir = copyTree();
+    try { edit(dir, file, fn); const r = check(dir); assert.equal(r.status, 1, file + '\n' + r.stdout + r.stderr); assert.match(r.stdout, re, file); } finally { rmSync(dir, { recursive: true, force: true }); }
+  }
 });

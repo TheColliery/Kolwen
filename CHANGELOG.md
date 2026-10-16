@@ -158,6 +158,10 @@ the pointer to it.
 
 ### Added
 
+- One footer on every page of the site: Home; Pricing and Changelog; Terms, Privacy and Refunds; GitHub, Hugging Face and npm; Email and Security
+  (the zone's `/.well-known/security.txt`), in English and Thai. It is written once in `scripts/lib/legal-render.mjs`, the generated pages take it from
+  there, and `node scripts/legal-pages.mjs --check` fails when the home, pricing or not-found page holds a footer that differs from it byte for byte, or
+  lacks the footer rules in its own style block. The page-specific note about the stored language choice and the fonts moves just below the footer.
 - `/llms.txt`: a short plain-text guide for language models in the llmstxt.org shape. It says Kolwen is in development and nothing can be bought, and
   lists the five pages with one line each that repeats only what the page says. It is not in `web/sitemap.xml`.
 - `/pricing`: the plans as four cards (Lite, Standard, Premium, Exclusive) with a monthly or yearly switch that needs no script, a comparison
