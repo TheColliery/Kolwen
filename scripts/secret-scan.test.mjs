@@ -527,9 +527,21 @@ const ZERO40 = '0'.repeat(40);
 // this test's own, and the developer's global git configuration (a hooks path, a signing rule, a template directory) never applies to
 // a fixture call. The named-keys environment below closes the inherited-environment half; the sandbox closes the configuration half.
 const SANDBOX = fs.mkdtempSync(path.join(os.tmpdir(), 'secret-scan-sandbox-'));
+// Teardown of a tree git children just used: on Windows a git.exe that outlives its launcher by a few seconds still holds the tree, and one plain rmSync
+// answers EBUSY, EPERM or ENOTEMPTY, failing the test for a reason that is not the test's (CoalWash e63, measured: a loop of fresh calls clears it, the
+// retry options of one call do not; order 16i item 6). A tree still held past the budget throws: a real leak stays loud.
+function removeTree(dir, budgetMs = 30000) {
+  const until = Date.now() + budgetMs;
+  for (;;) {
+    try { fs.rmSync(dir, { recursive: true, force: true }); return; } catch (e) {
+      if (!['EBUSY', 'EPERM', 'ENOTEMPTY'].includes(e && e.code) || Date.now() >= until) throw e;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
+    }
+  }
+}
 after(() => {
   assert.ok(path.resolve(SANDBOX).startsWith(path.resolve(os.tmpdir())) && path.basename(SANDBOX).startsWith('secret-scan-sandbox-'), 'refusing to delete outside the temp dir');
-  fs.rmSync(SANDBOX, { recursive: true, force: true });
+  removeTree(SANDBOX);
 });
 // A git hook runs with GIT_DIR, GIT_INDEX_FILE and friends set; a fixture that inherited them would act on the repository the
 // hook runs for. So a fixture git call is handed an environment BUILT FROM NAMES, never a copy of the process's own: nothing the process
@@ -546,6 +558,13 @@ const gitEnv = () => ({
 });
 // The same sandbox environment for a call whose exit status is the answer (execFileSync throws on a non-zero exit, so gitAt cannot give it).
 const gitStatus = (cwd, args) => spawnSync('git', args, { cwd, encoding: 'utf8', timeout: 30000, env: gitEnv() });
+// A spawn that never ran answers status null, and null is not 0, so "non-zero" proved nothing (CoalHearth t121, order 16i item 3). The decoy checks below
+// require the exact answer of `git rev-parse --verify -q HEAD` in an empty repository, exit 1 (measured on Windows and POSIX), from a call that completed.
+const assertEmptyHead = (r, why) => {
+  assert.strictEqual(r.error, undefined, `${why}: the git call did not run (${r.error && r.error.code})`);
+  assert.strictEqual(r.signal, null, `${why}: the git call was killed (${r.signal})`);
+  assert.strictEqual(r.status, 1, `${why}: rev-parse answered ${r.status}, not the 1 of an empty repository`);
+};
 const gitAt = (cwd) => (args) => execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 64 << 20, timeout: 30000, stdio: ['ignore', 'pipe', 'pipe'], env: gitEnv() });
 // Two spellings of one directory are one directory: macOS answers /private/var/... for a temp root spelled /var/..., and the Windows runner's
 // temp root is an 8.3 short name (RUNNER~1) that git answers in its long form. So a path git printed is compared with a path this test built
@@ -587,7 +606,7 @@ function inTemp(fn) {
   try { return fn(root); } finally {
     assert.ok(path.resolve(root).startsWith(path.resolve(SANDBOX) + path.sep) && path.basename(root).startsWith('secret-scan-test-'),
       'refusing to delete outside the sandbox');
-    fs.rmSync(root, { recursive: true, force: true });
+    removeTree(root);
   }
 }
 function repoIn(root, name, { bare = false } = {}) {
@@ -629,7 +648,7 @@ test('a GIT_DIR and GIT_INDEX_FILE a hook inherited are dropped: every fixture g
       for (const [k, v] of Object.entries(saved)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
     }
     assert.match(own, /^[0-9a-f]{40}$/, 'the commit must land in the fixture repository');
-    assert.notStrictEqual(gitStatus(decoy, ['rev-parse', '--verify', '-q', 'HEAD']).status, 0, 'the decoy repository must stay empty: a commit in it means a fixture call followed GIT_DIR');
+    assertEmptyHead(gitStatus(decoy, ['rev-parse', '--verify', '-q', 'HEAD']), 'the decoy repository must stay empty: a commit in it means a fixture call followed GIT_DIR');
     // The witness that no GIT_DIR from the process environment reaches a status call: ask the decoy for its HEAD while a GIT_DIR naming the
     // fixture, which has a commit, is planted. A call that inherited the process's environment would read the fixture's HEAD (exit 0); one built
     // from named keys has no GIT_DIR, reads the decoy, which is empty, and fails. The positive control comes first, through the CLI flag so the
@@ -644,7 +663,7 @@ test('a GIT_DIR and GIT_INDEX_FILE a hook inherited are dropped: every fixture g
     } finally {
       for (const [k, v] of Object.entries(aimedSaved)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
     }
-    assert.notStrictEqual(decoyHead.status, 0, 'the decoy call reads the decoy, not the repository a planted GIT_DIR names: no GIT_DIR from the process environment reached it');
+    assertEmptyHead(decoyHead, 'the decoy call reads the decoy, not the repository a planted GIT_DIR names: no GIT_DIR from the process environment reached it');
     assertGitEnv(gitEnv(), 'a fixture call');
   });
 });
@@ -771,7 +790,7 @@ test('the fixtures run in the test\'s own sandbox: a hostile global git config a
     }
   } finally {
     assert.ok(path.resolve(hostile).startsWith(path.resolve(os.tmpdir())) && path.basename(hostile).startsWith('secret-scan-hostile-'), 'refusing to delete outside the temp dir');
-    fs.rmSync(hostile, { recursive: true, force: true });
+    removeTree(hostile);
   }
 });
 
