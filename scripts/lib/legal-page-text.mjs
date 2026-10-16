@@ -62,15 +62,17 @@ export const PENDING_LINES = [
 ];
 
 // The refund page: rows in order. kind 'text' is a statement shown as written; kind 'pending' is a pending line whose content is a status.
+// A row with `from` (the first eight words of a TERMS.md passage) IS that passage: its English is the passage's text and it follows the passage's hold,
+// so the refund page cannot keep promising what the terms page no longer says. `en` then records the wording the Thai `th` was written against.
 export const REFUND_ROWS = [
   {
-    id: 'R1', kind: 'text',
+    id: 'R1', kind: 'text', from: '**An unredeemed key is refunded in full within',
     en: 'An unredeemed key is refunded in full within 14 days of purchase. Nothing was used, so the key is simply voided.',
     th: 'คีย์ที่ยังไม่ได้ใช้ได้รับเงินคืนเต็มจำนวนภายใน 14 วันนับจากวันซื้อ เพราะยังไม่ได้ใช้อะไร คีย์จึงถูกยกเลิก',
   },
   {
-    id: 'R2', kind: 'text',
-    en: "When Kolwen ends the contract without cause, it refunds the unused part: a key's remaining days, a subscription's remaining current period, and unused credits at the price paid.",
+    id: 'R2', kind: 'text', from: '**By Kolwen without cause.** Kolwen refunds the unused',
+    en: "By Kolwen without cause. Kolwen refunds the unused part: a key's remaining days, a subscription's remaining current period, and unused credits at the price paid.",
     th: 'เมื่อ Kolwen เลิกสัญญาโดยไม่มีเหตุ Kolwen คืนเงินส่วนที่ยังไม่ได้ใช้ ได้แก่วันที่เหลือของคีย์ รอบปัจจุบันที่เหลือของการสมัครสมาชิก และเครดิตที่ยังไม่ได้ใช้ตามราคาที่จ่าย',
   },
   {

@@ -128,6 +128,23 @@ test('an HTML comment is structure: removed whole across lines, including one th
   assert.deepEqual(c.items.filter(i => i.kind === 'passage').map(i => i.text), ['A', 'B', 'C']);
 });
 
+test('refund rows R1 and R2 are the TERMS.md passages: a changed passage is reported, and a held passage becomes a pending line on the refund page', () => {
+  const i = inputs();
+  const changed = renderPages({ ...i, terms: i.terms.replace('refunded in full within 14 days', 'refunded in full within 30 days') });
+  assert.match(changed.problems.join('\n'), /refund row R1: the TERMS\.md passage changed/);
+  assert.match(docEn(changed.pages['web/refund.html']), /within 30 days/, 'the refund page follows the terms page');
+  const gone = renderPages({ ...i, terms: i.terms.replace('**By Kolwen without cause.** Kolwen refunds', '**Without cause.** Kolwen refunds') });
+  assert.match(gone.problems.join('\n'), /refund row R2 names a TERMS\.md passage that is not there/);
+  const R1 = REFUND_ROWS[0].from;
+  const held = renderPages({ ...i, holds: { ...holds, holds: [...holds.holds, { file: 'TERMS.md', anchor: R1, reason: 'awaits counsel' }] } });
+  assert.deepEqual(held.problems, []);
+  const doc = docEn(held.pages['web/refund.html']);
+  assert.ok(!doc.includes('refunded in full within 14 days'), 'a held passage is not promised on the refund page');
+  assert.equal(count(doc, 'class="t"'), 2);
+  assert.equal(count(doc, 'class="pending"'), 8);
+  assert.match(held.report.join('\n'), /refund rows 9 passages = 2 shown as written \+ 7 pending lines/);
+});
+
 test('the pages carry no raw {{token}}, no marker-less pending line, and nothing a production page must not have', () => {
   const { pages } = renderPages(inputs());
   assert.equal(Object.keys(pages).length, 3);

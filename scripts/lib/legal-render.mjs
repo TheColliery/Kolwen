@@ -166,10 +166,11 @@ export function renderSource(file, md, lang, opts) {
   return { html: out.join('\n      '), stats: c.stats, errors };
 }
 
-function refundBody(clauseMd, lang, opts) {
+function refundBody(clauseMd, termsClass, lang, opts) {
   const active = !!(opts && opts.active);
   const out = [];
   const errors = [];
+  let heldRows = 0; // rows whose TERMS passage is held, shown as pending lines
   for (const r of REFUND_ROWS) {
     if (r.kind === 'pending' && !(r.en.startsWith(MARK_EN) && r.th.startsWith(MARK_TH))) errors.push(`refund row ${r.id} is pending and must begin with the marker of each language`);
     if (r.kind === 'text' && (hasMarker(r.en) || hasMarker(r.th))) errors.push(`refund row ${r.id} is shown as written and must not carry a marker`);
@@ -179,10 +180,19 @@ function refundBody(clauseMd, lang, opts) {
       out.push(c.html);
       continue;
     }
+    if (r.from) {
+      // This row IS a passage of TERMS.md: shown the way the terms page shows it, or the generic pending line when the passage is held.
+      const p = termsClass.items.find(i => i.kind === 'passage' && i.anchor === r.from);
+      if (!p) { errors.push(`refund row ${r.id} names a TERMS.md passage that is not there (the anchor "${r.from}")`); continue; }
+      if (p.held) { out.push(`<p class="pending">${escText(PENDING[lang])}</p>`); heldRows++; continue; }
+      if (plain(p.text) !== r.en) errors.push(`refund row ${r.id}: the TERMS.md passage changed, so its Thai twin is out of step (update the row in scripts/lib/legal-page-text.mjs)`);
+      out.push(`<p class="t">${escText(lang === 'en' ? plain(p.text) : r.th)}</p>`);
+      continue;
+    }
     out.push(`<p class="${r.kind === 'text' ? 't' : 'pending'}">${escText(r[lang])}</p>`);
   }
-  const text = REFUND_ROWS.filter(r => r.kind === 'text').length;
-  const pending = REFUND_ROWS.filter(r => r.kind === 'pending').length;
+  const text = REFUND_ROWS.filter(r => r.kind === 'text').length - heldRows;
+  const pending = REFUND_ROWS.filter(r => r.kind === 'pending').length + heldRows;
   return { html: out.join('\n      '), stats: { passages: REFUND_ROWS.length, text, held: pending }, errors };
 }
 
@@ -410,7 +420,7 @@ export function renderPages(inputs) {
     const en = renderSource(file, mdText, 'en', opts), th = renderSource(file, mdText, 'th', opts);
     say(PAGES[key].file, file, done(key, { en, th }));
   }
-  const ren = refundBody(clauseText, 'en', opts), rth = refundBody(clauseText, 'th', opts);
+  const ren = refundBody(clauseText, perFile[SOURCES.terms], 'en', opts), rth = refundBody(clauseText, perFile[SOURCES.terms], 'th', opts);
   const rs = done('refund', { en: ren, th: rth });
   say(PAGES.refund.file, 'refund rows', rs);
   const cs = perFile[SOURCES.clause].stats;
