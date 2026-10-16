@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Refunds — Kolwen</title>
+<meta name="description" content="Kolwen refund terms: a draft. Nothing is for sale yet, and parts of it wait for review by counsel.">
+<link rel="canonical" href="https://kolwen.com/refund">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#15130f">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0f0d0b;--bg2:#15130f;--card:#1a1714;--line:rgba(255,255,255,.08);--txt:#ece4d9;--txt2:#a89a8c;--quiet:#a2968a;--accent:#e8833a;--accent2:#ffbb7a}
+  *{box-sizing:border-box;margin:0}
+  body{background:radial-gradient(circle at 20% 0%,rgba(232,131,58,.07),transparent 55%),var(--bg);color:var(--txt);font-family:'IBM Plex Sans Thai',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:72px 20px 32px;line-height:1.6}
+  main{max-width:720px;width:100%;display:flex;flex-direction:column;gap:28px}
+  .langbar{position:fixed;top:0;right:0;z-index:10;display:flex;gap:6px;padding:12px 16px}
+  .langbar button{font:inherit;font-size:12.5px;color:var(--quiet);background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;min-height:34px;cursor:pointer}
+  .langbar button:hover{border-color:rgba(232,131,58,.4);color:var(--accent2)}
+  .langbar button[aria-pressed="true"]{color:var(--accent2);border-color:rgba(232,131,58,.55);background:rgba(232,131,58,.10)}
+  a:focus-visible,button:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
+  .mark{display:flex;align-items:center;gap:12px;color:inherit;text-decoration:none}
+  .glyph{flex:none;display:block}
+  .name{font-size:34px;font-weight:700;letter-spacing:.01em}
+  .thai{font-size:15px;color:var(--quiet);font-weight:500}
+  h1{font-size:24px;font-weight:600;line-height:1.5}
+  .sub{color:var(--txt2);font-size:14.5px;margin-top:8px}
+  .card{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:18px 20px;display:flex;flex-direction:column;gap:10px}
+  .card h2,.card h3{font-size:13px;font-weight:600;color:var(--quiet);letter-spacing:.04em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace}
+  .card p,.card li{font-size:14.5px;color:var(--txt2)}
+  .card strong{color:var(--txt);font-weight:600}
+  .card ul{padding-left:20px;display:flex;flex-direction:column;gap:6px}
+  .card code{font-family:'IBM Plex Mono',monospace;font-size:13.5px;color:var(--txt)}
+  .plans{width:100%;border-collapse:collapse;font-size:14px}
+  .plans caption{text-align:left;padding:0 0 8px;font-size:12.5px;color:var(--quiet);font-family:'IBM Plex Mono',monospace}
+  .plans th,.plans td{text-align:left;padding:8px 10px 8px 0;border-bottom:1px solid var(--line);color:var(--txt2);font-weight:400;vertical-align:middle}
+  .plans thead th{font-size:12.5px;color:var(--quiet);font-family:'IBM Plex Mono',monospace}
+  .plans tbody th{color:var(--txt);font-weight:600}
+  .plans tbody th small{display:block;font-size:12.5px;color:var(--quiet);font-weight:400}
+  .plans button,.pcard button{font:inherit;font-size:12.5px;color:var(--quiet);background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;min-height:34px;cursor:not-allowed}
+  .ch{display:flex;flex-wrap:wrap;gap:8px}
+  .ch a{color:var(--txt);text-decoration:none;font-size:13.5px;border:1px solid var(--line);border-radius:9px;padding:7px 12px;background:var(--bg2);display:inline-flex;align-items:center;gap:7px;min-height:44px}
+  .ch a:hover{border-color:rgba(232,131,58,.4);color:var(--accent2)}
+  footer{margin-top:6px;font-size:12px;color:var(--quiet);display:flex;flex-direction:column;gap:4px}
+  #doc-en > * + *,#doc-th > * + *{margin-top:28px}
+  .banner{border:1px solid rgba(232,131,58,.45);background:rgba(232,131,58,.08);border-radius:10px;padding:12px 14px;font-size:14.5px;color:var(--txt);margin-top:14px}
+  .legal{display:flex;flex-direction:column;gap:14px}
+  .legal > * + *{margin-top:0}
+  .legal h2{font-size:18px;font-weight:600;line-height:1.5;margin-top:14px}
+  .legal h3{font-size:15.5px;font-weight:600;line-height:1.5;margin-top:6px}
+  .legal p,.legal li{font-size:14.5px;color:var(--txt2);overflow-wrap:anywhere}
+  .legal strong{color:var(--txt);font-weight:600}
+  .legal ul,.legal ol{padding-left:22px;display:flex;flex-direction:column;gap:8px}
+  .legal code{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--txt);overflow-wrap:anywhere}
+  .pending{color:var(--quiet) !important;font-style:italic}
+  .bill{display:flex;flex-wrap:wrap;gap:8px;align-items:center;position:relative}
+  .bill > input{position:absolute;opacity:0;width:1px;height:1px;margin:0}
+  .bill > label{font-size:13.5px;color:var(--quiet);background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:8px 14px;min-height:40px;display:inline-flex;align-items:center;cursor:pointer}
+  .bill > input:checked + label{color:var(--accent2);border-color:rgba(232,131,58,.55);background:rgba(232,131,58,.10)}
+  .bill > input:focus-visible + label{outline:2px solid var(--accent2);outline-offset:2px}
+  .bill .pcards{flex-basis:100%;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-top:6px}
+  .bill > input[value="y"]:checked ~ .pcards .mo{display:none}
+  .bill > input[value="m"]:checked ~ .pcards .yr{display:none}
+  .pcard{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:16px 18px;display:flex;flex-direction:column;gap:8px}
+  .pcard h3{font-size:18px;font-weight:600;color:var(--txt);font-family:inherit;text-transform:none;letter-spacing:0}
+  .faq h3{font-size:15px;font-weight:600;color:var(--txt);font-family:inherit;text-transform:none;letter-spacing:0}
+  .card a,.legal a{color:var(--accent2)}
+  .pcard .badge{font-size:12.5px;color:var(--quiet);font-family:'IBM Plex Mono',monospace}
+  .pcard .price{font-size:26px;font-weight:700;color:var(--txt)}
+  .pcard ul{padding-left:18px;display:flex;flex-direction:column;gap:5px}
+  .pcard li{font-size:14px;color:var(--txt2)}
+  .note{font-size:13px;color:var(--quiet)}
+  [hidden]{display:none !important}
+  @media (max-width:420px){.name{font-size:28px}h1{font-size:20px}.plans th,.plans td{padding-right:6px;font-size:13px}.plans button{padding:6px 8px}}
+</style>
+<noscript><style>
+  .langbar{display:none}
+  #doc-th{display:block !important;border-top:1px solid var(--line);padding-top:28px}
+</style></noscript>
+</head>
+<body>
+<nav class="langbar" aria-label="Language">
+  <button type="button" id="lang-en" lang="en" aria-pressed="true">English</button>
+  <button type="button" id="lang-th" lang="th" aria-pressed="false">ไทย</button>
+</nav>
+<main>
+  <a class="mark" href="/" aria-label="Kolwen home">
+    <svg class="glyph" viewBox="0 0 100 100" width="34" height="34" aria-hidden="true" fill="#e8833a">
+      <rect x="8.5" y="9.1" width="64.3" height="25"/>
+      <rect x="17.85" y="46.25" width="64.3" height="19.66"/>
+      <rect x="27.2" y="75.46" width="64.3" height="15.45"/>
+    </svg>
+    <span class="name">Kolwen</span>
+    <span class="thai" lang="th">โคลเวน</span>
+  </a>
+
+  <div id="doc-en" lang="en">
+    <div>
+      <h1>Refunds</h1>
+      <p class="banner" role="note">This page is a draft. It is not in force, nothing is for sale, and parts of it wait for review by counsel.</p>
+    </div>
+    <div class="legal">
+      <p class="t">An unredeemed key is refunded in full within 14 days of purchase. Nothing was used, so the key is simply voided.</p>
+      <p class="t">When Kolwen ends the contract without cause, it refunds the unused part: a key's remaining days, a subscription's remaining current period, and unused credits at the price paid.</p>
+      <p class="t">Payments are taken by Paddle as the merchant of record. Paddle's standard refund policy is at https://www.paddle.com/legal/refund-policy.</p>
+      <p class="pending">[pending legal review] To ask for a refund, you can use Paddle, the merchant of record, or write to Kolwen at support@kolwen.com.</p>
+      <p class="pending">[pending legal review] How Paddle's refund policy and the 14-day refund above fit together is waiting for review.</p>
+      <p class="pending">[pending legal review] Whether a refund of a subscription requested within 7 days of purchase deducts the days you used is waiting for review.</p>
+      <p class="pending">[pending legal review] The refund rule for days used after the first 7 days, and the refund window for unused prepaid credits, are waiting for review.</p>
+      <p class="pending">[pending legal review] A clause on the Thai 7-day cancellation right is drafted. It is not in force yet and will show here only when it is.</p>
+      <p class="pending">[pending legal review] Refund terms on this page are a draft.</p>
+      <p class="pending">[pending legal review] Full Thai versions of the Terms, the Refunds and the Privacy pages, equal in substance to the English, are still to come.</p>
+    </div>
+
+    <nav class="ch" aria-label="Pages">
+      <a href="/">Home</a>
+      <a href="/pricing">Plans</a>
+      <a href="/terms">Terms</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/refund">Refunds</a>
+    </nav>
+
+    <footer>
+      <span>© 2026 Kolwen · trademark application pending</span>
+      <span>This page: your language choice is stored locally in your browser · fonts are loaded from Google Fonts</span>
+    </footer>
+  </div>
+
+  <div id="doc-th" lang="th" hidden>
+    <div>
+      <h1>การคืนเงิน</h1>
+      <p class="banner" role="note">หน้านี้เป็นฉบับร่าง ยังไม่มีผลใช้บังคับ ยังไม่มีสินค้าให้ซื้อ และบางส่วนรอที่ปรึกษากฎหมายตรวจสอบ</p>
+    </div>
+    <div class="legal">
+      <p class="t">คีย์ที่ยังไม่ได้ใช้ได้รับเงินคืนเต็มจำนวนภายใน 14 วันนับจากวันซื้อ เพราะยังไม่ได้ใช้อะไร คีย์จึงถูกยกเลิก</p>
+      <p class="t">เมื่อ Kolwen เลิกสัญญาโดยไม่มีเหตุ Kolwen คืนเงินส่วนที่ยังไม่ได้ใช้ ได้แก่วันที่เหลือของคีย์ รอบปัจจุบันที่เหลือของการสมัครสมาชิก และเครดิตที่ยังไม่ได้ใช้ตามราคาที่จ่าย</p>
+      <p class="t">Paddle เป็นผู้รับชำระเงินในฐานะผู้ขายตามกฎหมาย (merchant of record) นโยบายคืนเงินมาตรฐานของ Paddle อยู่ที่ https://www.paddle.com/legal/refund-policy</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] หากต้องการขอเงินคืน ใช้ Paddle ผู้ขายตามกฎหมาย (merchant of record) หรือเขียนถึง Kolwen ที่ support@kolwen.com ได้</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] วิธีที่นโยบายคืนเงินของ Paddle กับการคืนเงินภายใน 14 วันข้างต้นทำงานร่วมกันนั้น รอการตรวจสอบ</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] การขอเงินคืนค่าสมัครสมาชิกภายใน 7 วันนับจากวันซื้อ จะหักวันที่คุณใช้ไปแล้วหรือไม่ รอการตรวจสอบ</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] กฎการคืนเงินเกี่ยวกับวันที่ใช้ไปหลัง 7 วันแรก และช่วงเวลาขอคืนเงินสำหรับเครดิตที่ยังไม่ได้ใช้ รอการตรวจสอบ</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ข้อกำหนดเรื่องสิทธิยกเลิกภายใน 7 วันตามกฎหมายไทยร่างไว้แล้ว ยังไม่มีผลใช้บังคับ และจะแสดงที่นี่เมื่อมีผลเท่านั้น</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ข้อกำหนดการคืนเงินในหน้านี้เป็นฉบับร่าง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ฉบับภาษาไทยเต็มของข้อกำหนด การคืนเงิน และความเป็นส่วนตัว ที่เนื้อหาเท่ากับฉบับภาษาอังกฤษ ยังจะตามมา</p>
+    </div>
+
+    <nav class="ch" aria-label="หน้าอื่น">
+      <a href="/">หน้าแรก</a>
+      <a href="/pricing">แผน</a>
+      <a href="/terms">ข้อกำหนด</a>
+      <a href="/privacy">ความเป็นส่วนตัว</a>
+      <a href="/refund">การคืนเงิน</a>
+    </nav>
+
+    <footer>
+      <span>© 2026 Kolwen · เครื่องหมายการค้าอยู่ระหว่างการจดทะเบียน</span>
+      <span>หน้านี้: ภาษาที่เลือกถูกเก็บไว้ในเบราว์เซอร์ของคุณ · ฟอนต์โหลดจาก Google Fonts</span>
+    </footer>
+  </div>
+</main>
+<script>
+(function () {
+  var KEY = 'kolwen-lang';
+  var en = document.getElementById('doc-en');
+  var th = document.getElementById('doc-th');
+  var bEn = document.getElementById('lang-en');
+  var bTh = document.getElementById('lang-th');
+
+  function apply(lang, persist) {
+    var thai = lang === 'th';
+    th.hidden = !thai;
+    en.hidden = thai;
+    document.documentElement.lang = thai ? 'th' : 'en';
+    bTh.setAttribute('aria-pressed', String(thai));
+    bEn.setAttribute('aria-pressed', String(!thai));
+    if (persist) {
+      // Language preference only. localStorage, never a cookie: it is a
+      // client-only concern that never needs to ride on an HTTP request.
+      try { localStorage.setItem(KEY, lang); } catch (e) {}
+    }
+  }
+
+  var saved = null;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  if (saved === 'th' || saved === 'en') apply(saved, false);
+
+  bEn.addEventListener('click', function () { apply('en', true); });
+  bTh.addEventListener('click', function () { apply('th', true); });
+})();
+</script>
+</body>
+</html>

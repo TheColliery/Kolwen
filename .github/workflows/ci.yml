@@ -82,7 +82,9 @@ jobs:
       - run: node scripts/surface-check.mjs
       # The one robots.txt comparison rule the post-deploy check applies (it cannot run here: it needs the live site).
       # And the legal-state switch's tests: the Thai 7-day clause is in TERMS.md only while legal/legal-state.json says a trigger is met.
-      - run: node --test scripts/robots-edge.test.mjs scripts/legal-state.test.mjs
+      - run: node --test scripts/robots-edge.test.mjs scripts/legal-state.test.mjs scripts/legal-pages.test.mjs
+      # The three legal pages are the render of TERMS.md, PRIVACY.md and the clause file: a page edited by hand, or a source edited without a re-render, fails here.
+      - run: node scripts/legal-pages.mjs --check
 
   reply-language:
     name: reply language (LWK-131)

@@ -171,6 +171,8 @@ const SHIPPED = new Set([
   'web/_redirects',
   // The pricing page (first published as /plans): a PRODUCTION page (US prices, every buy button disabled), read by the rules that read every page.
   'web/pricing.html',
+  // The three legal pages (rendered from TERMS.md, PRIVACY.md and legal/thai-7day-clause.md by scripts/legal-pages.mjs): PRODUCTION pages, read by every rule that reads a page.
+  'web/terms.html', 'web/privacy.html', 'web/refund.html',
   'web/favicon.svg', 'web/favicon-32.png', 'web/apple-touch-icon.png', 'web/og.png',
 ]);
 for (const f of tracked.filter(f => f.startsWith('web/'))) {

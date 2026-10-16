@@ -163,6 +163,14 @@ the pointer to it.
   page shows the sums beside it; the dates and conditions of that offer are a pending line. Every plan is worded as what it will include,
   every buy button stays disabled, and no quota amount or competitor price is shown. The Subscription paragraph no longer says a refund
   deducts the days used: that rule is a pending line until counsel signs it.
+- `/terms`, `/privacy` and `/refund`: three draft pages, English and Thai, rendered from `TERMS.md`, `PRIVACY.md` and `legal/thai-7day-clause.md` by
+  `scripts/legal-pages.mjs`. Every passage of a source is either shown as written or replaced by one pending line (a passage that carries a
+  counsel-pending marker or an unset placeholder, or is on the tracked hold list `scripts/lib/legal-holds.json`), and none is dropped. Each page
+  opens with a banner saying it is a draft, not in force, with nothing for sale. The refund page states the 14-day refund of an unredeemed key and
+  points at Paddle, the merchant of record, and its standard refund policy; the rules for days used and for credits stay pending lines. The pages sell
+  nothing and carry no payment script. `node scripts/legal-pages.mjs --check` (a CI step, with `scripts/legal-pages.test.mjs`) fails when a committed
+  page differs from the render of its sources. The pricing page shares the legal pages' style block, so the four carry one CSP hash. Footer links to
+  the three pages sit on the home, pricing and not-found pages, and the pages are in `web/sitemap.xml`.
 - `TERMS.md`: the 90-calendar-day case ceiling counts only Kolwen's own days and pauses while the customer's answer window and appeal-filing window are open, in English and Thai; the open question to counsel on a missed Kolwen deadline during an appeal is named in the enforcement marker.
 - The enforcement process in `TERMS.md` now covers a customer who does not answer: when the 14 business days close with
   no answer, Kolwen still decides in writing within 7 business days, on the evidence it holds, and the appeal right is
