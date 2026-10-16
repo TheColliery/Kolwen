@@ -1,0 +1,13 @@
+# Kolwen
+
+> Kolwen is a verifiable AI assistant. It is in development and not yet available: nothing can be bought, and the pages marked draft are not in force.
+
+The site is in English and Thai.
+
+## Pages
+
+- [Home](https://kolwen.com/): what Kolwen is and its status
+- [Pricing](https://kolwen.com/pricing): the planned plans and their US prices; nothing can be bought yet
+- [Terms](https://kolwen.com/terms): the draft terms; not in force, and parts wait for legal review
+- [Privacy](https://kolwen.com/privacy): the draft privacy notice; parts wait for legal review
+- [Refunds](https://kolwen.com/refund): the draft refund terms; parts wait for legal review

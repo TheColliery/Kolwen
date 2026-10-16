@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy — Kolwen</title>
+<meta name="description" content="Kolwen privacy notice: a draft. It states what this site does today, and parts of it wait for review by counsel.">
+<link rel="canonical" href="https://kolwen.com/privacy">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#15130f">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0f0d0b;--bg2:#15130f;--card:#1a1714;--line:rgba(255,255,255,.08);--txt:#ece4d9;--txt2:#a89a8c;--quiet:#a2968a;--accent:#e8833a;--accent2:#ffbb7a}
+  *{box-sizing:border-box;margin:0}
+  body{background:radial-gradient(circle at 20% 0%,rgba(232,131,58,.07),transparent 55%),var(--bg);color:var(--txt);font-family:'IBM Plex Sans Thai',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:72px 20px 32px;line-height:1.6}
+  main{max-width:720px;width:100%;display:flex;flex-direction:column;gap:28px}
+  .langbar{position:fixed;top:0;right:0;z-index:10;display:flex;gap:6px;padding:12px 16px}
+  .langbar button{font:inherit;font-size:12.5px;color:var(--quiet);background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;min-height:34px;cursor:pointer}
+  .langbar button:hover{border-color:rgba(232,131,58,.4);color:var(--accent2)}
+  .langbar button[aria-pressed="true"]{color:var(--accent2);border-color:rgba(232,131,58,.55);background:rgba(232,131,58,.10)}
+  a:focus-visible,button:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
+  .mark{display:flex;align-items:center;gap:12px;color:inherit;text-decoration:none}
+  .glyph{flex:none;display:block}
+  .name{font-size:34px;font-weight:700;letter-spacing:.01em}
+  .thai{font-size:15px;color:var(--quiet);font-weight:500}
+  h1{font-size:24px;font-weight:600;line-height:1.5}
+  .sub{color:var(--txt2);font-size:14.5px;margin-top:8px}
+  .card{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:18px 20px;display:flex;flex-direction:column;gap:10px}
+  .card h2,.card h3{font-size:13px;font-weight:600;color:var(--quiet);letter-spacing:.04em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace}
+  .card p,.card li{font-size:14.5px;color:var(--txt2)}
+  .card strong{color:var(--txt);font-weight:600}
+  .card ul{padding-left:20px;display:flex;flex-direction:column;gap:6px}
+  .card code{font-family:'IBM Plex Mono',monospace;font-size:13.5px;color:var(--txt)}
+  .plans{width:100%;border-collapse:collapse;font-size:14px}
+  .plans caption{text-align:left;padding:0 0 8px;font-size:12.5px;color:var(--quiet);font-family:'IBM Plex Mono',monospace}
+  .plans th,.plans td{text-align:left;padding:8px 10px 8px 0;border-bottom:1px solid var(--line);color:var(--txt2);font-weight:400;vertical-align:middle}
+  .plans thead th{font-size:12.5px;color:var(--quiet);font-family:'IBM Plex Mono',monospace}
+  .plans tbody th{color:var(--txt);font-weight:600}
+  .plans tbody th small{display:block;font-size:12.5px;color:var(--quiet);font-weight:400}
+  .plans button,.pcard button{font:inherit;font-size:12.5px;color:var(--quiet);background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;min-height:34px;cursor:not-allowed}
+  .ch{display:flex;flex-wrap:wrap;gap:8px}
+  .ch a{color:var(--txt);text-decoration:none;font-size:13.5px;border:1px solid var(--line);border-radius:9px;padding:7px 12px;background:var(--bg2);display:inline-flex;align-items:center;gap:7px;min-height:44px}
+  .ch a:hover{border-color:rgba(232,131,58,.4);color:var(--accent2)}
+  footer{margin-top:6px;font-size:12px;color:var(--quiet);display:flex;flex-direction:column;gap:4px}
+  #doc-en > * + *,#doc-th > * + *{margin-top:28px}
+  .banner{border:1px solid rgba(232,131,58,.45);background:rgba(232,131,58,.08);border-radius:10px;padding:12px 14px;font-size:14.5px;color:var(--txt);margin-top:14px}
+  .legal{display:flex;flex-direction:column;gap:14px}
+  .legal > * + *{margin-top:0}
+  .legal h2{font-size:18px;font-weight:600;line-height:1.5;margin-top:14px}
+  .legal h3{font-size:15.5px;font-weight:600;line-height:1.5;margin-top:6px}
+  .legal p,.legal li{font-size:14.5px;color:var(--txt2);overflow-wrap:anywhere}
+  .legal strong{color:var(--txt);font-weight:600}
+  .legal ul,.legal ol{padding-left:22px;display:flex;flex-direction:column;gap:8px}
+  .legal code{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--txt);overflow-wrap:anywhere}
+  .pending{color:var(--quiet) !important;font-style:italic}
+  .bill{display:flex;flex-wrap:wrap;gap:8px;align-items:center;position:relative}
+  .bill > input{position:absolute;opacity:0;width:1px;height:1px;margin:0}
+  .bill > label{font-size:13.5px;color:var(--quiet);background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:8px 14px;min-height:40px;display:inline-flex;align-items:center;cursor:pointer}
+  .bill > input:checked + label{color:var(--accent2);border-color:rgba(232,131,58,.55);background:rgba(232,131,58,.10)}
+  .bill > input:focus-visible + label{outline:2px solid var(--accent2);outline-offset:2px}
+  .bill .pcards{flex-basis:100%;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-top:6px}
+  .bill > input[value="y"]:checked ~ .pcards .mo{display:none}
+  .bill > input[value="m"]:checked ~ .pcards .yr{display:none}
+  .pcard{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:16px 18px;display:flex;flex-direction:column;gap:8px}
+  .pcard h3{font-size:18px;font-weight:600;color:var(--txt);font-family:inherit;text-transform:none;letter-spacing:0}
+  .faq h3{font-size:15px;font-weight:600;color:var(--txt);font-family:inherit;text-transform:none;letter-spacing:0}
+  .card a,.legal a{color:var(--accent2)}
+  .pcard .badge{font-size:12.5px;color:var(--quiet);font-family:'IBM Plex Mono',monospace}
+  .pcard .price{font-size:26px;font-weight:700;color:var(--txt)}
+  .pcard ul{padding-left:18px;display:flex;flex-direction:column;gap:5px}
+  .pcard li{font-size:14px;color:var(--txt2)}
+  .note{font-size:13px;color:var(--quiet)}
+  [hidden]{display:none !important}
+  @media (max-width:420px){.name{font-size:28px}h1{font-size:20px}.plans th,.plans td{padding-right:6px;font-size:13px}.plans button{padding:6px 8px}}
+</style>
+<noscript><style>
+  .langbar{display:none}
+  #doc-th{display:block !important;border-top:1px solid var(--line);padding-top:28px}
+</style></noscript>
+</head>
+<body>
+<nav class="langbar" aria-label="Language">
+  <button type="button" id="lang-en" lang="en" aria-pressed="true">English</button>
+  <button type="button" id="lang-th" lang="th" aria-pressed="false">ไทย</button>
+</nav>
+<main>
+  <a class="mark" href="/" aria-label="Kolwen home">
+    <svg class="glyph" viewBox="0 0 100 100" width="34" height="34" aria-hidden="true" fill="#e8833a">
+      <rect x="8.5" y="9.1" width="64.3" height="25"/>
+      <rect x="17.85" y="46.25" width="64.3" height="19.66"/>
+      <rect x="27.2" y="75.46" width="64.3" height="15.45"/>
+    </svg>
+    <span class="name">Kolwen</span>
+    <span class="thai" lang="th">โคลเวน</span>
+  </a>
+
+  <div id="doc-en" lang="en">
+    <div>
+      <h1>Privacy</h1>
+      <p class="banner" role="note">This page is a draft. It is not in force, nothing is for sale, and parts of it wait for review by counsel.</p>
+    </div>
+    <div class="legal">
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="t">Kolwen has not launched. This page describes what <strong>kolwen.com</strong> does today, and says plainly which parts change on the day the assistant itself ships.</p>
+      <h2>What this site is</h2>
+      <p class="t">Static pages, served by a Cloudflare Worker. <strong>The Worker runs no code of ours</strong>—it is configured with an assets directory and nothing else, with no <code>main</code> entry point, so there is no request handler, no logging, and no storage on our side.</p>
+      <p class="t"><em>Measured: <code>grep -nE &#39;^[[:space:]]*&quot;main&quot;&#39; wrangler.jsonc</code> returns nothing; the config declares a name, a compatibility date, the <code>assets</code> block and an empty <code>previews</code> block, and no binding, variable or secret.</em></p>
+      <h2>Cookies</h2>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="t"><em>Measured: <code>curl -sI https://kolwen.com/</code> and the same on an asset—no <code>Set-Cookie</code> header on either (re-measured 2026-10-08, after the zone&#39;s JavaScript Detections were switched off).</em></p>
+      <p class="t"><strong>A note on what could change that:</strong> per Cloudflare&#39;s own cookie and clearance pages (read 2026-10-08), Bot Fight Mode sets the <code>__cf_bm</code> cookie, and Turnstile sets <code>cf_clearance</code> only when its pre-clearance option is enabled. If either is ever switched on for this site, the sentence above, &quot;no cookies at all&quot;, would be reworded the same day. Both are off today.</p>
+      <p class="t">Your language choice (English or Thai) is stored in your browser&#39;s <code>localStorage</code>, which is not a cookie, is never sent to a server, and never leaves your device. Clearing your browser data removes it.</p>
+      <p class="t"><em>Measured: <code>web/index.html</code> uses <code>localStorage.setItem</code> / <code>getItem</code> for one key, and nothing else.</em></p>
+      <h3>When the assistant ships, this changes, and here is exactly how</h3>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <h2>Who else sees your request</h2>
+      <p class="t"><strong>Cloudflare</strong> serves this site, so it necessarily handles your request: your IP address, the URL you asked for, and your browser&#39;s user-agent reach their edge before any bytes reach you. That is how any hosted site works, and it is not something we can turn off while remaining online. Cloudflare no longer injects its bot-detection script into the served HTML: the zone&#39;s JavaScript Detections setting was switched off on 2026-10-07, and Bot Fight Mode is off.</p>
+      <p class="t"><em>Measured 2026-10-08: <code>curl -s https://kolwen.com/ | grep -c challenge-platform</code> prints 0.</em></p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="t"><strong>Google Fonts</strong> serves the two typefaces the page uses, so your browser makes a request to Google when the page loads. That request carries your IP address to Google.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="t">Self-hosting the fonts would remove this last third party. It is an open decision, not an oversight.</p>
+      <h2>Age</h2>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <h2>Contact</h2>
+      <p class="t"><code>privacy@kolwen.com</code> reaches the maintainer. Anything you send there is read by a person.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <h2>What we do not do</h2>
+      <ul><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li><li class="t">No account, no sign-up, and nothing to log in to.</li><li class="t">Kolwen&#39;s own systems—the site and its Worker—collect and store nothing, so there is nothing there to sell or share. <strong>Three parties outside those systems do handle data, as this notice already says:</strong> Cloudflare handles every request; Google Fonts receives your IP address when the page loads; and the mailbox behind the contact address holds what you send to it. What each retains cannot be measured from this repository.</li></ul>
+      <h2>When the assistant ships</h2>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <ul><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li></ul>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <ul><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li></ul>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <ul><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li></ul>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <ul><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li></ul>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <h2>Changes</h2>
+      <p class="t">This notice is versioned with the site in git; its history is the change log. There is no separate &quot;last updated&quot; line to fall out of date.</p>
+      <p class="pending">[pending legal review] Full Thai versions of the Terms, the Refunds and the Privacy pages, equal in substance to the English, are still to come.</p>
+    </div>
+
+    <nav class="ch" aria-label="Pages">
+      <a href="/">Home</a>
+      <a href="/pricing">Plans</a>
+      <a href="/terms">Terms</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/refund">Refunds</a>
+    </nav>
+
+    <footer>
+      <span>© 2026 Kolwen · trademark application pending</span>
+      <span>This page: your language choice is stored locally in your browser · fonts are loaded from Google Fonts</span>
+    </footer>
+  </div>
+
+  <div id="doc-th" lang="th" hidden>
+    <div>
+      <h1>ความเป็นส่วนตัว</h1>
+      <p class="banner" role="note">หน้านี้เป็นฉบับร่าง ยังไม่มีผลใช้บังคับ ยังไม่มีสินค้าให้ซื้อ และบางส่วนรอที่ปรึกษากฎหมายตรวจสอบ</p>
+    </div>
+    <div class="legal">
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="t" lang="en">Kolwen has not launched. This page describes what <strong>kolwen.com</strong> does today, and says plainly which parts change on the day the assistant itself ships.</p>
+      <h2 lang="en">What this site is</h2>
+      <p class="t" lang="en">Static pages, served by a Cloudflare Worker. <strong>The Worker runs no code of ours</strong>—it is configured with an assets directory and nothing else, with no <code>main</code> entry point, so there is no request handler, no logging, and no storage on our side.</p>
+      <p class="t" lang="en"><em>Measured: <code>grep -nE &#39;^[[:space:]]*&quot;main&quot;&#39; wrangler.jsonc</code> returns nothing; the config declares a name, a compatibility date, the <code>assets</code> block and an empty <code>previews</code> block, and no binding, variable or secret.</em></p>
+      <h2 lang="en">Cookies</h2>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="t" lang="en"><em>Measured: <code>curl -sI https://kolwen.com/</code> and the same on an asset—no <code>Set-Cookie</code> header on either (re-measured 2026-10-08, after the zone&#39;s JavaScript Detections were switched off).</em></p>
+      <p class="t" lang="en"><strong>A note on what could change that:</strong> per Cloudflare&#39;s own cookie and clearance pages (read 2026-10-08), Bot Fight Mode sets the <code>__cf_bm</code> cookie, and Turnstile sets <code>cf_clearance</code> only when its pre-clearance option is enabled. If either is ever switched on for this site, the sentence above, &quot;no cookies at all&quot;, would be reworded the same day. Both are off today.</p>
+      <p class="t" lang="en">Your language choice (English or Thai) is stored in your browser&#39;s <code>localStorage</code>, which is not a cookie, is never sent to a server, and never leaves your device. Clearing your browser data removes it.</p>
+      <p class="t" lang="en"><em>Measured: <code>web/index.html</code> uses <code>localStorage.setItem</code> / <code>getItem</code> for one key, and nothing else.</em></p>
+      <h3 lang="en">When the assistant ships, this changes, and here is exactly how</h3>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <h2 lang="en">Who else sees your request</h2>
+      <p class="t" lang="en"><strong>Cloudflare</strong> serves this site, so it necessarily handles your request: your IP address, the URL you asked for, and your browser&#39;s user-agent reach their edge before any bytes reach you. That is how any hosted site works, and it is not something we can turn off while remaining online. Cloudflare no longer injects its bot-detection script into the served HTML: the zone&#39;s JavaScript Detections setting was switched off on 2026-10-07, and Bot Fight Mode is off.</p>
+      <p class="t" lang="en"><em>Measured 2026-10-08: <code>curl -s https://kolwen.com/ | grep -c challenge-platform</code> prints 0.</em></p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="t" lang="en"><strong>Google Fonts</strong> serves the two typefaces the page uses, so your browser makes a request to Google when the page loads. That request carries your IP address to Google.</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="t" lang="en">Self-hosting the fonts would remove this last third party. It is an open decision, not an oversight.</p>
+      <h2 lang="en">Age</h2>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <h2 lang="en">Contact</h2>
+      <p class="t" lang="en"><code>privacy@kolwen.com</code> reaches the maintainer. Anything you send there is read by a person.</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <h2 lang="en">What we do not do</h2>
+      <ul><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li><li class="t" lang="en">No account, no sign-up, and nothing to log in to.</li><li class="t" lang="en">Kolwen&#39;s own systems—the site and its Worker—collect and store nothing, so there is nothing there to sell or share. <strong>Three parties outside those systems do handle data, as this notice already says:</strong> Cloudflare handles every request; Google Fonts receives your IP address when the page loads; and the mailbox behind the contact address holds what you send to it. What each retains cannot be measured from this repository.</li></ul>
+      <h2 lang="en">When the assistant ships</h2>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <ul><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li></ul>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <ul><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li></ul>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <ul><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li></ul>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <ul><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li></ul>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <h2 lang="en">Changes</h2>
+      <p class="t" lang="en">This notice is versioned with the site in git; its history is the change log. There is no separate &quot;last updated&quot; line to fall out of date.</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ฉบับภาษาไทยเต็มของข้อกำหนด การคืนเงิน และความเป็นส่วนตัว ที่เนื้อหาเท่ากับฉบับภาษาอังกฤษ ยังจะตามมา</p>
+    </div>
+
+    <nav class="ch" aria-label="หน้าอื่น">
+      <a href="/">หน้าแรก</a>
+      <a href="/pricing">แผน</a>
+      <a href="/terms">ข้อกำหนด</a>
+      <a href="/privacy">ความเป็นส่วนตัว</a>
+      <a href="/refund">การคืนเงิน</a>
+    </nav>
+
+    <footer>
+      <span>© 2026 Kolwen · เครื่องหมายการค้าอยู่ระหว่างการจดทะเบียน</span>
+      <span>หน้านี้: ภาษาที่เลือกถูกเก็บไว้ในเบราว์เซอร์ของคุณ · ฟอนต์โหลดจาก Google Fonts</span>
+    </footer>
+  </div>
+</main>
+<script>
+(function () {
+  var KEY = 'kolwen-lang';
+  var en = document.getElementById('doc-en');
+  var th = document.getElementById('doc-th');
+  var bEn = document.getElementById('lang-en');
+  var bTh = document.getElementById('lang-th');
+
+  function apply(lang, persist) {
+    var thai = lang === 'th';
+    th.hidden = !thai;
+    en.hidden = thai;
+    document.documentElement.lang = thai ? 'th' : 'en';
+    bTh.setAttribute('aria-pressed', String(thai));
+    bEn.setAttribute('aria-pressed', String(!thai));
+    if (persist) {
+      // Language preference only. localStorage, never a cookie: it is a
+      // client-only concern that never needs to ride on an HTTP request.
+      try { localStorage.setItem(KEY, lang); } catch (e) {}
+    }
+  }
+
+  var saved = null;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  if (saved === 'th' || saved === 'en') apply(saved, false);
+
+  bEn.addEventListener('click', function () { apply('en', true); });
+  bTh.addEventListener('click', function () { apply('th', true); });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terms — Kolwen</title>
+<meta name="description" content="Kolwen terms: a draft, not in force. Nothing is for sale, and parts of it wait for review by counsel.">
+<link rel="canonical" href="https://kolwen.com/terms">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#15130f">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0f0d0b;--bg2:#15130f;--card:#1a1714;--line:rgba(255,255,255,.08);--txt:#ece4d9;--txt2:#a89a8c;--quiet:#a2968a;--accent:#e8833a;--accent2:#ffbb7a}
+  *{box-sizing:border-box;margin:0}
+  body{background:radial-gradient(circle at 20% 0%,rgba(232,131,58,.07),transparent 55%),var(--bg);color:var(--txt);font-family:'IBM Plex Sans Thai',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:72px 20px 32px;line-height:1.6}
+  main{max-width:720px;width:100%;display:flex;flex-direction:column;gap:28px}
+  .langbar{position:fixed;top:0;right:0;z-index:10;display:flex;gap:6px;padding:12px 16px}
+  .langbar button{font:inherit;font-size:12.5px;color:var(--quiet);background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;min-height:34px;cursor:pointer}
+  .langbar button:hover{border-color:rgba(232,131,58,.4);color:var(--accent2)}
+  .langbar button[aria-pressed="true"]{color:var(--accent2);border-color:rgba(232,131,58,.55);background:rgba(232,131,58,.10)}
+  a:focus-visible,button:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
+  .mark{display:flex;align-items:center;gap:12px;color:inherit;text-decoration:none}
+  .glyph{flex:none;display:block}
+  .name{font-size:34px;font-weight:700;letter-spacing:.01em}
+  .thai{font-size:15px;color:var(--quiet);font-weight:500}
+  h1{font-size:24px;font-weight:600;line-height:1.5}
+  .sub{color:var(--txt2);font-size:14.5px;margin-top:8px}
+  .card{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:18px 20px;display:flex;flex-direction:column;gap:10px}
+  .card h2,.card h3{font-size:13px;font-weight:600;color:var(--quiet);letter-spacing:.04em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace}
+  .card p,.card li{font-size:14.5px;color:var(--txt2)}
+  .card strong{color:var(--txt);font-weight:600}
+  .card ul{padding-left:20px;display:flex;flex-direction:column;gap:6px}
+  .card code{font-family:'IBM Plex Mono',monospace;font-size:13.5px;color:var(--txt)}
+  .plans{width:100%;border-collapse:collapse;font-size:14px}
+  .plans caption{text-align:left;padding:0 0 8px;font-size:12.5px;color:var(--quiet);font-family:'IBM Plex Mono',monospace}
+  .plans th,.plans td{text-align:left;padding:8px 10px 8px 0;border-bottom:1px solid var(--line);color:var(--txt2);font-weight:400;vertical-align:middle}
+  .plans thead th{font-size:12.5px;color:var(--quiet);font-family:'IBM Plex Mono',monospace}
+  .plans tbody th{color:var(--txt);font-weight:600}
+  .plans tbody th small{display:block;font-size:12.5px;color:var(--quiet);font-weight:400}
+  .plans button,.pcard button{font:inherit;font-size:12.5px;color:var(--quiet);background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;min-height:34px;cursor:not-allowed}
+  .ch{display:flex;flex-wrap:wrap;gap:8px}
+  .ch a{color:var(--txt);text-decoration:none;font-size:13.5px;border:1px solid var(--line);border-radius:9px;padding:7px 12px;background:var(--bg2);display:inline-flex;align-items:center;gap:7px;min-height:44px}
+  .ch a:hover{border-color:rgba(232,131,58,.4);color:var(--accent2)}
+  footer{margin-top:6px;font-size:12px;color:var(--quiet);display:flex;flex-direction:column;gap:4px}
+  #doc-en > * + *,#doc-th > * + *{margin-top:28px}
+  .banner{border:1px solid rgba(232,131,58,.45);background:rgba(232,131,58,.08);border-radius:10px;padding:12px 14px;font-size:14.5px;color:var(--txt);margin-top:14px}
+  .legal{display:flex;flex-direction:column;gap:14px}
+  .legal > * + *{margin-top:0}
+  .legal h2{font-size:18px;font-weight:600;line-height:1.5;margin-top:14px}
+  .legal h3{font-size:15.5px;font-weight:600;line-height:1.5;margin-top:6px}
+  .legal p,.legal li{font-size:14.5px;color:var(--txt2);overflow-wrap:anywhere}
+  .legal strong{color:var(--txt);font-weight:600}
+  .legal ul,.legal ol{padding-left:22px;display:flex;flex-direction:column;gap:8px}
+  .legal code{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--txt);overflow-wrap:anywhere}
+  .pending{color:var(--quiet) !important;font-style:italic}
+  .bill{display:flex;flex-wrap:wrap;gap:8px;align-items:center;position:relative}
+  .bill > input{position:absolute;opacity:0;width:1px;height:1px;margin:0}
+  .bill > label{font-size:13.5px;color:var(--quiet);background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:8px 14px;min-height:40px;display:inline-flex;align-items:center;cursor:pointer}
+  .bill > input:checked + label{color:var(--accent2);border-color:rgba(232,131,58,.55);background:rgba(232,131,58,.10)}
+  .bill > input:focus-visible + label{outline:2px solid var(--accent2);outline-offset:2px}
+  .bill .pcards{flex-basis:100%;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-top:6px}
+  .bill > input[value="y"]:checked ~ .pcards .mo{display:none}
+  .bill > input[value="m"]:checked ~ .pcards .yr{display:none}
+  .pcard{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:16px 18px;display:flex;flex-direction:column;gap:8px}
+  .pcard h3{font-size:18px;font-weight:600;color:var(--txt);font-family:inherit;text-transform:none;letter-spacing:0}
+  .faq h3{font-size:15px;font-weight:600;color:var(--txt);font-family:inherit;text-transform:none;letter-spacing:0}
+  .card a,.legal a{color:var(--accent2)}
+  .pcard .badge{font-size:12.5px;color:var(--quiet);font-family:'IBM Plex Mono',monospace}
+  .pcard .price{font-size:26px;font-weight:700;color:var(--txt)}
+  .pcard ul{padding-left:18px;display:flex;flex-direction:column;gap:5px}
+  .pcard li{font-size:14px;color:var(--txt2)}
+  .note{font-size:13px;color:var(--quiet)}
+  [hidden]{display:none !important}
+  @media (max-width:420px){.name{font-size:28px}h1{font-size:20px}.plans th,.plans td{padding-right:6px;font-size:13px}.plans button{padding:6px 8px}}
+</style>
+<noscript><style>
+  .langbar{display:none}
+  #doc-th{display:block !important;border-top:1px solid var(--line);padding-top:28px}
+</style></noscript>
+</head>
+<body>
+<nav class="langbar" aria-label="Language">
+  <button type="button" id="lang-en" lang="en" aria-pressed="true">English</button>
+  <button type="button" id="lang-th" lang="th" aria-pressed="false">ไทย</button>
+</nav>
+<main>
+  <a class="mark" href="/" aria-label="Kolwen home">
+    <svg class="glyph" viewBox="0 0 100 100" width="34" height="34" aria-hidden="true" fill="#e8833a">
+      <rect x="8.5" y="9.1" width="64.3" height="25"/>
+      <rect x="17.85" y="46.25" width="64.3" height="19.66"/>
+      <rect x="27.2" y="75.46" width="64.3" height="15.45"/>
+    </svg>
+    <span class="name">Kolwen</span>
+    <span class="thai" lang="th">โคลเวน</span>
+  </a>
+
+  <div id="doc-en" lang="en">
+    <div>
+      <h1>Terms</h1>
+      <p class="banner" role="note">This page is a draft. It is not in force, nothing is for sale, and parts of it wait for review by counsel.</p>
+    </div>
+    <div class="legal">
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <h2>Customer Content and training</h2>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <h2>Rights in Inputs and Outputs</h2>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <h2>Who you are contracting with</h2>
+      <p class="t">Payment for a key, a subscription or credits is taken by Paddle as the merchant of record, under Paddle&#39;s own buyer terms. These Terms cover the licence to use Kolwen and Kolwen&#39;s own policies; the purchase contract itself sits with Paddle.</p>
+      <h2>Age</h2>
+      <p class="t">You must be at least 18, or the age at which the law of the place where you are lets you consent, whichever is higher. At sign-up you confirm this. Kolwen does not ask for, or keep, an image of any identity document. If the way an account is used shows that its holder is under that age, the account is disabled and the unused part is refunded.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <h2>Outputs and training</h2>
+      <p class="t">You own the Outputs you generate. Kolwen assigns to you any right, title and interest it has in them, if any, and claims no licence back. Outputs may not be unique: Kolwen may generate similar outputs for other users, and the assignment gives you no right against that.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <h2>Keys, subscriptions and credits</h2>
+      <p class="t">A <strong>key</strong> is a time-boxed licence to use Kolwen, sold once through Paddle. It gives you exactly what a subscriber has for the same number of days: key and subscription differ in how they are paid for, not in what they unlock. A <strong>subscription</strong> renews until you cancel it. <strong>Credits</strong> are prepaid units of Kolwen&#39;s own metered service: they are used only at Kolwen, cannot be moved to anyone else, and cannot be cashed out.</p>
+      <p class="t">A key is a licence to consume, not a thing you own. It is <strong>non-transferable and binds to your account when you activate it.</strong> Before activation a key can be given as a gift; after activation it is yours alone.</p>
+      <h2>Limits on keys</h2>
+      <p class="t">These limits exist to stop bulk buying for resale, and are set at what one household should need.</p>
+      <ul><li class="t"><strong>2 keys per order.</strong></li><li class="t"><strong>4 keys per account per sale window, or per rolling 30 days</strong> (all key lengths counted together).</li><li class="t"><strong>A key adds time to your account</strong> (keys stack), up to a <strong>36-month ceiling</strong>.</li><li class="t"><strong>An unredeemed key expires 12 months after purchase.</strong></li></ul>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <h2>Refunds</h2>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <ul><li class="t"><strong>An unredeemed key is refunded in full within 14 days of purchase.</strong> Nothing was used, so the key is simply voided.</li><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li><li class="t">When Kolwen ends the contract without cause, it refunds the unused part (see &quot;Ending the contract&quot;).</li></ul>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <h2>Ending the contract</h2>
+      <p class="t"><strong>By Kolwen without cause.</strong> Kolwen refunds the unused part: a key&#39;s remaining days, a subscription&#39;s remaining current period, and unused credits at the price paid.</p>
+      <p class="t"><strong>By Kolwen for your fault</strong> (a breach of the acceptable-use process below, or a chargeback). This runs as a process, not a summary punishment: see &quot;Acceptable use and how it is enforced&quot;.</p>
+      <p class="t"><strong>By you.</strong> You may stop using Kolwen at any time. A refund follows the Refunds section.</p>
+      <h2>Changes to these Terms</h2>
+      <p class="t">Kolwen gives <strong>30 days&#39; notice</strong> of a material change, by email to the address on your account <strong>and</strong> by a banner on the site and in the app. A change forced by law, security or abuse prevention takes effect at once. If you reject a changed term, you may end the contract and you are refunded the unused part, as in &quot;Ending the contract&quot;. At your first sign-in after a change takes effect, you see a one-time screen to review and accept it. A public dated record of each change to these Terms is kept. If an email bounces, that is logged and the in-app screen carries the notice.</p>
+      <h2>Limit of liability</h2>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <h2>Governing law and courts</h2>
+      <p class="t">Thai law governs these Terms, and the Thai courts have jurisdiction. Your rights as a consumer under the law of the place where you live are not taken away by this clause. There is no arbitration clause.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <h2>Acceptable use and how it is enforced</h2>
+      <p class="t"><strong>The list of prohibited conduct is not written yet.</strong> It is an open decision for the owner and counsel, and this section does not guess at it. What is written is how Kolwen acts when it believes a customer has broken a rule, which is a process, in this order:</p>
+      <ol><li class="t"><strong>Notice.</strong> Kolwen tells you which clause it believes you broke and gives a summary of the evidence.</li><li class="t"><strong>Suspension, not termination,</strong> while the case is open. If the product is a key, its clock of days stops for the whole case.</li><li class="t"><strong>A window to answer.</strong> You have <strong>14 business days</strong> to answer the notice. If the window closes with no answer, the case is still decided, as step 4 says.</li><li class="t"><strong>A written decision,</strong> within <strong>7 business days</strong> after your answer or, if you give no answer, within <strong>7 business days</strong> after the 14 business days close, on the evidence Kolwen holds. Either the case is dismissed and the account and its key are restored in full, or it is upheld. An upheld decision does not end the contract at once: the account stays suspended, and the key&#39;s clock stays stopped, through the appeal window of step 5 and through any appeal.</li><li class="t"><strong>One appeal to a human</strong> against an upheld decision. You have <strong>30 business days</strong> after the written decision to file it, through <strong>appeals@kolwen.com</strong>, and Kolwen answers within <strong>14 business days</strong>. If the appeal succeeds, the account and its key are restored in full. The contract is terminated, with no refund, only when the appeal is dismissed or the 30 business days pass with no appeal filed.</li><li class="t"><strong>A register of cases</strong> is kept, so that the same conduct draws the same answer.</li></ol>
+      <p class="pending">[pending legal review] In this section only legal working days in Thailand count as business days. The exact definition is waiting for review.</p>
+      <p class="t"><strong>A ceiling and what a missed deadline does.</strong> The case ceiling is <strong>90 calendar days</strong> of Kolwen&#39;s own time, counted from the date of the notice. The count pauses while your 14-business-day window to answer is open, from the notice until you answer or the 14 business days close, whichever comes first, and while your 30-business-day window to file an appeal is open, from the written decision until you file the appeal or the 30 business days close, whichever comes first. Only the days outside those windows count toward the 90. If Kolwen misses a deadline of its own (the 7 business days for the decision, the 14 business days for the appeal answer, or the 90-day ceiling), the suspension, including one that follows an upheld decision, is lifted and the key comes back into use. If a deadline of yours lapses (the 14 business days to answer, or the 30 business days to appeal), the case proceeds to its next step.</p>
+      <p class="t"><strong>Chargebacks run on Paddle&#39;s track.</strong> A bank dispute is handled through Paddle as merchant of record, and Paddle asks Kolwen for evidence. The account is <strong>suspended</strong> when a chargeback is filed, because the money is gone. It is <strong>restored</strong> if the dispute resolves in Kolwen&#39;s favour or you pay again, and <strong>terminated only when the dispute closes against Kolwen.</strong> Kolwen does not argue a chargeback with you directly.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <ol><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li><li class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</li></ol>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <h2>Retention</h2>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <p class="pending">[pending legal review] This part is waiting for legal review and is not shown yet.</p>
+      <h2>Status of this document</h2>
+      <p class="t">Nothing here is in force. There is no service to buy, no account to open, and no contract formed by this file. It exists so the shape can be read and corrected before it matters.</p>
+      <p class="pending">[pending legal review] Full Thai versions of the Terms, the Refunds and the Privacy pages, equal in substance to the English, are still to come.</p>
+    </div>
+
+    <nav class="ch" aria-label="Pages">
+      <a href="/">Home</a>
+      <a href="/pricing">Plans</a>
+      <a href="/terms">Terms</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/refund">Refunds</a>
+    </nav>
+
+    <footer>
+      <span>© 2026 Kolwen · trademark application pending</span>
+      <span>This page: your language choice is stored locally in your browser · fonts are loaded from Google Fonts</span>
+    </footer>
+  </div>
+
+  <div id="doc-th" lang="th" hidden>
+    <div>
+      <h1>ข้อกำหนด</h1>
+      <p class="banner" role="note">หน้านี้เป็นฉบับร่าง ยังไม่มีผลใช้บังคับ ยังไม่มีสินค้าให้ซื้อ และบางส่วนรอที่ปรึกษากฎหมายตรวจสอบ</p>
+    </div>
+    <div class="legal">
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <h2 lang="en">Customer Content and training</h2>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <h2 lang="en">Rights in Inputs and Outputs</h2>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <h2 lang="en">Who you are contracting with</h2>
+      <p class="t">Paddle เป็นผู้รับชำระเงินสำหรับคีย์ การสมัครสมาชิก หรือเครดิต ในฐานะผู้ขายตามกฎหมาย (merchant of record) ตามข้อกำหนดผู้ซื้อของ Paddle เอง ข้อกำหนดนี้ครอบคลุมสิทธิใช้ Kolwen และนโยบายของ Kolwen เอง ส่วนสัญญาซื้อขายอยู่กับ Paddle</p>
+      <h2 lang="en">Age</h2>
+      <p class="t" lang="en">You must be at least 18, or the age at which the law of the place where you are lets you consent, whichever is higher. At sign-up you confirm this. Kolwen does not ask for, or keep, an image of any identity document. If the way an account is used shows that its holder is under that age, the account is disabled and the unused part is refunded.</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <h2 lang="en">Outputs and training</h2>
+      <p class="t" lang="en">You own the Outputs you generate. Kolwen assigns to you any right, title and interest it has in them, if any, and claims no licence back. Outputs may not be unique: Kolwen may generate similar outputs for other users, and the assignment gives you no right against that.</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <h2 lang="en">Keys, subscriptions and credits</h2>
+      <p class="t" lang="en">A <strong>key</strong> is a time-boxed licence to use Kolwen, sold once through Paddle. It gives you exactly what a subscriber has for the same number of days: key and subscription differ in how they are paid for, not in what they unlock. A <strong>subscription</strong> renews until you cancel it. <strong>Credits</strong> are prepaid units of Kolwen&#39;s own metered service: they are used only at Kolwen, cannot be moved to anyone else, and cannot be cashed out.</p>
+      <p class="t" lang="en">A key is a licence to consume, not a thing you own. It is <strong>non-transferable and binds to your account when you activate it.</strong> Before activation a key can be given as a gift; after activation it is yours alone.</p>
+      <h2 lang="en">Limits on keys</h2>
+      <p class="t" lang="en">These limits exist to stop bulk buying for resale, and are set at what one household should need.</p>
+      <ul><li class="t" lang="en"><strong>2 keys per order.</strong></li><li class="t" lang="en"><strong>4 keys per account per sale window, or per rolling 30 days</strong> (all key lengths counted together).</li><li class="t" lang="en"><strong>A key adds time to your account</strong> (keys stack), up to a <strong>36-month ceiling</strong>.</li><li class="t" lang="en"><strong>An unredeemed key expires 12 months after purchase.</strong></li></ul>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <h2 lang="en">Refunds</h2>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <ul><li class="t" lang="en"><strong>An unredeemed key is refunded in full within 14 days of purchase.</strong> Nothing was used, so the key is simply voided.</li><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li><li class="t" lang="en">When Kolwen ends the contract without cause, it refunds the unused part (see &quot;Ending the contract&quot;).</li></ul>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <h2 lang="en">Ending the contract</h2>
+      <p class="t" lang="en"><strong>By Kolwen without cause.</strong> Kolwen refunds the unused part: a key&#39;s remaining days, a subscription&#39;s remaining current period, and unused credits at the price paid.</p>
+      <p class="t" lang="en"><strong>By Kolwen for your fault</strong> (a breach of the acceptable-use process below, or a chargeback). This runs as a process, not a summary punishment: see &quot;Acceptable use and how it is enforced&quot;.</p>
+      <p class="t" lang="en"><strong>By you.</strong> You may stop using Kolwen at any time. A refund follows the Refunds section.</p>
+      <h2 lang="en">Changes to these Terms</h2>
+      <p class="t" lang="en">Kolwen gives <strong>30 days&#39; notice</strong> of a material change, by email to the address on your account <strong>and</strong> by a banner on the site and in the app. A change forced by law, security or abuse prevention takes effect at once. If you reject a changed term, you may end the contract and you are refunded the unused part, as in &quot;Ending the contract&quot;. At your first sign-in after a change takes effect, you see a one-time screen to review and accept it. A public dated record of each change to these Terms is kept. If an email bounces, that is logged and the in-app screen carries the notice.</p>
+      <h2 lang="en">Limit of liability</h2>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <h2 lang="en">Governing law and courts</h2>
+      <p class="t" lang="en">Thai law governs these Terms, and the Thai courts have jurisdiction. Your rights as a consumer under the law of the place where you live are not taken away by this clause. There is no arbitration clause.</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <h2 lang="en">Acceptable use and how it is enforced</h2>
+      <p class="t" lang="en"><strong>The list of prohibited conduct is not written yet.</strong> It is an open decision for the owner and counsel, and this section does not guess at it. What is written is how Kolwen acts when it believes a customer has broken a rule, which is a process, in this order:</p>
+      <ol><li class="t" lang="en"><strong>Notice.</strong> Kolwen tells you which clause it believes you broke and gives a summary of the evidence.</li><li class="t" lang="en"><strong>Suspension, not termination,</strong> while the case is open. If the product is a key, its clock of days stops for the whole case.</li><li class="t" lang="en"><strong>A window to answer.</strong> You have <strong>14 business days</strong> to answer the notice. If the window closes with no answer, the case is still decided, as step 4 says.</li><li class="t" lang="en"><strong>A written decision,</strong> within <strong>7 business days</strong> after your answer or, if you give no answer, within <strong>7 business days</strong> after the 14 business days close, on the evidence Kolwen holds. Either the case is dismissed and the account and its key are restored in full, or it is upheld. An upheld decision does not end the contract at once: the account stays suspended, and the key&#39;s clock stays stopped, through the appeal window of step 5 and through any appeal.</li><li class="t" lang="en"><strong>One appeal to a human</strong> against an upheld decision. You have <strong>30 business days</strong> after the written decision to file it, through <strong>appeals@kolwen.com</strong>, and Kolwen answers within <strong>14 business days</strong>. If the appeal succeeds, the account and its key are restored in full. The contract is terminated, with no refund, only when the appeal is dismissed or the 30 business days pass with no appeal filed.</li><li class="t" lang="en"><strong>A register of cases</strong> is kept, so that the same conduct draws the same answer.</li></ol>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ในหัวข้อนี้นับเฉพาะวันทำการตามกฎหมายของประเทศไทยเป็นวันทำการ คำจำกัดความที่แน่นอนรอการตรวจสอบ</p>
+      <p class="t" lang="en"><strong>A ceiling and what a missed deadline does.</strong> The case ceiling is <strong>90 calendar days</strong> of Kolwen&#39;s own time, counted from the date of the notice. The count pauses while your 14-business-day window to answer is open, from the notice until you answer or the 14 business days close, whichever comes first, and while your 30-business-day window to file an appeal is open, from the written decision until you file the appeal or the 30 business days close, whichever comes first. Only the days outside those windows count toward the 90. If Kolwen misses a deadline of its own (the 7 business days for the decision, the 14 business days for the appeal answer, or the 90-day ceiling), the suspension, including one that follows an upheld decision, is lifted and the key comes back into use. If a deadline of yours lapses (the 14 business days to answer, or the 30 business days to appeal), the case proceeds to its next step.</p>
+      <p class="t" lang="en"><strong>Chargebacks run on Paddle&#39;s track.</strong> A bank dispute is handled through Paddle as merchant of record, and Paddle asks Kolwen for evidence. The account is <strong>suspended</strong> when a chargeback is filed, because the money is gone. It is <strong>restored</strong> if the dispute resolves in Kolwen&#39;s favour or you pay again, and <strong>terminated only when the dispute closes against Kolwen.</strong> Kolwen does not argue a chargeback with you directly.</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <ol><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li><li class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</li></ol>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <h2 lang="en">Retention</h2>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ส่วนนี้รอที่ปรึกษากฎหมายตรวจสอบ จึงยังไม่แสดง</p>
+      <h2 lang="en">Status of this document</h2>
+      <p class="t" lang="en">Nothing here is in force. There is no service to buy, no account to open, and no contract formed by this file. It exists so the shape can be read and corrected before it matters.</p>
+      <p class="pending">[รอที่ปรึกษากฎหมาย] ฉบับภาษาไทยเต็มของข้อกำหนด การคืนเงิน และความเป็นส่วนตัว ที่เนื้อหาเท่ากับฉบับภาษาอังกฤษ ยังจะตามมา</p>
+    </div>
+
+    <nav class="ch" aria-label="หน้าอื่น">
+      <a href="/">หน้าแรก</a>
+      <a href="/pricing">แผน</a>
+      <a href="/terms">ข้อกำหนด</a>
+      <a href="/privacy">ความเป็นส่วนตัว</a>
+      <a href="/refund">การคืนเงิน</a>
+    </nav>
+
+    <footer>
+      <span>© 2026 Kolwen · เครื่องหมายการค้าอยู่ระหว่างการจดทะเบียน</span>
+      <span>หน้านี้: ภาษาที่เลือกถูกเก็บไว้ในเบราว์เซอร์ของคุณ · ฟอนต์โหลดจาก Google Fonts</span>
+    </footer>
+  </div>
+</main>
+<script>
+(function () {
+  var KEY = 'kolwen-lang';
+  var en = document.getElementById('doc-en');
+  var th = document.getElementById('doc-th');
+  var bEn = document.getElementById('lang-en');
+  var bTh = document.getElementById('lang-th');
+
+  function apply(lang, persist) {
+    var thai = lang === 'th';
+    th.hidden = !thai;
+    en.hidden = thai;
+    document.documentElement.lang = thai ? 'th' : 'en';
+    bTh.setAttribute('aria-pressed', String(thai));
+    bEn.setAttribute('aria-pressed', String(!thai));
+    if (persist) {
+      // Language preference only. localStorage, never a cookie: it is a
+      // client-only concern that never needs to ride on an HTTP request.
+      try { localStorage.setItem(KEY, lang); } catch (e) {}
+    }
+  }
+
+  var saved = null;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  if (saved === 'th' || saved === 'en') apply(saved, false);
+
+  bEn.addEventListener('click', function () { apply('en', true); });
+  bTh.addEventListener('click', function () { apply('th', true); });
+})();
+</script>
+</body>
+</html>

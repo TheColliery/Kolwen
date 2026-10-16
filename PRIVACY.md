@@ -27,7 +27,7 @@ which parts change on the day the assistant itself ships.
 
 ## What this site is
 
-One static page, served by a Cloudflare Worker. **The Worker runs no code of ours**—it is
+Static pages, served by a Cloudflare Worker. **The Worker runs no code of ours**—it is
 configured with an assets directory and nothing else, with no `main` entry point, so there is no
 request handler, no logging, and no storage on our side.
 

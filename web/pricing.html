@@ -29,7 +29,7 @@
   h1{font-size:24px;font-weight:600;line-height:1.5}
   .sub{color:var(--txt2);font-size:14.5px;margin-top:8px}
   .card{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:18px 20px;display:flex;flex-direction:column;gap:10px}
-  .card h2{font-size:13px;font-weight:600;color:var(--quiet);letter-spacing:.04em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace}
+  .card h2,.card h3{font-size:13px;font-weight:600;color:var(--quiet);letter-spacing:.04em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace}
   .card p,.card li{font-size:14.5px;color:var(--txt2)}
   .card strong{color:var(--txt);font-weight:600}
   .card ul{padding-left:20px;display:flex;flex-direction:column;gap:6px}
@@ -40,12 +40,39 @@
   .plans thead th{font-size:12.5px;color:var(--quiet);font-family:'IBM Plex Mono',monospace}
   .plans tbody th{color:var(--txt);font-weight:600}
   .plans tbody th small{display:block;font-size:12.5px;color:var(--quiet);font-weight:400}
-  .plans button{font:inherit;font-size:12.5px;color:var(--quiet);background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;min-height:34px;cursor:not-allowed}
+  .plans button,.pcard button{font:inherit;font-size:12.5px;color:var(--quiet);background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;min-height:34px;cursor:not-allowed}
   .ch{display:flex;flex-wrap:wrap;gap:8px}
   .ch a{color:var(--txt);text-decoration:none;font-size:13.5px;border:1px solid var(--line);border-radius:9px;padding:7px 12px;background:var(--bg2);display:inline-flex;align-items:center;gap:7px;min-height:44px}
   .ch a:hover{border-color:rgba(232,131,58,.4);color:var(--accent2)}
   footer{margin-top:6px;font-size:12px;color:var(--quiet);display:flex;flex-direction:column;gap:4px}
   #doc-en > * + *,#doc-th > * + *{margin-top:28px}
+  .banner{border:1px solid rgba(232,131,58,.45);background:rgba(232,131,58,.08);border-radius:10px;padding:12px 14px;font-size:14.5px;color:var(--txt);margin-top:14px}
+  .legal{display:flex;flex-direction:column;gap:14px}
+  .legal > * + *{margin-top:0}
+  .legal h2{font-size:18px;font-weight:600;line-height:1.5;margin-top:14px}
+  .legal h3{font-size:15.5px;font-weight:600;line-height:1.5;margin-top:6px}
+  .legal p,.legal li{font-size:14.5px;color:var(--txt2);overflow-wrap:anywhere}
+  .legal strong{color:var(--txt);font-weight:600}
+  .legal ul,.legal ol{padding-left:22px;display:flex;flex-direction:column;gap:8px}
+  .legal code{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--txt);overflow-wrap:anywhere}
+  .pending{color:var(--quiet) !important;font-style:italic}
+  .bill{display:flex;flex-wrap:wrap;gap:8px;align-items:center;position:relative}
+  .bill > input{position:absolute;opacity:0;width:1px;height:1px;margin:0}
+  .bill > label{font-size:13.5px;color:var(--quiet);background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:8px 14px;min-height:40px;display:inline-flex;align-items:center;cursor:pointer}
+  .bill > input:checked + label{color:var(--accent2);border-color:rgba(232,131,58,.55);background:rgba(232,131,58,.10)}
+  .bill > input:focus-visible + label{outline:2px solid var(--accent2);outline-offset:2px}
+  .bill .pcards{flex-basis:100%;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-top:6px}
+  .bill > input[value="y"]:checked ~ .pcards .mo{display:none}
+  .bill > input[value="m"]:checked ~ .pcards .yr{display:none}
+  .pcard{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:16px 18px;display:flex;flex-direction:column;gap:8px}
+  .pcard h3{font-size:18px;font-weight:600;color:var(--txt);font-family:inherit;text-transform:none;letter-spacing:0}
+  .faq h3{font-size:15px;font-weight:600;color:var(--txt);font-family:inherit;text-transform:none;letter-spacing:0}
+  .card a,.legal a{color:var(--accent2)}
+  .pcard .badge{font-size:12.5px;color:var(--quiet);font-family:'IBM Plex Mono',monospace}
+  .pcard .price{font-size:26px;font-weight:700;color:var(--txt)}
+  .pcard ul{padding-left:18px;display:flex;flex-direction:column;gap:5px}
+  .pcard li{font-size:14px;color:var(--txt2)}
+  .note{font-size:13px;color:var(--quiet)}
   [hidden]{display:none !important}
   @media (max-width:420px){.name{font-size:28px}h1{font-size:20px}.plans th,.plans td{padding-right:6px;font-size:13px}.plans button{padding:6px 8px}}
 </style>
@@ -78,22 +105,90 @@
     <div class="card">
       <h2>Plans</h2>
       <p>The plans are named Lite, Standard, Premium and Exclusive.</p>
+      <p>Billing: Monthly, or Yearly (pay for ten months, get twelve).</p>
+      <div class="bill" role="radiogroup" aria-label="Billing">
+        <input type="radio" name="bill-en" id="bill-m-en" value="m" checked><label for="bill-m-en">Monthly</label>
+        <input type="radio" name="bill-en" id="bill-y-en" value="y"><label for="bill-y-en">Yearly</label>
+        <div class="pcards">
+          <div class="pcard">
+            <h3>Lite</h3>
+            <span class="badge">Opens later</span>
+            <p class="price"><span class="mo">$8 <small>a month</small></span><span class="yr">$80 <small>a year</small></span></p>
+            <ul>
+              <li>0.4x the token quota of Standard</li>
+              <li>A usage view that will show how much of each usage window you have used, in percent</li>
+              <li>Your price stays the same while your subscription stays live</li>
+              <li>Cancel anytime</li>
+              <li>Export your data</li>
+            </ul>
+            <button type="button" disabled>Coming soon</button>
+          </div>
+          <div class="pcard">
+            <h3>Standard</h3>
+            <span class="badge">Opens first</span>
+            <p class="price"><span class="mo">$20 <small>a month</small></span><span class="yr">$200 <small>a year</small></span></p>
+            <p>Everything in Lite, plus:</p>
+            <ul>
+              <li>1x the token quota of Standard (the base)</li>
+            </ul>
+            <button type="button" disabled>Coming soon</button>
+          </div>
+          <div class="pcard">
+            <h3>Premium</h3>
+            <span class="badge">Opens later</span>
+            <p class="price"><span class="mo">$100 <small>a month</small></span><span class="yr">$1,000 <small>a year</small></span></p>
+            <p>Everything in Standard, plus:</p>
+            <ul>
+              <li>5x the token quota of Standard</li>
+            </ul>
+            <button type="button" disabled>Coming soon</button>
+          </div>
+          <div class="pcard">
+            <h3>Exclusive</h3>
+            <span class="badge">Opens later</span>
+            <p class="price"><span class="mo">$200 <small>a month</small></span><span class="yr">$2,000 <small>a year</small></span></p>
+            <p>Everything in Premium, plus:</p>
+            <ul>
+              <li>10x the token quota of Standard</li>
+            </ul>
+            <button type="button" disabled>Coming soon</button>
+          </div>
+        </div>
+      </div>
+      <p>Yearly costs ten times the monthly price, so two months are not charged. Lite: $80 a year, where two months at $8 is $16 and twelve months at $8 is $96. Standard: $200 a year, where two months at $20 is $40 and twelve months is $240. Premium: $1,000 a year, where two months at $100 is $200 and twelve months is $1,200. Exclusive: $2,000 a year, where two months at $200 is $400 and twelve months is $2,400. US prices, before tax.</p>
+      <p>To get the yearly price, choose yearly billing for the plan. [pending legal review] The start and end dates of this yearly price and the other conditions of the offer are not set yet.</p>
+      <p class="note">Every plan: Coming soon. No quota amount is shown yet.</p>
+      <p class="note">US prices are before tax. Outside the US the price shown is the total, tax included. A live subscription keeps its price.</p>
+    </div>
+    <div class="card">
+      <h2>Compare plans</h2>
       <table class="plans">
-        <caption>US prices, before tax. A year costs ten times the monthly price.</caption>
-        <thead><tr><th scope="col">Plan</th><th scope="col">Monthly</th><th scope="col">Yearly</th><th scope="col">Buy</th></tr></thead>
+        <caption>Compare plans</caption>
+        <thead><tr><th scope="col">Feature</th><th scope="col">Lite</th><th scope="col">Standard</th><th scope="col">Premium</th><th scope="col">Exclusive</th></tr></thead>
         <tbody>
-          <tr><th scope="row">Lite<small>Opens later</small></th><td>$8</td><td>$80</td><td><button type="button" disabled>Coming soon</button></td></tr>
-          <tr><th scope="row">Standard<small>Opens first</small></th><td>$20</td><td>$200</td><td><button type="button" disabled>Coming soon</button></td></tr>
-          <tr><th scope="row">Premium<small>Opens later</small></th><td>$100</td><td>$1,000</td><td><button type="button" disabled>Coming soon</button></td></tr>
-          <tr><th scope="row">Exclusive<small>Opens later</small></th><td>$200</td><td>$2,000</td><td><button type="button" disabled>Coming soon</button></td></tr>
+          <tr><th scope="row">Usage: token quota against Standard</th><td>0.4x</td><td>1x</td><td>5x</td><td>10x</td></tr>
+          <tr><th scope="row">Usage: shown in percent of each window</th><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+          <tr><th scope="row">Data: export your data</th><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+          <tr><th scope="row">Billing: monthly and yearly</th><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
         </tbody>
       </table>
+    </div>
+    <div class="card faq">
+      <h2>Questions</h2>
+      <h3>How does usage work?</h3>
+      <p>Each plan has a token quota, shown against Standard. A usage view will show how much of each usage window you have used, in percent. No quota amount is shown yet.</p>
+      <h3>What happens at the limit?</h3>
+      <p>This has not been decided yet.</p>
+      <h3>Can I get a refund?</h3>
+      <p>See the <a href="/refund">refund page</a>. Refund terms are a draft.</p>
+      <h3>What about taxes and regional prices?</h3>
+      <p>Outside the US the price shown is the total, tax included. In the US prices are shown before tax. Regional prices follow.</p>
     </div>
     <div class="card">
       <h2>Ways to buy</h2>
       <p>Three product shapes. None can be bought yet.</p>
       <p>These purchase terms are a draft and are pending legal review.</p>
-      <p><strong>Subscription.</strong> Monthly or yearly, renewing until you cancel. It starts at once on your consent, and a refund inside the first period deducts the days you used. [pending legal review]</p>
+      <p><strong>Subscription.</strong> Monthly or yearly, renewing until you cancel. It starts at once on your consent. [pending legal review] The refund rule for a subscription is waiting for review.</p>
       <p><strong>Time key.</strong> Prepaid, bought once, for 7, 30, 90 or 365 days. A key gives exactly what a subscriber of the same plan has for the same number of days.</p>
       <ul>
         <li>A key adds time to your account, up to 36 months.</li>
@@ -116,6 +211,10 @@
 
     <nav class="ch" aria-label="Pages">
       <a href="/">Home</a>
+      <a href="/pricing">Plans</a>
+      <a href="/terms">Terms</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/refund">Refunds</a>
     </nav>
 
     <footer>
@@ -132,22 +231,90 @@
     <div class="card">
       <h2>แผน</h2>
       <p>ชื่อแผนคือ Lite, Standard, Premium และ Exclusive</p>
+      <p>การเรียกเก็บเงิน: รายเดือน หรือรายปี (จ่ายสิบเดือน ได้ใช้สิบสองเดือน)</p>
+      <div class="bill" role="radiogroup" aria-label="การเรียกเก็บเงิน">
+        <input type="radio" name="bill-th" id="bill-m-th" value="m" checked><label for="bill-m-th">รายเดือน</label>
+        <input type="radio" name="bill-th" id="bill-y-th" value="y"><label for="bill-y-th">รายปี</label>
+        <div class="pcards">
+          <div class="pcard">
+            <h3>Lite</h3>
+            <span class="badge">เปิดภายหลัง</span>
+            <p class="price"><span class="mo">$8 <small>ต่อเดือน</small></span><span class="yr">$80 <small>ต่อปี</small></span></p>
+            <ul>
+              <li>โควตาโทเค็น 0.4 เท่าของ Standard</li>
+              <li>มุมมองการใช้งานที่จะแสดงว่าคุณใช้ไปเท่าใดในแต่ละช่วงการใช้งาน เป็นเปอร์เซ็นต์</li>
+              <li>ราคาของคุณคงเดิมตลอดที่การสมัครสมาชิกยังใช้งานอยู่</li>
+              <li>ยกเลิกได้ทุกเมื่อ</li>
+              <li>ส่งออกข้อมูลของคุณได้</li>
+            </ul>
+            <button type="button" disabled>เร็ว ๆ นี้</button>
+          </div>
+          <div class="pcard">
+            <h3>Standard</h3>
+            <span class="badge">เปิดก่อน</span>
+            <p class="price"><span class="mo">$20 <small>ต่อเดือน</small></span><span class="yr">$200 <small>ต่อปี</small></span></p>
+            <p>ทุกอย่างใน Lite และเพิ่ม:</p>
+            <ul>
+              <li>โควตาโทเค็น 1 เท่าของ Standard (ฐาน)</li>
+            </ul>
+            <button type="button" disabled>เร็ว ๆ นี้</button>
+          </div>
+          <div class="pcard">
+            <h3>Premium</h3>
+            <span class="badge">เปิดภายหลัง</span>
+            <p class="price"><span class="mo">$100 <small>ต่อเดือน</small></span><span class="yr">$1,000 <small>ต่อปี</small></span></p>
+            <p>ทุกอย่างใน Standard และเพิ่ม:</p>
+            <ul>
+              <li>โควตาโทเค็น 5 เท่าของ Standard</li>
+            </ul>
+            <button type="button" disabled>เร็ว ๆ นี้</button>
+          </div>
+          <div class="pcard">
+            <h3>Exclusive</h3>
+            <span class="badge">เปิดภายหลัง</span>
+            <p class="price"><span class="mo">$200 <small>ต่อเดือน</small></span><span class="yr">$2,000 <small>ต่อปี</small></span></p>
+            <p>ทุกอย่างใน Premium และเพิ่ม:</p>
+            <ul>
+              <li>โควตาโทเค็น 10 เท่าของ Standard</li>
+            </ul>
+            <button type="button" disabled>เร็ว ๆ นี้</button>
+          </div>
+        </div>
+      </div>
+      <p>รายปีมีราคาสิบเท่าของราคารายเดือน จึงไม่คิดเงินสองเดือน Lite: $80 ต่อปี สองเดือนที่ $8 เท่ากับ $16 และสิบสองเดือนที่ $8 เท่ากับ $96 Standard: $200 ต่อปี สองเดือนที่ $20 เท่ากับ $40 และสิบสองเดือนเท่ากับ $240 Premium: $1,000 ต่อปี สองเดือนที่ $100 เท่ากับ $200 และสิบสองเดือนเท่ากับ $1,200 Exclusive: $2,000 ต่อปี สองเดือนที่ $200 เท่ากับ $400 และสิบสองเดือนเท่ากับ $2,400 ราคาสหรัฐ ก่อนภาษี</p>
+      <p>หากต้องการราคารายปี ให้เลือกการเรียกเก็บเงินรายปีสำหรับแผนนั้น [รอที่ปรึกษากฎหมาย] วันเริ่มและวันสิ้นสุดของราคารายปีนี้ และเงื่อนไขอื่นของข้อเสนอ ยังไม่ได้กำหนด</p>
+      <p class="note">ทุกแผน: เร็ว ๆ นี้ ตอนนี้ยังไม่แสดงปริมาณโควตา</p>
+      <p class="note">ราคาสหรัฐเป็นราคาก่อนภาษี นอกสหรัฐ ราคาที่แสดงเป็นยอดรวมที่รวมภาษีแล้ว การสมัครสมาชิกที่ใช้งานอยู่คงราคาเดิม</p>
+    </div>
+    <div class="card">
+      <h2>เปรียบเทียบแผน</h2>
       <table class="plans">
-        <caption>ราคาสหรัฐ ก่อนภาษี ราคารายปีเป็นสิบเท่าของราคารายเดือน</caption>
-        <thead><tr><th scope="col">แผน</th><th scope="col">รายเดือน</th><th scope="col">รายปี</th><th scope="col">ซื้อ</th></tr></thead>
+        <caption>เปรียบเทียบแผน</caption>
+        <thead><tr><th scope="col">รายการ</th><th scope="col">Lite</th><th scope="col">Standard</th><th scope="col">Premium</th><th scope="col">Exclusive</th></tr></thead>
         <tbody>
-          <tr><th scope="row">Lite<small>เปิดภายหลัง</small></th><td>$8</td><td>$80</td><td><button type="button" disabled>เร็ว ๆ นี้</button></td></tr>
-          <tr><th scope="row">Standard<small>เปิดก่อน</small></th><td>$20</td><td>$200</td><td><button type="button" disabled>เร็ว ๆ นี้</button></td></tr>
-          <tr><th scope="row">Premium<small>เปิดภายหลัง</small></th><td>$100</td><td>$1,000</td><td><button type="button" disabled>เร็ว ๆ นี้</button></td></tr>
-          <tr><th scope="row">Exclusive<small>เปิดภายหลัง</small></th><td>$200</td><td>$2,000</td><td><button type="button" disabled>เร็ว ๆ นี้</button></td></tr>
+          <tr><th scope="row">การใช้งาน: โควตาโทเค็นเทียบกับ Standard</th><td>0.4 เท่า</td><td>1 เท่า</td><td>5 เท่า</td><td>10 เท่า</td></tr>
+          <tr><th scope="row">การใช้งาน: แสดงเป็นเปอร์เซ็นต์ของแต่ละช่วง</th><td>มี</td><td>มี</td><td>มี</td><td>มี</td></tr>
+          <tr><th scope="row">ข้อมูล: ส่งออกข้อมูลของคุณได้</th><td>มี</td><td>มี</td><td>มี</td><td>มี</td></tr>
+          <tr><th scope="row">การเรียกเก็บเงิน: รายเดือนและรายปี</th><td>มี</td><td>มี</td><td>มี</td><td>มี</td></tr>
         </tbody>
       </table>
+    </div>
+    <div class="card faq">
+      <h2>คำถาม</h2>
+      <h3>การใช้งานทำงานอย่างไร</h3>
+      <p>แต่ละแผนมีโควตาโทเค็น แสดงเทียบกับ Standard มุมมองการใช้งานจะแสดงว่าคุณใช้ไปเท่าใดในแต่ละช่วงการใช้งาน เป็นเปอร์เซ็นต์ ตอนนี้ยังไม่แสดงปริมาณโควตา</p>
+      <h3>เมื่อถึงขีดจำกัดจะเป็นอย่างไร</h3>
+      <p>เรื่องนี้ยังไม่ได้ตัดสิน</p>
+      <h3>ขอคืนเงินได้ไหม</h3>
+      <p>ดู<a href="/refund">หน้าการคืนเงิน</a> เงื่อนไขการคืนเงินเป็นฉบับร่าง</p>
+      <h3>เรื่องภาษีและราคาตามภูมิภาค</h3>
+      <p>นอกสหรัฐ ราคาที่แสดงเป็นยอดรวมที่รวมภาษีแล้ว ในสหรัฐแสดงราคาก่อนภาษี ราคาของแต่ละภูมิภาคจะตามมา</p>
     </div>
     <div class="card">
       <h2>วิธีซื้อ</h2>
       <p>สินค้ามีสามรูปแบบ ตอนนี้ยังซื้อไม่ได้สักแบบ</p>
       <p>เงื่อนไขการซื้อเหล่านี้เป็นฉบับร่างและรอที่ปรึกษากฎหมายตรวจสอบ</p>
-      <p><strong>การสมัครสมาชิก</strong> รายเดือนหรือรายปี ต่ออายุเองจนกว่าคุณจะยกเลิก เริ่มใช้ทันทีเมื่อคุณยินยอม และการขอคืนเงินภายในรอบแรกจะหักวันที่คุณใช้ไปแล้ว [รอที่ปรึกษากฎหมาย]</p>
+      <p><strong>การสมัครสมาชิก</strong> รายเดือนหรือรายปี ต่ออายุเองจนกว่าคุณจะยกเลิก เริ่มใช้ทันทีเมื่อคุณยินยอม [รอที่ปรึกษากฎหมาย] กฎการคืนเงินสำหรับการสมัครสมาชิก รอการตรวจสอบ</p>
       <p><strong>คีย์เวลา</strong> จ่ายล่วงหน้าครั้งเดียว ใช้ได้ 7, 30, 90 หรือ 365 วัน คีย์ให้สิ่งเดียวกับที่ผู้สมัครแผนเดียวกันได้ในจำนวนวันเท่ากันทุกประการ</p>
       <ul>
         <li>คีย์เพิ่มเวลาให้บัญชีของคุณ สะสมได้สูงสุด 36 เดือน</li>
@@ -170,6 +337,10 @@
 
     <nav class="ch" aria-label="หน้าอื่น">
       <a href="/">หน้าแรก</a>
+      <a href="/pricing">แผน</a>
+      <a href="/terms">ข้อกำหนด</a>
+      <a href="/privacy">ความเป็นส่วนตัว</a>
+      <a href="/refund">การคืนเงิน</a>
     </nav>
 
     <footer>
