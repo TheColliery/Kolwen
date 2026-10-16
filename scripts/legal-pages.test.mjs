@@ -219,7 +219,10 @@ function copyTree() {
   for (const f of FILES) { mkdirSync(dirname(join(dir, f)), { recursive: true }); writeFileSync(join(dir, f), readFileSync(join(ROOT, f))); }
   return dir;
 }
-const check = (dir, ...args) => spawnSync(process.execPath, ['--max-old-space-size=2048', join(dir, 'scripts/legal-pages.mjs'), ...(args.length ? args : ['--check'])], { encoding: 'utf8', timeout: 60000, cwd: dir });
+// The house shape (scripts/secret-gate.test.mjs): a child of this test sees HOME, USERPROFILE and every temp variable pointing at the test's own folder,
+// so nothing it does can touch the developer's real home or temp.
+const childEnv = dir => { const home = join(dir, '.sandbox-home'); mkdirSync(home, { recursive: true }); return { ...process.env, HOME: home, USERPROFILE: home, TEMP: home, TMP: home, TMPDIR: home, XDG_CONFIG_HOME: home }; };
+const check = (dir, ...args) => spawnSync(process.execPath, ['--max-old-space-size=2048', join(dir, 'scripts/legal-pages.mjs'), ...(args.length ? args : ['--check'])], { encoding: 'utf8', timeout: 60000, cwd: dir, env: childEnv(dir) });
 const edit = (dir, f, fn) => writeFileSync(join(dir, f), fn(readFileSync(join(dir, f), 'utf8')));
 
 test('--check passes on the committed pages', () => {
@@ -370,6 +373,17 @@ test('--check fails, naming web/changelog.html, when CHANGELOG.md changes by one
     assert.match(r.stdout, /FAIL web\/changelog\.html differs from the render of its sources, line \d+/);
     assert.equal(check(dir, '--write').status, 0);
     assert.equal(check(dir).status, 0);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('the CLI child runs with HOME, USERPROFILE and the temp variables inside the folder of the test', () => {
+  const dir = copyTree();
+  try {
+    const probe = spawnSync(process.execPath, ['-e', 'const e = process.env; console.log(JSON.stringify([e.HOME, e.USERPROFILE, e.TEMP, e.TMP, e.TMPDIR, e.XDG_CONFIG_HOME]))'], { encoding: 'utf8', timeout: 30000, env: childEnv(dir) });
+    const seen = JSON.parse(probe.stdout);
+    for (const v of seen) assert.ok(v.startsWith(dir), v + ' is inside ' + dir);
+    for (const [name, v] of Object.entries({ HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE })) if (v) assert.notEqual(seen[name === 'HOME' ? 0 : 1], v, name + ' is not the real one');
+    assert.equal(check(dir).status, 0, 'the CLI still runs in the sandbox');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
