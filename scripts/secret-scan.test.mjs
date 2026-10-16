@@ -556,17 +556,22 @@ const sameDir = (a, b) => fs.realpathSync.native(a) === fs.realpathSync.native(b
 let shortSeq = 0;
 // The absolute path of cmd.exe where the system folder is known: a bare name resolves from the working folder first, so a planted file there would run instead.
 const CMD = process.env.SystemRoot ? path.join(process.env.SystemRoot, 'System32', 'cmd.exe') : 'cmd.exe';
-function shortForm(p) {
+// null means ONLY "this volume makes no short name for p"; a cmd call that fails (cannot start, times out, exits non-zero, prints nothing)
+// THROWS, so a broken helper errors the test instead of reading as the visible skip. `cmd` is a seam for the test of exactly that.
+function shortForm(p, cmd = CMD) {
   if (process.platform !== 'win32') return null;
   const script = path.join(SANDBOX, `short-name-${++shortSeq}.cmd`);
   fs.writeFileSync(script, ['@echo off', `for %%I in ("${p}") do @echo %%~sI`, ''].join(cc(13, 10)));
   try {
-    const r = spawnSync(CMD, ['/d', '/c', script], {
+    const r = spawnSync(cmd, ['/d', '/c', script], {
       encoding: 'utf8', timeout: 30000, windowsHide: true,
       env: { PATH: process.env.PATH, SystemRoot: process.env.SystemRoot, windir: process.env.windir, ComSpec: process.env.ComSpec, PATHEXT: process.env.PATHEXT, TEMP: SANDBOX, TMP: SANDBOX },
     });
-    const short = r.status === 0 ? r.stdout.trim() : '';
-    return short !== '' && short.includes('~') && short.toLowerCase() !== p.toLowerCase() ? short : null;
+    if (r.error) throw new Error(`shortForm: the cmd call did not run (${r.error.code || r.error.message})`, { cause: r.error });
+    if (r.status !== 0) throw new Error(`shortForm: the cmd call exited ${r.status}`);
+    const short = r.stdout.trim();
+    if (short === '') throw new Error('shortForm: the cmd call printed nothing, so there is no answer to read');
+    return short.includes('~') && short.toLowerCase() !== p.toLowerCase() ? short : null;
   } finally { fs.rmSync(script, { force: true }); }
 }
 // The flock's reading of a child git environment: exactly these three GIT_ names may appear in it, and every other GIT_ name is refused
@@ -688,6 +693,16 @@ test('a repository reached by its 8.3 short name is the directory git reports: r
     assert.ok(sameDir(short, top), 'in either order');
     assert.ok(sameDir(short, d));
   });
+});
+
+// shortForm's two outcomes stay apart: null = this volume makes no short name (a visible, named skip in the caller), a throw = the cmd call
+// itself failed (the test errors, so a broken helper is never read as a skip). The second argument is the cmd program, a seam for this test.
+test('shortForm: a failed cmd call throws, and is not the null that means "no 8.3 names on this volume" (the Windows runner)', (t) => {
+  if (process.platform !== 'win32') { t.skip('shortForm only asks cmd.exe on Windows; elsewhere it answers null by design'); return; }
+  assert.throws(() => shortForm(SANDBOX, path.join(SANDBOX, 'no-such-cmd.exe')), /shortForm/, 'a cmd program that cannot start is a spawn error');
+  assert.throws(() => shortForm(SANDBOX, process.execPath), /shortForm/, 'a cmd program that exits non-zero is a failed call (node refuses the cmd flags with a non-zero status)');
+  const live = shortForm(SANDBOX);
+  assert.ok(live === null || (typeof live === 'string' && live.includes('~')), 'control: the real cmd call answers a short name or null, and does not throw');
 });
 
 test('a fixture call is handed GIT_CONFIG_NOSYSTEM and no other GIT_ name beyond the three the flock allows, whatever the process inherited', () => {
