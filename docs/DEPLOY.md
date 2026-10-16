@@ -211,7 +211,9 @@ each static line without following it and reports a miss when the status or the 
 edge answers a trailing-slash or `.html` source as the file says is proven only by that first live probe.
 
 The legal paths `/terms`, `/privacy` and `/refund` are served pages, and none has a redirect. What still waits on the
-lawyer is the parts of each page that carry a counsel-pending marker: the page shows each such part as a marked pending
+lawyer is the parts a page holds, on any of three routes: a counsel-pending marker (on the passage, or on the head of the
+quote it sits in), an unset placeholder such as `[N days]`, or an entry on the tracked hold list
+`scripts/lib/legal-holds.json`. The page shows each held part as a marked pending
 line (class `pending`), never as settled text, and `scripts/legal-pages.mjs` never prints a held passage's own words.
 
 ## Known behaviour: unmatched paths return 404
