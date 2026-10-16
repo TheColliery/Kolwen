@@ -173,6 +173,8 @@ const SHIPPED = new Set([
   'web/pricing.html',
   // The three legal pages (rendered from TERMS.md, PRIVACY.md and legal/thai-7day-clause.md by scripts/legal-pages.mjs): PRODUCTION pages, read by every rule that reads a page.
   'web/terms.html', 'web/privacy.html', 'web/refund.html',
+  // The changelog page (rendered from CHANGELOG.md by the same script): a PRODUCTION page.
+  'web/changelog.html',
   // The plain-text guide for language models (llmstxt.org shape); it states only what the pages state and is not in the sitemap.
   'web/llms.txt',
   'web/favicon.svg', 'web/favicon-32.png', 'web/apple-touch-icon.png', 'web/og.png',
@@ -622,12 +624,17 @@ const CSP_STATS = { scripts: 0, styles: 0 };
 // its own pending-review labels, not by this rule). The HTML is read as text, so the phrase inside a comment counts.
 const PREVIEW_EXEMPT = new Set();
 const WEB_PAGES = tracked.filter(f => f.startsWith('web/') && f.endsWith('.html'));
+// HISTORY_PAGES: the pages that are a verbatim rendering of the repository's own CHANGELOG.md (scripts/legal-pages.mjs --check holds that
+// equality). A changelog quotes the claims it WITHDREW ("no trackers", a Free plan), so the two claim rules below (15 and 17a) do not read
+// it: the phrase there is a record of a removal, not a claim the page makes. Every other rule reads it, and no other page is named here.
+const HISTORY_PAGES = new Set(['web/changelog.html']);
+const CLAIM_PAGES = WEB_PAGES.filter(f => !HISTORY_PAGES.has(f));
 const PRODUCTION_PAGES = WEB_PAGES.filter(f => !PREVIEW_EXEMPT.has(f));
 const lineOf = (s, i) => s.slice(0, i).split('\n').length;
 {
   const CLAIMS = [/\bno\s+trackers\b/gi, /ไม่มีตัวติดตาม/g];
   if (WEB_PAGES.length === 0) note('web/', 'has no tracked HTML page, so rule 15 checked nothing — this CHECK is now empty, not the claim proven absent');
-  for (const f of WEB_PAGES) {
+  for (const f of CLAIM_PAGES) {
     const s = read(f);
     for (const re of CLAIMS) {
       for (const m of s.matchAll(re)) {
@@ -735,7 +742,7 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
   const URL_ATTR = /(?<![\w-])(href|action|src|formaction|data-[\w-]+)\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+)/gi;
   let buttonsSeen = 0;
   /* FREE_ALL:begin */
-  for (const f of WEB_PAGES) {
+  for (const f of CLAIM_PAGES) {
     const s = read(f);
     // The end tag may carry whitespace or attributes ("</script >"), which the HTML parser still closes on (as rule 13's own pattern allows).
     const visible = s.replace(/<(style|script|svg)\b[\s\S]*?<\/\1\b[^>]*>/gi, m => m.replace(/[^\n]/g, ' '));

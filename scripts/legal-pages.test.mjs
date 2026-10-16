@@ -17,7 +17,7 @@ const textOf = html => html.split('<').map((part, i) => (i === 0 ? part : part.s
 const read = rel => readFileSync(join(ROOT, rel), 'utf8').replace(/\r\n/g, '\n');
 const holds = JSON.parse(read('scripts/lib/legal-holds.json'));
 const state = JSON.parse(read('legal/legal-state.json'));
-const inputs = () => ({ terms: read('TERMS.md'), privacy: read('PRIVACY.md'), clause: read('legal/thai-7day-clause.md'), state, holds });
+const inputs = () => ({ terms: read('TERMS.md'), privacy: read('PRIVACY.md'), clause: read('legal/thai-7day-clause.md'), changelog: read('CHANGELOG.md'), state, holds });
 const count = (s, needle) => s.split(needle).length - 1;
 // The English document of a page: the text between the two document containers.
 const docEn = html => html.slice(html.indexOf('id="doc-en"'), html.indexOf('id="doc-th"'));
@@ -147,7 +147,7 @@ test('refund rows R1 and R2 are the TERMS.md passages: a changed passage is repo
 
 test('the pages carry no raw {{token}}, no marker-less pending line, and nothing a production page must not have', () => {
   const { pages } = renderPages(inputs());
-  assert.equal(Object.keys(pages).length, 3);
+  assert.equal(Object.keys(pages).length, 4);
   for (const [file, html] of Object.entries(pages).filter(([name]) => name !== 'web/changelog.html')) {
     assert.ok(!html.includes('{{'), file + ' has a raw token');
     assert.ok(!/noindex/i.test(html), file + ' asks search engines to skip it');
@@ -213,7 +213,7 @@ test('the same inputs give the same pages', () => {
 });
 
 // ── the CLI, against a throwaway copy of the tree ──────────────────────────────────────────────
-const FILES = ['scripts/legal-pages.mjs', 'scripts/lib/legal-render.mjs', 'scripts/lib/legal-page-text.mjs', 'scripts/lib/legal-state.mjs', 'scripts/lib/legal-holds.json', 'TERMS.md', 'PRIVACY.md', 'legal/thai-7day-clause.md', 'legal/legal-state.json', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/pricing.html', 'web/index.html', 'web/404.html'];
+const FILES = ['scripts/legal-pages.mjs', 'scripts/lib/legal-render.mjs', 'scripts/lib/legal-page-text.mjs', 'scripts/lib/legal-state.mjs', 'scripts/lib/legal-holds.json', 'TERMS.md', 'PRIVACY.md', 'legal/thai-7day-clause.md', 'legal/legal-state.json', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/pricing.html', 'CHANGELOG.md', 'web/changelog.html', 'web/index.html', 'web/404.html'];
 function copyTree() {
   const dir = mkdtempSync(join(tmpdir(), 'legal-pages-'));
   for (const f of FILES) { mkdirSync(dirname(join(dir, f)), { recursive: true }); writeFileSync(join(dir, f), readFileSync(join(ROOT, f))); }
@@ -224,7 +224,7 @@ const edit = (dir, f, fn) => writeFileSync(join(dir, f), fn(readFileSync(join(di
 
 test('--check passes on the committed pages', () => {
   const dir = copyTree();
-  try { const r = check(dir); assert.equal(r.status, 0, r.stdout + r.stderr); assert.match(r.stdout, /3 pages match/); } finally { rmSync(dir, { recursive: true, force: true }); }
+  try { const r = check(dir); assert.equal(r.status, 0, r.stdout + r.stderr); assert.match(r.stdout, /4 pages match/); } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('--check fails, naming the page, when one word of a statement in a source changes; --write puts it right', () => {
@@ -303,6 +303,23 @@ test('the hand-kept pages hold the same two footer blocks and carry the footer r
   assert.ok(STYLE.includes(FOOTER_CSS));
 });
 
+test('the changelog page shows every passage of CHANGELOG.md as written, with no hold, and every footer link', () => {
+  const i = inputs();
+  const { pages, report } = renderPages(i);
+  const html = pages['web/changelog.html'];
+  const c = classify(SOURCES.changelog, i.changelog, { holds: [], noHold: true });
+  assert.equal(c.stats.held, 0);
+  assert.equal(c.stats.text, c.stats.passages);
+  for (const doc of [docEn(html), docTh(html)]) {
+    assert.equal(count(doc, 'class="t"'), c.stats.passages, 'passages on the page = passages in CHANGELOG.md');
+    assert.equal(count(doc, 'class="pending"'), 0);
+  }
+  assert.match(report.join('\n'), new RegExp('web/changelog\\.html: CHANGELOG\\.md ' + c.stats.passages + ' passages = ' + c.stats.passages + ' shown as written \\+ 0 pending lines'));
+  assert.ok(!/class="banner"/.test(html), 'the changelog is not a draft legal page, so it carries no draft banner');
+  const shown = [...docEn(html).matchAll(/<(?:p|li) class="t"[^>]*>([\s\S]*?)<\/(?:p|li)>/g)].map(m => textOf(m[1]));
+  assert.deepEqual(shown, c.items.filter(x => x.kind === 'passage').map(p => escText(plain(p.text))));
+});
+
 test('a [text](https://...) link is a link and anything else stays text', () => {
   assert.equal(inline('see [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ok'), 'see <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>; ok');
   assert.equal(inline('[x](javascript:alert(1))'), '[x](javascript:alert(1))');
@@ -333,4 +350,16 @@ test('--check fails when a hand-kept page loses its footer or its footer rules',
     const dir = copyTree();
     try { edit(dir, file, fn); const r = check(dir); assert.equal(r.status, 1, file + '\n' + r.stdout + r.stderr); assert.match(r.stdout, re, file); } finally { rmSync(dir, { recursive: true, force: true }); }
   }
+});
+
+test('--check fails, naming web/changelog.html, when CHANGELOG.md changes by one word; --write puts it right', () => {
+  const dir = copyTree();
+  try {
+    edit(dir, 'CHANGELOG.md', x => { assert.ok(x.includes('Nothing has been released.'), 'anchor'); return x.replace('Nothing has been released.', 'Nothing was released.'); });
+    const r = check(dir);
+    assert.equal(r.status, 1, r.stdout + r.stderr);
+    assert.match(r.stdout, /FAIL web\/changelog\.html differs from the render of its sources, line \d+/);
+    assert.equal(check(dir, '--write').status, 0);
+    assert.equal(check(dir).status, 0);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

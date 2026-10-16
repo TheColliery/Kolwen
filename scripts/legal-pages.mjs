@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// Renders web/terms.html, web/privacy.html and web/refund.html from TERMS.md, PRIVACY.md and legal/thai-7day-clause.md, and checks
-// they are the committed pages. It also owns the SHARED FOOTER: the block is written once in scripts/lib/legal-render.mjs, and the three hand-kept pages (index,
+// Renders web/terms.html, web/privacy.html and web/refund.html from TERMS.md, PRIVACY.md and legal/thai-7day-clause.md, and
+// web/changelog.html from the repository's own CHANGELOG.md (every passage shown as written, no hold), and checks they are the committed
+// pages. It also owns the SHARED FOOTER: the block is written once in scripts/lib/legal-render.mjs, and the three hand-kept pages (index,
 // pricing, 404) must hold a byte-identical copy of it.
 //
 //   node scripts/legal-pages.mjs --write    render the three pages into web/ (the default)
@@ -54,7 +55,7 @@ async function main() {
     let stateText = read('legal/legal-state.json');
     if (stateText.charCodeAt(0) === 0xfeff) stateText = stateText.slice(1);
     inputs = {
-      terms: read('TERMS.md'), privacy: read('PRIVACY.md'), clause: read('legal/thai-7day-clause.md'),
+      terms: read('TERMS.md'), privacy: read('PRIVACY.md'), clause: read('legal/thai-7day-clause.md'), changelog: read('CHANGELOG.md'),
       state: JSON.parse(stateText), holds: JSON.parse(read('scripts/lib/legal-holds.json')),
     };
   } catch (e) { console.error('FAIL a source could not be read: ' + (e.code || e.message)); process.exitCode = 1; return; }
