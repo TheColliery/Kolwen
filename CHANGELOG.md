@@ -161,7 +161,7 @@ the pointer to it.
 - `/changelog`: a page rendered from this file by `scripts/legal-pages.mjs`, every passage shown as written (nothing here waits for counsel, so no
   passage is held), in the site's own shell with the English and Thai chrome. `node scripts/legal-pages.mjs --check` fails in CI when the page is not
   the render of this file, so a change to the changelog without a re-render cannot merge. The page is in `web/sitemap.xml` and `web/llms.txt`, and
-  surface-check's two claim rules (the withdrawn "no trackers" claim and the Free-plan rule) do not read it, because this file records those withdrawals.
+  surface-check reads it like every page; the few passages that quote a claim the repository withdrew are pinned by a fingerprint of their text, so a new occurrence of such a claim on the page fails the gate.
 - One footer on every page of the site: Home; Pricing and Changelog; Terms, Privacy and Refunds; GitHub, Hugging Face and npm; Email and Security
   (the zone's `/.well-known/security.txt`), in English and Thai. It is written once in `scripts/lib/legal-render.mjs`, the generated pages take it from
   there, and `node scripts/legal-pages.mjs --check` fails when the home, pricing or not-found page holds a footer that differs from it byte for byte, or

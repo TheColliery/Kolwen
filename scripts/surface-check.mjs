@@ -624,20 +624,33 @@ const CSP_STATS = { scripts: 0, styles: 0 };
 // its own pending-review labels, not by this rule). The HTML is read as text, so the phrase inside a comment counts.
 const PREVIEW_EXEMPT = new Set();
 const WEB_PAGES = tracked.filter(f => f.startsWith('web/') && f.endsWith('.html'));
-// HISTORY_PAGES: the pages that are a verbatim rendering of the repository's own CHANGELOG.md (scripts/legal-pages.mjs --check holds that
-// equality). A changelog quotes the claims it WITHDREW ("no trackers", a Free plan), so the two claim rules below (15 and 17a) do not read
-// it: the phrase there is a record of a removal, not a claim the page makes. Every other rule reads it, and no other page is named here.
-const HISTORY_PAGES = new Set(['web/changelog.html']);
-const CLAIM_PAGES = WEB_PAGES.filter(f => !HISTORY_PAGES.has(f));
+// HISTORY_PINS: web/changelog.html renders the repository's own CHANGELOG.md word for word, so it QUOTES claims the repository withdrew ("no trackers",
+// a Free plan). Rules 15 and 17(a) read that page like every other. The hits that exist on it today are exactly the passages pinned below, each by a
+// fingerprint of its normalized text (tags removed, whitespace collapsed, sha256, the first 16 hex characters) with its reason. A hit in any other
+// passage fires, and a pin that matches no passage of the page is STALE and fires, so the list cannot go on excusing text that is gone.
+// STATED LIMITS: a pin compares text, not meaning. Editing a pinned passage changes its fingerprint and fires both a new hit and a stale pin, so a person
+// re-confirms the pin; and it holds only the rendered page, not CHANGELOG.md itself (where the same words are history).
+const HISTORY_PINS = [
+  { file: 'web/changelog.html', fp: '518613b551644633', start: "The home page footer no longer says \"no trackers ...\"", reason: 'a record of a withdrawn claim' },
+  { file: 'web/changelog.html', fp: '510c767ab5d9bc0c', start: "Rule 17 of scripts/surface-check.mjs, on the web pages", reason: 'a record of a withdrawn claim' },
+  { file: 'web/changelog.html', fp: '5a476948bbcbd9d8', start: "Two more rules in scripts/surface-check.mjs, both about the web pages", reason: 'a record of a withdrawn claim' },
+];
+const normText = html => html.split('<').map((part, i) => (i === 0 ? part : part.slice(part.indexOf('>') + 1))).join('').replace(/\s+/g, ' ').trim();
+const passageFp = html => createHash('sha256').update(normText(html), 'utf8').digest('hex').slice(0, 16);
+const passagesOf = s => [...s.matchAll(/<(p|li) class="t"[^>]*>([\s\S]*?)<\/\1>/g)].map(m => ({ start: m.index, end: m.index + m[0].length, fp: passageFp(m[2]) }));
+const pinnedHit = (f, s, index) => HISTORY_PINS.some(p => p.file === f) && passagesOf(s).some(p => p.start <= index && index < p.end && HISTORY_PINS.some(q => q.file === f && q.fp === p.fp));
 const PRODUCTION_PAGES = WEB_PAGES.filter(f => !PREVIEW_EXEMPT.has(f));
 const lineOf = (s, i) => s.slice(0, i).split('\n').length;
 {
   const CLAIMS = [/\bno\s+trackers\b/gi, /ไม่มีตัวติดตาม/g];
-  if (WEB_PAGES.length === 0) note('web/', 'has no tracked HTML page, so rule 15 checked nothing — this CHECK is now empty, not the claim proven absent');
-  for (const f of CLAIM_PAGES) {
+  // NON-VACUITY per scope: the pages that carry no pin are the ones where any hit is a live claim; if none is tracked the rule read pinned text only.
+  const PINNED_FILES = new Set(HISTORY_PINS.map(p => p.file));
+  if (WEB_PAGES.filter(f => !PINNED_FILES.has(f)).length === 0) note('web/', 'has no tracked HTML page outside the pinned changelog, so rule 15 read only pinned text — this CHECK is now empty, not the claim proven absent');
+  for (const f of WEB_PAGES) {
     const s = read(f);
     for (const re of CLAIMS) {
       for (const m of s.matchAll(re)) {
+        if (pinnedHit(f, s, m.index)) continue;
         note(f, `line ${lineOf(s, m.index)}: says "${m[0].replace(/\s+/g, ' ')}", a claim the site no longer makes (it runs Cloudflare Web Analytics); keep it off until counsel's analytics wording lands`);
       }
     }
@@ -742,16 +755,21 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
   const URL_ATTR = /(?<![\w-])(href|action|src|formaction|data-[\w-]+)\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+)/gi;
   let buttonsSeen = 0;
   /* FREE_ALL:begin */
-  for (const f of CLAIM_PAGES) {
+  for (const f of WEB_PAGES) {
     const s = read(f);
     // The end tag may carry whitespace or attributes ("</script >"), which the HTML parser still closes on (as rule 13's own pattern allows).
     const visible = s.replace(/<(style|script|svg)\b[\s\S]*?<\/\1\b[^>]*>/gi, m => m.replace(/[^\n]/g, ' '));
     const seenAt = new Set(); // "Free plan" matches two patterns at one place: one finding
     for (const re of [/\b(?:Free|FREE)\b/g, /\bfree\s+(?:plan|tier|version)\b/gi, /ฟรี/g]) {
-      for (const m of visible.matchAll(re)) if (!seenAt.has(m.index)) seenAt.add(m.index), note(f, 'line ' + lineOf(s, m.index) + ': says "' + m[0].replace(/\s+/g, ' ') + '", a Free plan or a free tier; no page names a Free plan until it exists to be named');
+      for (const m of visible.matchAll(re)) if (!seenAt.has(m.index) && !pinnedHit(f, s, m.index)) seenAt.add(m.index), note(f, 'line ' + lineOf(s, m.index) + ': says "' + m[0].replace(/\s+/g, ' ') + '", a Free plan or a free tier; no page names a Free plan until it exists to be named');
     }
   }
   /* FREE_ALL:end */
+  // A pin that matches no passage of its page is stale (rules 15 and 17a share the list).
+  for (const p of HISTORY_PINS) {
+    const have = tracked.includes(p.file) ? passagesOf(read(p.file)).some(x => x.fp === p.fp) : false;
+    if (!have) note(p.file, `pinned passage ${p.fp} (${p.start}) matches no passage of the page, so the pin excuses nothing: remove it, or re-pin the passage if its words changed`);
+  }
   for (const f of PRODUCTION_PAGES) {
     const s = read(f);
     for (const m of s.matchAll(TAG)) {
