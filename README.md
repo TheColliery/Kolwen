@@ -2,6 +2,8 @@
 
 **The language model family fired by [TheColliery](https://github.com/TheColliery).**
 
+![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/TheColliery/Kolwen?utm_source=oss&utm_medium=github&utm_campaign=TheColliery%2FKolwen&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
+
 Kolwen carries TheColliery's engineering discipline—measured-not-trusted, honesty over polish, safety rails by construction—into models meant to be run by their users. None has shipped yet.
 
 ## The family
