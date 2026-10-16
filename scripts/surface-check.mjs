@@ -173,6 +173,8 @@ const SHIPPED = new Set([
   'web/pricing.html',
   // The three legal pages (rendered from TERMS.md, PRIVACY.md and legal/thai-7day-clause.md by scripts/legal-pages.mjs): PRODUCTION pages, read by every rule that reads a page.
   'web/terms.html', 'web/privacy.html', 'web/refund.html',
+  // The plain-text guide for language models (llmstxt.org shape); it states only what the pages state and is not in the sitemap.
+  'web/llms.txt',
   'web/favicon.svg', 'web/favicon-32.png', 'web/apple-touch-icon.png', 'web/og.png',
 ]);
 for (const f of tracked.filter(f => f.startsWith('web/'))) {

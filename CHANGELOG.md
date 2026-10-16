@@ -158,6 +158,8 @@ the pointer to it.
 
 ### Added
 
+- `/llms.txt`: a short plain-text guide for language models in the llmstxt.org shape. It says Kolwen is in development and nothing can be bought, and
+  lists the five pages with one line each that repeats only what the page says. It is not in `web/sitemap.xml`.
 - `/pricing`: the plans as four cards (Lite, Standard, Premium, Exclusive) with a monthly or yearly switch that needs no script, a comparison
   table and four questions, in English and Thai. The yearly price is ten times the monthly price, so two months are not charged, and the
   page shows the sums beside it; the dates and conditions of that offer are a pending line. Every plan is worded as what it will include,
