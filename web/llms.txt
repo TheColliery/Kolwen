@@ -8,6 +8,7 @@ The site is in English and Thai.
 
 - [Home](https://kolwen.com/): what Kolwen is and its status
 - [Pricing](https://kolwen.com/pricing): the planned plans and their US prices; nothing can be bought yet
+- [Changelog](https://kolwen.com/changelog): the repository's change log; nothing has been released
 - [Terms](https://kolwen.com/terms): the draft terms; not in force, and parts wait for legal review
 - [Privacy](https://kolwen.com/privacy): the draft privacy notice; parts wait for legal review
 - [Refunds](https://kolwen.com/refund): the draft refund terms; parts wait for legal review

@@ -1,4 +1,4 @@
-// The text the legal pages ADD to what the three sources say (data only; scripts/lib/legal-render.mjs and scripts/legal-pages.mjs use it).
+// The text the generated pages ADD to what their sources say (the three legal sources, and CHANGELOG.md for the changelog page; data only; scripts/lib/legal-render.mjs and scripts/legal-pages.mjs use it).
 //
 // Everything a page shows is one of three things: a source passage shown as written, a pending line standing in for a held passage, or
 // a line below. Nothing below states a legal conclusion: each line is a status, a fact the repository backs, or a pending line.
@@ -23,6 +23,14 @@ export const PAGES = {
     titleEn: 'Refunds', titleTh: 'การคืนเงิน',
     descEn: 'Kolwen refund terms: a draft. Nothing is for sale yet, and parts of it wait for review by counsel.',
   },
+};
+
+PAGES.changelog = {
+  file: 'web/changelog.html', path: '/changelog',
+  titleEn: 'Changelog', titleTh: 'บันทึกการเปลี่ยนแปลง',
+  // The log is kept in English; the Thai view says so (a status statement, no obligation).
+  noteTh: 'บันทึกการเปลี่ยนแปลงนี้เขียนเป็นภาษาอังกฤษ',
+  descEn: "Kolwen's changelog, rendered from the repository's CHANGELOG.md. Nothing has been released yet.",
 };
 
 export const BANNER = {

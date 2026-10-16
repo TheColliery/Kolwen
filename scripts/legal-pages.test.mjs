@@ -11,13 +11,13 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const lib = await import(new URL('./lib/legal-render.mjs', import.meta.url));
 const { REFUND_ROWS } = await import(new URL('./lib/legal-page-text.mjs', import.meta.url));
-const { classify, renderPages, renderSource, shell, inline, plain, escText, escAttr, anchorOf, holdProblems, SOURCES } = lib;
+const { classify, renderPages, renderSource, shell, inline, plain, escText, escAttr, anchorOf, holdProblems, siteFooterHtml, footersOf, FOOTER_CSS, STYLE, SOURCES } = lib;
 // The text of rendered HTML with its tags removed, entities left as they are (so it compares with escText(plain(markdown))).
 const textOf = html => html.split('<').map((part, i) => (i === 0 ? part : part.slice(part.indexOf('>') + 1))).join('').replace(/\s+/g, ' ').trim();
 const read = rel => readFileSync(join(ROOT, rel), 'utf8').replace(/\r\n/g, '\n');
 const holds = JSON.parse(read('scripts/lib/legal-holds.json'));
 const state = JSON.parse(read('legal/legal-state.json'));
-const inputs = () => ({ terms: read('TERMS.md'), privacy: read('PRIVACY.md'), clause: read('legal/thai-7day-clause.md'), state, holds });
+const inputs = () => ({ terms: read('TERMS.md'), privacy: read('PRIVACY.md'), clause: read('legal/thai-7day-clause.md'), changelog: read('CHANGELOG.md'), state, holds });
 const count = (s, needle) => s.split(needle).length - 1;
 // The English document of a page: the text between the two document containers.
 const docEn = html => html.slice(html.indexOf('id="doc-en"'), html.indexOf('id="doc-th"'));
@@ -147,8 +147,8 @@ test('refund rows R1 and R2 are the TERMS.md passages: a changed passage is repo
 
 test('the pages carry no raw {{token}}, no marker-less pending line, and nothing a production page must not have', () => {
   const { pages } = renderPages(inputs());
-  assert.equal(Object.keys(pages).length, 3);
-  for (const [file, html] of Object.entries(pages)) {
+  assert.equal(Object.keys(pages).length, 4);
+  for (const [file, html] of Object.entries(pages).filter(([name]) => name !== 'web/changelog.html')) {
     assert.ok(!html.includes('{{'), file + ' has a raw token');
     assert.ok(!/noindex/i.test(html), file + ' asks search engines to skip it');
     assert.ok(!/PREVIEW/.test(html), file + ' is marked as a preview');
@@ -213,18 +213,21 @@ test('the same inputs give the same pages', () => {
 });
 
 // ── the CLI, against a throwaway copy of the tree ──────────────────────────────────────────────
-const FILES = ['scripts/legal-pages.mjs', 'scripts/lib/legal-render.mjs', 'scripts/lib/legal-page-text.mjs', 'scripts/lib/legal-state.mjs', 'scripts/lib/legal-holds.json', 'TERMS.md', 'PRIVACY.md', 'legal/thai-7day-clause.md', 'legal/legal-state.json', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/pricing.html'];
+const FILES = ['scripts/legal-pages.mjs', 'scripts/lib/legal-render.mjs', 'scripts/lib/legal-page-text.mjs', 'scripts/lib/legal-state.mjs', 'scripts/lib/legal-holds.json', 'TERMS.md', 'PRIVACY.md', 'legal/thai-7day-clause.md', 'legal/legal-state.json', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/pricing.html', 'CHANGELOG.md', 'web/changelog.html', 'web/index.html', 'web/404.html'];
 function copyTree() {
   const dir = mkdtempSync(join(tmpdir(), 'legal-pages-'));
   for (const f of FILES) { mkdirSync(dirname(join(dir, f)), { recursive: true }); writeFileSync(join(dir, f), readFileSync(join(ROOT, f))); }
   return dir;
 }
-const check = (dir, ...args) => spawnSync(process.execPath, ['--max-old-space-size=2048', join(dir, 'scripts/legal-pages.mjs'), ...(args.length ? args : ['--check'])], { encoding: 'utf8', timeout: 60000, cwd: dir });
+// The house shape (scripts/secret-gate.test.mjs): a child of this test sees HOME, USERPROFILE and every temp variable pointing at the test's own folder,
+// so nothing it does can touch the developer's real home or temp.
+const childEnv = dir => { const home = join(dir, '.sandbox-home'); mkdirSync(home, { recursive: true }); return { ...process.env, HOME: home, USERPROFILE: home, TEMP: home, TMP: home, TMPDIR: home, XDG_CONFIG_HOME: home }; };
+const check = (dir, ...args) => spawnSync(process.execPath, ['--max-old-space-size=2048', join(dir, 'scripts/legal-pages.mjs'), ...(args.length ? args : ['--check'])], { encoding: 'utf8', timeout: 60000, cwd: dir, env: childEnv(dir) });
 const edit = (dir, f, fn) => writeFileSync(join(dir, f), fn(readFileSync(join(dir, f), 'utf8')));
 
 test('--check passes on the committed pages', () => {
   const dir = copyTree();
-  try { const r = check(dir); assert.equal(r.status, 0, r.stdout + r.stderr); assert.match(r.stdout, /3 pages match/); } finally { rmSync(dir, { recursive: true, force: true }); }
+  try { const r = check(dir); assert.equal(r.status, 0, r.stdout + r.stderr); assert.match(r.stdout, /4 pages match/); } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('--check fails, naming the page, when one word of a statement in a source changes; --write puts it right', () => {
@@ -272,4 +275,158 @@ test('the CLI refuses an unknown flag with exit 2 and prints usage on --help', (
     assert.match(help.stdout, /usage: node scripts\/legal-pages\.mjs/);
     assert.ok(existsSync(join(dir, 'web/terms.html')));
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ── the shared footer and the changelog page ────────────────────────────────────────────────────
+const LINKS = ['/', '/pricing', '/changelog', '/terms', '/privacy', '/refund', 'https://github.com/TheColliery/Kolwen', 'https://huggingface.co/kolwen', 'https://www.npmjs.com/package/kolwen', 'mailto:info@kolwen.com', 'https://kolwen.com/.well-known/security.txt'];
+const hrefs = block => [...block.matchAll(/<a href="([^"]*)"/g)].map(m => m[1]);
+
+test('the shared footer links the same eleven places in both languages, in one order, with no buy word and no payment address', () => {
+  for (const lang of ['en', 'th']) {
+    const b = siteFooterHtml(lang);
+    assert.deepEqual(hrefs(b), [LINKS[0], LINKS[1], LINKS[2], LINKS[3], LINKS[4], LINKS[5], LINKS[6], LINKS[7], LINKS[8], LINKS[9], LINKS[10]].map(x => x), lang);
+    assert.ok(!/^\s/m.test(b), 'no line of the block is indented, so it is byte-identical wherever it sits');
+    assert.ok(!/paddle|checkout|_ptxn/i.test(b));
+  }
+  assert.deepEqual(hrefs(siteFooterHtml('en')), hrefs(siteFooterHtml('th')));
+});
+
+test('every generated page holds the shared footer, English then Thai, byte for byte', () => {
+  const { pages } = renderPages(inputs());
+  for (const [file, html] of Object.entries(pages)) assert.deepEqual(footersOf(html), [siteFooterHtml('en'), siteFooterHtml('th')], file);
+});
+
+test('the hand-kept pages hold the same two footer blocks and carry the footer rules in a style block', () => {
+  for (const file of ['web/index.html', 'web/pricing.html', 'web/404.html']) {
+    const html = read(file);
+    assert.deepEqual(footersOf(html), [siteFooterHtml('en'), siteFooterHtml('th')], file);
+    assert.ok((html.match(/<style>[\s\S]*?<\/style>/g) || []).some(b => b.includes(FOOTER_CSS)), file + ' has the footer rules');
+    assert.equal(hrefs(footersOf(html)[0]).length, LINKS.length, file + ' footer link count');
+  }
+  assert.ok(STYLE.includes(FOOTER_CSS));
+});
+
+test('the changelog page shows every passage of CHANGELOG.md as written, with no hold, and every footer link', () => {
+  const i = inputs();
+  const { pages, report } = renderPages(i);
+  const html = pages['web/changelog.html'];
+  const c = classify(SOURCES.changelog, i.changelog, { holds: [], noHold: true });
+  assert.equal(c.stats.held, 0);
+  assert.equal(c.stats.text, c.stats.passages);
+  for (const doc of [docEn(html), docTh(html)]) {
+    assert.equal(count(doc, 'class="t"'), c.stats.passages, 'passages on the page = passages in CHANGELOG.md');
+    assert.equal(count(doc, 'class="pending"'), 0);
+  }
+  assert.match(report.join('\n'), new RegExp('web/changelog\\.html: CHANGELOG\\.md ' + c.stats.passages + ' passages = ' + c.stats.passages + ' shown as written \\+ 0 pending lines'));
+  assert.ok(!/class="banner"/.test(html), 'the changelog is not a draft legal page, so it carries no draft banner');
+  const shown = [...docEn(html).matchAll(/<(?:p|li) class="t"[^>]*>([\s\S]*?)<\/(?:p|li)>/g)].map(m => textOf(m[1]));
+  assert.deepEqual(shown, c.items.filter(x => x.kind === 'passage').map(p => escText(plain(p.text))));
+});
+
+test('the Thai view of the changelog says the log is kept in English; the English view and the legal pages carry no such line', () => {
+  const { pages } = renderPages(inputs());
+  const line = 'บันทึกการเปลี่ยนแปลงนี้เขียนเป็นภาษาอังกฤษ';
+  assert.equal(count(docTh(pages['web/changelog.html']), line), 1);
+  assert.equal(count(docEn(pages['web/changelog.html']), line), 0);
+  for (const f of ['web/terms.html', 'web/privacy.html', 'web/refund.html']) assert.equal(count(pages[f], line), 0, f);
+  assert.equal(count(docTh(pages['web/changelog.html']), 'class="pending"'), 0, 'a status line, not a pending line');
+});
+
+test('a [text](https://...) link is a link and anything else stays text', () => {
+  assert.equal(inline('see [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ok'), 'see <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>; ok');
+  assert.equal(inline('[x](javascript:alert(1))'), '[x](javascript:alert(1))');
+  assert.equal(plain('see [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)'), 'see Keep a Changelog');
+});
+
+test('--check fails, naming the page and the language, when the footer of a hand-kept page drifts', () => {
+  for (const [file, from, to, re] of [
+    ['web/index.html', '<a href="/terms">Terms</a>', '<a href="/terms">Terms </a>', /FAIL web\/index\.html en footer differs from the shared footer, line \d+/],
+    ['web/pricing.html', '<a href="/privacy">ความเป็นส่วนตัว</a>', '<a href="/privacy">ความเป็นส่วนตัว </a>', /FAIL web\/pricing\.html th footer differs from the shared footer/],
+    ['web/404.html', '<a href="/changelog">Changelog</a>', '<a href="/changelogs">Changelog</a>', /FAIL web\/404\.html en footer differs from the shared footer/],
+  ]) {
+    const dir = copyTree();
+    try {
+      edit(dir, file, x => { assert.ok(x.includes(from), file + ' holds the anchor'); return x.replace(from, to); });
+      const r = check(dir);
+      assert.equal(r.status, 1, file + '\n' + r.stdout + r.stderr);
+      assert.match(r.stdout, re, file);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }
+});
+
+test('--check fails when a hand-kept page loses its footer or its footer rules', () => {
+  for (const [file, fn, re] of [
+    ['web/index.html', x => x.replace(/<footer class="site-footer">[\s\S]*?<\/footer>/, ''), /web\/index\.html holds 1 shared footer block\(s\), expected 2/],
+    ['web/404.html', x => x.replace(FOOTER_CSS, ''), /web\/404\.html has no <style> block carrying the footer rules/],
+  ]) {
+    const dir = copyTree();
+    try { edit(dir, file, fn); const r = check(dir); assert.equal(r.status, 1, file + '\n' + r.stdout + r.stderr); assert.match(r.stdout, re, file); } finally { rmSync(dir, { recursive: true, force: true }); }
+  }
+});
+
+test('--check fails, naming web/changelog.html, when CHANGELOG.md changes by one word; --write puts it right', () => {
+  const dir = copyTree();
+  try {
+    edit(dir, 'CHANGELOG.md', x => { assert.ok(x.includes('Nothing has been released.'), 'anchor'); return x.replace('Nothing has been released.', 'Nothing was released.'); });
+    const r = check(dir);
+    assert.equal(r.status, 1, r.stdout + r.stderr);
+    assert.match(r.stdout, /FAIL web\/changelog\.html differs from the render of its sources, line \d+/);
+    assert.equal(check(dir, '--write').status, 0);
+    assert.equal(check(dir).status, 0);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('the CLI child runs with HOME, USERPROFILE and the temp variables inside the folder of the test', () => {
+  const dir = copyTree();
+  try {
+    const probe = spawnSync(process.execPath, ['-e', 'const e = process.env; console.log(JSON.stringify([e.HOME, e.USERPROFILE, e.TEMP, e.TMP, e.TMPDIR, e.XDG_CONFIG_HOME]))'], { encoding: 'utf8', timeout: 30000, env: childEnv(dir) });
+    const seen = JSON.parse(probe.stdout);
+    for (const v of seen) assert.ok(v.startsWith(dir), v + ' is inside ' + dir);
+    for (const [name, v] of Object.entries({ HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE })) if (v) assert.notEqual(seen[name === 'HOME' ? 0 : 1], v, name + ' is not the real one');
+    assert.equal(check(dir).status, 0, 'the CLI still runs in the sandbox');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ── WCAG 2.2 SC 1.4.3: every footer text colour against the background it sits on, at least 4.5:1 ──────────
+// The footer takes its page's colour at full strength (no opacity anywhere in FOOTER_CSS) and hover does not change the colour, so what is
+// measured is the colour each page gives the footer. WCAG 2.x relative luminance and contrast ratio.
+const lin = c => { const v = c / 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+const lum = ([r, g, b]) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+const ratio = (a, b) => { const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x); return (hi + 0.05) / (lo + 0.05); };
+const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const mix = (fg, a, bg) => fg.map((c, i) => Math.round(c * a + bg[i] * (1 - a)));
+const css = html => (html.match(/<style>[\s\S]*?<\/style>/g) || []).join('\n');
+const varIn = (text, name) => { const m = new RegExp('--' + name + ':(#[0-9a-fA-F]{6})').exec(text); assert.ok(m, 'var --' + name); return rgb(m[1]); };
+
+test('the footer css has no opacity and no hover colour, so no footer text is dimmed below its page colour', () => {
+  assert.ok(!/opacity/.test(FOOTER_CSS), 'no opacity in the footer rules');
+  for (const m of FOOTER_CSS.matchAll(/[{;]\s*color:([^;}]*)/g)) assert.equal(m[1], 'inherit', 'the only colour a footer rule sets is inherit');
+  assert.ok(!/:hover\{[^}]*color/.test(FOOTER_CSS), 'hover does not change the colour');
+});
+
+test('every footer text colour measures at least 4.5:1 on every page background (dark pages with the brightest gradient point, the 404 page in both colour schemes)', () => {
+  const { pages } = renderPages(inputs());
+  const dark = { ...pages, 'web/index.html': read('web/index.html'), 'web/pricing.html': read('web/pricing.html') };
+  const rows = [];
+  for (const [file, html] of Object.entries(dark)) {
+    const c = css(html);
+    assert.match(c, /footer\{[^}]*color:var\(--quiet\)/, file + ': the footer takes --quiet');
+    const text = varIn(c, 'quiet'), bg = varIn(c, 'bg');
+    const g = /radial-gradient\(circle at [^,]+,rgba\((\d+),(\d+),(\d+),([.\d]+)\)/.exec(c);
+    assert.ok(g, file + ': the body gradient');
+    const peak = mix([+g[1], +g[2], +g[3]], +g[4], bg);
+    rows.push([file + ' (base)', ratio(text, bg)], [file + ' (gradient peak)', ratio(text, peak)]);
+  }
+  const nf = css(read('web/404.html'));
+  const light = { ink: varIn(nf.split('@media')[0], 'ink'), bg: varIn(nf.split('@media')[0], 'bg') };
+  const darkM = /@media \(prefers-color-scheme:dark\)\{:root\{([^}]*)\}/.exec(nf);
+  assert.ok(darkM, '404 dark scheme');
+  // On the 404 page a footer link inherits the body colour (--ink) and a footer paragraph (the group labels and the copyright) takes the page's own p rule (--dim).
+  assert.match(nf, /color:var\(--ink\)/, '404: the body colour, which a footer link inherits, is --ink');
+  assert.match(nf, /(^|\n)p\{[^}]*color:var\(--dim\)/, '404: a paragraph takes --dim');
+  const dimLight = varIn(nf.split('@media')[0], 'dim'), dimDark = varIn(darkM[1], 'dim'), bgDark = varIn(darkM[1], 'bg');
+  rows.push(['web/404.html link (light)', ratio(light.ink, light.bg)], ['web/404.html label and copyright (light)', ratio(dimLight, light.bg)],
+    ['web/404.html link (dark)', ratio(varIn(darkM[1], 'ink'), bgDark)], ['web/404.html label and copyright (dark)', ratio(dimDark, bgDark)]);
+  for (const [name, r] of rows) assert.ok(r >= 4.5, name + ' measures ' + r.toFixed(2) + ':1');
+  assert.ok(rows.length >= 16, 'the sample covers seven pages, two backgrounds on the dark ones, and the 404 page in two schemes for its links and for its paragraphs');
 });

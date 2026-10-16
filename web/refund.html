@@ -73,6 +73,13 @@
   .pcard ul{padding-left:18px;display:flex;flex-direction:column;gap:5px}
   .pcard li{font-size:14px;color:var(--txt2)}
   .note{font-size:13px;color:var(--quiet)}
+  .site-footer{margin-top:28px;padding-top:20px;border-top:1px solid rgba(128,128,128,.35);font-size:13.5px;line-height:1.7;display:flex;flex-direction:column;gap:14px}
+  .site-footer .fgroups{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:18px}
+  .site-footer .fgroup{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
+  .site-footer .fh{font-size:12px;letter-spacing:.04em;text-transform:uppercase;margin:0}
+  .site-footer a{color:inherit;text-decoration:underline;text-underline-offset:3px;display:inline-block;padding:5px 0;min-height:32px}
+  .site-footer a:hover{text-decoration-thickness:2px}
+  .fine{font-size:12px;margin:0}
   [hidden]{display:none !important}
   @media (max-width:420px){.name{font-size:28px}h1{font-size:20px}.plans th,.plans td{padding-right:6px;font-size:13px}.plans button{padding:6px 8px}}
 </style>
@@ -115,18 +122,17 @@
       <p class="pending">[pending legal review] Full Thai versions of the Terms, the Refunds and the Privacy pages, equal in substance to the English, are still to come.</p>
     </div>
 
-    <nav class="ch" aria-label="Pages">
-      <a href="/">Home</a>
-      <a href="/pricing">Plans</a>
-      <a href="/terms">Terms</a>
-      <a href="/privacy">Privacy</a>
-      <a href="/refund">Refunds</a>
-    </nav>
-
-    <footer>
-      <span>© 2026 Kolwen · trademark application pending</span>
-      <span>This page: your language choice is stored locally in your browser · fonts are loaded from Google Fonts</span>
-    </footer>
+<footer class="site-footer">
+<nav class="fgroups" aria-label="Footer">
+<div class="fgroup"><p class="fh">Kolwen</p><a href="/">Home</a></div>
+<div class="fgroup"><p class="fh">Product</p><a href="/pricing">Pricing</a><a href="/changelog">Changelog</a></div>
+<div class="fgroup"><p class="fh">Legal</p><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/refund">Refunds</a></div>
+<div class="fgroup"><p class="fh">Code</p><a href="https://github.com/TheColliery/Kolwen">GitHub</a><a href="https://huggingface.co/kolwen">Hugging Face</a><a href="https://www.npmjs.com/package/kolwen">npm</a></div>
+<div class="fgroup"><p class="fh">Contact</p><a href="mailto:info@kolwen.com">Email</a><a href="https://kolwen.com/.well-known/security.txt">Security</a></div>
+</nav>
+<p class="fine">© 2026 Kolwen · trademark application pending</p>
+</footer>
+<p class="fine">This page: your language choice is stored locally in your browser · fonts are loaded from Google Fonts</p>
   </div>
 
   <div id="doc-th" lang="th" hidden>
@@ -147,18 +153,17 @@
       <p class="pending">[รอที่ปรึกษากฎหมาย] ฉบับภาษาไทยเต็มของข้อกำหนด การคืนเงิน และความเป็นส่วนตัว ที่เนื้อหาเท่ากับฉบับภาษาอังกฤษ ยังจะตามมา</p>
     </div>
 
-    <nav class="ch" aria-label="หน้าอื่น">
-      <a href="/">หน้าแรก</a>
-      <a href="/pricing">แผน</a>
-      <a href="/terms">ข้อกำหนด</a>
-      <a href="/privacy">ความเป็นส่วนตัว</a>
-      <a href="/refund">การคืนเงิน</a>
-    </nav>
-
-    <footer>
-      <span>© 2026 Kolwen · เครื่องหมายการค้าอยู่ระหว่างการจดทะเบียน</span>
-      <span>หน้านี้: ภาษาที่เลือกถูกเก็บไว้ในเบราว์เซอร์ของคุณ · ฟอนต์โหลดจาก Google Fonts</span>
-    </footer>
+<footer class="site-footer">
+<nav class="fgroups" aria-label="ส่วนท้ายเว็บ">
+<div class="fgroup"><p class="fh">Kolwen</p><a href="/">หน้าแรก</a></div>
+<div class="fgroup"><p class="fh">สินค้า</p><a href="/pricing">ราคา</a><a href="/changelog">บันทึกการเปลี่ยนแปลง</a></div>
+<div class="fgroup"><p class="fh">กฎหมาย</p><a href="/terms">ข้อกำหนด</a><a href="/privacy">ความเป็นส่วนตัว</a><a href="/refund">การคืนเงิน</a></div>
+<div class="fgroup"><p class="fh">โค้ด</p><a href="https://github.com/TheColliery/Kolwen">GitHub</a><a href="https://huggingface.co/kolwen">Hugging Face</a><a href="https://www.npmjs.com/package/kolwen">npm</a></div>
+<div class="fgroup"><p class="fh">ติดต่อ</p><a href="mailto:info@kolwen.com">อีเมล</a><a href="https://kolwen.com/.well-known/security.txt">ความปลอดภัย</a></div>
+</nav>
+<p class="fine">© 2026 Kolwen · เครื่องหมายการค้าอยู่ระหว่างการจดทะเบียน</p>
+</footer>
+<p class="fine">หน้านี้: ภาษาที่เลือกถูกเก็บไว้ในเบราว์เซอร์ของคุณ · ฟอนต์โหลดจาก Google Fonts</p>
   </div>
 </main>
 <script>

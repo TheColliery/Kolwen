@@ -20,7 +20,7 @@
 import { MARK_EN, MARK_TH, PAGES, BANNER, PENDING, THAI_OWED, TEXT_TWINS, PENDING_LINES, REFUND_ROWS } from './legal-page-text.mjs';
 import { activeSince } from './legal-state.mjs';
 
-export const SOURCES = { terms: 'TERMS.md', privacy: 'PRIVACY.md', clause: 'legal/thai-7day-clause.md' };
+export const SOURCES = { terms: 'TERMS.md', privacy: 'PRIVACY.md', clause: 'legal/thai-7day-clause.md', changelog: 'CHANGELOG.md' };
 export const HOLD_REASON = 'awaits counsel';
 
 const RE_MARK = [/\[pending\s+legal\s+review\]/i, /\[\s*รอ\s*ที่ปรึกษา\s*กฎหมาย\s*\]/];
@@ -64,7 +64,7 @@ export function splitSource(md) {
 // opts.holds: [{ file, anchor, reason }]; opts.active: true when the legal-state record says the Thai 7-day clause is in force, which
 // lifts the LIST hold from the clause file's own passages (their markers and placeholders still hold).
 export function classify(file, md, opts) {
-  const { holds = [], active = false } = opts || {};
+  const { holds = [], active = false, noHold = false } = opts || {};
   const listed = new Set(holds.filter(h => h.file === file).map(h => h.anchor));
   const useList = !(file === SOURCES.clause && active);
   const items = splitSource(md);
@@ -77,7 +77,7 @@ export function classify(file, md, opts) {
     const byList = useList && listed.has(it.anchor);
     if (byList) (auto ? redundant : used).add(it.anchor);
     else if (listed.has(it.anchor) && !useList) used.add(it.anchor); // a lifted list hold still names a real passage, so it is not stale
-    it.held = auto || byList;
+    it.held = !noHold && (auto || byList);
   }
   const passages = items.filter(i => i.kind === 'passage');
   const held = passages.filter(p => p.held).length;
@@ -116,6 +116,7 @@ export function inline(md) {
   const codes = [];
   let s = md.replace(/`([^`]+)`/g, (_, c) => { codes.push(c); return SLOT + (codes.length - 1) + SLOT; });
   s = escText(s);
+  s = s.replace(/\[([^\]]+)\]\((https:\/\/[^)\s]+)\)/g, '<a href="$2">$1</a>'); // text and url are already escaped
   s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   s = s.replace(/(^|[^*])\*([^*\s][^*]*?)\*(?!\*)/g, '$1<em>$2</em>');
   return s.replace(new RegExp(SLOT + '([0-9]+)' + SLOT, 'g'), (_, i) => '<code>' + escText(codes[Number(i)]) + '</code>');
@@ -124,7 +125,7 @@ export function inline(md) {
 export function plain(md) {
   const codes = [];
   let s = md.replace(/`([^`]+)`/g, (_, c) => { codes.push(c); return SLOT + (codes.length - 1) + SLOT; });
-  s = s.replace(/\*\*(.+?)\*\*/g, '$1').replace(/(^|[^*])\*([^*\s][^*]*?)\*(?!\*)/g, '$1$2');
+  s = s.replace(/\[([^\]]+)\]\(https:\/\/[^)\s]+\)/g, '$1').replace(/\*\*(.+?)\*\*/g, '$1').replace(/(^|[^*])\*([^*\s][^*]*?)\*(?!\*)/g, '$1$2');
   return squash(s.replace(new RegExp(SLOT + '([0-9]+)' + SLOT, 'g'), (_, i) => codes[Number(i)]));
 }
 
@@ -196,8 +197,50 @@ function refundBody(clauseMd, termsClass, lang, opts) {
   return { html: out.join('\n      '), stats: { passages: REFUND_ROWS.length, text, held: pending }, errors };
 }
 
-// ── 5. The page shell (the site's own: fonts, colours, the language toggle and its noscript rule) ──
-// One style block serves these three pages AND web/pricing.html, so the four share one CSP hash (surface-check rule 13). The pricing page
+// ── 5. The shared footer, and the page shell
+// The footer is ONE block per language, written here and nowhere else. Its lines carry no indentation so the block is byte-identical
+// wherever it sits; the hand-kept pages (index, pricing, 404) hold a copy and `legal-pages.mjs --check` compares it byte for byte.
+// FOOTER_CSS uses no page variable and no opacity: every footer text takes the colour its page gives the footer at full strength (WCAG 2.2 SC 1.4.3
+// measures that colour against the page, and a test computes it), and hover changes the underline, not the colour. The same rules sit in every page's own style block.
+export const FOOTER_CSS = [
+  "  .site-footer{margin-top:28px;padding-top:20px;border-top:1px solid rgba(128,128,128,.35);font-size:13.5px;line-height:1.7;display:flex;flex-direction:column;gap:14px}",
+  "  .site-footer .fgroups{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:18px}",
+  "  .site-footer .fgroup{display:flex;flex-direction:column;align-items:flex-start;gap:2px}",
+  "  .site-footer .fh{font-size:12px;letter-spacing:.04em;text-transform:uppercase;margin:0}",
+  "  .site-footer a{color:inherit;text-decoration:underline;text-underline-offset:3px;display:inline-block;padding:5px 0;min-height:32px}",
+  "  .site-footer a:hover{text-decoration-thickness:2px}",
+  "  .fine{font-size:12px;margin:0}",
+  ""].join('\n');
+
+const FOOTER = {
+  en: { label: 'Footer', note: '© 2026 Kolwen · trademark application pending', groups: [
+    ['Kolwen', [['/', 'Home']]],
+    ['Product', [['/pricing', 'Pricing'], ['/changelog', 'Changelog']]],
+    ['Legal', [['/terms', 'Terms'], ['/privacy', 'Privacy'], ['/refund', 'Refunds']]],
+    ['Code', [['https://github.com/TheColliery/Kolwen', 'GitHub'], ['https://huggingface.co/kolwen', 'Hugging Face'], ['https://www.npmjs.com/package/kolwen', 'npm']]],
+    ['Contact', [['mailto:info@kolwen.com', 'Email'], ['https://kolwen.com/.well-known/security.txt', 'Security']]]] },
+  th: { label: 'ส่วนท้ายเว็บ', note: '© 2026 Kolwen · เครื่องหมายการค้าอยู่ระหว่างการจดทะเบียน', groups: [
+    ['Kolwen', [['/', 'หน้าแรก']]],
+    ['สินค้า', [['/pricing', 'ราคา'], ['/changelog', 'บันทึกการเปลี่ยนแปลง']]],
+    ['กฎหมาย', [['/terms', 'ข้อกำหนด'], ['/privacy', 'ความเป็นส่วนตัว'], ['/refund', 'การคืนเงิน']]],
+    ['โค้ด', [['https://github.com/TheColliery/Kolwen', 'GitHub'], ['https://huggingface.co/kolwen', 'Hugging Face'], ['https://www.npmjs.com/package/kolwen', 'npm']]],
+    ['ติดต่อ', [['mailto:info@kolwen.com', 'อีเมล'], ['https://kolwen.com/.well-known/security.txt', 'ความปลอดภัย']]]] },
+};
+export const siteFooterHtml = lang => {
+  const f = FOOTER[lang];
+  return ['<footer class="site-footer">', `<nav class="fgroups" aria-label="${escAttr(f.label)}">`,
+    ...f.groups.map(([h, links]) => `<div class="fgroup"><p class="fh">${escText(h)}</p>${links.map(([u, t]) => `<a href="${escAttr(u)}">${escText(t)}</a>`).join('')}</div>`),
+    '</nav>', `<p class="fine">${escText(f.note)}</p>`, '</footer>'].join('\n');
+};
+// What is true only of pages that store the language choice and load the fonts (not of the 404 page), so it is not in the shared block.
+export const pageNoteHtml = lang => lang === 'en'
+  ? '<p class="fine">This page: your language choice is stored locally in your browser · fonts are loaded from Google Fonts</p>'
+  : '<p class="fine">หน้านี้: ภาษาที่เลือกถูกเก็บไว้ในเบราว์เซอร์ของคุณ · ฟอนต์โหลดจาก Google Fonts</p>';
+// The footer blocks a page holds, in document order.
+export const footersOf = html => html.match(/<footer class="site-footer">[\s\S]*?<\/footer>/g) || [];
+
+// ── 5b. The page shell (the site's own: fonts, colours, the language toggle and its noscript rule) ──
+// One style block serves the four generated pages (terms, privacy, refund, changelog) AND web/pricing.html, so the five share one CSP hash (surface-check rule 13). The pricing page
 // is edited by hand; `legal-pages.mjs --check` fails if its style block is not byte-for-byte this one.
 export const STYLE = `
   :root{--bg:#0f0d0b;--bg2:#15130f;--card:#1a1714;--line:rgba(255,255,255,.08);--txt:#ece4d9;--txt2:#a89a8c;--quiet:#a2968a;--accent:#e8833a;--accent2:#ffbb7a}
@@ -260,7 +303,7 @@ export const STYLE = `
   .pcard ul{padding-left:18px;display:flex;flex-direction:column;gap:5px}
   .pcard li{font-size:14px;color:var(--txt2)}
   .note{font-size:13px;color:var(--quiet)}
-  [hidden]{display:none !important}
+${FOOTER_CSS}  [hidden]{display:none !important}
   @media (max-width:420px){.name{font-size:28px}h1{font-size:20px}.plans th,.plans td{padding-right:6px;font-size:13px}.plans button{padding:6px 8px}}
 `;
 
@@ -306,23 +349,6 @@ const MARK_SVG = `<svg class="glyph" viewBox="0 0 100 100" width="34" height="34
       <rect x="27.2" y="75.46" width="64.3" height="15.45"/>
     </svg>`;
 
-const NAV = {
-  en: { label: 'Pages', links: [['/', 'Home'], ['/pricing', 'Plans'], ['/terms', 'Terms'], ['/privacy', 'Privacy'], ['/refund', 'Refunds']] },
-  th: { label: 'หน้าอื่น', links: [['/', 'หน้าแรก'], ['/pricing', 'แผน'], ['/terms', 'ข้อกำหนด'], ['/privacy', 'ความเป็นส่วนตัว'], ['/refund', 'การคืนเงิน']] },
-};
-export const navHtml = lang => `<nav class="ch" aria-label="${NAV[lang].label}">
-      ${NAV[lang].links.map(([h, t]) => `<a href="${h}">${t}</a>`).join('\n      ')}
-    </nav>`;
-export const footerHtml = lang => lang === 'en'
-  ? `<footer>
-      <span>© 2026 Kolwen · trademark application pending</span>
-      <span>This page: your language choice is stored locally in your browser · fonts are loaded from Google Fonts</span>
-    </footer>`
-  : `<footer>
-      <span>© 2026 Kolwen · เครื่องหมายการค้าอยู่ระหว่างการจดทะเบียน</span>
-      <span>หน้านี้: ภาษาที่เลือกถูกเก็บไว้ในเบราว์เซอร์ของคุณ · ฟอนต์โหลดจาก Google Fonts</span>
-    </footer>`;
-
 export function shell({ title, description, path, en, th }) {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -367,26 +393,26 @@ ${th}
 `;
 }
 
-function docHtml(lang, title, body) {
+function docHtml(lang, title, body, draft = true, note = '') {
   return `    <div>
-      <h1>${escText(title)}</h1>
-      <p class="banner" role="note">${escText(BANNER[lang])}</p>
+      <h1>${escText(title)}</h1>${note ? `
+      <p class="sub">${escText(note)}</p>` : ''}${draft ? `
+      <p class="banner" role="note">${escText(BANNER[lang])}</p>` : ''}
     </div>
     <div class="legal">
-      ${body}
-      <p class="pending">${escText(THAI_OWED[lang])}</p>
+      ${body}${draft ? `
+      <p class="pending">${escText(THAI_OWED[lang])}</p>` : ''}
     </div>
 
-    ${navHtml(lang)}
-
-    ${footerHtml(lang)}`;
+${siteFooterHtml(lang)}
+${pageNoteHtml(lang)}`;
 }
 
-// ── 6. The three pages ──────────────────────────────────────────────────────────────────────────
-// inputs: { terms, privacy, clause, state (the parsed legal-state record), holds (the parsed hold list) }.
+// ── 6. The four pages ──────────────────────────────────────────────────────────────────────────
+// inputs: { terms, privacy, clause, changelog (CHANGELOG.md, optional: without it the changelog page is not rendered), state (the parsed legal-state record), holds (the parsed hold list) }.
 // Returns { pages: { 'web/terms.html': html, ... }, report: [line], problems: [line] }.
 export function renderPages(inputs) {
-  const { terms, privacy, clause, state, holds } = inputs;
+  const { terms, privacy, clause, state, holds, changelog } = inputs;
   const since = state ? activeSince(state) : null;
   const active = since !== null;
   const clauseText = active ? clause.split('{{since}}').join(since) : clause;
@@ -403,11 +429,11 @@ export function renderPages(inputs) {
   problems.push(...holdProblems(holds.holds, perFile));
   for (const p of PENDING_LINES) if (!(perFile[p.file] && perFile[p.file].items.some(i => i.kind === 'passage' && i.held && i.anchor === p.anchor))) problems.push(`the specific pending line for "${p.anchor}" matches no held passage of ${p.file}`);
 
-  const done = (key, lines) => {
+  const done = (key, lines, draft = true) => {
     const P = PAGES[key];
     const html = shell({
       title: P.titleEn, description: P.descEn, path: P.path,
-      en: docHtml('en', P.titleEn, lines.en.html), th: docHtml('th', P.titleTh, lines.th.html),
+      en: docHtml('en', P.titleEn, lines.en.html, draft, ''), th: docHtml('th', P.titleTh, lines.th.html, draft, P.noteTh || ''),
     });
     pages[P.file] = html;
     for (const l of ['en', 'th']) problems.push(...lines[l].errors.map(e => `${P.file} (${l}): ${e}`));
@@ -425,5 +451,11 @@ export function renderPages(inputs) {
   say(PAGES.refund.file, 'refund rows', rs);
   const cs = perFile[SOURCES.clause].stats;
   report.push(`${PAGES.refund.file}: ${SOURCES.clause} ${cs.passages} passages = ${cs.text} shown as written + ${cs.held} held${active ? ` (in force since ${since}: shown in place of R8)` : ' (not in force: held, shown as the one pending line R8)'}`);
+  // The changelog: the repository's own CHANGELOG.md, every passage shown as written (nothing in it waits for counsel, so no hold applies).
+  if (typeof changelog === 'string') {
+    const o = { holds: [], noHold: true };
+    const en = renderSource(SOURCES.changelog, changelog, 'en', o), th = renderSource(SOURCES.changelog, changelog, 'th', o);
+    say(PAGES.changelog.file, SOURCES.changelog, done('changelog', { en, th }, false));
+  }
   return { pages, report, problems };
 }
