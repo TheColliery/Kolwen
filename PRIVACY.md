@@ -88,8 +88,9 @@ number.
 > บันทึก และบังคับใช้ระยะเวลาการเก็บ และไม่มีกฎหมายฉบับใดกำหนดตัวเลขไว้
 
 **Worker logs.** Today the Worker runs no code of ours and logs nothing (see "What this site is"). When the
-Worker first runs code of ours (an API, a payment-provider webhook or a chat endpoint), Cloudflare Workers Logs
-will record each request. Cloudflare's documentation (https://developers.cloudflare.com/workers/observability/logs/workers-logs/,
+Worker first runs code of ours (an API, a payment-provider webhook or a chat endpoint) with Workers Logs switched on, Cloudflare Workers
+Logs will record each request. Switching it on is Cloudflare's setting, and the page says "All newly created Workers
+will come with the observability setting enabled by default". Cloudflare's documentation (https://developers.cloudflare.com/workers/observability/logs/workers-logs/,
 page last updated Oct 12, 2026, read 2026-10-17) says an invocation log contains details such as the request, the
 response and related metadata, that a fetch request's message shows the request method and the request URL, and that
 anything the Worker prints with console.log is stored too. Cloudflare keeps these logs for 3 days on Cloudflare's plan without a monthly charge
