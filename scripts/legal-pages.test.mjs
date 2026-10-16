@@ -421,8 +421,12 @@ test('every footer text colour measures at least 4.5:1 on every page background 
   const light = { ink: varIn(nf.split('@media')[0], 'ink'), bg: varIn(nf.split('@media')[0], 'bg') };
   const darkM = /@media \(prefers-color-scheme:dark\)\{:root\{([^}]*)\}/.exec(nf);
   assert.ok(darkM, '404 dark scheme');
-  rows.push(['web/404.html (light)', ratio(light.ink, light.bg)], ['web/404.html (dark)', ratio(varIn(darkM[1], 'ink'), varIn(darkM[1], 'bg'))]);
-  assert.match(nf, /color:var\(--ink\)/, '404: the body colour, which the footer inherits, is --ink');
+  // On the 404 page a footer link inherits the body colour (--ink) and a footer paragraph (the group labels and the copyright) takes the page's own p rule (--dim).
+  assert.match(nf, /color:var\(--ink\)/, '404: the body colour, which a footer link inherits, is --ink');
+  assert.match(nf, /(^|\n)p\{[^}]*color:var\(--dim\)/, '404: a paragraph takes --dim');
+  const dimLight = varIn(nf.split('@media')[0], 'dim'), dimDark = varIn(darkM[1], 'dim'), bgDark = varIn(darkM[1], 'bg');
+  rows.push(['web/404.html link (light)', ratio(light.ink, light.bg)], ['web/404.html label and copyright (light)', ratio(dimLight, light.bg)],
+    ['web/404.html link (dark)', ratio(varIn(darkM[1], 'ink'), bgDark)], ['web/404.html label and copyright (dark)', ratio(dimDark, bgDark)]);
   for (const [name, r] of rows) assert.ok(r >= 4.5, name + ' measures ' + r.toFixed(2) + ':1');
-  assert.ok(rows.length >= 14, 'the sample covers seven pages, two backgrounds on the dark ones');
+  assert.ok(rows.length >= 16, 'the sample covers seven pages, two backgrounds on the dark ones, and the 404 page in two schemes for its links and for its paragraphs');
 });
