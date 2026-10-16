@@ -239,7 +239,7 @@ export const pageNoteHtml = lang => lang === 'en'
 export const footersOf = html => html.match(/<footer class="site-footer">[\s\S]*?<\/footer>/g) || [];
 
 // ── 5b. The page shell (the site's own: fonts, colours, the language toggle and its noscript rule) ──
-// One style block serves these three pages AND web/pricing.html, so the four share one CSP hash (surface-check rule 13). The pricing page
+// One style block serves the four generated pages (terms, privacy, refund, changelog) AND web/pricing.html, so the five share one CSP hash (surface-check rule 13). The pricing page
 // is edited by hand; `legal-pages.mjs --check` fails if its style block is not byte-for-byte this one.
 export const STYLE = `
   :root{--bg:#0f0d0b;--bg2:#15130f;--card:#1a1714;--line:rgba(255,255,255,.08);--txt:#ece4d9;--txt2:#a89a8c;--quiet:#a2968a;--accent:#e8833a;--accent2:#ffbb7a}
@@ -392,9 +392,10 @@ ${th}
 `;
 }
 
-function docHtml(lang, title, body, draft = true) {
+function docHtml(lang, title, body, draft = true, note = '') {
   return `    <div>
-      <h1>${escText(title)}</h1>${draft ? `
+      <h1>${escText(title)}</h1>${note ? `
+      <p class="sub">${escText(note)}</p>` : ''}${draft ? `
       <p class="banner" role="note">${escText(BANNER[lang])}</p>` : ''}
     </div>
     <div class="legal">
@@ -406,8 +407,8 @@ ${siteFooterHtml(lang)}
 ${pageNoteHtml(lang)}`;
 }
 
-// ── 6. The three pages ──────────────────────────────────────────────────────────────────────────
-// inputs: { terms, privacy, clause, state (the parsed legal-state record), holds (the parsed hold list) }.
+// ── 6. The four pages ──────────────────────────────────────────────────────────────────────────
+// inputs: { terms, privacy, clause, changelog (CHANGELOG.md, optional: without it the changelog page is not rendered), state (the parsed legal-state record), holds (the parsed hold list) }.
 // Returns { pages: { 'web/terms.html': html, ... }, report: [line], problems: [line] }.
 export function renderPages(inputs) {
   const { terms, privacy, clause, state, holds, changelog } = inputs;
@@ -431,7 +432,7 @@ export function renderPages(inputs) {
     const P = PAGES[key];
     const html = shell({
       title: P.titleEn, description: P.descEn, path: P.path,
-      en: docHtml('en', P.titleEn, lines.en.html, draft), th: docHtml('th', P.titleTh, lines.th.html, draft),
+      en: docHtml('en', P.titleEn, lines.en.html, draft, ''), th: docHtml('th', P.titleTh, lines.th.html, draft, P.noteTh || ''),
     });
     pages[P.file] = html;
     for (const l of ['en', 'th']) problems.push(...lines[l].errors.map(e => `${P.file} (${l}): ${e}`));

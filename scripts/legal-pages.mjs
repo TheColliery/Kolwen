@@ -4,13 +4,13 @@
 // pages. It also owns the SHARED FOOTER: the block is written once in scripts/lib/legal-render.mjs, and the three hand-kept pages (index,
 // pricing, 404) must hold a byte-identical copy of it.
 //
-//   node scripts/legal-pages.mjs --write    render the three pages into web/ (the default)
+//   node scripts/legal-pages.mjs --write    render the four pages (terms, privacy, refund, changelog) into web/ (the default)
 //   node scripts/legal-pages.mjs --check    render in memory; exit 1 with a named difference if a committed page differs, or if
 //                                           web/pricing.html does not carry the same style block, a hand-kept page's footer differs from
 //                                           the shared one, or the hold list is unsound
 //
 // WHAT IT RENDERS and what it does not: see the header of scripts/lib/legal-render.mjs (the rules for a held passage, the three
-// Markdown shapes it reads, the stated limits). The pages are a pure function of the three sources, the legal-state record
+// Markdown shapes it reads, the stated limits). The pages are a pure function of their sources (TERMS.md, PRIVACY.md, the clause file, CHANGELOG.md), the legal-state record
 // (legal/legal-state.json), the hold list (scripts/lib/legal-holds.json) and the text in scripts/lib/legal-page-text.mjs, so nobody
 // edits a page by hand: a hand edit is a difference this check names.
 // Report problems at https://github.com/TheColliery/Kolwen/issues
@@ -76,7 +76,7 @@ async function main() {
     const d = firstDifference(html, have);
     if (d) fails.push(`FAIL ${file} differs from the render of its sources, ${d} (run node scripts/legal-pages.mjs --write)`);
   }
-  // The pricing page shares the legal pages' style block, so the four pages carry one CSP hash.
+  // The pricing page shares the legal pages' style block, so the five pages (terms, privacy, refund, changelog, pricing) carry one CSP hash.
   if (existsSync(resolve(ROOT, 'web/pricing.html'))) {
     if (styleOf(read('web/pricing.html')) !== lib.STYLE) fails.push('FAIL web/pricing.html does not carry the same <style> block as the legal pages (the block lives in scripts/lib/legal-render.mjs as STYLE)');
   } else fails.push('FAIL web/pricing.html is missing, so its style block could not be compared');

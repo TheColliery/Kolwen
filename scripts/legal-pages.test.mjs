@@ -320,6 +320,15 @@ test('the changelog page shows every passage of CHANGELOG.md as written, with no
   assert.deepEqual(shown, c.items.filter(x => x.kind === 'passage').map(p => escText(plain(p.text))));
 });
 
+test('the Thai view of the changelog says the log is kept in English; the English view and the legal pages carry no such line', () => {
+  const { pages } = renderPages(inputs());
+  const line = 'บันทึกการเปลี่ยนแปลงนี้เขียนเป็นภาษาอังกฤษ';
+  assert.equal(count(docTh(pages['web/changelog.html']), line), 1);
+  assert.equal(count(docEn(pages['web/changelog.html']), line), 0);
+  for (const f of ['web/terms.html', 'web/privacy.html', 'web/refund.html']) assert.equal(count(pages[f], line), 0, f);
+  assert.equal(count(docTh(pages['web/changelog.html']), 'class="pending"'), 0, 'a status line, not a pending line');
+});
+
 test('a [text](https://...) link is a link and anything else stays text', () => {
   assert.equal(inline('see [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ok'), 'see <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>; ok');
   assert.equal(inline('[x](javascript:alert(1))'), '[x](javascript:alert(1))');
