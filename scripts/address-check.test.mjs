@@ -167,3 +167,12 @@ test('a page with success true and a result that is not a list fails with the mi
   await assert.rejects(fetchAllRules(async () => ({ success: true, result: { not: 'a list' } })), err => NOT_LIST.test(err.message));
   await assert.rejects(fetchAllRules(async () => ({})), err => NOT_LIST.test(err.message));
 });
+
+test('a total_count that changes between pages means the list changed during the read: it fails by name, no verdict', async () => {
+  // page 1 says 60 rules, page 2 says 59 (a rule was deleted meanwhile): 59 rules were read, which would match page 2's number if the last value won
+  const pages = [{ result: filler(50), result_info: { per_page: 50, total_count: 60 } }, { result: filler(9), result_info: { per_page: 50, total_count: 59 } }];
+  await assert.rejects(fetchAllRules(async page => pages[page - 1]), /changed during the read: page 2 says 59 rules, an earlier page said 60; no verdict is given/);
+  // a stable total_count across pages still reads fine
+  const stable = [{ result: filler(50), result_info: { per_page: 50, total_count: 51 } }, { result: filler(1), result_info: { per_page: 50, total_count: 51 } }];
+  assert.equal((await fetchAllRules(async page => stable[page - 1])).length, 51);
+});

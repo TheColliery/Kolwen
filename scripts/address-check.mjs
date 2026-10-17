@@ -77,7 +77,11 @@ export async function fetchAllRules(getPage, perPage = PER_PAGE) {
     rules.push(...results);
     const info = body.result_info || {};
     const size = Number.isInteger(info.per_page) && info.per_page > 0 ? info.per_page : perPage;
-    if (Number.isInteger(info.total_count) && info.total_count >= 0) totalCount = info.total_count;
+    if (Number.isInteger(info.total_count) && info.total_count >= 0) {
+      // The first total_count seen is the one the rules are checked against: a later page reporting another number means the list changed while it was read, and a rule can have moved across a page already read.
+      if (totalCount !== null && info.total_count !== totalCount) throw new Error(`the routing rules changed during the read: page ${page} says ${info.total_count} rules, an earlier page said ${totalCount}; no verdict is given`);
+      totalCount = info.total_count;
+    }
     const pages = Number.isInteger(info.total_pages) && info.total_pages > 0 ? info.total_pages : totalCount !== null ? Math.ceil(totalCount / size) : null;
     if (results.length < size || (pages !== null && page >= pages)) break;
   }
