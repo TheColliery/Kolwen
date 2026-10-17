@@ -152,10 +152,18 @@ test('a response that never ends hits the page bound and fails loudly; pages tha
   await assert.rejects(fetchAllRules(lying), /disagree with the zone: 53 rules read, the zone says 60/);
 });
 
-test('a page that answers success false, or whose result is not a list, fails by name instead of reading as an empty page', async () => {
+// Each path has its own test and its own message: an error answer must not be reported as a missing list, nor the reverse.
+const NOT_LIST = /^the routing rules page \d+ did not return a list/;
+const ANSWERED_ERROR = /^the routing rules page \d+ answered with an error/;
+
+test('a page that answers success false fails with the error message, not the missing-list one', async () => {
   const first = { result: filler(50), result_info: {} };
   const failed = { success: false, errors: [{ code: 10000, message: 'Authentication error' }], result: null };
-  await assert.rejects(fetchAllRules(async page => (page === 1 ? first : failed)), /answered with an error|did not return a list/);
-  await assert.rejects(fetchAllRules(async () => ({ success: true, result: null })), /did not return a list/);
-  await assert.rejects(fetchAllRules(async () => ({})), /did not return a list/);
+  await assert.rejects(fetchAllRules(async page => (page === 1 ? first : failed)), err => ANSWERED_ERROR.test(err.message) && !NOT_LIST.test(err.message));
+});
+
+test('a page with success true and a result that is not a list fails with the missing-list message, not the error one', async () => {
+  await assert.rejects(fetchAllRules(async () => ({ success: true, result: null })), err => NOT_LIST.test(err.message) && !ANSWERED_ERROR.test(err.message));
+  await assert.rejects(fetchAllRules(async () => ({ success: true, result: { not: 'a list' } })), err => NOT_LIST.test(err.message));
+  await assert.rejects(fetchAllRules(async () => ({})), err => NOT_LIST.test(err.message));
 });
