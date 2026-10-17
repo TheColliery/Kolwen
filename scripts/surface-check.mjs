@@ -525,7 +525,12 @@ const CSP_STATS = { scripts: 0, styles: 0 };
   const htmlFiles = tracked.filter(f => f.startsWith('web/') && f.endsWith('.html'));
   for (const p of ANCHOR_PAGES) if (!htmlFiles.includes(p)) note(p, 'is not a tracked HTML page, so rule 13 has nothing to hash for it — this CHECK is now empty for that page, not the page proven covered');
 
-  const sha256 = text => "'sha256-" + createHash('sha256').update(text, 'utf8').digest('base64') + "'";
+  // The hash routine and the inline-style pattern are scripts/lib/csp-hashes.mjs's, shared with scripts/legal-pages.mjs, which keeps the style-src
+  // hashes of web/_headers in step with the pages; this rule recomputes them from the served HTML all the same, so a hash that is wrong either way is caught here.
+  let hashes = null;
+  try { hashes = await import(pathToFileURL(resolve('scripts/lib/csp-hashes.mjs')).href); }
+  catch (e) { note('scripts/lib/csp-hashes.mjs', 'could not be loaded, so rule 13 could not hash the inline blocks (' + (e.code || 'import failed') + ')'); }
+  const sha256 = text => (hashes ? hashes.cspHash(text) : '');
   const want = { script: new Set(), style: new Set() };
   const origins = { script: new Set(), style: new Set() };
   for (const f of htmlFiles) {
@@ -540,7 +545,7 @@ const CSP_STATS = { scripts: 0, styles: 0 };
       if (!EXEC_TYPES.has(type)) { note(f, `has an inline <script type="${type}"> that rule 13 cannot classify as code or data, so its CSP admission is unchecked`); continue; }
       want.script.add(sha256(m[2])); CSP_STATS.scripts++;
     }
-    for (const m of s.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\b[^>]*>/gi)) { want.style.add(sha256(m[1])); CSP_STATS.styles++; }
+    for (const body of hashes ? hashes.inlineStyles(s) : []) { want.style.add(sha256(body)); CSP_STATS.styles++; }
     for (const m of s.matchAll(/<link\b[^>]*>/gi)) {
       if (!/\brel\s*=\s*["']?[^"'>]*\bstylesheet\b/i.test(m[0])) continue;
       const o = (m[0].match(/\bhref\s*=\s*["']?(https?:\/\/[^/"'\s>]+)/i) || [])[1];
@@ -574,7 +579,7 @@ const CSP_STATS = { scripts: 0, styles: 0 };
         const got = dirs.get(d);
         if (!got || got.join(' ') !== toks.join(' ')) note(HEADERS, `line ${line}: the CSP floor needs ${d} ${toks.join(' ')}, found ${got ? got.join(' ') : 'nothing'}`);
       }
-      for (const d of ['script-src', 'default-src']) {
+      for (const d of ['script-src', 'script-src-elem', 'default-src']) {
         for (const bad of ["'unsafe-inline'", "'unsafe-eval'"]) if ((dirs.get(d) || []).includes(bad)) note(HEADERS, `line ${line}: ${d} carries ${bad}`);
       }
       // LWK-223: the Web Analytics beacon is admitted by ONE slash-terminated source. Without the slash CSP
@@ -585,14 +590,25 @@ const CSP_STATS = { scripts: 0, styles: 0 };
       const scriptToks = dirs.get('script-src') || [];
       if (!scriptToks.includes(BEACON_SRC)) note(HEADERS, `line ${line}: script-src needs the source ${BEACON_SRC} (trailing slash included), found ${scriptToks.filter(t => /cloudflareinsights/i.test(t)).join(' ') || 'none'}`);
       for (const t of scriptToks) if (/cloudflareinsights/i.test(t) && t !== BEACON_SRC) note(HEADERS, `line ${line}: script-src carries ${t}; the only cloudflareinsights source allowed is ${BEACON_SRC}`);
-      for (const [kind, dir] of [['script', 'script-src'], ['style', 'style-src']]) {
-        const toks = dirs.get(dir);
-        if (!toks) { if (want[kind].size) note(HEADERS, `line ${line}: the CSP has no ${dir}, but the served HTML has inline ${kind}s that need admitting`); continue; }
-        const have = new Set(toks.filter(t => /^'sha256-/.test(t)));
-        for (const t of toks) if (/^'sha(?:384|512)-/.test(t)) note(HEADERS, `line ${line}: ${dir} uses ${t.slice(0, 11)}…, which rule 13 does not recompute; use sha256`);
-        for (const h of want[kind]) if (!have.has(h)) note(HEADERS, `line ${line}: ${dir} does not admit the inline ${kind} whose hash is ${h} — the browser will refuse it`);
-        for (const h of have) if (!want[kind].has(h)) note(HEADERS, `line ${line}: ${dir} admits ${h}, which matches no inline ${kind} in the served HTML (a stale hash)`);
-        for (const o of origins[kind]) if (!toks.map(t => t.toLowerCase()).includes(o)) note(HEADERS, `line ${line}: the HTML loads a ${kind === 'style' ? 'stylesheet' : 'script'} from ${o}, which ${dir} does not name`);
+      // The beacon is a <script src>, so a script-src-elem directive, when the policy has one, is what admits it.
+      const elemToks = dirs.get('script-src-elem');
+      if (elemToks && !elemToks.includes(BEACON_SRC)) note(HEADERS, `line ${line}: script-src-elem is the directive a browser applies to the beacon <script> and needs the source ${BEACON_SRC} (trailing slash included)`);
+      for (const t of elemToks || []) if (/cloudflareinsights/i.test(t) && t !== BEACON_SRC) note(HEADERS, `line ${line}: script-src-elem carries ${t}; the only cloudflareinsights source allowed is ${BEACON_SRC}`);
+      // A browser applies script-src-elem to <script> blocks and style-src-elem to <style> blocks and stylesheet links when the policy has one (CSP3:
+      // the -elem directive falls back to script-src / style-src, then default-src, only when it is absent). So the EFFECTIVE directive is judged:
+      // the base directive when there is no -elem one, and when there is one BOTH, because the base one is what the sync keeps exact and the -elem
+      // one is what the browser applies. Directives are read by name from the parsed policy, never found by a pattern in the line.
+      for (const [kind, base] of [['script', 'script-src'], ['style', 'style-src']]) {
+        if (!dirs.get(base) && !dirs.get(base + '-elem')) { if (want[kind].size) note(HEADERS, `line ${line}: the CSP has no ${base} (and no ${base}-elem), but the served HTML has inline ${kind}s that need admitting`); continue; }
+        for (const dir of [base, base + '-elem']) {
+          const toks = dirs.get(dir);
+          if (!toks) continue;
+          const have = new Set(toks.filter(t => /^'sha256-/.test(t)));
+          for (const t of toks) if (/^'sha(?:384|512)-/.test(t)) note(HEADERS, `line ${line}: ${dir} uses ${t.slice(0, 11)}…, which rule 13 does not recompute; use sha256`);
+          for (const h of want[kind]) if (!have.has(h)) note(HEADERS, `line ${line}: ${dir} does not admit the inline ${kind} whose hash is ${h} — the browser will refuse it`);
+          for (const h of have) if (!want[kind].has(h)) note(HEADERS, `line ${line}: ${dir} admits ${h}, which matches no inline ${kind} in the served HTML (a stale hash)`);
+          for (const o of origins[kind]) if (!toks.map(t => t.toLowerCase()).includes(o)) note(HEADERS, `line ${line}: the HTML loads a ${kind === 'style' ? 'stylesheet' : 'script'} from ${o}, which ${dir} does not name`);
+        }
       }
       const block = rules.find(r => r.pattern === pattern);
       const ref = lib.declarations([block], 'Referrer-Policy')[0];

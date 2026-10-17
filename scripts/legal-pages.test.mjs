@@ -19,6 +19,8 @@ const holds = JSON.parse(read('scripts/lib/legal-holds.json'));
 const state = JSON.parse(read('legal/legal-state.json'));
 const inputs = () => ({ terms: read('TERMS.md'), privacy: read('PRIVACY.md'), clause: read('legal/thai-7day-clause.md'), changelog: read('CHANGELOG.md'), state, holds });
 const count = (s, needle) => s.split(needle).length - 1;
+// A literal string as a regex source: every metacharacter is escaped, the backslash included, in one pass.
+const reEscape = text => text.replace(/[\\^$.*+?()[\]{}|\/-]/g, m => '\\' + m);
 // The English document of a page: the text between the two document containers.
 const docEn = html => html.slice(html.indexOf('id="doc-en"'), html.indexOf('id="doc-th"'));
 const docTh = html => html.slice(html.indexOf('id="doc-th"'), html.indexOf('</main>'));
@@ -213,7 +215,7 @@ test('the same inputs give the same pages', () => {
 });
 
 // ── the CLI, against a throwaway copy of the tree ──────────────────────────────────────────────
-const FILES = ['scripts/legal-pages.mjs', 'scripts/lib/legal-render.mjs', 'scripts/lib/legal-page-text.mjs', 'scripts/lib/legal-state.mjs', 'scripts/lib/legal-holds.json', 'TERMS.md', 'PRIVACY.md', 'legal/thai-7day-clause.md', 'legal/legal-state.json', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/pricing.html', 'CHANGELOG.md', 'web/changelog.html', 'web/index.html', 'web/404.html'];
+const FILES = ['scripts/legal-pages.mjs', 'scripts/lib/legal-render.mjs', 'scripts/lib/legal-page-text.mjs', 'scripts/lib/legal-state.mjs', 'scripts/lib/legal-holds.json', 'TERMS.md', 'PRIVACY.md', 'legal/thai-7day-clause.md', 'legal/legal-state.json', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/pricing.html', 'CHANGELOG.md', 'web/changelog.html', 'web/index.html', 'web/404.html', 'web/_headers', 'scripts/lib/headers-file.mjs', 'scripts/lib/page-sync.mjs', 'scripts/lib/csp-hashes.mjs'];
 function copyTree() {
   const dir = mkdtempSync(join(tmpdir(), 'legal-pages-'));
   for (const f of FILES) { mkdirSync(dirname(join(dir, f)), { recursive: true }); writeFileSync(join(dir, f), readFileSync(join(ROOT, f))); }
@@ -356,8 +358,8 @@ test('--check fails, naming the page and the language, when the footer of a hand
 
 test('--check fails when a hand-kept page loses its footer or its footer rules', () => {
   for (const [file, fn, re] of [
-    ['web/index.html', x => x.replace(/<footer class="site-footer">[\s\S]*?<\/footer>/, ''), /web\/index\.html holds 1 shared footer block\(s\), expected 2/],
-    ['web/404.html', x => x.replace(FOOTER_CSS, ''), /web\/404\.html has no <style> block carrying the footer rules/],
+    ['web/index.html', x => x.replace(/<footer class="site-footer">[\s\S]*?<\/footer>/, ''), /FAIL web\/index\.html en footer differs from the shared footer, line \d+/],
+    ['web/404.html', x => x.replace(FOOTER_CSS, ''), /FAIL web\/404\.html footer css differs from the shared footer rules, line \d+/],
   ]) {
     const dir = copyTree();
     try { edit(dir, file, fn); const r = check(dir); assert.equal(r.status, 1, file + '\n' + r.stdout + r.stderr); assert.match(r.stdout, re, file); } finally { rmSync(dir, { recursive: true, force: true }); }
@@ -384,6 +386,350 @@ test('the CLI child runs with HOME, USERPROFILE and the temp variables inside th
     for (const v of seen) assert.ok(v.startsWith(dir), v + ' is inside ' + dir);
     for (const [name, v] of Object.entries({ HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE })) if (v) assert.notEqual(seen[name === 'HOME' ? 0 : 1], v, name + ' is not the real one');
     assert.equal(check(dir).status, 0, 'the CLI still runs in the sandbox');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ── the build-time sync: --write puts the shared blocks into the hand-kept pages, between fixed markers ──────────
+const HAND = ['web/index.html', 'web/pricing.html', 'web/404.html'];
+const WATCHED = [...HAND, 'web/_headers', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html'];
+const mk = (name, css) => (css ? { name, begin: `/* ${name}:begin */`, end: `/* ${name}:end */` } : { name, begin: `<!-- ${name}:begin -->`, end: `<!-- ${name}:end -->` });
+const MARK = { header: mk('site-header'), en: mk('site-footer:en'), th: mk('site-footer:th'), css: mk('site-footer-css', true) };
+const LABEL = { header: 'header', en: 'en footer', th: 'th footer', css: 'footer css' };
+const lf = s => s.replace(/\r\n/g, '\n');
+const snap = (dir, files) => Object.fromEntries(files.map(f => [f, readFileSync(join(dir, f))]));
+const sameBytes = (a, b) => Object.keys(a).every(f => Buffer.compare(a[f], b[f]) === 0);
+// The page text with every fenced block's contents cut out: what --write must leave alone.
+const outside = text => { let t = text; for (const m of Object.values(MARK)) { const i = t.indexOf(m.begin), j = t.indexOf(m.end); if (i >= 0 && j > i) t = t.slice(0, i + m.begin.length) + t.slice(j); } return t; };
+// The comments of _headers talk about style-src too, so the directive is read from the one indented policy line.
+const styleSrcLine = text => /^[ \t]+Content-Security-Policy:[^\r\n]*/m.exec(text)[0].split(';').map(d => d.trim()).find(d => d.split(/\s+/)[0] === 'style-src');
+const sortedStyleSrc = text => styleSrcLine(text).split(/\s+/).filter(t => t.startsWith("'sha256-")).sort();
+const FOOTER_ANCHOR = { 'web/index.html': ['<a href="/terms">Terms</a>', '<a href="/terms">Terms </a>'], 'web/pricing.html': ['<a href="/privacy">ความเป็นส่วนตัว</a>', '<a href="/privacy">ความเป็นส่วนตัว </a>'], 'web/404.html': ['<a href="/changelog">Changelog</a>', '<a href="/changelogs">Changelog</a>'] };
+
+test('reEscape turns any text into a regex that matches exactly that text, backslash included', () => {
+  const every = '\\^$.*+?()[]{}|/-';
+  for (const c of every) assert.ok(new RegExp('^' + reEscape(c) + '$').test(c), 'matches ' + c);
+  const text = 'a\\b.c/d-e (f)[g]{h}|i+j*k?l^m$n';
+  assert.ok(new RegExp('^' + reEscape(text) + '$').test(text));
+  assert.ok(!new RegExp('^' + reEscape('a.c') + '$').test('abc'), 'a dot stays a dot');
+  assert.ok(!new RegExp('^' + reEscape('a\\.c') + '$').test('a.c'), 'a backslash before a dot is two characters');
+});
+
+test('the sync markers are named once, in the lib, and are the ones the pages carry', () => {
+  assert.deepEqual(lib.SYNC_BLOCKS.map(b => [b.name, b.begin, b.end]), [MARK.css, MARK.header, MARK.en, MARK.th].map(m => [m.name, m.begin, m.end]), 'the array order is the one expected document order');
+  const cli = read('scripts/legal-pages.mjs');
+  for (const m of Object.values(MARK)) assert.ok(!cli.includes(m.name), 'the CLI does not retype ' + m.name);
+});
+
+test('the header slot is empty today and every one of the seven pages carries it, one pair, nothing between', () => {
+  assert.equal(lib.siteHeaderHtml(), '');
+  const pages = { ...renderPages(inputs()).pages };
+  for (const f of HAND) pages[f] = read(f);
+  assert.equal(Object.keys(pages).length, 7);
+  for (const [f, html] of Object.entries(pages)) {
+    assert.equal(count(html, MARK.header.begin), 1, f + ' begin');
+    assert.ok(html.includes(MARK.header.begin + '\n' + MARK.header.end), f + ' the slot is empty');
+    for (const k of ['en', 'th', 'css']) assert.equal(count(html, MARK[k].begin) + count(html, MARK[k].end), 2, f + ' ' + k);
+  }
+});
+
+test('an edited footer on a hand-kept page fails --check, naming page and block, and --write restores it to the bytes it had', () => {
+  for (const f of HAND) {
+    const dir = copyTree();
+    try {
+      const before = snap(dir, WATCHED);
+      const [from, to] = FOOTER_ANCHOR[f];
+      edit(dir, f, x => { assert.ok(x.includes(from), f + ' holds the anchor'); return x.replace(from, to); });
+      const r = check(dir);
+      assert.equal(r.status, 1, f + '\n' + r.stdout + r.stderr);
+      assert.match(r.stdout, new RegExp('FAIL ' + reEscape(f) + ' (en|th) footer differs from the shared footer, line \\d+'));
+      const w = check(dir, '--write');
+      assert.equal(w.status, 0, w.stdout + w.stderr);
+      for (const g of WATCHED) { const now = readFileSync(join(dir, g)); if (HAND.includes(g) || g === 'web/_headers') assert.equal(Buffer.compare(before[g], now), 0, g + ' is byte for byte what it was'); else assert.equal(lf(now.toString('utf8')), lf(before[g].toString('utf8')), g + ' is the same text'); }
+      assert.equal(check(dir).status, 0);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }
+});
+test('a marker that is missing fails --check and --write loudly, and --write writes nothing', () => {
+  for (const [f, k, edge] of [['web/index.html', 'header', 'begin'], ['web/404.html', 'en', 'end'], ['web/pricing.html', 'th', 'begin'], ['web/index.html', 'css', 'end'], ['web/404.html', 'css', 'begin']]) {
+    const dir = copyTree();
+    try {
+      const marker = MARK[k][edge];
+      edit(dir, f, x => { assert.ok(x.includes(marker), f + ' holds ' + marker); return x.replace(marker, ''); });
+      const before = snap(dir, WATCHED);
+      const r = check(dir);
+      assert.equal(r.status, 1, f + k + edge + '\n' + r.stdout + r.stderr);
+      assert.match(r.stdout, new RegExp('FAIL ' + reEscape(f) + ' ' + LABEL[k] + ': .*missing'), f + k + edge);
+      const w = check(dir, '--write');
+      assert.equal(w.status, 1, f + k + edge + '\n' + w.stdout + w.stderr);
+      assert.match(w.stdout + w.stderr, /missing/);
+      assert.match(w.stdout + w.stderr, /nothing was written/);
+      assert.ok(sameBytes(before, snap(dir, WATCHED)), 'no page and not _headers changed');
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }
+});
+
+test('a marker that is doubled, or out of order, fails --check and --write loudly, and --write writes nothing', () => {
+  for (const [what, f, k, fn, re] of [
+    ['doubled begin', 'web/index.html', 'en', (x, m) => x.replace(m.begin, m.begin + '\n' + m.begin), /doubled/],
+    ['doubled end', 'web/404.html', 'header', (x, m) => x.replace(m.end, m.end + '\n' + m.end), /doubled/],
+    ['doubled css', 'web/pricing.html', 'css', (x, m) => x.replace(m.begin, m.begin + '\n' + m.begin), /doubled/],
+    ['end before begin', 'web/pricing.html', 'th', (x, m) => x.replace(m.begin, '@@B@@').replace(m.end, m.begin).replace('@@B@@', m.end), /before the begin marker/],
+  ]) {
+    const dir = copyTree();
+    try {
+      edit(dir, f, x => { assert.ok(x.includes(MARK[k].begin) && x.includes(MARK[k].end), f); return fn(x, MARK[k]); });
+      const before = snap(dir, WATCHED);
+      const r = check(dir);
+      assert.equal(r.status, 1, what + '\n' + r.stdout + r.stderr);
+      assert.match(r.stdout, new RegExp('FAIL ' + reEscape(f) + ' ' + LABEL[k] + ': .*'), what);
+      assert.match(r.stdout, re, what);
+      const w = check(dir, '--write');
+      assert.equal(w.status, 1, what + '\n' + w.stdout + w.stderr);
+      assert.match(w.stdout + w.stderr, re);
+      assert.match(w.stdout + w.stderr, /nothing was written/);
+      assert.ok(sameBytes(before, snap(dir, WATCHED)), what + ': nothing changed');
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }
+});
+
+test('--write leaves every byte outside the markers as it found it, in a CRLF page and in an LF page', () => {
+  for (const eol of ['crlf', 'lf']) {
+    for (const f of HAND) {
+      const dir = copyTree();
+      try {
+        const [from, to] = FOOTER_ANCHOR[f];
+        edit(dir, f, x => { const y = lf(x).replace(from, to).replace('<main>', '<main><!-- keep-me-7f3a -->'); return eol === 'crlf' ? y.replace(/\n/g, '\r\n') : y; });
+        const mid = readFileSync(join(dir, f), 'utf8');
+        assert.ok(mid.includes('keep-me-7f3a'));
+        const w = check(dir, '--write');
+        assert.equal(w.status, 0, w.stdout + w.stderr);
+        const after = readFileSync(join(dir, f), 'utf8');
+        assert.equal(outside(after), outside(mid), f + ' ' + eol + ': the bytes outside the markers are equal');
+        assert.ok(after.includes('keep-me-7f3a'));
+        if (eol === 'crlf') assert.ok(!/[\r\n]/.test(after.replace(/\r\n/g, '')), f + ': every line break of a CRLF page is still CRLF'); else assert.ok(!after.includes('\r'), f + ': an LF page gains no carriage return');
+        assert.ok(!after.includes(to), f + ': the edited footer was put right');
+      } finally { rmSync(dir, { recursive: true, force: true }); }
+    }
+  }
+});
+
+test('--write on the committed tree changes no hand-kept page and not _headers', () => {
+  const dir = copyTree();
+  try {
+    const before = snap(dir, [...HAND, 'web/_headers']);
+    const w = check(dir, '--write');
+    assert.equal(w.status, 0, w.stdout + w.stderr);
+    assert.ok(sameBytes(before, snap(dir, [...HAND, 'web/_headers'])));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('a hand edit of a footer rule makes --check fail on the page and on the hash; --write puts the page right and the hash list needs no edit', async () => {
+  const { inlineStyles, cspHash } = await import(new URL('./lib/csp-hashes.mjs', import.meta.url));
+  const dir = copyTree();
+  try {
+    const before = snap(dir, [...HAND, 'web/_headers']);
+    edit(dir, 'web/index.html', x => { assert.ok(x.includes('.site-footer{margin-top:28px'), 'anchor'); return x.replace('.site-footer{margin-top:28px', '.site-footer{margin-top:29px'); });
+    const r = check(dir);
+    assert.equal(r.status, 1, r.stdout + r.stderr);
+    assert.match(r.stdout, /FAIL web\/index\.html footer css differs from the shared footer rules, line \d+/);
+    assert.match(r.stdout, /FAIL web\/_headers style-src does not admit sha256-[A-Za-z0-9+/=]+ \(the <style> block of web\/index\.html\)/);
+    assert.match(r.stdout, /FAIL web\/_headers style-src admits sha256-[A-Za-z0-9+/=]+, which no <style> block/);
+    assert.equal(check(dir, '--write').status, 0);
+    assert.ok(sameBytes(before, snap(dir, [...HAND, 'web/_headers'])), 'page and _headers are back to their bytes');
+    assert.equal(check(dir).status, 0);
+    assert.deepEqual(inlineStyles(lf(readFileSync(join(dir, 'web/index.html'), 'utf8'))).map(cspHash).every(h => readFileSync(join(dir, 'web/_headers'), 'utf8').includes(h)), true);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('an edited footer rule in the lib is carried to all seven pages by one --write, and to the style-src hashes of _headers', async () => {
+  const { inlineStyles, cspHash } = await import(new URL('./lib/csp-hashes.mjs', import.meta.url));
+  const dir = copyTree();
+  try {
+    const headersBefore = readFileSync(join(dir, 'web/_headers'), 'utf8');
+    const rule = '.site-footer a:hover{text-decoration-thickness:2px}';
+    edit(dir, 'scripts/lib/legal-render.mjs', x => { assert.ok(x.includes(rule), 'anchor'); return x.replace(rule, '.site-footer a:hover{text-decoration-thickness:3px}'); });
+    const r = check(dir);
+    assert.equal(r.status, 1, r.stdout + r.stderr);
+    for (const f of HAND) assert.match(r.stdout, new RegExp('FAIL ' + reEscape(f) + ' footer css differs'), f);
+    const w = check(dir, '--write');
+    assert.equal(w.status, 0, w.stdout + w.stderr);
+    assert.match(w.stdout, /wrote web\/_headers/);
+    for (const f of [...HAND, 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html']) assert.ok(readFileSync(join(dir, f), 'utf8').includes('text-decoration-thickness:3px'), f);
+    const headers = readFileSync(join(dir, 'web/_headers'), 'utf8');
+    const want = new Set(['web/index.html', 'web/pricing.html', 'web/404.html', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html'].flatMap(f => inlineStyles(readFileSync(join(dir, f), 'utf8')).map(cspHash)));
+    assert.deepEqual(sortedStyleSrc(headers), [...want].sort(), 'style-src admits exactly the hashes of the seven pages');
+    assert.equal(headers.split(/\r?\n/).filter((l, i) => l !== headersBefore.split(/\r?\n/)[i]).length, 1, 'one line of _headers changed: the CSP line');
+    assert.equal(check(dir).status, 0);
+    assert.equal(check(dir, '--write').status, 0);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('--check fails when a style hash of _headers no longer matches any page, and --write drops the stale one', () => {
+  const dir = copyTree();
+  try {
+    const before = readFileSync(join(dir, 'web/_headers'), 'utf8');
+    const first = /'sha256-([A-Za-z0-9+/=]+)'/.exec(styleSrcLine(before))[1];
+    const forged = (first[0] === 'A' ? 'B' : 'A') + first.slice(1);
+    writeFileSync(join(dir, 'web/_headers'), before.replace(first, forged));
+    const r = check(dir);
+    assert.equal(r.status, 1, r.stdout + r.stderr);
+    assert.match(r.stdout, /FAIL web\/_headers style-src does not admit sha256-/);
+    assert.match(r.stdout, new RegExp('FAIL web/_headers style-src admits sha256-' + reEscape(forged)));
+    assert.equal(check(dir, '--write').status, 0);
+    assert.equal(check(dir).status, 0);
+    assert.deepEqual(sortedStyleSrc(readFileSync(join(dir, 'web/_headers'), 'utf8')), sortedStyleSrc(before));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ── the pairs are located on the original text and checked against each other: overlap, nesting, order ──────────
+// The text of a pair with its markers, and the page with that text cut out / put back.
+const pairText = (x, m) => x.slice(x.indexOf(m.begin), x.indexOf(m.end) + m.end.length);
+const CROSS = [
+  ['overlap: the end marker of the English footer moved past the begin marker of the Thai one', 'web/index.html', 'en', (x, M) => x.replace(M.en.end, '').replace(M.th.begin, M.th.begin + '\n' + M.en.end), /overlap/],
+  ['nesting: the Thai footer pair inside the English one', 'web/pricing.html', 'en', (x, M) => x.replace(M.en.end, '').replace(M.th.end, M.th.end + '\n' + M.en.end), /nest/],
+  ['overlap: the header pair runs into the English footer pair', 'web/404.html', 'header', (x, M) => x.replace(M.header.end, '').replace(M.en.begin, M.en.begin + '\n' + M.header.end), /overlap/],
+  ['order: the English and Thai footer blocks swapped whole', 'web/index.html', 'th', (x, M) => { const e = pairText(x, M.en), t = pairText(x, M.th); return x.replace(e, '@@E@@').replace(t, e).replace('@@E@@', t); }, /expected document order/],
+  ['order: the header pair above the footer rules in the style block', 'web/404.html', 'header', (x, M) => { const c = pairText(x, M.css), h = pairText(x, M.header); return x.replace(c, '@@C@@').replace(h, c).replace('@@C@@', h); }, /expected document order/],
+];
+for (const [what, f, k, fn, re] of CROSS) {
+  test(`${what} fails --check and --write loudly, and --write writes nothing`, () => {
+    const dir = copyTree();
+    try {
+      edit(dir, f, x => { const y = fn(x, MARK); assert.notEqual(y, x, 'the edit changed the page'); return y; });
+      const before = snap(dir, WATCHED);
+      const r = check(dir);
+      assert.equal(r.status, 1, what + '\n' + r.stdout + r.stderr);
+      assert.match(r.stdout, new RegExp('FAIL ' + reEscape(f) + ' ' + reEscape(LABEL[k]) + ': .*'), what);
+      assert.match(r.stdout, re, what);
+      const w = check(dir, '--write');
+      assert.equal(w.status, 1, what + '\n' + w.stdout + w.stderr);
+      assert.match(w.stdout + w.stderr, re, what);
+      assert.match(w.stdout + w.stderr, /nothing was written/);
+      assert.ok(sameBytes(before, snap(dir, WATCHED)), what + ': nothing changed');
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+}
+
+// ── the style-src directive is found by its NAME at the start of a directive, and the EFFECTIVE directive is judged ──────────
+const cspLine = text => /^[ \t]+Content-Security-Policy:[^\r\n]*/m.exec(text)[0];
+const directive = (line, name) => line.split(';').map(d => d.trim()).find(d => d === name || d.startsWith(name + ' '));
+const SEVEN = ['web/index.html', 'web/pricing.html', 'web/404.html', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html'];
+const pagesOf = () => Object.fromEntries(SEVEN.map(f => [f, read(f)]));
+// The committed _headers with extra directives put in front of the real style-src directive (in the CSP line only: the comments mention style-src too).
+const withBefore = (extra, text = read('web/_headers')) => text.replace(cspLine(text), line => line.replace('style-src ', () => extra + ' style-src '));
+const hashesIn = text => styleSrcLine(text).split(/\s+/).filter(t => t.startsWith("'sha256-"));
+const DECOY = "'sha256-DECOYDECOYDECOYDECOYDECOYDECOYDECOYDECOY000='";
+
+for (const other of ['style-src-elem', 'style-src-attr']) {
+  test(`a ${other} directive listed before style-src is left alone: the line is rewritten at style-src only`, async () => {
+    const { planStyleSrc, hashProblems, styleHashes } = await import(new URL('./lib/page-sync.mjs', import.meta.url));
+    const decoy = `${other} 'self' ${DECOY};`;
+    const headers = withBefore(decoy);
+    assert.ok(headers.includes(decoy + ' style-src '), 'the decoy sits before style-src');
+    const pages = pagesOf();
+    const moved = { ...pages, 'web/404.html': pages['web/404.html'].replace('.fine{font-size:12px;margin:0}', '.fine{font-size:13px;margin:0}') };
+    const pre = Object.fromEntries(Object.entries(pages).map(([f, h]) => [f, styleHashes(h)])), post = Object.fromEntries(Object.entries(moved).map(([f, h]) => [f, styleHashes(h)]));
+    const plan = planStyleSrc(headers, pre, post);
+    assert.ok(!plan.problem, plan.problem);
+    assert.equal(plan.replaced, 1);
+    const was = cspLine(headers), now = cspLine(plan.text);
+    assert.equal(directive(now, other), directive(was, other), `the ${other} directive survives byte for byte`);
+    assert.notEqual(directive(now, 'style-src'), directive(was, 'style-src'), 'style-src took the new hash');
+    for (const d of was.split(';')) if (!d.trim().startsWith('style-src ')) assert.ok(now.includes(d), 'every other directive survives: ' + d.trim().slice(0, 30));
+    assert.equal(plan.text.split('\n').filter((l, i) => l !== headers.split('\n')[i]).length, 1, 'one line of the file changed');
+    assert.ok(now.indexOf(decoy) < now.indexOf('style-src '), 'the order of the directives is kept');
+    if (other === 'style-src-attr') assert.deepEqual(hashProblems(pages, headers), [], 'style-src-attr governs style attributes, not <style> blocks: nothing to report');
+  });
+}
+
+test('style-src-elem is the directive a browser applies to <style> blocks: --check judges it, --write leaves it byte for byte', async () => {
+  const { planStyleSrc, hashProblems, styleHashes } = await import(new URL('./lib/page-sync.mjs', import.meta.url));
+  const pages = pagesOf();
+  const lacking = withBefore(`style-src-elem 'self' ${DECOY};`);
+  const problems = hashProblems(pages, lacking);
+  assert.ok(problems.length >= 1, 'a style-src-elem that lacks the hashes is a problem');
+  for (const p of problems) assert.match(p, /^web\/_headers style-src-elem does not admit sha256-/, 'each problem names style-src-elem, not style-src');
+  const admitting = withBefore(`style-src-elem 'self' ${hashesIn(read('web/_headers')).join(' ')};`);
+  assert.deepEqual(hashProblems(pages, admitting), [], 'a style-src-elem that admits every hash is not a problem');
+  const post = Object.fromEntries(Object.entries(pages).map(([f, h]) => [f, styleHashes(h)]));
+  const plan = planStyleSrc(lacking, post, post);
+  assert.ok(!plan.problem, plan.problem);
+  assert.equal(plan.text, lacking, 'nothing to move, so nothing is rewritten');
+  assert.equal(directive(cspLine(plan.text), 'style-src-elem'), directive(cspLine(lacking), 'style-src-elem'));
+});
+
+test('style-src inside a source of another directive is not the style-src directive: it is read and rewritten by directive name', async () => {
+  const { planStyleSrc, hashProblems, styleHashes } = await import(new URL('./lib/page-sync.mjs', import.meta.url));
+  const pages = pagesOf();
+  for (const decoy of ['script-src https://cdn.example/style-src', "img-src 'self' https://x.example/style-src 'none'", 'connect-src style-src']) {
+    const headers = withBefore(decoy + ';');
+    assert.deepEqual(hashProblems(pages, headers), [], decoy + ': a matching policy reads as matching');
+    const moved = { ...pages, 'web/404.html': pages['web/404.html'].replace('.fine{font-size:12px;margin:0}', '.fine{font-size:13px;margin:0}') };
+    const pre = Object.fromEntries(Object.entries(pages).map(([f, h]) => [f, styleHashes(h)])), post = Object.fromEntries(Object.entries(moved).map(([f, h]) => [f, styleHashes(h)]));
+    const plan = planStyleSrc(headers, pre, post);
+    assert.ok(!plan.problem, plan.problem);
+    const was = cspLine(headers), now = cspLine(plan.text);
+    assert.equal(directive(now, decoy.split(' ')[0]), directive(was, decoy.split(' ')[0]), decoy + ': that directive survives byte for byte');
+    assert.notEqual(directive(now, 'style-src'), directive(was, 'style-src'), decoy + ': style-src took the new hash');
+    assert.equal(plan.replaced, 1);
+  }
+});
+
+test('the CLI: a style-src-elem without the hashes fails --check naming it, --write leaves it alone, and one that admits them passes', () => {
+  const dir = copyTree();
+  try {
+    const real = readFileSync(join(dir, 'web/_headers'), 'utf8');
+    const lacking = withBefore(`style-src-elem 'self' ${DECOY};`, real);
+    writeFileSync(join(dir, 'web/_headers'), lacking);
+    const r = check(dir);
+    assert.equal(r.status, 1, r.stdout + r.stderr);
+    assert.match(r.stdout, /FAIL web\/_headers style-src-elem does not admit sha256-[A-Za-z0-9+/=]+ \(the <style> block of web\/index\.html\)/);
+    assert.doesNotMatch(r.stdout, /FAIL web\/_headers style-src does not admit/, 'style-src itself is fine');
+    const w = check(dir, '--write');
+    assert.equal(w.status, 0, w.stdout + w.stderr);
+    assert.equal(readFileSync(join(dir, 'web/_headers'), 'utf8'), lacking, '--write did not touch the file: the only directive that lacks hashes is the one it never edits');
+    assert.equal(check(dir).status, 1, 'still named by --check');
+    writeFileSync(join(dir, 'web/_headers'), withBefore(`style-src-elem 'self' ${hashesIn(real).join(' ')};`, real));
+    const ok = check(dir);
+    assert.equal(ok.status, 0, ok.stdout + ok.stderr);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// surface-check rule 13 judges the EFFECTIVE directive too. It reads the tracked files with git, so it runs in a throwaway repository of them.
+function surfaceCopy() {
+  const dir = mkdtempSync(join(tmpdir(), 'surface-'));
+  const env = childEnv(dir);
+  const files = spawnSync('git', ['ls-files', '-z'], { cwd: ROOT, encoding: 'utf8', timeout: 30000 }).stdout.split('\0').filter(Boolean);
+  for (const f of files) { mkdirSync(dirname(join(dir, f)), { recursive: true }); writeFileSync(join(dir, f), readFileSync(join(ROOT, f))); }
+  for (const args of [['init', '-q'], ['add', '-A']]) assert.equal(spawnSync('git', args, { cwd: dir, env, timeout: 60000 }).status, 0, 'git ' + args[0]);
+  return dir;
+}
+const surface = dir => spawnSync(process.execPath, ['--max-old-space-size=2048', join(dir, 'scripts/surface-check.mjs')], { encoding: 'utf8', timeout: 120000, cwd: dir, env: childEnv(dir) });
+
+test('surface-check rule 13 judges style-src-elem and script-src-elem, the directives a browser applies to the blocks', () => {
+  const dir = surfaceCopy();
+  try {
+    const real = readFileSync(join(dir, 'web/_headers'), 'utf8');
+    const base = surface(dir);
+    assert.equal(base.status, 0, 'the committed tree passes: ' + base.stdout + base.stderr);
+    const put = text => writeFileSync(join(dir, 'web/_headers'), text);
+    put(withBefore(`style-src-elem 'self' ${DECOY};`, real));
+    const a = surface(dir);
+    assert.equal(a.status, 1, 'a style-src-elem that lacks the hashes fails rule 13: ' + a.stdout + a.stderr);
+    assert.match(a.stdout + a.stderr, /style-src-elem does not admit the inline style whose hash is/);
+    assert.match(a.stdout + a.stderr, /style-src-elem admits 'sha256-DECOY/, 'its stale hash is named too');
+    put(withBefore(`style-src-elem 'self' ${hashesIn(real).join(' ')} https://fonts.googleapis.com;`, real));
+    const b = surface(dir);
+    assert.equal(b.status, 0, 'a style-src-elem that admits every hash and the fonts origin passes: ' + b.stdout + b.stderr);
+    put(real.replace(cspLine(real), line => line.replace('script-src ', () => "script-src-elem 'self'; script-src ")));
+    const c = surface(dir);
+    assert.equal(c.status, 1, 'a script-src-elem without the hash and the beacon fails: ' + c.stdout + c.stderr);
+    assert.match(c.stdout + c.stderr, /script-src-elem does not admit the inline script whose hash is/);
+    assert.match(c.stdout + c.stderr, /script-src-elem is the directive a browser applies to the beacon/);
+    put(real.replace(cspLine(real), line => line.replace('script-src ', () => "script-src-elem 'self' 'unsafe-inline'; script-src ")));
+    const d = surface(dir);
+    assert.equal(d.status, 1, d.stdout + d.stderr);
+    assert.match(d.stdout + d.stderr, /script-src-elem carries 'unsafe-inline'/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

@@ -73,8 +73,8 @@
 #    the five carry one hash. `node scripts/legal-pages.mjs --check` (a CI step) fails if the pricing page's block is not byte for byte the generated pages'. Their inline script and
 #    their <noscript> style are the same bytes as index.html's, so they reuse its hashes. None loads a payment script or a new origin; each takes the `/*` rule
 #    like `/`, and no rule here sets noindex on any of them. /llms.txt is plain text and takes only the `/*` rule.
-#  - The shared footer's rules (FOOTER_CSS in scripts/lib/legal-render.mjs) sit inside that shared block and are appended to the style blocks of index.html and
-#    404.html, which are their own; a footer rule is a change to all three hashes.
+#  - The shared footer's rules (FOOTER_CSS in scripts/lib/legal-render.mjs) sit inside that shared block and are written between fixed markers into the style blocks of
+#    index.html and 404.html, which are their own; `node scripts/legal-pages.mjs --write` updates the three style-src hashes here, and `--check` fails on a stale one, or on a style-src-elem (none today) that lacks one: `--write` never edits that directive, and surface-check rule 13 judges the directive a browser applies to a block.
 #  - The ld+json block in index.html is a DATA block, not script: CSP's script-src does not govern it.
 #  - NAMED CONSEQUENCE: on kolwen.com the edge appends an inline bot-detection script to the HTML (the
 #    Web Analytics beacon above is a separate, allowed script). It has per-request contents, so no hash can
@@ -101,7 +101,7 @@
 # Permissions-Policy: every standardized feature the page does not use, names from the W3C
 # webappsec-permissions-policy feature registry (read 2026-09-25). The page uses none of them.
 /*
-  Content-Security-Policy: default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; script-src 'self' 'sha256-loIfZEEZsGRc+OUW6Qn2FqqBy/dPc0m0OlkLDXwFryM=' https://static.cloudflareinsights.com/beacon.min.js/; style-src 'sha256-Uk3Nlpw6bU5mBcUhEdhn+mnaJVloAISIuO0MN9dQ/cg=' 'sha256-Gq8k+8DNN4RStI9EUl5KO/5BmbVotx6ZB0JmUcZtYJE=' 'sha256-93rJUa1Fs+X51uE0Ol9McMAFF0qoKHGqkMDzts/1h8Q=' 'sha256-aec79WdnOg+J9S1vL138Ok1Juzo8vUUIWn4w/TLJqfc=' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; form-action 'self'
+  Content-Security-Policy: default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; script-src 'self' 'sha256-loIfZEEZsGRc+OUW6Qn2FqqBy/dPc0m0OlkLDXwFryM=' https://static.cloudflareinsights.com/beacon.min.js/; style-src 'sha256-Vi72hw4MdpntX+qEbfI8uVwJjp1EEbW2xDKORG6HkQY=' 'sha256-Gq8k+8DNN4RStI9EUl5KO/5BmbVotx6ZB0JmUcZtYJE=' 'sha256-sRe1xzYMWCufN3IkTaMGoBnWIWxGQ2oXebIv+Q6CFWw=' 'sha256-yiBz/0sMeyFVvBAg50qLaYaC0J2RDlb9PuFkSYmx5EE=' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; form-action 'self'
   Referrer-Policy: strict-origin-when-cross-origin
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin

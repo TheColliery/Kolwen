@@ -199,7 +199,8 @@ function refundBody(clauseMd, termsClass, lang, opts) {
 
 // ── 5. The shared footer, and the page shell
 // The footer is ONE block per language, written here and nowhere else. Its lines carry no indentation so the block is byte-identical
-// wherever it sits; the hand-kept pages (index, pricing, 404) hold a copy and `legal-pages.mjs --check` compares it byte for byte.
+// wherever it sits; `legal-pages.mjs --write` writes it into the hand-kept pages (index, pricing, 404) between markers (SYNC_BLOCKS, below)
+// and `--check` compares it byte for byte.
 // FOOTER_CSS uses no page variable and no opacity: every footer text takes the colour its page gives the footer at full strength (WCAG 2.2 SC 1.4.3
 // measures that colour against the page, and a test computes it), and hover changes the underline, not the colour. The same rules sit in every page's own style block.
 export const FOOTER_CSS = [
@@ -238,6 +239,28 @@ export const pageNoteHtml = lang => lang === 'en'
   : '<p class="fine">หน้านี้: ภาษาที่เลือกถูกเก็บไว้ในเบราว์เซอร์ของคุณ · ฟอนต์โหลดจาก Google Fonts</p>';
 // The footer blocks a page holds, in document order.
 export const footersOf = html => html.match(/<footer class="site-footer">[\s\S]*?<\/footer>/g) || [];
+
+// The header slot. Version 1 is EMPTY: nothing visible changes while the slot is only a place in each page, and the header itself is a later unit.
+export const siteHeaderHtml = () => '';
+
+// ── 5a. The blocks the build-time sync owns, and the markers around them (the one place the marker names are written) ──
+// `node scripts/legal-pages.mjs --write` replaces, in each hand-kept page (index, pricing, 404), exactly the text between each pair of markers with the render
+// below, and the four generated pages are rendered with the same markers, so one edit to the footer or the header reaches all seven pages in one run.
+// A marker pair is a fixed comment, an HTML comment in the body and a CSS comment in the style block; scripts/lib/page-sync.mjs reads and writes them.
+const htmlPair = name => ({ name, begin: `<!-- ${name}:begin -->`, end: `<!-- ${name}:end -->` });
+const cssPair = name => ({ name, begin: `/* ${name}:begin */`, end: `/* ${name}:end */` });
+// THE ORDER OF THIS ARRAY IS THE ONE EXPECTED DOCUMENT ORDER of the pairs in every one of the seven pages, declared here once: the footer rules in the
+// style block (the head), then the header slot, then the English footer, then the Thai one. scripts/lib/page-sync.mjs reads the pairs in this order and
+// refuses (--check and --write) a page whose pairs overlap, nest across each other or stand in another order, so swapping the two footers cannot pass.
+export const SYNC_BLOCKS = [
+  { ...cssPair('site-footer-css'), label: 'footer css', shared: 'footer rules', render: () => FOOTER_CSS.replace(/\n$/, '') },
+  { ...htmlPair('site-header'), label: 'header', shared: 'header', render: siteHeaderHtml },
+  { ...htmlPair('site-footer:en'), label: 'en footer', shared: 'footer', render: () => siteFooterHtml('en') },
+  { ...htmlPair('site-footer:th'), label: 'th footer', shared: 'footer', render: () => siteFooterHtml('th') },
+];
+const BLOCK = Object.fromEntries(SYNC_BLOCKS.map(b => [b.name, b]));
+// A block as a page carries it: begin marker, the render, end marker, with the end marker at the start of its line.
+export const fenced = name => `${BLOCK[name].begin}\n${BLOCK[name].render() ? BLOCK[name].render() + '\n' : ''}${BLOCK[name].end}`;
 
 // ── 5b. The page shell (the site's own: fonts, colours, the language toggle and its noscript rule) ──
 // One style block serves the four generated pages (terms, privacy, refund, changelog) AND web/pricing.html, so the five share one CSP hash (surface-check rule 13). The pricing page
@@ -303,7 +326,8 @@ export const STYLE = `
   .pcard ul{padding-left:18px;display:flex;flex-direction:column;gap:5px}
   .pcard li{font-size:14px;color:var(--txt2)}
   .note{font-size:13px;color:var(--quiet)}
-${FOOTER_CSS}  [hidden]{display:none !important}
+${fenced('site-footer-css')}
+  [hidden]{display:none !important}
   @media (max-width:420px){.name{font-size:28px}h1{font-size:20px}.plans th,.plans td{padding-right:6px;font-size:13px}.plans button{padding:6px 8px}}
 `;
 
@@ -368,6 +392,7 @@ export function shell({ title, description, path, en, th }) {
 <noscript><style>${NOSCRIPT_STYLE}</style></noscript>
 </head>
 <body>
+${fenced('site-header')}
 <nav class="langbar" aria-label="Language">
   <button type="button" id="lang-en" lang="en" aria-pressed="true">English</button>
   <button type="button" id="lang-th" lang="th" aria-pressed="false">ไทย</button>
@@ -404,7 +429,7 @@ function docHtml(lang, title, body, draft = true, note = '') {
       <p class="pending">${escText(THAI_OWED[lang])}</p>` : ''}
     </div>
 
-${siteFooterHtml(lang)}
+${fenced('site-footer:' + lang)}
 ${pageNoteHtml(lang)}`;
 }
 

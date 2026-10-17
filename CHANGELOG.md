@@ -158,6 +158,7 @@ the pointer to it.
 
 ### Added
 
+- `node scripts/legal-pages.mjs --write` now also writes the shared blocks (a header slot, empty today; the footer of each language; the footer CSS) into the home, pricing and not-found pages between fixed markers, and updates the matching `style-src` hashes in `web/_headers`, so one edit reaches all seven pages in one run and a footer CSS change needs no hand-typed hash. Every other byte of a page, and its line endings, are kept. `--write` refuses a page whose marker pairs overlap, nest or stand out of order, and never edits a `style-src-elem` directive. `--check` stays the CI gate: it fails on a differing block, a marker that is missing, doubled or out of order, pairs that overlap or nest, a stale hash, or a `style-src-elem` that lacks one. The script's header is the list of record.
 - `README.md`: a CodeRabbit pull-request reviews badge under the tagline, in the organisation's standard form for this repository.
 - `PRIVACY.md`: a conditional "Worker logs" paragraph. Today the Worker runs no code of ours and logs nothing; when it does and Workers Logs is switched on (Cloudflare's default for a new Worker), Cloudflare Workers Logs will record each request, kept 3 days on the Workers plan without a monthly charge and 7 days on the paid plan until 30 November 2026; from 1 December 2026 the page names Observability pricing and no retention per plan (Cloudflare documentation, read 2026-10-17). Whether a log line holds the IP address or headers is a pending line to measure when the Worker ships.
 - `TERMS.md`: a "Price changes" section (draft, every part under the pending-legal-review marker): at least 30 days' notice by email and in the app, a change only at the first renewal on or after the later of the notice's end and the price hold's end, and never inside a paid period, a key or prepaid credit, the customer's acceptance where their home law requires it, a refund on rejection of only the charges taken after the effective date, and a price kept for an open number of months. Model versions keep their per-million-token prices for their life, and retire only on notice. An extraordinary-cost valve can shorten only the hold and a version's fixed price, never a paid period, a key or prepaid credit. The values are left open.
@@ -167,7 +168,7 @@ the pointer to it.
   surface-check reads it like every page; the few passages that quote a claim the repository withdrew are pinned by a fingerprint of their text, so a new occurrence of such a claim on the page fails the gate.
 - One footer on every page of the site: Home; Pricing and Changelog; Terms, Privacy and Refunds; GitHub, Hugging Face and npm; Email and Security
   (the zone's `/.well-known/security.txt`), in English and Thai. It is written once in `scripts/lib/legal-render.mjs`, the generated pages take it from
-  there, and `node scripts/legal-pages.mjs --check` fails when the home, pricing or not-found page holds a footer that differs from it byte for byte, or
+  there, `node scripts/legal-pages.mjs --write` puts it into the home, pricing and not-found pages, and `--check` fails when one of them holds a footer that differs from it byte for byte, or
   lacks the footer rules in its own style block. The page-specific note about the stored language choice and the fonts moves just below the footer.
 - `/llms.txt`: a short plain-text guide for language models in the llmstxt.org shape. It says Kolwen is in development and nothing can be bought, and
   lists the six pages with one line each that repeats only what the page says. It is not in `web/sitemap.xml`.
@@ -296,7 +297,7 @@ the pointer to it.
   or weakened `Cross-Origin-Opener-Policy` or `Cross-Origin-Resource-Policy`, a `script-src`
   that lacks the exact slash-terminated Web Analytics beacon source or carries any other
   `cloudflareinsights` source (the bare host, a wildcard), without refusing other sources, a second rule carrying the policy, and an inline
-  event handler or `style=` attribute, and it fails rather than passes when it finds nothing to hash.
+  event handler or `style=` attribute, and it fails rather than passes when it finds nothing to hash. It reads the policy by directive name and judges the directive a browser applies to a block: `script-src-elem` / `style-src-elem` when the policy has one, the base directive otherwise.
 - The post-deploy check now compares the five headers the site serves (the Content-Security-Policy,
   Referrer-Policy, Permissions-Policy and the two cross-origin ones) against `web/_headers` on every
   HTML response, the 404 page included, and checks that kolwen.com still carries the zone's
