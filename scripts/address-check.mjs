@@ -9,8 +9,8 @@
 // variables by NAME, CLOUDFLARE_READ_TOKEN_ALL and CLOUDFLARE_ACCOUNT_ID_KOLWEN (the process environment first, then on Windows the User-scope
 // registry value), makes GET requests only, and prints only addresses and verdicts: never the token, a zone or account id, or a destination.
 //
-// Verdicts: ROUTES (an enabled rule matches the address and forwards or hands it to a worker) · DISABLED (its rule exists and is off) · DROPS (its rule only
-// drops) · NO RULE. Only ROUTES passes: the zone's catch-all NEVER counts, whatever it does, because the property checked is that each published address has a
+// Verdicts: ROUTES (the first enabled rule for the address, in Cloudflare's order, forwards or hands it to a worker, and no enabled rule behind it disagrees) · CONFLICT (it does, but an enabled
+// rule behind it would drop) · DROPS (the first enabled rule drops) · DISABLED (its rules exist and are all off) · NO RULE. Only ROUTES passes: the zone's catch-all NEVER counts, whatever it does, because the property checked is that each published address has a
 // rule of its own (a misspelled or never-created address must not pass because a catch-all happens to forward). The catch-all is printed as one information line.
 // Exit codes: 0 every address passes · 1 an address fails, or the zone could not be read · 2 a bad flag.
 // Report problems at https://github.com/TheColliery/Kolwen/issues
@@ -31,14 +31,22 @@ export const addressesIn = text => [...new Set((text.match(/[A-Za-z0-9._%+-]+@ko
 const literalTo = rule => (rule.matchers || []).filter(m => m.type === 'literal' && m.field === 'to').map(m => String(m.value).toLowerCase());
 const delivers = rule => (rule.actions || []).some(a => a.type === 'forward' || a.type === 'worker');
 
+// THE ORDER CLOUDFLARE APPLIES, which this implements. Of the rules that match an address, only the first processes its mail: "If you create more than one rule with the same email pattern,
+// only the rule shown first in the dashboard list processes incoming emails" (developers.cloudflare.com/email-routing/setup/email-routing-addresses/, read 2026-10-17). The API's
+// `priority` field is described there only as "Priority of the routing rule" (developers.cloudflare.com/api/resources/email_routing/subresources/rules/methods/list/, same date), without a
+// direction; the zone's own rules show it (read 2026-10-17): every literal rule has priority 0 and the catch-all has 2147483647 and is listed last, so a LOWER number runs first, and rules
+// with the same number keep the order the API lists them (the dashboard order). So an address's rules are ordered by ascending priority, ties by list position, DISABLED ones left out,
+// and the first one decides: a drop there means the mail is dropped, whatever delivering rule stands behind it. A delivering first rule with a different-outcome rule shadowed behind it
+// is a CONFLICT and fails too (a stale drop is one dashboard reorder from taking effect). Rules that agree (all deliver) are redundant, not wrong.
 // The verdict of each address against the zone's rules. The catch-all rule is not an input: it never counts. Pure: no network, no clock.
 export function judge(addresses, rules) {
   return addresses.map(address => {
-    const own = (rules || []).filter(r => literalTo(r).includes(address));
-    if (own.some(r => r.enabled && delivers(r))) return { address, verdict: 'ROUTES', ok: true };
-    if (own.some(r => r.enabled)) return { address, verdict: 'DROPS', ok: false };
-    if (own.length) return { address, verdict: 'DISABLED', ok: false };
-    return { address, verdict: 'NO RULE', ok: false };
+    const own = (rules || []).map((r, index) => ({ r, index })).filter(({ r }) => literalTo(r).includes(address));
+    const live = own.filter(({ r }) => r.enabled).sort((a, b) => (Number(a.r.priority) || 0) - (Number(b.r.priority) || 0) || a.index - b.index).map(({ r }) => r);
+    if (live.length === 0) return own.length ? { address, verdict: 'DISABLED', ok: false } : { address, verdict: 'NO RULE', ok: false };
+    if (!delivers(live[0])) return { address, verdict: 'DROPS', ok: false };
+    if (live.some(r => !delivers(r))) return { address, verdict: 'CONFLICT', ok: false };
+    return { address, verdict: 'ROUTES', ok: true };
   });
 }
 

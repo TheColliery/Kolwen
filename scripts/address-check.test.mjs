@@ -12,7 +12,8 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const at = (local, domain = 'kolwen.com') => local + String.fromCharCode(64) + domain;
 const { addressesIn, judge, catchAllNote, publishedAddresses } = await import(new URL('./address-check.mjs', import.meta.url));
 
-const rule = (to, enabled = true, actions = [{ type: 'forward', value: [at('x', 'example.test')] }]) => ({ enabled, matchers: [{ type: 'literal', field: 'to', value: to }], actions });
+const rule = (to, enabled = true, actions = [{ type: 'forward', value: [at('x', 'example.test')] }], priority = 0) => ({ enabled, priority, matchers: [{ type: 'literal', field: 'to', value: to }], actions });
+const DROP = [{ type: 'drop' }];
 const verdictOf = (list, rules, catchAll) => Object.fromEntries(judge(list, rules, catchAll).map(v => [v.address, v.verdict]));
 
 test('an address with an enabled forwarding rule routes, one without a rule fails', () => {
@@ -46,6 +47,28 @@ test('catchAllNote only describes the catch-all (information, never a pass): for
   assert.equal(catchAllNote({ enabled: false, actions: [{ type: 'forward', value: [at('y', 'example.test')] }] }), 'disabled');
   assert.equal(catchAllNote(null), 'absent');
   assert.ok(!String(catchAllNote({ enabled: true, actions: [{ type: 'forward', value: [at('y', 'example.test')] }] })).includes('@'));
+});
+
+// The order Cloudflare applies: for rules with the same pattern only the one shown first processes the mail (developers.cloudflare.com/email-routing/setup/email-routing-addresses/,
+// read 2026-10-17). The zone's own data (read the same day) shows the direction of `priority`: every literal rule 0, the catch-all 2147483647 and listed last, so a LOWER number runs first;
+// rules with the same priority keep the order the API lists them.
+test('the first enabled rule for an address in Cloudflare order decides: a drop before a forward drops, and a forward with a shadowed drop is a conflict', () => {
+  const x = at('x'), y = at('y'), z = at('z'), w = at('w');
+  const rules = [
+    rule(x, true, DROP), rule(x),                          // x: drop listed first, forward after, same priority -> the drop processes the mail
+    rule(y, true, undefined, 5), rule(y, true, DROP, 1),   // y: the forward is listed first but the drop has the lower priority number -> the drop runs first
+    rule(z, true, undefined, 1), rule(z, true, DROP, 5),   // z: the forward runs first, a drop behind it is shadowed -> a conflict, not a pass
+    rule(w), rule(w, true, [{ type: 'worker', value: ['w'] }]), // w: two rules that both deliver agree -> ROUTES
+  ];
+  assert.deepEqual(verdictOf([x, y, z, w], rules), { [x]: 'DROPS', [y]: 'DROPS', [z]: 'CONFLICT', [w]: 'ROUTES' });
+  assert.deepEqual(judge([x, y, z, w], rules).map(v => v.ok), [false, false, false, true]);
+});
+
+test('a disabled rule does not take part in the order: a disabled drop before a forward leaves the address routed', () => {
+  const x = at('x');
+  assert.equal(verdictOf([x], [rule(x, false, DROP), rule(x)])[x], 'ROUTES');
+  assert.equal(verdictOf([x], [rule(x, false, DROP), rule(x, false)])[x], 'DISABLED');
+  assert.equal(verdictOf([x], [rule(x, true, undefined, 3), rule(x, false, DROP, 0)])[x], 'ROUTES', 'a disabled drop with the lower number is not a conflict');
 });
 
 test('a rule counts for its own address only: matcher type, field and case are read exactly', () => {

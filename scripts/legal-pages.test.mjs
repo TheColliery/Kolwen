@@ -736,7 +736,6 @@ test('surface-check rule 13 judges style-src-elem and script-src-elem, the direc
 // All seven pages as text: the four generated (rendered now) and the three hand-kept (read from disk).
 const sevenPages = () => { const pages = { ...renderPages(inputs()).pages }; for (const f of HAND) pages[f] = read(f); return pages; };
 const mainOf = html => html.slice(html.indexOf('<main'), html.indexOf('</main>') + 7);
-const bodyOf = html => html.slice(html.indexOf('<body>'));
 
 test('the header is on every page with its three items, one per language, and no language bar is left anywhere', () => {
   for (const [f, html] of Object.entries(sevenPages())) {
