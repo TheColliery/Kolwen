@@ -19,6 +19,8 @@ const holds = JSON.parse(read('scripts/lib/legal-holds.json'));
 const state = JSON.parse(read('legal/legal-state.json'));
 const inputs = () => ({ terms: read('TERMS.md'), privacy: read('PRIVACY.md'), clause: read('legal/thai-7day-clause.md'), changelog: read('CHANGELOG.md'), state, holds });
 const count = (s, needle) => s.split(needle).length - 1;
+// A literal string as a regex source: every metacharacter is escaped, the backslash included, in one pass.
+const reEscape = text => text.replace(/[\\^$.*+?()[\]{}|\/-]/g, m => '\\' + m);
 // The English document of a page: the text between the two document containers.
 const docEn = html => html.slice(html.indexOf('id="doc-en"'), html.indexOf('id="doc-th"'));
 const docTh = html => html.slice(html.indexOf('id="doc-th"'), html.indexOf('</main>'));
@@ -403,6 +405,15 @@ const styleSrcLine = text => /^[ \t]+Content-Security-Policy:[^\r\n]*/m.exec(tex
 const sortedStyleSrc = text => styleSrcLine(text).split(/\s+/).filter(t => t.startsWith("'sha256-")).sort();
 const FOOTER_ANCHOR = { 'web/index.html': ['<a href="/terms">Terms</a>', '<a href="/terms">Terms </a>'], 'web/pricing.html': ['<a href="/privacy">ความเป็นส่วนตัว</a>', '<a href="/privacy">ความเป็นส่วนตัว </a>'], 'web/404.html': ['<a href="/changelog">Changelog</a>', '<a href="/changelogs">Changelog</a>'] };
 
+test('reEscape turns any text into a regex that matches exactly that text, backslash included', () => {
+  const every = '\\^$.*+?()[]{}|/-';
+  for (const c of every) assert.ok(new RegExp('^' + reEscape(c) + '$').test(c), 'matches ' + c);
+  const text = 'a\\b.c/d-e (f)[g]{h}|i+j*k?l^m$n';
+  assert.ok(new RegExp('^' + reEscape(text) + '$').test(text));
+  assert.ok(!new RegExp('^' + reEscape('a.c') + '$').test('abc'), 'a dot stays a dot');
+  assert.ok(!new RegExp('^' + reEscape('a\\.c') + '$').test('a.c'), 'a backslash before a dot is two characters');
+});
+
 test('the sync markers are named once, in the lib, and are the ones the pages carry', () => {
   assert.deepEqual(lib.SYNC_BLOCKS.map(b => [b.name, b.begin, b.end]), [MARK.header, MARK.en, MARK.th, MARK.css].map(m => [m.name, m.begin, m.end]));
   const cli = read('scripts/legal-pages.mjs');
@@ -430,7 +441,7 @@ test('an edited footer on a hand-kept page fails --check, naming page and block,
       edit(dir, f, x => { assert.ok(x.includes(from), f + ' holds the anchor'); return x.replace(from, to); });
       const r = check(dir);
       assert.equal(r.status, 1, f + '\n' + r.stdout + r.stderr);
-      assert.match(r.stdout, new RegExp('FAIL ' + f.replace(/[./]/g, '\\$&') + ' (en|th) footer differs from the shared footer, line \\d+'));
+      assert.match(r.stdout, new RegExp('FAIL ' + reEscape(f) + ' (en|th) footer differs from the shared footer, line \\d+'));
       const w = check(dir, '--write');
       assert.equal(w.status, 0, w.stdout + w.stderr);
       for (const g of WATCHED) { const now = readFileSync(join(dir, g)); if (HAND.includes(g) || g === 'web/_headers') assert.equal(Buffer.compare(before[g], now), 0, g + ' is byte for byte what it was'); else assert.equal(lf(now.toString('utf8')), lf(before[g].toString('utf8')), g + ' is the same text'); }
@@ -447,7 +458,7 @@ test('a marker that is missing fails --check and --write loudly, and --write wri
       const before = snap(dir, WATCHED);
       const r = check(dir);
       assert.equal(r.status, 1, f + k + edge + '\n' + r.stdout + r.stderr);
-      assert.match(r.stdout, new RegExp('FAIL ' + f.replace(/[./]/g, '\\$&') + ' ' + LABEL[k] + ': .*missing'), f + k + edge);
+      assert.match(r.stdout, new RegExp('FAIL ' + reEscape(f) + ' ' + LABEL[k] + ': .*missing'), f + k + edge);
       const w = check(dir, '--write');
       assert.equal(w.status, 1, f + k + edge + '\n' + w.stdout + w.stderr);
       assert.match(w.stdout + w.stderr, /missing/);
@@ -470,7 +481,7 @@ test('a marker that is doubled, or out of order, fails --check and --write loudl
       const before = snap(dir, WATCHED);
       const r = check(dir);
       assert.equal(r.status, 1, what + '\n' + r.stdout + r.stderr);
-      assert.match(r.stdout, new RegExp('FAIL ' + f.replace(/[./]/g, '\\$&') + ' ' + LABEL[k] + ': .*'), what);
+      assert.match(r.stdout, new RegExp('FAIL ' + reEscape(f) + ' ' + LABEL[k] + ': .*'), what);
       assert.match(r.stdout, re, what);
       const w = check(dir, '--write');
       assert.equal(w.status, 1, what + '\n' + w.stdout + w.stderr);
@@ -539,7 +550,7 @@ test('an edited footer rule in the lib is carried to all seven pages by one --wr
     edit(dir, 'scripts/lib/legal-render.mjs', x => { assert.ok(x.includes(rule), 'anchor'); return x.replace(rule, '.site-footer a:hover{text-decoration-thickness:3px}'); });
     const r = check(dir);
     assert.equal(r.status, 1, r.stdout + r.stderr);
-    for (const f of HAND) assert.match(r.stdout, new RegExp('FAIL ' + f.replace(/[./]/g, '\\$&') + ' footer css differs'), f);
+    for (const f of HAND) assert.match(r.stdout, new RegExp('FAIL ' + reEscape(f) + ' footer css differs'), f);
     const w = check(dir, '--write');
     assert.equal(w.status, 0, w.stdout + w.stderr);
     assert.match(w.stdout, /wrote web\/_headers/);
@@ -563,7 +574,7 @@ test('--check fails when a style hash of _headers no longer matches any page, an
     const r = check(dir);
     assert.equal(r.status, 1, r.stdout + r.stderr);
     assert.match(r.stdout, /FAIL web\/_headers style-src does not admit sha256-/);
-    assert.match(r.stdout, new RegExp('FAIL web/_headers style-src admits sha256-' + forged.replace(/[+/=]/g, '\\$&')));
+    assert.match(r.stdout, new RegExp('FAIL web/_headers style-src admits sha256-' + reEscape(forged)));
     assert.equal(check(dir, '--write').status, 0);
     assert.equal(check(dir).status, 0);
     assert.deepEqual(sortedStyleSrc(readFileSync(join(dir, 'web/_headers'), 'utf8')), sortedStyleSrc(before));
