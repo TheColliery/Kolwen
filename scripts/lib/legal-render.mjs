@@ -199,7 +199,8 @@ function refundBody(clauseMd, termsClass, lang, opts) {
 
 // ── 5. The shared footer, and the page shell
 // The footer is ONE block per language, written here and nowhere else. Its lines carry no indentation so the block is byte-identical
-// wherever it sits; the hand-kept pages (index, pricing, 404) hold a copy and `legal-pages.mjs --check` compares it byte for byte.
+// wherever it sits; `legal-pages.mjs --write` writes it into the hand-kept pages (index, pricing, 404) between markers (SYNC_BLOCKS, below)
+// and `--check` compares it byte for byte.
 // FOOTER_CSS uses no page variable and no opacity: every footer text takes the colour its page gives the footer at full strength (WCAG 2.2 SC 1.4.3
 // measures that colour against the page, and a test computes it), and hover changes the underline, not the colour. The same rules sit in every page's own style block.
 export const FOOTER_CSS = [

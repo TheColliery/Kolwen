@@ -399,7 +399,7 @@ const sameBytes = (a, b) => Object.keys(a).every(f => Buffer.compare(a[f], b[f])
 // The page text with every fenced block's contents cut out: what --write must leave alone.
 const outside = text => { let t = text; for (const m of Object.values(MARK)) { const i = t.indexOf(m.begin), j = t.indexOf(m.end); if (i >= 0 && j > i) t = t.slice(0, i + m.begin.length) + t.slice(j); } return t; };
 // The comments of _headers talk about style-src too, so the directive is read from the one indented policy line.
-const styleSrcLine = text => /^[ \t]+Content-Security-Policy:[^\r\n]*/m.exec(text)[0].match(/style-src[^;]*/)[0];
+const styleSrcLine = text => /^[ \t]+Content-Security-Policy:[^\r\n]*/m.exec(text)[0].match(/(?<![\w-])style-src(?![\w-])[^;]*/)[0];
 const sortedStyleSrc = text => styleSrcLine(text).split(/\s+/).filter(t => t.startsWith("'sha256-")).sort();
 const FOOTER_ANCHOR = { 'web/index.html': ['<a href="/terms">Terms</a>', '<a href="/terms">Terms </a>'], 'web/pricing.html': ['<a href="/privacy">ความเป็นส่วนตัว</a>', '<a href="/privacy">ความเป็นส่วนตัว </a>'], 'web/404.html': ['<a href="/changelog">Changelog</a>', '<a href="/changelogs">Changelog</a>'] };
 
@@ -569,6 +569,32 @@ test('--check fails when a style hash of _headers no longer matches any page, an
     assert.deepEqual(sortedStyleSrc(readFileSync(join(dir, 'web/_headers'), 'utf8')), sortedStyleSrc(before));
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+// ── the style-src directive is found by its whole name: style-src-elem and style-src-attr are other directives ──────────
+const cspLine = text => /^[ \t]+Content-Security-Policy:[^\r\n]*/m.exec(text)[0];
+const directive = (line, name) => line.split(';').map(d => d.trim()).find(d => d === name || d.startsWith(name + ' '));
+for (const other of ['style-src-elem', 'style-src-attr']) {
+  test(`a ${other} directive listed before style-src is left alone: the line is rewritten at style-src only, and the check reads style-src`, async () => {
+    const { planStyleSrc, hashProblems, styleHashes } = await import(new URL('./lib/page-sync.mjs', import.meta.url));
+    const real = read('web/_headers');
+    const decoy = `${other} 'self' 'sha256-DECOYDECOYDECOYDECOYDECOYDECOYDECOYDECOY000=';`;
+    const headers = real.replace(cspLine(real), line => line.replace('style-src ', () => decoy + ' style-src '));
+    assert.ok(headers.includes(decoy + ' style-src '), 'the decoy sits before style-src');
+    const pages = Object.fromEntries(['web/index.html', 'web/pricing.html', 'web/404.html', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html'].map(f => [f, read(f)]));
+    assert.deepEqual(hashProblems(pages, headers), [], 'a matching style-src reads as matching with the decoy directive first');
+    const moved = { ...pages, 'web/404.html': pages['web/404.html'].replace('.fine{font-size:12px;margin:0}', '.fine{font-size:13px;margin:0}') };
+    const pre = Object.fromEntries(Object.entries(pages).map(([f, h]) => [f, styleHashes(h)])), post = Object.fromEntries(Object.entries(moved).map(([f, h]) => [f, styleHashes(h)]));
+    const plan = planStyleSrc(headers, pre, post);
+    assert.ok(!plan.problem, plan.problem);
+    assert.equal(plan.replaced, 1);
+    const was = cspLine(headers), now = cspLine(plan.text);
+    assert.equal(directive(now, other), directive(was, other), `the ${other} directive survives byte for byte`);
+    assert.notEqual(directive(now, 'style-src'), directive(was, 'style-src'), 'style-src took the new hash');
+    for (const d of was.split(';')) if (!d.trim().startsWith('style-src ')) assert.ok(now.includes(d), 'every other directive survives: ' + d.trim().slice(0, 30));
+    assert.equal(plan.text.split('\n').filter((l, i) => l !== headers.split('\n')[i]).length, 1, 'one line of the file changed');
+    assert.ok(now.indexOf(decoy) < now.indexOf('style-src '), 'the order of the directives is kept');
+  });
+}
 
 // ── WCAG 2.2 SC 1.4.3: every footer text colour against the background it sits on, at least 4.5:1 ──────────
 // The footer takes its page's colour at full strength (no opacity anywhere in FOOTER_CSS) and hover does not change the colour, so what is

@@ -66,7 +66,8 @@ export function sync(text, blocks) {
 // The hash of every inline <style> block of a page, in document order (a page with a <noscript><style> has two).
 export const styleHashes = html => inlineStyles(html).map(cspHash);
 
-const STYLE_SRC = /(?<![\w-])style-src((?:[ \t]+[^;\s]+)*)/;
+// The whole directive name: style-src-elem and style-src-attr are other directives that begin with the same letters.
+const STYLE_SRC = /(?<![\w-])style-src(?![\w-])((?:[ \t]+[^;\s]+)*)/;
 
 // The line of the one Content-Security-Policy declaration, or { problem }.
 function cspLineOf(headersText) {
