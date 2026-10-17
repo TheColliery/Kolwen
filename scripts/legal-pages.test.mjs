@@ -155,7 +155,7 @@ test('the pages carry no raw {{token}}, no marker-less pending line, and nothing
     assert.ok(!/noindex/i.test(html), file + ' asks search engines to skip it');
     assert.ok(!/PREVIEW/.test(html), file + ' is marked as a preview');
     assert.ok(!/<form\b|<input\b[^>]*type=["']?(?:submit|button)/i.test(html), file + ' has a form or a submit control');
-    assert.equal(count(html, '<button'), 4, file + ' has more than the two language switches (header: one per language)');
+    assert.equal(count(html, '<button'), 8, file + ' has more than the four language switches (one in each header nav, one in each footer)');
     assert.equal(count(html, '<button'), count(html, 'data-lang-set='), file + ' has a button that is not a language switch');
     for (const m of html.matchAll(/class="pending"[^>]*>([^<]*)</g)) assert.ok(/^\[(?:pending legal review|รอที่ปรึกษากฎหมาย)\]/.test(m[1]), file + ': ' + m[1].slice(0, 50));
     assert.equal(count(docEn(html), 'class="pending"'), count(docTh(html), 'class="pending"'), file + ': both languages show the same number of pending lines');
@@ -281,13 +281,13 @@ test('the CLI refuses an unknown flag with exit 2 and prints usage on --help', (
 });
 
 // ── the shared footer and the changelog page ────────────────────────────────────────────────────
-const LINKS = ['/', '/pricing', '/changelog', '/terms', '/privacy', '/refund', 'https://github.com/TheColliery/Kolwen', 'https://huggingface.co/kolwen', 'https://www.npmjs.com/package/kolwen', 'mailto:info@kolwen.com', 'https://kolwen.com/.well-known/security.txt'];
+const LINKS = ['/', '/pricing', '/changelog', '/terms', '/privacy', '/refund', 'https://github.com/TheColliery/Kolwen', 'https://huggingface.co/kolwen', 'https://www.npmjs.com/package/kolwen', '/llms.txt', 'mailto:info@kolwen.com', 'mailto:support@kolwen.com', 'mailto:abuse@kolwen.com', 'mailto:appeals@kolwen.com', 'https://kolwen.com/.well-known/security.txt'];
 const hrefs = block => [...block.matchAll(/<a href="([^"]*)"/g)].map(m => m[1]);
 
-test('the shared footer links the same eleven places in both languages, in one order, with no buy word and no payment address', () => {
+test('the shared footer links the same fifteen places in both languages, in one order, with no buy word and no payment address', () => {
   for (const lang of ['en', 'th']) {
     const b = siteFooterHtml(lang);
-    assert.deepEqual(hrefs(b), [LINKS[0], LINKS[1], LINKS[2], LINKS[3], LINKS[4], LINKS[5], LINKS[6], LINKS[7], LINKS[8], LINKS[9], LINKS[10]].map(x => x), lang);
+    assert.deepEqual(hrefs(b), LINKS, lang);
     assert.ok(!/^\s/m.test(b), 'no line of the block is indented, so it is byte-identical wherever it sits');
     assert.ok(!/paddle|checkout|_ptxn/i.test(b));
   }
@@ -814,7 +814,7 @@ test("the switch keeps its storage key and its behaviour: one key 'kolwen-lang',
     const scripts = [...html.matchAll(/<script>\n([\s\S]*?)\n<\/script>/g)].map(m => m[1]);
     assert.equal(scripts.length, 1, f + ' has one page script');
     assert.equal(scripts[0], MARK.script.begin + '\n' + lib.SCRIPT + '\n' + MARK.script.end, f + ' carries the shared script between its markers');
-    assert.equal(count(html, 'data-lang-set='), 4, f + ' has four switch buttons for the one script to keep right');
+    assert.equal(count(html, 'data-lang-set='), 8, f + ' has eight switch buttons (four switches) for the one script to keep right');
     assert.ok(html.includes('id="doc-en"') && html.includes('id="doc-th"'), f + ' keeps the two document ids the script toggles');
   }
   assert.match(read('PRIVACY.md'), /one key/, "PRIVACY.md's one-key sentence is still there");
@@ -828,6 +828,37 @@ test('a reader without script gets no switch and sees the Thai document, header 
   assert.match(lib.HEADER_CSS, /html\[lang="th"\] \.site-header nav\[lang="en"\]\{display:none\}/);
   assert.match(lib.FOOTER_CSS, /html\[lang="th"\] \.site-footer\[lang="en"\]\{display:none\}/);
   for (const [f, html] of Object.entries(sevenPages())) assert.match(html, /<html lang="en">/, f + ': English until the script says otherwise');
+});
+
+// ── the footer's gaps: llms.txt under Code, the switch in the bottom bar, the contact addresses ──────────────────────────────────
+const groupOf = (block, heading) => { const m = new RegExp('<div class="fgroup"><p class="fh">' + reEscape(heading) + '</p>(.*?)</div>').exec(block); assert.ok(m, 'group ' + heading); return m[1]; };
+
+test('llms.txt is linked under Code, in both languages, and the file exists', () => {
+  for (const [lang, heading] of [['en', 'Code'], ['th', 'โค้ด']]) {
+    const code = groupOf(siteFooterHtml(lang), heading);
+    assert.deepEqual([...code.matchAll(/href="([^"]*)"/g)].map(m => m[1]), ['https://github.com/TheColliery/Kolwen', 'https://huggingface.co/kolwen', 'https://www.npmjs.com/package/kolwen', '/llms.txt'], lang);
+    assert.match(code, /<a href="\/llms\.txt">llms\.txt<\/a>/, lang + ': the link text is the file name');
+  }
+  assert.ok(existsSync(join(ROOT, 'web/llms.txt')), 'the file the footer links is in web/');
+});
+
+test("the TH/EN switch is also in the footer's bottom bar, beside the copyright and the unchanged trademark status", () => {
+  for (const lang of ['en', 'th']) {
+    const b = siteFooterHtml(lang);
+    const bar = b.slice(b.indexOf('<div class="fbar">'));
+    assert.match(bar, /<p class="fine">© 2026 Kolwen · (trademark application pending|เครื่องหมายการค้าอยู่ระหว่างการจดทะเบียน)<\/p>/, lang + ': the status wording is the one CLAUDE.md fixes');
+    assert.equal(count(bar, '<button'), 2, lang + ': the switch is in the bar');
+    assert.equal(count(bar, 'data-lang-set="en"') + count(bar, 'data-lang-set="th"'), 2);
+    assert.ok(bar.indexOf('class="fine"') < bar.indexOf('class="lswitch"'), lang + ': the switch follows the copyright');
+    assert.ok(!b.slice(0, b.indexOf('<div class="fbar">')).includes('<button'), lang + ': the switch is only in the bar');
+  }
+});
+
+test('Contact lists info, support, abuse and appeals beside the security.txt, in both languages, each address once and only on kolwen.com', () => {
+  for (const [lang, heading] of [['en', 'Contact'], ['th', 'ติดต่อ']]) {
+    const contact = groupOf(siteFooterHtml(lang), heading);
+    assert.deepEqual([...contact.matchAll(/href="([^"]*)"/g)].map(m => m[1]), ['mailto:info@kolwen.com', 'mailto:support@kolwen.com', 'mailto:abuse@kolwen.com', 'mailto:appeals@kolwen.com', 'https://kolwen.com/.well-known/security.txt'], lang);
+  }
 });
 
 // ── WCAG 2.2 SC 1.4.3: every footer text colour against the background it sits on, at least 4.5:1 ──────────

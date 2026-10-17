@@ -251,14 +251,14 @@ const FOOTER = {
     ['Kolwen', [['/', 'Home']]],
     ['Product', [['/pricing', 'Pricing'], ['/changelog', 'Changelog']]],
     ['Legal', [['/terms', 'Terms'], ['/privacy', 'Privacy'], ['/refund', 'Refunds']]],
-    ['Code', [['https://github.com/TheColliery/Kolwen', 'GitHub'], ['https://huggingface.co/kolwen', 'Hugging Face'], ['https://www.npmjs.com/package/kolwen', 'npm']]],
-    ['Contact', [['mailto:info@kolwen.com', 'Email'], ['https://kolwen.com/.well-known/security.txt', 'Security']]]] },
+    ['Code', [['https://github.com/TheColliery/Kolwen', 'GitHub'], ['https://huggingface.co/kolwen', 'Hugging Face'], ['https://www.npmjs.com/package/kolwen', 'npm'], ['/llms.txt', 'llms.txt']]],
+    ['Contact', [['mailto:info@kolwen.com', 'Email'], ['mailto:support@kolwen.com', 'Support'], ['mailto:abuse@kolwen.com', 'Report abuse'], ['mailto:appeals@kolwen.com', 'Appeals'], ['https://kolwen.com/.well-known/security.txt', 'Security']]]] },
   th: { label: 'ส่วนท้ายเว็บ', note: '© 2026 Kolwen · เครื่องหมายการค้าอยู่ระหว่างการจดทะเบียน', groups: [
     ['Kolwen', [['/', 'หน้าแรก']]],
     ['สินค้า', [['/pricing', 'ราคา'], ['/changelog', 'บันทึกการเปลี่ยนแปลง']]],
     ['กฎหมาย', [['/terms', 'ข้อกำหนด'], ['/privacy', 'ความเป็นส่วนตัว'], ['/refund', 'การคืนเงิน']]],
-    ['โค้ด', [['https://github.com/TheColliery/Kolwen', 'GitHub'], ['https://huggingface.co/kolwen', 'Hugging Face'], ['https://www.npmjs.com/package/kolwen', 'npm']]],
-    ['ติดต่อ', [['mailto:info@kolwen.com', 'อีเมล'], ['https://kolwen.com/.well-known/security.txt', 'ความปลอดภัย']]]] },
+    ['โค้ด', [['https://github.com/TheColliery/Kolwen', 'GitHub'], ['https://huggingface.co/kolwen', 'Hugging Face'], ['https://www.npmjs.com/package/kolwen', 'npm'], ['/llms.txt', 'llms.txt']]],
+    ['ติดต่อ', [['mailto:info@kolwen.com', 'อีเมล'], ['mailto:support@kolwen.com', 'ฝ่ายสนับสนุน'], ['mailto:abuse@kolwen.com', 'แจ้งการละเมิด'], ['mailto:appeals@kolwen.com', 'อุทธรณ์'], ['https://kolwen.com/.well-known/security.txt', 'ความปลอดภัย']]]] },
 };
 // A render parameter for the commercial registration number and the DBD mark: { en: 'text', th: 'text' }, or null. It prints NOTHING until it is set (no
 // placeholder text, no empty element), and is set only after the registration and the lawyer's issue are in.
@@ -269,7 +269,7 @@ export const siteFooterHtml = (lang, registration = REGISTRATION) => {
   return [`<footer class="site-footer" lang="${lang}">`, '<div class="fwrap">', `<p class="fbrand">${markSvg(24, 'fglyph')}Kolwen</p>`,
     `<nav class="fgroups" aria-label="${escAttr(f.label)}">`,
     ...f.groups.map(([h, links]) => `<div class="fgroup"><p class="fh">${escText(h)}</p>${links.map(([u, t]) => `<a href="${escAttr(u)}">${escText(t)}</a>`).join('')}</div>`),
-    '</nav>', '<div class="fbar">', `<p class="fine">${escText(f.note)}</p>`, reg, '</div>', '</div>', '</footer>'].filter(Boolean).join('\n');
+    '</nav>', '<div class="fbar">', `<p class="fine">${escText(f.note)}</p>`, reg, switchHtml(lang), '</div>', '</div>', '</footer>'].filter(Boolean).join('\n');
 };
 
 const HEADER = {
