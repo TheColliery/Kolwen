@@ -44,9 +44,9 @@
 # string. post-deploy-check asserts both are PRESENT on the production origin, so a zone setting that
 # is switched off is caught, not assumed.
 #
-# CSP. Every origin below was read from the page and from the served Google Fonts stylesheet
-# (2026-09-25), not written from memory: the page links one stylesheet from fonts.googleapis.com, and
-# that stylesheet's @font-face rules load font files from fonts.gstatic.com only.
+# CSP. The pages fetch their typefaces from the site itself: web/fonts/fonts.css is the one manifest every page links, and its @font-face rules load
+# the WOFF2 files under /fonts/ only (surface-check rule 13 holds that). So font-src is 'self' alone and the only origin named for a fetch is
+# Cloudflare's Web Analytics beacon, below.
 #  - script-src: NO 'unsafe-inline'. The one inline script in index.html is admitted by its hash; any
 #    byte change breaks it, and surface-check rule 13 recomputes it. 'self' stays for same-origin
 #    scripts and Cloudflare's own same-origin /cdn-cgi/ paths; web/ ships no .js file (rule 7).
@@ -65,9 +65,8 @@
 #    ("How can I enforce Subresource Integrity (SRI) with the JS beacon?") says Cloudflare does not support
 #    version-pinning the beacon, so no stable hash exists to pin.
 #  - style-src: every inline <style> block of the pages (surface-check rule 13 recomputes them and reports how many it hashed) is admitted by hash too, so there
-#    is no 'unsafe-inline' anywhere. The Google Fonts
-#    stylesheet varies by user agent, so it cannot carry a fixed integrity hash; it is the named
-#    exception, pinned by origin. Self-hosting the two IBM Plex families would retire it.
+#    is no 'unsafe-inline' anywhere. The font manifest is a same-origin file, so 'self' admits it; the Google Fonts stylesheet,
+#    which varied by user agent and could carry no fixed hash, was the one third-party exception, and self-hosting the two IBM Plex families retired it.
 #  - The pricing page (/pricing; it began as /plans, which now answers a 301 from web/_redirects) and the four pages scripts/legal-pages.mjs generates (/terms,
 #    /privacy and /refund from the repository's TERMS.md, PRIVACY.md and legal/thai-7day-clause.md, and /changelog from CHANGELOG.md) share ONE <style> block, so
 #    the five carry one hash. `node scripts/legal-pages.mjs --check` (a CI step) fails if the pricing page's block is not byte for byte the generated pages'. The page script and
@@ -87,9 +86,9 @@
 #    needs to talk to. Cross-Origin-Resource-Policy same-origin: no other origin embeds this site's responses.
 #    Both are checked against the served response by post-deploy-check, like the three headers above.
 #  - Cross-Origin-Embedder-Policy require-corp is NOT set, on purpose. It makes every cross-origin no-cors
-#    subresource need a CORP header, and the page loads three: the Google Fonts stylesheet, its font files and
-#    the Web Analytics beacon. Read 2026-10-02 (curl, HEAD, GET only): the stylesheet, a font file and the
-#    unversioned beacon URL each answer `Cross-Origin-Resource-Policy: cross-origin` and
+#    subresource need a CORP header. When this was decided the page loaded three: the Google Fonts stylesheet, its font files and
+#    the Web Analytics beacon; the fonts are now the site's own, and the beacon is the one cross-origin subresource left. Read 2026-10-02 (curl, HEAD, GET only): the stylesheet, a font file and the
+#    unversioned beacon URL each answered `Cross-Origin-Resource-Policy: cross-origin` and
 #    `Access-Control-Allow-Origin: *`, so they would load; but no real browser has loaded this page under COEP
 #    yet, the beacon's versioned path was not fetched, and the page has no SharedArrayBuffer or other need for
 #    cross-origin isolation. A header that could blank the fonts for a benefit nothing here uses is not shipped
@@ -101,7 +100,7 @@
 # Permissions-Policy: every standardized feature the page does not use, names from the W3C
 # webappsec-permissions-policy feature registry (read 2026-09-25). The page uses none of them.
 /*
-  Content-Security-Policy: default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; script-src 'self' https://static.cloudflareinsights.com/beacon.min.js/ 'sha256-E7qPAYbONhknD/BCPohidP4Ita9lluXiIgAgddNS2sU='; style-src 'sha256-yzjIvtJjATLj6yYy1gfv7FPI/iiIcDsPlKDZ4vqKwRM=' 'sha256-2i6LGTd6xisBxcmJzbn5t//dyFWGLfpllzAxB9oQ/gc=' https://fonts.googleapis.com 'sha256-RXXSUk/Tex3SrAqKO2Y8ATeEvwd7gRpoDCIaHGeUq0M=' 'sha256-xZraTIl+lXrG5o+N37qLXTlqf5xhKfQk90/pFZHO5Gs='; font-src https://fonts.gstatic.com; form-action 'self'
+  Content-Security-Policy: default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; script-src 'self' https://static.cloudflareinsights.com/beacon.min.js/ 'sha256-E7qPAYbONhknD/BCPohidP4Ita9lluXiIgAgddNS2sU='; style-src 'self' 'sha256-yzjIvtJjATLj6yYy1gfv7FPI/iiIcDsPlKDZ4vqKwRM=' 'sha256-2i6LGTd6xisBxcmJzbn5t//dyFWGLfpllzAxB9oQ/gc=' 'sha256-RXXSUk/Tex3SrAqKO2Y8ATeEvwd7gRpoDCIaHGeUq0M=' 'sha256-xZraTIl+lXrG5o+N37qLXTlqf5xhKfQk90/pFZHO5Gs='; font-src 'self'; form-action 'self'
   Referrer-Policy: strict-origin-when-cross-origin
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin

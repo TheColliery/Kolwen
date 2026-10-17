@@ -95,7 +95,7 @@ test('the counts of the three sources today', () => {
   const i = inputs();
   const s = file => classify(file, i[{ 'TERMS.md': 'terms', 'PRIVACY.md': 'privacy', 'legal/thai-7day-clause.md': 'clause' }[file]], { holds: holds.holds }).stats;
   assert.deepEqual(s('TERMS.md'), { passages: 71, text: 27, held: 44 });
-  assert.deepEqual(s('PRIVACY.md'), { passages: 57, text: 16, held: 41 });
+  assert.deepEqual(s('PRIVACY.md'), { passages: 54, text: 14, held: 40 });
   assert.deepEqual(s('legal/thai-7day-clause.md'), { passages: 4, text: 0, held: 4 });
 });
 
@@ -395,8 +395,8 @@ test('the CLI child runs with HOME, USERPROFILE and the temp variables inside th
 const HAND = ['web/index.html', 'web/pricing.html', 'web/404.html'];
 const WATCHED = [...HAND, 'web/_headers', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html'];
 const mk = (name, css) => (css ? { name, begin: `/* ${name}:begin */`, end: `/* ${name}:end */` } : { name, begin: `<!-- ${name}:begin -->`, end: `<!-- ${name}:end -->` });
-const MARK = { hcss: mk('site-header-css', true), css: mk('site-footer-css', true), ncss: mk('site-noscript-css', true), header: mk('site-header'), en: mk('site-footer:en'), th: mk('site-footer:th'), script: mk('site-script', true) };
-const LABEL = { hcss: 'header css', css: 'footer css', ncss: 'noscript css', header: 'header', en: 'en footer', th: 'th footer', script: 'page script' };
+const MARK = { fonts: mk('site-fonts'), hcss: mk('site-header-css', true), css: mk('site-footer-css', true), ncss: mk('site-noscript-css', true), header: mk('site-header'), en: mk('site-footer:en'), th: mk('site-footer:th'), script: mk('site-script', true) };
+const LABEL = { fonts: 'font manifest link', hcss: 'header css', css: 'footer css', ncss: 'noscript css', header: 'header', en: 'en footer', th: 'th footer', script: 'page script' };
 const lf = s => s.replace(/\r\n/g, '\n');
 const snap = (dir, files) => Object.fromEntries(files.map(f => [f, readFileSync(join(dir, f))]));
 const sameBytes = (a, b) => Object.keys(a).every(f => Buffer.compare(a[f], b[f]) === 0);
@@ -417,7 +417,7 @@ test('reEscape turns any text into a regex that matches exactly that text, backs
 });
 
 test('the sync markers are named once, in the lib, and are the ones the pages carry', () => {
-  assert.deepEqual(lib.SYNC_BLOCKS.map(b => [b.name, b.begin, b.end]), [MARK.hcss, MARK.css, MARK.ncss, MARK.header, MARK.en, MARK.th, MARK.script].map(m => [m.name, m.begin, m.end]), 'the array order is the one expected document order');
+  assert.deepEqual(lib.SYNC_BLOCKS.map(b => [b.name, b.begin, b.end]), [MARK.fonts, MARK.hcss, MARK.css, MARK.ncss, MARK.header, MARK.en, MARK.th, MARK.script].map(m => [m.name, m.begin, m.end]), 'the array order is the one expected document order');
   const cli = read('scripts/legal-pages.mjs');
   for (const m of Object.values(MARK)) assert.ok(!cli.includes(m.name), 'the CLI does not retype ' + m.name);
 });
@@ -718,9 +718,9 @@ test('surface-check rule 13 judges style-src-elem and script-src-elem, the direc
     assert.equal(a.status, 1, 'a style-src-elem that lacks the hashes fails rule 13: ' + a.stdout + a.stderr);
     assert.match(a.stdout + a.stderr, /style-src-elem does not admit the inline style whose hash is/);
     assert.match(a.stdout + a.stderr, /style-src-elem admits 'sha256-DECOY/, 'its stale hash is named too');
-    put(withBefore(`style-src-elem 'self' ${hashesIn(real).join(' ')} https://fonts.googleapis.com;`, real));
+    put(withBefore(`style-src-elem 'self' ${hashesIn(real).join(' ')};`, real));
     const b = surface(dir);
-    assert.equal(b.status, 0, 'a style-src-elem that admits every hash and the fonts origin passes: ' + b.stdout + b.stderr);
+    assert.equal(b.status, 0, 'a style-src-elem that admits every hash and self passes: ' + b.stdout + b.stderr);
     put(real.replace(cspLine(real), line => line.replace('script-src ', () => "script-src-elem 'self'; script-src ")));
     const c = surface(dir);
     assert.equal(c.status, 1, 'a script-src-elem without the hash and the beacon fails: ' + c.stdout + c.stderr);

@@ -8,9 +8,10 @@
 // Exit 1 = a mismatch, or nothing could be observed. Exit 2 = a bad argument, or nothing declared to compare.
 // --origin checks ONE host instead of the production origin: a preview URL, a workers.dev host, or a local
 // server. Zone-only headers (HSTS, nosniff) and the production noindex rail apply to kolwen.com hosts alone.
-import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { parseRedirectsFile, isDynamic, redirectMiss } from './lib/redirects-file.mjs';
+import { servedFiles } from './lib/web-files.mjs';
 import { parseHeadersFile, declaredSecurityHeaders, servedHeaderMisses, robotsRailMisses, notFoundVerdict, robotsVerdict } from './lib/headers-file.mjs';
 
 const args = process.argv.slice(2);
@@ -79,20 +80,17 @@ const sha = b => createHash('sha256').update(b).digest('hex').slice(0, 16);
 
 // R3: check every served file, not just index.html -- checking only index.html would have
 // printed "deploy confirmed" for a commit that changed sitemap.xml and never looked at it.
-// NOT recursive, and that is safe only because something else keeps web/ flat:
-// surface-check.mjs holds an allowlist of the files we ship and fails on any other tracked
-// path under web/, and it is a required CI context. If that allowlist ever admits a
-// subdirectory, this line must become recursive or a deployed file goes unchecked.
+// RECURSIVE (scripts/lib/web-files.mjs), because surface-check.mjs's allowlist now admits the
+// subdirectory web/fonts/: a deployed font the prober never looked at would go unchecked. The
+// allowlist still names every file, and it is a required CI context.
 
 // SHIPPED BUT NOT FETCHABLE. Cloudflare parses `_headers` and, in its own words, the file
 // "will not itself be served as a static asset" — so fetching it returns the 404 page, the
 // comparison fails, and this gate would red on every deploy forever. Verified at the docs,
 // 2026-09-05. Anything else with that property joins this list; nothing else is exempt.
-const NOT_SERVED = new Set(['_headers', '_redirects']);
-const files = readdirSync('web')
-  .filter(f => statSync(`web/${f}`).isFile())
-  .filter(f => !NOT_SERVED.has(f));
-const TEXT = /\.(html|xml|txt|svg|json)$/i;
+// Recursive since web/fonts/ joined the publish root (surface-check rule 7 names every file under it): servedFiles lists them, root `_headers` and `_redirects` excluded.
+const files = servedFiles('web');
+const TEXT = /\.(html|xml|txt|svg|json|css)$/i;
 
 // LWK-179: the deadline above bounds the JOB; it did not bound each origin's SHARE of it, so a first
 // origin that hung consumed the whole remaining --wait and the second origin (then the workers.dev

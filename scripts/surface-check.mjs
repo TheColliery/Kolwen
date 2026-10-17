@@ -12,7 +12,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { resolve } from 'node:path';
+import { resolve, posix } from 'node:path';
 
 const fail = [];
 const note = (f, msg) => fail.push(`${f}: ${msg}`);
@@ -178,6 +178,11 @@ const SHIPPED = new Set([
   // The plain-text guide for language models (llmstxt.org shape); it states only what the pages state and is not in the sitemap.
   'web/llms.txt',
   'web/favicon.svg', 'web/favicon-32.png', 'web/apple-touch-icon.png', 'web/og.png',
+  // The self-hosted fonts, BY NAME like everything above (a new face or a new script is a deliberate act here, with its OFL.txt beside it): the one manifest every page
+  // links, and the WOFF2 files and licence texts of IBM Plex Sans Thai (a folder per script) and IBM Plex Mono. post-deploy-check lists web/ recursively, so these are checked when deployed.
+  'web/fonts/fonts.css',
+  'web/fonts/thai/IBMPlexSansThai-Regular.woff2', 'web/fonts/thai/IBMPlexSansThai-Medium.woff2', 'web/fonts/thai/IBMPlexSansThai-SemiBold.woff2', 'web/fonts/thai/IBMPlexSansThai-Bold.woff2', 'web/fonts/thai/OFL.txt',
+  'web/fonts/mono/IBMPlexMono-Regular-Latin1.woff2', 'web/fonts/mono/IBMPlexMono-Medium-Latin1.woff2', 'web/fonts/mono/OFL.txt',
 ]);
 for (const f of tracked.filter(f => f.startsWith('web/'))) {
   if (!SHIPPED.has(f)) note(f, 'is tracked under the publish root but is not a declared shipped asset — every path under web/ is a live URL');
@@ -510,9 +515,9 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
 // counts are printed in the pass line, so a run that hashed nothing cannot read as a run that did.
 //
 // STATED LIMITS, not fixed here: the HTML is read as text, not parsed, so a script or style inside an
-// HTML comment is counted (it fails safe, demanding a hash it does not need); `font-src` origins come from
-// the CSS a stylesheet loads, which this rule cannot see, so that directive is checked by hand against the
-// served stylesheet, not here; `style-src` carrying `'unsafe-inline'` is not refused (a hash makes browsers
+// HTML comment is counted (it fails safe, demanding a hash it does not need); `font-src` is held to 'self' alone
+// and every url() of a tracked stylesheet (the font manifest) must be a file of this site that rule 7 declares, but a stylesheet the edge or a
+// browser extension adds is not in the repo and not seen; `style-src` carrying `'unsafe-inline'` is not refused (a hash makes browsers
 // ignore it); nothing the edge injects into the response is in the repo, so nothing here can see it (the
 // post-deploy check reads the served headers, and `_headers` says what the edge adds); and whether the
 // served response really carries these headers is the post-deploy check's job, not this rule's.
@@ -550,6 +555,8 @@ const CSP_STATS = { scripts: 0, styles: 0 };
       if (!/\brel\s*=\s*["']?[^"'>]*\bstylesheet\b/i.test(m[0])) continue;
       const o = (m[0].match(/\bhref\s*=\s*["']?(https?:\/\/[^/"'\s>]+)/i) || [])[1];
       if (o) origins.style.add(o.toLowerCase());
+      // A stylesheet from this site (the font manifest, linked by a path) is admitted by 'self', which style-src must therefore name.
+      else if (/\bhref\s*=\s*["']?(?![a-z][a-z0-9+.-]*:|\/\/)[^"'\s>]/i.test(m[0])) origins.style.add("'self'");
     }
     if (/<[a-zA-Z][^>]*\s(?:on[a-z]+|style)\s*=/.test(s)) note(f, 'has an inline event handler or style="" attribute, which the CSP blocks without saying so — move it into the hashed script or style');
     if (/<meta\b[^>]*http-equiv\s*=\s*["']?content-security-policy/i.test(s)) note(f, 'sets a CSP in a <meta> tag — headers are set at the host, and frame-ancestors has no meta form');
@@ -574,7 +581,7 @@ const CSP_STATS = { scripts: 0, styles: 0 };
       if (pattern !== '/*') note(HEADERS, `line ${line}: the CSP is on "${pattern}", not "/*" — the 404 served for an unmatched path would not carry it`);
       const { dirs, repeats } = lib.parsePolicy(value);
       for (const r of new Set(repeats)) note(HEADERS, `line ${line}: the CSP names ${r} twice; a browser keeps only the first`);
-      const exact = { 'default-src': ["'self'"], 'object-src': ["'none'"], 'base-uri': ["'self'"], 'frame-ancestors': ["'none'"], 'form-action': ["'self'"] };
+      const exact = { 'default-src': ["'self'"], 'object-src': ["'none'"], 'base-uri': ["'self'"], 'frame-ancestors': ["'none'"], 'form-action': ["'self'"], 'font-src': ["'self'"] };
       for (const [d, toks] of Object.entries(exact)) {
         const got = dirs.get(d);
         if (!got || got.join(' ') !== toks.join(' ')) note(HEADERS, `line ${line}: the CSP floor needs ${d} ${toks.join(' ')}, found ${got ? got.join(' ') : 'nothing'}`);
@@ -619,6 +626,26 @@ const CSP_STATS = { scripts: 0, styles: 0 };
       }
       const pp = lib.declarations([block], 'Permissions-Policy')[0];
       if (!pp || !/\w+=\(\)/.test(pp.value)) note(HEADERS, `the "${pattern}" rule needs a Permissions-Policy that disables features (name=()), found ${pp ? 'none that does' : 'none'}`);
+    }
+  }
+}
+
+// ── 13b. The font manifest loads this site's own declared files and nothing else ──────────────
+// The fonts are self-hosted, so `font-src 'self'` (rule 13) is only true if the stylesheet that names the font files names this site's files. Every tracked stylesheet under
+// web/ is read: each url() must be a path on this site (no scheme, no //) that exists and that rule 7 declares, and an @import is refused because it is not followed.
+// NON-VACUITY: no tracked stylesheet at all is a finding, not a pass. STATED LIMIT: the CSS is read as text, so a url() inside a comment is counted (it fails safe).
+{
+  const sheets = tracked.filter(f => f.startsWith('web/') && f.endsWith('.css'));
+  if (sheets.length === 0) note('web/fonts/fonts.css', 'is not tracked: no stylesheet under web/ for the font manifest rule to read, so this CHECK is empty, not the fonts proven self-hosted');
+  for (const f of sheets) {
+    const s = read(f);
+    if (/@import/i.test(s)) note(f, 'uses @import, which this rule does not follow; link each stylesheet from the page instead');
+    for (const m of s.matchAll(/url\(\s*(["']?)([^"')\s]+)\1\s*\)/gi)) {
+      const u = m[2];
+      if (/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(u)) { note(f, `loads ${u}, which is not on this site; font-src is 'self'`); continue; }
+      const target = (u.startsWith('/') ? 'web' + u : posix.normalize(posix.join(posix.dirname(f), u))).replace(/[?#].*$/, '');
+      if (!existsSync(target)) note(f, `url(${u}) points at ${target}, which does not exist`);
+      else if (!SHIPPED.has(target)) note(f, `url(${u}) points at ${target}, which is not a declared shipped asset (rule 7)`);
     }
   }
 }

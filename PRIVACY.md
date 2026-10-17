@@ -128,16 +128,6 @@ low.
 trace in this repository. It cannot be measured from here, and it is not stated as fact.** Returned as an
 owner question.
 
-**Google Fonts** serves the two typefaces the page uses, so your browser makes a request to
-Google when the page loads. That request carries your IP address to Google.
-
-*[pending legal review] Measured: `curl -s https://kolwen.com/ | grep -oE 'https?://[a-z0-9.-]+'`—`fonts.googleapis.com`
-is the only third-party origin the page FETCHES. The github.com, huggingface.co and npmjs.com
-addresses on the page are links you would have to click.*
-
-Self-hosting the fonts would remove this last third party. It is an open decision, not an
-oversight.
-
 ## Age
 
 [pending legal review] Kolwen is for people who are at least 18, or the age at which the law where they live
@@ -165,9 +155,8 @@ configuration outside this repository.** Not measurable here; returned rather th
   Web Analytics described above.
 - No account, no sign-up, and nothing to log in to.
 - Kolwen's own systems—the site and its Worker—collect and store nothing, so there is nothing
-  there to sell or share. **Three parties outside those systems do handle data, as this notice
-  already says:** Cloudflare handles every request; Google Fonts receives your IP address when the
-  page loads; and the mailbox behind the contact address holds what you send to it. What each
+  there to sell or share. **Two parties outside those systems do handle data, as this notice
+  already says:** Cloudflare handles every request; and the mailbox behind the contact address holds what you send to it. What each
   retains cannot be measured from this repository.
 
 ## When the assistant ships

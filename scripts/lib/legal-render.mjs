@@ -291,10 +291,10 @@ export const siteHeaderHtml = () => ['<header class="site-header">', ...['en', '
     `<a href="/pricing">${escText(h.pricing)}</a>`, switchHtml(lang), '</nav>'].join('\n');
 }), '</header>'].join('\n');
 
-// What is true only of pages that store the language choice and load the fonts (not of the 404 page), so it is not in the shared block.
+// What is true only of pages that store the language choice (not of the 404 page), so it is not in the shared block. The fonts are the site's own files and need no mention here.
 export const pageNoteHtml = lang => lang === 'en'
-  ? '<p class="fine">This page: your language choice is stored locally in your browser · fonts are loaded from Google Fonts</p>'
-  : '<p class="fine">หน้านี้: ภาษาที่เลือกถูกเก็บไว้ในเบราว์เซอร์ของคุณ · ฟอนต์โหลดจาก Google Fonts</p>';
+  ? '<p class="fine">This page: your language choice is stored locally in your browser</p>'
+  : '<p class="fine">หน้านี้: ภาษาที่เลือกถูกเก็บไว้ในเบราว์เซอร์ของคุณ</p>';
 // The footer blocks a page holds, in document order.
 export const footersOf = html => html.match(/<footer class="site-footer"[^>]*>[\s\S]*?<\/footer>/g) || [];
 
@@ -302,6 +302,8 @@ export const footersOf = html => html.match(/<footer class="site-footer"[^>]*>[\
 // `node scripts/legal-pages.mjs --write` replaces, in each hand-kept page (index, pricing, 404), exactly the text between each pair of markers with the render
 // below, and the four generated pages are rendered with the same markers, so one edit to the header, the footer or the page script reaches all seven pages in one run.
 // A marker pair is a fixed comment: an HTML comment in the body, a CSS comment in a style block, a JS comment in the script. scripts/lib/page-sync.mjs reads and writes them.
+// The one stylesheet that names every typeface: web/fonts/fonts.css, same-origin, so a page fetches its fonts from the site itself and from no one else.
+export const FONT_LINK = '<link rel="stylesheet" href="/fonts/fonts.css">';
 const htmlPair = name => ({ name, begin: `<!-- ${name}:begin -->`, end: `<!-- ${name}:end -->` });
 const cssPair = name => ({ name, begin: `/* ${name}:begin */`, end: `/* ${name}:end */` });
 // THE ORDER OF THIS ARRAY IS THE ONE EXPECTED DOCUMENT ORDER of the pairs in every one of the seven pages, declared here once: the header rules and the footer
@@ -309,6 +311,7 @@ const cssPair = name => ({ name, begin: `/* ${name}:begin */`, end: `/* ${name}:
 // the end of the body. scripts/lib/page-sync.mjs reads the pairs in this order and refuses (--check and --write) a page whose pairs overlap, nest across each
 // other or stand in another order, so swapping the two footers cannot pass.
 export const SYNC_BLOCKS = [
+  { ...htmlPair('site-fonts'), label: 'font manifest link', shared: 'font manifest link', render: () => FONT_LINK },
   { ...cssPair('site-header-css'), label: 'header css', shared: 'header rules', render: () => HEADER_CSS },
   { ...cssPair('site-footer-css'), label: 'footer css', shared: 'footer rules', render: () => FOOTER_CSS },
   { ...cssPair('site-noscript-css'), label: 'noscript css', shared: 'rules for a reader without script', render: () => NOSCRIPT_STYLE },
@@ -453,8 +456,7 @@ export function shell({ title, description, path, en, th }) {
 <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta name="theme-color" content="#15130f">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+${fenced('site-fonts')}
 <style>${STYLE}</style>
 <noscript><style>
 ${fenced('site-noscript-css')}
