@@ -525,7 +525,12 @@ const CSP_STATS = { scripts: 0, styles: 0 };
   const htmlFiles = tracked.filter(f => f.startsWith('web/') && f.endsWith('.html'));
   for (const p of ANCHOR_PAGES) if (!htmlFiles.includes(p)) note(p, 'is not a tracked HTML page, so rule 13 has nothing to hash for it — this CHECK is now empty for that page, not the page proven covered');
 
-  const sha256 = text => "'sha256-" + createHash('sha256').update(text, 'utf8').digest('base64') + "'";
+  // The hash routine and the inline-style pattern are scripts/lib/csp-hashes.mjs's, shared with scripts/legal-pages.mjs, which keeps the style-src
+  // hashes of web/_headers in step with the pages; this rule recomputes them from the served HTML all the same, so a hash that is wrong either way is caught here.
+  let hashes = null;
+  try { hashes = await import(pathToFileURL(resolve('scripts/lib/csp-hashes.mjs')).href); }
+  catch (e) { note('scripts/lib/csp-hashes.mjs', 'could not be loaded, so rule 13 could not hash the inline blocks (' + (e.code || 'import failed') + ')'); }
+  const sha256 = text => (hashes ? hashes.cspHash(text) : '');
   const want = { script: new Set(), style: new Set() };
   const origins = { script: new Set(), style: new Set() };
   for (const f of htmlFiles) {
@@ -540,7 +545,7 @@ const CSP_STATS = { scripts: 0, styles: 0 };
       if (!EXEC_TYPES.has(type)) { note(f, `has an inline <script type="${type}"> that rule 13 cannot classify as code or data, so its CSP admission is unchecked`); continue; }
       want.script.add(sha256(m[2])); CSP_STATS.scripts++;
     }
-    for (const m of s.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\b[^>]*>/gi)) { want.style.add(sha256(m[1])); CSP_STATS.styles++; }
+    for (const body of hashes ? hashes.inlineStyles(s) : []) { want.style.add(sha256(body)); CSP_STATS.styles++; }
     for (const m of s.matchAll(/<link\b[^>]*>/gi)) {
       if (!/\brel\s*=\s*["']?[^"'>]*\bstylesheet\b/i.test(m[0])) continue;
       const o = (m[0].match(/\bhref\s*=\s*["']?(https?:\/\/[^/"'\s>]+)/i) || [])[1];

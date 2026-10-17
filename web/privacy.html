@@ -73,6 +73,7 @@
   .pcard ul{padding-left:18px;display:flex;flex-direction:column;gap:5px}
   .pcard li{font-size:14px;color:var(--txt2)}
   .note{font-size:13px;color:var(--quiet)}
+/* site-footer-css:begin */
   .site-footer{margin-top:28px;padding-top:20px;border-top:1px solid rgba(128,128,128,.35);font-size:13.5px;line-height:1.7;display:flex;flex-direction:column;gap:14px}
   .site-footer .fgroups{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:18px}
   .site-footer .fgroup{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
@@ -80,6 +81,7 @@
   .site-footer a{color:inherit;text-decoration:underline;text-underline-offset:3px;display:inline-block;padding:5px 0;min-height:32px}
   .site-footer a:hover{text-decoration-thickness:2px}
   .fine{font-size:12px;margin:0}
+/* site-footer-css:end */
   [hidden]{display:none !important}
   @media (max-width:420px){.name{font-size:28px}h1{font-size:20px}.plans th,.plans td{padding-right:6px;font-size:13px}.plans button{padding:6px 8px}}
 </style>
@@ -89,6 +91,8 @@
 </style></noscript>
 </head>
 <body>
+<!-- site-header:begin -->
+<!-- site-header:end -->
 <nav class="langbar" aria-label="Language">
   <button type="button" id="lang-en" lang="en" aria-pressed="true">English</button>
   <button type="button" id="lang-th" lang="th" aria-pressed="false">ไทย</button>
@@ -169,6 +173,7 @@
       <p class="pending">[pending legal review] Full Thai versions of the Terms, the Refunds and the Privacy pages, equal in substance to the English, are still to come.</p>
     </div>
 
+<!-- site-footer:en:begin -->
 <footer class="site-footer">
 <nav class="fgroups" aria-label="Footer">
 <div class="fgroup"><p class="fh">Kolwen</p><a href="/">Home</a></div>
@@ -179,6 +184,7 @@
 </nav>
 <p class="fine">© 2026 Kolwen · trademark application pending</p>
 </footer>
+<!-- site-footer:en:end -->
 <p class="fine">This page: your language choice is stored locally in your browser · fonts are loaded from Google Fonts</p>
   </div>
 
@@ -247,6 +253,7 @@
       <p class="pending">[รอที่ปรึกษากฎหมาย] ฉบับภาษาไทยเต็มของข้อกำหนด การคืนเงิน และความเป็นส่วนตัว ที่เนื้อหาเท่ากับฉบับภาษาอังกฤษ ยังจะตามมา</p>
     </div>
 
+<!-- site-footer:th:begin -->
 <footer class="site-footer">
 <nav class="fgroups" aria-label="ส่วนท้ายเว็บ">
 <div class="fgroup"><p class="fh">Kolwen</p><a href="/">หน้าแรก</a></div>
@@ -257,6 +264,7 @@
 </nav>
 <p class="fine">© 2026 Kolwen · เครื่องหมายการค้าอยู่ระหว่างการจดทะเบียน</p>
 </footer>
+<!-- site-footer:th:end -->
 <p class="fine">หน้านี้: ภาษาที่เลือกถูกเก็บไว้ในเบราว์เซอร์ของคุณ · ฟอนต์โหลดจาก Google Fonts</p>
   </div>
 </main>
