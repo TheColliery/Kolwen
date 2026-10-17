@@ -9,8 +9,9 @@
 // variables by NAME, CLOUDFLARE_READ_TOKEN_ALL and CLOUDFLARE_ACCOUNT_ID_KOLWEN (the process environment first, then on Windows the User-scope
 // registry value), makes GET requests only, and prints only addresses and verdicts: never the token, a zone or account id, or a destination.
 //
-// Verdicts: ROUTES (an enabled rule matches the address and forwards or hands it to a worker) · CATCH-ALL (no rule of its own, but the enabled
-// catch-all forwards it) · DISABLED (its rule exists and is off) · DROPS (its rule only drops) · NO RULE. Only ROUTES and CATCH-ALL pass.
+// Verdicts: ROUTES (an enabled rule matches the address and forwards or hands it to a worker) · DISABLED (its rule exists and is off) · DROPS (its rule only
+// drops) · NO RULE. Only ROUTES passes: the zone's catch-all NEVER counts, whatever it does, because the property checked is that each published address has a
+// rule of its own (a misspelled or never-created address must not pass because a catch-all happens to forward). The catch-all is printed as one information line.
 // Exit codes: 0 every address passes · 1 an address fails, or the zone could not be read · 2 a bad flag.
 // Report problems at https://github.com/TheColliery/Kolwen/issues
 import { readFileSync, readdirSync } from 'node:fs';
@@ -30,16 +31,22 @@ export const addressesIn = text => [...new Set((text.match(/[A-Za-z0-9._%+-]+@ko
 const literalTo = rule => (rule.matchers || []).filter(m => m.type === 'literal' && m.field === 'to').map(m => String(m.value).toLowerCase());
 const delivers = rule => (rule.actions || []).some(a => a.type === 'forward' || a.type === 'worker');
 
-// The verdict of each address against the zone's rules and its catch-all rule. Pure: no network, no clock.
-export function judge(addresses, rules, catchAll) {
+// The verdict of each address against the zone's rules. The catch-all rule is not an input: it never counts. Pure: no network, no clock.
+export function judge(addresses, rules) {
   return addresses.map(address => {
     const own = (rules || []).filter(r => literalTo(r).includes(address));
     if (own.some(r => r.enabled && delivers(r))) return { address, verdict: 'ROUTES', ok: true };
     if (own.some(r => r.enabled)) return { address, verdict: 'DROPS', ok: false };
     if (own.length) return { address, verdict: 'DISABLED', ok: false };
-    if (catchAll && catchAll.enabled && delivers(catchAll)) return { address, verdict: 'CATCH-ALL', ok: true };
     return { address, verdict: 'NO RULE', ok: false };
   });
+}
+
+// What the zone's catch-all does, as one word for an information line: forwards · drops · disabled · absent. Never a pass, and never a destination.
+export function catchAllNote(catchAll) {
+  if (!catchAll) return 'absent';
+  if (!catchAll.enabled) return 'disabled';
+  return delivers(catchAll) ? 'forwards' : 'drops';
 }
 
 // The addresses the built pages publish: every top-level web/*.html and web/llms.txt.
@@ -86,10 +93,10 @@ async function main() {
     }
     catchAll = (await get(`/zones/${zone.id}/email/routing/rules/catch_all`, token, 'the catch-all rule')).result || null;
   } catch (e) { console.error('FAIL ' + (e && e.message ? e.message : 'the zone could not be read')); process.exitCode = 1; return; }
-  const verdicts = judge(addresses, rules, catchAll);
+  const verdicts = judge(addresses, rules);
   for (const v of verdicts) console.log(`${v.ok ? 'PASS' : 'FAIL'} ${v.address} ${v.verdict}`);
   const bad = verdicts.filter(v => !v.ok);
-  console.log(`${verdicts.length} address(es) checked, ${bad.length} without a route`);
+  console.log(`${verdicts.length} address(es) checked, ${bad.length} without a route of their own (the zone's catch-all ${catchAllNote(catchAll)}; it never counts)`);
   if (bad.length) process.exitCode = 1;
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch(() => { console.error('FAIL address-check could not finish'); process.exitCode = 1; });

@@ -861,6 +861,35 @@ test('Contact lists info, support, abuse and appeals beside the security.txt, in
   }
 });
 
+// ── rule 17 lets stand only the switch buttons the shared header and footer render ───────────────────────────────────────────────
+test('surface-check rule 17 allows a live button only when it is exactly a switch button the lib renders and sits inside the shared header or footer block', () => {
+  const dir = surfaceCopy();
+  try {
+    const base = surface(dir);
+    assert.equal(base.status, 0, 'the committed tree passes, the real switch buttons on all seven pages included: ' + base.stdout + base.stderr);
+    const page = join(dir, 'web/pricing.html'), real = readFileSync(page, 'utf8');
+    const REAL = '<button type="button" data-lang-set="en" lang="en" aria-pressed="true">English</button>';
+    assert.ok(real.includes(REAL), 'the page holds the real switch button');
+    const cases = [
+      ['the reviewer witness: a buy button carrying the attribute, in main', x => x.replace('<main>', () => '<main><button type="button" data-lang-set="en">Buy now</button>')],
+      ['a buy button carrying the attribute inside the header block', x => x.replace(MARK.header.begin, () => MARK.header.begin + '\n<button type="button" data-lang-set="en">Buy now</button>')],
+      ['a footer-block button with the attribute and another text', x => x.replace(MARK.en.begin, () => MARK.en.begin + '\n<button type="button" data-lang-set="th" lang="th" aria-pressed="false">Buy</button>')],
+      ['the real switch button, moved out of the shared blocks into main', x => x.replace('<main>', () => '<main>' + REAL)],
+      ['a switch button for a language the page does not have', x => x.replace('<main>', () => '<main><button type="button" data-lang-set="fr">Français</button>')],
+    ];
+    for (const [what, fn] of cases) {
+      const y = fn(real);
+      assert.notEqual(y, real, what + ': the page changed');
+      writeFileSync(page, y);
+      const r = surface(dir);
+      assert.equal(r.status, 1, what + '\n' + r.stdout + r.stderr);
+      assert.match(r.stdout + r.stderr, /web\/pricing\.html: line \d+: has a button that is not disabled/, what);
+    }
+    writeFileSync(page, real);
+    assert.equal(surface(dir).status, 0, 'back to the committed page it passes again');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 // ── WCAG 2.2 SC 1.4.3: every footer text colour against the background it sits on, at least 4.5:1 ──────────
 // The footer takes its page's colour at full strength (no opacity anywhere in FOOTER_CSS) and hover does not change the colour, so what is
 // measured is the colour each page gives the footer. WCAG 2.x relative luminance and contrast ratio.

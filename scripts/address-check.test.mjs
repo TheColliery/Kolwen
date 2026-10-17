@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 // An address built from its parts: the fixtures are made up, and no literal address sits in this file.
 const at = (local, domain = 'kolwen.com') => local + String.fromCharCode(64) + domain;
-const { addressesIn, judge, publishedAddresses } = await import(new URL('./address-check.mjs', import.meta.url));
+const { addressesIn, judge, catchAllNote, publishedAddresses } = await import(new URL('./address-check.mjs', import.meta.url));
 
 const rule = (to, enabled = true, actions = [{ type: 'forward', value: [at('x', 'example.test')] }]) => ({ enabled, matchers: [{ type: 'literal', field: 'to', value: to }], actions });
 const verdictOf = (list, rules, catchAll) => Object.fromEntries(judge(list, rules, catchAll).map(v => [v.address, v.verdict]));
@@ -27,10 +27,25 @@ test('a disabled rule and a rule that only drops are not routes, and say which',
   assert.deepEqual(verdictOf([at('a'), at('b'), at('c')], rules, null), { [at('a')]: 'DISABLED', [at('b')]: 'DROPS', [at('c')]: 'DISABLED' });
 });
 
-test('the catch-all rescues an address only when it is enabled and forwards; a dropping or disabled catch-all rescues none', () => {
-  assert.equal(verdictOf([at('x')], [], { enabled: true, actions: [{ type: 'forward', value: [at('y', 'example.test')] }] })[at('x')], 'CATCH-ALL');
-  assert.equal(verdictOf([at('x')], [], { enabled: true, actions: [{ type: 'drop' }] })[at('x')], 'NO RULE');
-  assert.equal(verdictOf([at('x')], [], { enabled: false, actions: [{ type: 'forward', value: [at('y', 'example.test')] }] })[at('x')], 'NO RULE');
+test('the catch-all never counts: an address with no enabled rule of its own fails whatever the catch-all does', () => {
+  const forward = { enabled: true, actions: [{ type: 'forward', value: [at('y', 'example.test')] }] };
+  const drop = { enabled: true, actions: [{ type: 'drop' }] };
+  const off = { enabled: false, actions: [{ type: 'forward', value: [at('y', 'example.test')] }] };
+  for (const [what, catchAll] of [['forwarding', forward], ['dropping', drop], ['disabled', off], ['absent', null]]) {
+    assert.equal(verdictOf([at('x')], [], catchAll)[at('x')], 'NO RULE', what + ' catch-all');
+    assert.deepEqual(judge([at('x')], [], catchAll).map(v => v.ok), [false], what + ' catch-all fails the address');
+  }
+  // the reviewer's fixture: a forwarding rule, a disabled one, a drop, and an address with none, under a FORWARDING catch-all
+  const rules = [rule(at('a')), rule(at('b'), false), rule(at('c'), true, [{ type: 'drop' }])];
+  assert.deepEqual(verdictOf([at('a'), at('b'), at('c'), at('d')], rules, forward), { [at('a')]: 'ROUTES', [at('b')]: 'DISABLED', [at('c')]: 'DROPS', [at('d')]: 'NO RULE' });
+});
+
+test('catchAllNote only describes the catch-all (information, never a pass): forwards, drops, disabled or absent, and no destination', () => {
+  assert.equal(catchAllNote({ enabled: true, actions: [{ type: 'forward', value: [at('y', 'example.test')] }] }), 'forwards');
+  assert.equal(catchAllNote({ enabled: true, actions: [{ type: 'drop' }] }), 'drops');
+  assert.equal(catchAllNote({ enabled: false, actions: [{ type: 'forward', value: [at('y', 'example.test')] }] }), 'disabled');
+  assert.equal(catchAllNote(null), 'absent');
+  assert.ok(!String(catchAllNote({ enabled: true, actions: [{ type: 'forward', value: [at('y', 'example.test')] }] })).includes('@'));
 });
 
 test('a rule counts for its own address only: matcher type, field and case are read exactly', () => {

@@ -277,7 +277,13 @@ const HEADER = {
   th: { label: 'เมนูหลัก', home: 'หน้าแรกของ Kolwen', pricing: 'ราคา', lang: 'ภาษา' },
 };
 // The TH/EN switch. Both buttons carry data-lang-set, which the page script reads; the script keeps aria-pressed on every switch of the page.
-const switchHtml = lang => `<div class="lswitch" role="group" aria-label="${escAttr(HEADER[lang].lang)}"><button type="button" data-lang-set="en" lang="en" aria-pressed="true">English</button><button type="button" data-lang-set="th" lang="th" aria-pressed="false">ไทย</button></div>`;
+// Each language is named in its own language. The two buttons are the ONLY live buttons the site's pages may carry (surface-check rule 17 compares a button with SWITCH_BUTTONS byte for byte
+// and requires it to sit inside the shared header or footer block), so the strings are written once, here.
+export const SWITCH_BUTTONS = [
+  '<button type="button" data-lang-set="en" lang="en" aria-pressed="true">English</button>',
+  '<button type="button" data-lang-set="th" lang="th" aria-pressed="false">ไทย</button>',
+];
+const switchHtml = lang => `<div class="lswitch" role="group" aria-label="${escAttr(HEADER[lang].lang)}">${SWITCH_BUTTONS.join('')}</div>`;
 // The header: the Kolwen mark linking to /, Pricing, the switch. No Dashboard and no Sign in until the service exists, and no link to a page that does not.
 export const siteHeaderHtml = () => ['<header class="site-header">', ...['en', 'th'].map(lang => {
   const h = HEADER[lang];
