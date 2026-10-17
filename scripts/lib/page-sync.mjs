@@ -1,4 +1,4 @@
-// The build-time sync of the shared blocks into the hand-kept pages (web/index.html, web/pricing.html, web/404.html), and of the style-src hashes of
+// The build-time sync of the shared blocks into the hand-kept pages (web/index.html, web/pricing.html, web/404.html), and of the style-src and script-src hashes of
 // web/_headers. scripts/legal-pages.mjs is the only caller: `--write` replaces what sits between each block's markers, `--check` compares it.
 //
 // A BLOCK is { name, begin, end, label, shared, render }, the shape of SYNC_BLOCKS in scripts/lib/legal-render.mjs (the one place the marker

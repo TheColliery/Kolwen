@@ -258,7 +258,7 @@ const FOOTER = {
     ['สินค้า', [['/pricing', 'ราคา'], ['/changelog', 'บันทึกการเปลี่ยนแปลง']]],
     ['กฎหมาย', [['/terms', 'ข้อกำหนด'], ['/privacy', 'ความเป็นส่วนตัว'], ['/refund', 'การคืนเงิน']]],
     ['โค้ด', [['https://github.com/TheColliery/Kolwen', 'GitHub'], ['https://huggingface.co/kolwen', 'Hugging Face'], ['https://www.npmjs.com/package/kolwen', 'npm'], ['/llms.txt', 'llms.txt']]],
-    ['ติดต่อ', [['mailto:info@kolwen.com', 'อีเมล'], ['mailto:support@kolwen.com', 'ฝ่ายสนับสนุน'], ['mailto:abuse@kolwen.com', 'แจ้งการละเมิด'], ['mailto:appeals@kolwen.com', 'อุทธรณ์'], ['https://kolwen.com/.well-known/security.txt', 'ความปลอดภัย']]]] },
+    ['ติดต่อ', [['mailto:info@kolwen.com', 'อีเมล'], ['mailto:support@kolwen.com', 'ขอความช่วยเหลือ'], ['mailto:abuse@kolwen.com', 'แจ้งการละเมิด'], ['mailto:appeals@kolwen.com', 'ยื่นอุทธรณ์'], ['https://kolwen.com/.well-known/security.txt', 'ความปลอดภัย']]]] },
 };
 // A render parameter for the commercial registration number and the DBD mark: { en: 'text', th: 'text' }, or null. It prints NOTHING until it is set (no
 // placeholder text, no empty element), and is set only after the registration and the lawyer's issue are in.

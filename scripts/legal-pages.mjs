@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 // Renders web/terms.html, web/privacy.html and web/refund.html from TERMS.md, PRIVACY.md and legal/thai-7day-clause.md, and
 // web/changelog.html from the repository's own CHANGELOG.md (every passage shown as written, no hold), and checks they are the committed
-// pages. It also owns the SHARED BLOCKS: the header slot, the footer of each language and the footer's CSS are written once in
-// scripts/lib/legal-render.mjs (SYNC_BLOCKS), and `--write` puts them into the three hand-kept pages (index, pricing, 404) between fixed
-// markers, so one edit reaches all seven pages in one run. It also keeps the style-src hashes of web/_headers in step with the pages' inline
-// <style> blocks, with the one hash routine surface-check uses (scripts/lib/csp-hashes.mjs), so a footer CSS edit needs no hand-typed hash.
+// pages. It also owns the SHARED BLOCKS: the header and its CSS, the footer of each language and its CSS, the rules for a reader without script and
+// the page script (seven marker pairs) are written once in scripts/lib/legal-render.mjs (SYNC_BLOCKS), and `--write` puts them into the three
+// hand-kept pages (index, pricing, 404) between fixed markers, so one edit reaches all seven pages in one run. It also keeps the style-src and
+// script-src hashes of web/_headers in step with the pages' inline <style> and <script> blocks, with the one hash routine surface-check uses (scripts/lib/csp-hashes.mjs), so a footer CSS edit needs no hand-typed hash.
 //
 //   node scripts/legal-pages.mjs --write    render the four pages (terms, privacy, refund, changelog) into web/ (the default); replace what sits
 //                                           between each pair of markers on the three hand-kept pages (every other byte of a page, and its line
-//                                           endings, are kept); update the style-src hashes in web/_headers (never a style-src-elem directive). A marker that is missing, doubled or
+//                                           endings, are kept); update the style-src and script-src hashes in web/_headers (never a -elem directive). A marker that is missing, doubled or
 //                                           out of order, or marker pairs that overlap or nest, make it refuse: exit 1, loud, nothing written anywhere.
 //   node scripts/legal-pages.mjs --check    render in memory; exit 1 with a named difference if a committed page differs, or if
 //                                           web/pricing.html does not carry the same style block, a block on a hand-kept page differs from the
-//                                           shared one or has a marker missing, doubled or out of order, or pairs that overlap or nest, a style-src hash of web/_headers no longer
-//                                           matches the pages (or a style-src-elem, when the policy has one, lacks one), or the hold list is unsound
+//                                           shared one or has a marker missing, doubled or out of order, or pairs that overlap or nest, a style-src or script-src hash of web/_headers no longer
+//                                           matches the pages (or a style-src-elem or script-src-elem, when the policy has one, lacks one), or the hold list is unsound
 //
 // WHAT IT RENDERS and what it does not: see the header of scripts/lib/legal-render.mjs (the rules for a held passage, the three
 // Markdown shapes it reads, the stated limits). The pages are a pure function of their sources (TERMS.md, PRIVACY.md, the clause file, CHANGELOG.md), the legal-state record
