@@ -42,12 +42,8 @@
 <style>
   :root{--bg:#0f0d0b;--bg2:#15130f;--card:#1a1714;--line:rgba(255,255,255,.08);--txt:#ece4d9;--txt2:#a89a8c;--quiet:#a2968a;--accent:#e8833a;--accent2:#ffbb7a}
   *{box-sizing:border-box;margin:0}
-  body{background:radial-gradient(circle at 20% 0%,rgba(232,131,58,.07),transparent 55%),var(--bg);color:var(--txt);font-family:'IBM Plex Sans Thai',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:72px 20px 32px;line-height:1.6}
-  main{max-width:560px;width:100%;display:flex;flex-direction:column;gap:28px}
-  .langbar{position:fixed;top:0;right:0;z-index:10;display:flex;gap:6px;padding:12px 16px}
-  .langbar button{font:inherit;font-size:12.5px;color:var(--quiet);background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;min-height:34px;cursor:pointer}
-  .langbar button:hover{border-color:rgba(232,131,58,.4);color:var(--accent2)}
-  .langbar button[aria-pressed="true"]{color:var(--accent2);border-color:rgba(232,131,58,.55);background:rgba(232,131,58,.10)}
+  body{background:radial-gradient(circle at 20% 0%,rgba(232,131,58,.07),transparent 55%),var(--bg);color:var(--txt);font-family:'IBM Plex Sans Thai',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:stretch;padding:0;line-height:1.6}
+  main{flex:1 0 auto;width:100%;max-width:600px;margin:0 auto;padding:36px 20px 0;display:flex;flex-direction:column;justify-content:center;gap:28px}
   .mark{display:flex;align-items:center;gap:12px}
   .glyph{flex:none;display:block}
   .name{font-size:34px;font-weight:700;letter-spacing:.01em}
@@ -69,28 +65,64 @@
   #doc-en > * + *,#doc-th > * + *{margin-top:28px}
   [hidden]{display:none !important}
   @media (max-width:420px){.name{font-size:28px}h1{font-size:18px}}
+/* site-header-css:begin */
+  .site-header{border-bottom:1px solid rgba(128,128,128,.35);padding:6px 20px}
+  .site-header nav{display:flex;flex-wrap:wrap;align-items:center;gap:4px 18px;width:100%;max-width:1100px;margin:0 auto;font-size:14.5px}
+  .site-header nav[lang="th"]{display:none}
+  html[lang="th"] .site-header nav[lang="en"]{display:none}
+  html[lang="th"] .site-header nav[lang="th"]{display:flex}
+  .site-header a{color:inherit;text-decoration:none;display:inline-flex;align-items:center;min-height:44px;overflow-wrap:anywhere}
+  .site-header a:hover{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}
+  .site-header .hmark{gap:10px;font-weight:700;font-size:18px;letter-spacing:.01em;margin-right:auto}
+  .site-header .hglyph,.site-footer .fglyph{flex:none;display:block;fill:var(--accent,var(--amber,#e8833a))}
+  .lswitch{display:inline-flex;gap:6px}
+  .lswitch button{font:inherit;font-size:12.5px;color:inherit;background:transparent;border:1px solid rgba(128,128,128,.7);border-radius:8px;padding:6px 12px;min-height:34px;cursor:pointer}
+  .lswitch button:hover{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}
+  .lswitch button[aria-pressed="true"]{border-color:currentColor;font-weight:600}
+  .site-header :focus-visible,.site-footer :focus-visible{outline:2px solid currentColor;outline-offset:2px}
+/* site-header-css:end */
 /* site-footer-css:begin */
-  .site-footer{margin-top:28px;padding-top:20px;border-top:1px solid rgba(128,128,128,.35);font-size:13.5px;line-height:1.7;display:flex;flex-direction:column;gap:14px}
-  .site-footer .fgroups{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:18px}
-  .site-footer .fgroup{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
+  .site-footer{display:block;margin-top:72px;padding:44px 20px 32px;border-top:1px solid rgba(128,128,128,.35);font-size:13.5px;line-height:1.7}
+  .site-footer[lang="th"]{display:none}
+  html[lang="th"] .site-footer[lang="en"]{display:none}
+  html[lang="th"] .site-footer[lang="th"]{display:block}
+  .site-footer .fwrap{width:100%;max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+  .site-footer .fbrand{display:flex;align-items:center;gap:10px;margin:0;font-size:20px;font-weight:700;letter-spacing:.01em}
+  .site-footer .fgroups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 18px}
+  @media (min-width:640px){.site-footer .fgroups{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  @media (min-width:1024px){.site-footer .fgroups{grid-template-columns:repeat(5,minmax(0,1fr))}}
+  .site-footer .fgroup{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0}
   .site-footer .fh{font-size:12px;letter-spacing:.04em;text-transform:uppercase;margin:0}
-  .site-footer a{color:inherit;text-decoration:underline;text-underline-offset:3px;display:inline-block;padding:5px 0;min-height:32px}
+  .site-footer a{color:inherit;text-decoration:underline;text-underline-offset:3px;display:inline-block;padding:5px 0;min-height:32px;overflow-wrap:anywhere}
   .site-footer a:hover{text-decoration-thickness:2px}
+  .site-footer .fbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid rgba(128,128,128,.25);padding-top:16px}
   .fine{font-size:12px;margin:0}
 /* site-footer-css:end */
 </style>
 <noscript><style>
-  .langbar{display:none}
+/* site-noscript-css:begin */
+  .lswitch{display:none}
   #doc-th{display:block !important;border-top:1px solid var(--line);padding-top:28px}
+  .site-header nav[lang="th"]{display:flex !important}
+  .site-footer[lang="th"]{display:block !important}
+/* site-noscript-css:end */
 </style></noscript>
 </head>
 <body>
 <!-- site-header:begin -->
-<!-- site-header:end -->
-<nav class="langbar" aria-label="Language">
-  <button type="button" id="lang-en" lang="en" aria-pressed="true">English</button>
-  <button type="button" id="lang-th" lang="th" aria-pressed="false">ไทย</button>
+<header class="site-header">
+<nav lang="en" aria-label="Main">
+<a class="hmark" href="/" aria-label="Kolwen home"><svg class="hglyph" viewBox="0 0 100 100" width="26" height="26" aria-hidden="true"><rect x="8.5" y="9.1" width="64.3" height="25"/><rect x="17.85" y="46.25" width="64.3" height="19.66"/><rect x="27.2" y="75.46" width="64.3" height="15.45"/></svg><span>Kolwen</span></a>
+<a href="/pricing">Pricing</a>
+<div class="lswitch" role="group" aria-label="Language"><button type="button" data-lang-set="en" lang="en" aria-pressed="true">English</button><button type="button" data-lang-set="th" lang="th" aria-pressed="false">ไทย</button></div>
 </nav>
+<nav lang="th" aria-label="เมนูหลัก">
+<a class="hmark" href="/" aria-label="หน้าแรกของ Kolwen"><svg class="hglyph" viewBox="0 0 100 100" width="26" height="26" aria-hidden="true"><rect x="8.5" y="9.1" width="64.3" height="25"/><rect x="17.85" y="46.25" width="64.3" height="19.66"/><rect x="27.2" y="75.46" width="64.3" height="15.45"/></svg><span>Kolwen</span></a>
+<a href="/pricing">ราคา</a>
+<div class="lswitch" role="group" aria-label="ภาษา"><button type="button" data-lang-set="en" lang="en" aria-pressed="true">English</button><button type="button" data-lang-set="th" lang="th" aria-pressed="false">ไทย</button></div>
+</nav>
+</header>
+<!-- site-header:end -->
 <main>
   <div class="mark" role="img" aria-label="Kolwen">
     <svg class="glyph" viewBox="0 0 100 100" width="34" height="34" aria-hidden="true" fill="#e8833a">
@@ -122,18 +154,6 @@
       <p class="warn"><b>Beware of impersonators:</b> Kolwen has no official accounts other than the channels on this page. We will never message you asking for personal details, a one-time code, or money.</p>
     </div>
 
-<!-- site-footer:en:begin -->
-<footer class="site-footer">
-<nav class="fgroups" aria-label="Footer">
-<div class="fgroup"><p class="fh">Kolwen</p><a href="/">Home</a></div>
-<div class="fgroup"><p class="fh">Product</p><a href="/pricing">Pricing</a><a href="/changelog">Changelog</a></div>
-<div class="fgroup"><p class="fh">Legal</p><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/refund">Refunds</a></div>
-<div class="fgroup"><p class="fh">Code</p><a href="https://github.com/TheColliery/Kolwen">GitHub</a><a href="https://huggingface.co/kolwen">Hugging Face</a><a href="https://www.npmjs.com/package/kolwen">npm</a></div>
-<div class="fgroup"><p class="fh">Contact</p><a href="mailto:info@kolwen.com">Email</a><a href="https://kolwen.com/.well-known/security.txt">Security</a></div>
-</nav>
-<p class="fine">© 2026 Kolwen · trademark application pending</p>
-</footer>
-<!-- site-footer:en:end -->
     <p class="fine">This page: your language choice is stored locally in your browser · fonts are loaded from Google Fonts</p>
   </div>
 
@@ -156,36 +176,61 @@
       <p class="warn"><b>ระวังของปลอม:</b> Kolwen ไม่มีบัญชีทางการอื่นนอกจากช่องทางในหน้านี้ ไม่มีการทักไปขอข้อมูล รหัส OTP หรือเงินจากใครทุกกรณี</p>
     </div>
 
+    <p class="fine">หน้านี้: ภาษาที่เลือกถูกเก็บไว้ในเบราว์เซอร์ของคุณ · ฟอนต์โหลดจาก Google Fonts</p>
+  </div>
+</main>
+<!-- site-footer:en:begin -->
+<footer class="site-footer" lang="en">
+<div class="fwrap">
+<p class="fbrand"><svg class="fglyph" viewBox="0 0 100 100" width="24" height="24" aria-hidden="true"><rect x="8.5" y="9.1" width="64.3" height="25"/><rect x="17.85" y="46.25" width="64.3" height="19.66"/><rect x="27.2" y="75.46" width="64.3" height="15.45"/></svg>Kolwen</p>
+<nav class="fgroups" aria-label="Footer">
+<div class="fgroup"><p class="fh">Kolwen</p><a href="/">Home</a></div>
+<div class="fgroup"><p class="fh">Product</p><a href="/pricing">Pricing</a><a href="/changelog">Changelog</a></div>
+<div class="fgroup"><p class="fh">Legal</p><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/refund">Refunds</a></div>
+<div class="fgroup"><p class="fh">Code</p><a href="https://github.com/TheColliery/Kolwen">GitHub</a><a href="https://huggingface.co/kolwen">Hugging Face</a><a href="https://www.npmjs.com/package/kolwen">npm</a><a href="/llms.txt">llms.txt</a></div>
+<div class="fgroup"><p class="fh">Contact</p><a href="mailto:info@kolwen.com">Email</a><a href="mailto:support@kolwen.com">Support</a><a href="mailto:abuse@kolwen.com">Report abuse</a><a href="mailto:appeals@kolwen.com">Appeals</a><a href="https://kolwen.com/.well-known/security.txt">Security</a></div>
+</nav>
+<div class="fbar">
+<p class="fine">© 2026 Kolwen · trademark application pending</p>
+<div class="lswitch" role="group" aria-label="Language"><button type="button" data-lang-set="en" lang="en" aria-pressed="true">English</button><button type="button" data-lang-set="th" lang="th" aria-pressed="false">ไทย</button></div>
+</div>
+</div>
+</footer>
+<!-- site-footer:en:end -->
 <!-- site-footer:th:begin -->
-<footer class="site-footer">
+<footer class="site-footer" lang="th">
+<div class="fwrap">
+<p class="fbrand"><svg class="fglyph" viewBox="0 0 100 100" width="24" height="24" aria-hidden="true"><rect x="8.5" y="9.1" width="64.3" height="25"/><rect x="17.85" y="46.25" width="64.3" height="19.66"/><rect x="27.2" y="75.46" width="64.3" height="15.45"/></svg>Kolwen</p>
 <nav class="fgroups" aria-label="ส่วนท้ายเว็บ">
 <div class="fgroup"><p class="fh">Kolwen</p><a href="/">หน้าแรก</a></div>
 <div class="fgroup"><p class="fh">สินค้า</p><a href="/pricing">ราคา</a><a href="/changelog">บันทึกการเปลี่ยนแปลง</a></div>
 <div class="fgroup"><p class="fh">กฎหมาย</p><a href="/terms">ข้อกำหนด</a><a href="/privacy">ความเป็นส่วนตัว</a><a href="/refund">การคืนเงิน</a></div>
-<div class="fgroup"><p class="fh">โค้ด</p><a href="https://github.com/TheColliery/Kolwen">GitHub</a><a href="https://huggingface.co/kolwen">Hugging Face</a><a href="https://www.npmjs.com/package/kolwen">npm</a></div>
-<div class="fgroup"><p class="fh">ติดต่อ</p><a href="mailto:info@kolwen.com">อีเมล</a><a href="https://kolwen.com/.well-known/security.txt">ความปลอดภัย</a></div>
+<div class="fgroup"><p class="fh">โค้ด</p><a href="https://github.com/TheColliery/Kolwen">GitHub</a><a href="https://huggingface.co/kolwen">Hugging Face</a><a href="https://www.npmjs.com/package/kolwen">npm</a><a href="/llms.txt">llms.txt</a></div>
+<div class="fgroup"><p class="fh">ติดต่อ</p><a href="mailto:info@kolwen.com">อีเมล</a><a href="mailto:support@kolwen.com">ขอความช่วยเหลือ</a><a href="mailto:abuse@kolwen.com">แจ้งการละเมิด</a><a href="mailto:appeals@kolwen.com">ยื่นอุทธรณ์</a><a href="https://kolwen.com/.well-known/security.txt">ความปลอดภัย</a></div>
 </nav>
+<div class="fbar">
 <p class="fine">© 2026 Kolwen · เครื่องหมายการค้าอยู่ระหว่างการจดทะเบียน</p>
+<div class="lswitch" role="group" aria-label="ภาษา"><button type="button" data-lang-set="en" lang="en" aria-pressed="true">English</button><button type="button" data-lang-set="th" lang="th" aria-pressed="false">ไทย</button></div>
+</div>
+</div>
 </footer>
 <!-- site-footer:th:end -->
-    <p class="fine">หน้านี้: ภาษาที่เลือกถูกเก็บไว้ในเบราว์เซอร์ของคุณ · ฟอนต์โหลดจาก Google Fonts</p>
-  </div>
-</main>
 <script>
+/* site-script:begin */
 (function () {
   var KEY = 'kolwen-lang';
   var en = document.getElementById('doc-en');
   var th = document.getElementById('doc-th');
-  var bEn = document.getElementById('lang-en');
-  var bTh = document.getElementById('lang-th');
+  var buttons = document.querySelectorAll('[data-lang-set]');
 
   function apply(lang, persist) {
     var thai = lang === 'th';
     th.hidden = !thai;
     en.hidden = thai;
     document.documentElement.lang = thai ? 'th' : 'en';
-    bTh.setAttribute('aria-pressed', String(thai));
-    bEn.setAttribute('aria-pressed', String(!thai));
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].setAttribute('aria-pressed', String(buttons[i].getAttribute('data-lang-set') === lang));
+    }
     if (persist) {
       // Language preference only. localStorage, never a cookie: it is a
       // client-only concern that never needs to ride on an HTTP request.
@@ -197,9 +242,24 @@
   try { saved = localStorage.getItem(KEY); } catch (e) {}
   if (saved === 'th' || saved === 'en') apply(saved, false);
 
-  bEn.addEventListener('click', function () { apply('en', true); });
-  bTh.addEventListener('click', function () { apply('th', true); });
+  // Pressing a switch changes the page language on the root element, which hides the header nav or the footer holding the pressed button. So focus goes to the same switch in the block that is now shown,
+  // in the same place (header to header, footer to footer), and without a scroll jump (WCAG 2.2 SC 2.4.3 and 2.4.7). Pressing the language already shown hides nothing and moves nothing.
+  function bind(button) {
+    button.addEventListener('click', function () {
+      var lang = button.getAttribute('data-lang-set');
+      var changed = document.documentElement.lang !== lang;
+      var place = button.closest('.site-header') ? '.site-header' : (button.closest('.site-footer') ? '.site-footer' : '');
+      apply(lang, true);
+      if (!changed || !place) return;
+      var same = document.querySelectorAll(place + ' [data-lang-set]');
+      for (var j = 0; j < same.length; j++) {
+        if (same[j].getAttribute('data-lang-set') === lang && same[j].parentNode.closest('[lang]').getAttribute('lang') === lang) { same[j].focus({ preventScroll: true }); return; }
+      }
+    });
+  }
+  for (var i = 0; i < buttons.length; i++) bind(buttons[i]);
 })();
+/* site-script:end */
 </script>
 </body>
 </html>

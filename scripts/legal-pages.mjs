@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 // Renders web/terms.html, web/privacy.html and web/refund.html from TERMS.md, PRIVACY.md and legal/thai-7day-clause.md, and
 // web/changelog.html from the repository's own CHANGELOG.md (every passage shown as written, no hold), and checks they are the committed
-// pages. It also owns the SHARED BLOCKS: the header slot, the footer of each language and the footer's CSS are written once in
-// scripts/lib/legal-render.mjs (SYNC_BLOCKS), and `--write` puts them into the three hand-kept pages (index, pricing, 404) between fixed
-// markers, so one edit reaches all seven pages in one run. It also keeps the style-src hashes of web/_headers in step with the pages' inline
-// <style> blocks, with the one hash routine surface-check uses (scripts/lib/csp-hashes.mjs), so a footer CSS edit needs no hand-typed hash.
+// pages. It also owns the SHARED BLOCKS: the header and its CSS, the footer of each language and its CSS, the rules for a reader without script and
+// the page script (seven marker pairs) are written once in scripts/lib/legal-render.mjs (SYNC_BLOCKS), and `--write` puts them into the three
+// hand-kept pages (index, pricing, 404) between fixed markers, so one edit reaches all seven pages in one run. It also keeps the style-src and
+// script-src hashes of web/_headers in step with the pages' inline <style> and <script> blocks, with the one hash routine surface-check uses (scripts/lib/csp-hashes.mjs), so a footer CSS edit needs no hand-typed hash.
 //
 //   node scripts/legal-pages.mjs --write    render the four pages (terms, privacy, refund, changelog) into web/ (the default); replace what sits
 //                                           between each pair of markers on the three hand-kept pages (every other byte of a page, and its line
-//                                           endings, are kept); update the style-src hashes in web/_headers (never a style-src-elem directive). A marker that is missing, doubled or
+//                                           endings, are kept); update the style-src and script-src hashes in web/_headers (never a -elem directive). A marker that is missing, doubled or
 //                                           out of order, or marker pairs that overlap or nest, make it refuse: exit 1, loud, nothing written anywhere.
 //   node scripts/legal-pages.mjs --check    render in memory; exit 1 with a named difference if a committed page differs, or if
 //                                           web/pricing.html does not carry the same style block, a block on a hand-kept page differs from the
-//                                           shared one or has a marker missing, doubled or out of order, or pairs that overlap or nest, a style-src hash of web/_headers no longer
-//                                           matches the pages (or a style-src-elem, when the policy has one, lacks one), or the hold list is unsound
+//                                           shared one or has a marker missing, doubled or out of order, or pairs that overlap or nest, a style-src or script-src hash of web/_headers no longer
+//                                           matches the pages (or a style-src-elem or script-src-elem, when the policy has one, lacks one), or the hold list is unsound
 //
 // WHAT IT RENDERS and what it does not: see the header of scripts/lib/legal-render.mjs (the rules for a held passage, the three
 // Markdown shapes it reads, the stated limits). The pages are a pure function of their sources (TERMS.md, PRIVACY.md, the clause file, CHANGELOG.md), the legal-state record
@@ -95,16 +95,24 @@ async function main() {
       // The hashes the pages carry now (on disk) and the ones they will carry once the render and the blocks are written.
       const disk = webPages(), after = { ...disk, ...Object.fromEntries(Object.entries(pages).map(([f, h]) => [f, lf(h)])) };
       for (const f of HAND_KEPT) after[f] = handNew[f].text;
-      const hashesOf = set => Object.fromEntries(Object.entries(set).map(([f, h]) => [f, sync.styleHashes(h)]));
-      const pre = hashesOf(disk), post = hashesOf(after);
+      const hashesOf = (set, of) => Object.fromEntries(Object.entries(set).map(([f, h]) => [f, of(h)]));
       const old = headersText();
       if (old === null) fails.push(`FAIL ${HEADERS} is missing, so its style-src hashes could not be updated`);
-      else { const plan = sync.planStyleSrc(old, pre, post); if (plan.problem) fails.push('FAIL ' + plan.problem); else if (plan.text !== old) headersNew = plan; }
+      else {
+        // The style-src hashes, then the script-src hashes, each planned on the text the one before left.
+        let text = old; const note = [];
+        for (const [dir, plan, of] of [['style-src', sync.planStyleSrc, sync.styleHashes], ['script-src', sync.planScriptSrc, sync.scriptHashes]]) {
+          const r = plan(text, hashesOf(disk, of), hashesOf(after, of));
+          if (r.problem) { fails.push('FAIL ' + r.problem); break; }
+          text = r.text; note.push(`${dir}: ${r.replaced} replaced, ${r.removed} removed, ${r.added} added`);
+        }
+        if (!fails.length && text !== old) headersNew = { text, note: note.join('; ') };
+      }
     }
     if (fails.length) { fails.forEach(f => console.error(f)); console.error('nothing was written'); process.exitCode = 1; return; }
     for (const [file, html] of Object.entries(pages)) { writeFileSync(resolve(ROOT, file), html); console.log('wrote ' + file); }
     for (const f of HAND_KEPT) if (handNew[f].changed.length) { writeFileSync(resolve(ROOT, f), handNew[f].raw); console.log(`wrote ${f} (${handNew[f].changed.join(', ')})`); }
-    if (headersNew) { writeFileSync(resolve(ROOT, HEADERS), headersNew.text); console.log(`wrote ${HEADERS} (style-src: ${headersNew.replaced} replaced, ${headersNew.removed} removed, ${headersNew.added} added)`); }
+    if (headersNew) { writeFileSync(resolve(ROOT, HEADERS), headersNew.text); console.log(`wrote ${HEADERS} (${headersNew.note})`); }
     return;
   }
 

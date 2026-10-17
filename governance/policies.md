@@ -34,7 +34,7 @@
 - **Nothing ships that a document cannot back** — the rule `docs/TRUST.md` is written under.
 - **The word mark is FILED, not registered**, and product names always read "Kolwen <Rank>"
   (`brand/README.md` §9).
-- **A duplicate keeps one place** — a generated file has exactly one writer. There are two generators and each is the list of record for what it writes: `brand/make-brand.mjs` for the brand files, and `scripts/legal-pages.mjs` for the pages it renders, the shared blocks it writes into the hand-kept pages between markers, and the `style-src` hashes it keeps in `web/_headers` (the header of that script is the list of record; its `--check` runs in CI and names the first difference if a page, a shared block or a hash was edited by hand).
+- **A duplicate keeps one place** — a generated file has exactly one writer. There are two generators and each is the list of record for what it writes: `brand/make-brand.mjs` for the brand files, and `scripts/legal-pages.mjs` for the pages it renders, the shared blocks (header, footer, their rules and the page script) it writes into the hand-kept pages between markers, and the `style-src` and `script-src` hashes it keeps in `web/_headers` (the header of that script is the list of record; its `--check` runs in CI and names the first difference if a page, a shared block or a hash was edited by hand).
 
 ## Planned
 

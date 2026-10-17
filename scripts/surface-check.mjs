@@ -742,18 +742,18 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
 // that plan exists to be named. This is the preview rule's Free check read over EVERY tracked page (WEB_PAGES), so a
 // production page cannot carry what a preview page may not.
 // (b) NOTHING TO BUY: no production page (PRODUCTION_PAGES, rule 15's list minus PREVIEW_EXEMPT) carries a control that
-// can start a purchase. A <button> must be disabled (the two language-toggle buttons, by id, are the one allowance);
+// can start a purchase. A <button> must be disabled (the language-switch buttons the shared header and footer render, matched byte for byte and only inside those blocks, are the one allowance);
 // no <form> and no submit/button/image/reset <input>; no link that reads as a buy control, by its text, its aria-label or title, or the alt of an image inside it (buy, purchase, subscribe,
 // checkout, order, pay, upgrade, sign up, and the Thai for buy, subscribe and pay) or has role=button; no <script src> from
 // a Paddle host and no Paddle global in an inline script; no URL attribute (href, action, src, formaction, data-*)
 // naming a Paddle host, a checkout path or a _ptxn query (a <script src> belongs to the payment-script clause alone,
 // so each shape has exactly one clause that owns it).
 //
-// NON-VACUITY: if no production page holds any <button> at all the button check read nothing (the home page's two
+// NON-VACUITY: if no production page holds any <button> at all the button check read nothing (the header's
 // language buttons are the standing sample), and that is a finding, not a pass. STATED LIMITS: the HTML is read as text, so
 // a control inside a comment counts (fails safe); "disabled" is read as a bare attribute, so a button the page's own
-// script enables at run time is not seen; the language-toggle allowance is by id, so a live button given the id lang-en
-// passes; a link that sells without saying so ("Continue", a bare arrow), a payment script served from the site's own
+// script enables at run time is not seen; the language-switch allowance is the exact button and its place, so a live button must be
+// byte for byte one of SWITCH_BUTTONS inside the header or footer block; a link that sells without saying so ("Continue", a bare arrow), a payment script served from the site's own
 // origin, a checkout URL on another word, a custom element and an onclick handler are not read (rule 13 already refuses
 // inline handlers and any script origin the CSP does not name); a link named only by aria-labelledby, or by CSS content, is not read. Clause (a) reads the capitalised word Free (so
 // Free-form counts and freedom does not), free plan / free tier / free version in any case, and the Thai word for
@@ -768,7 +768,18 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
   const ANCHOR = /<a\b((?:"[^"]*"|'[^']*'|[^>"'])*)>([\s\S]*?)<\/a\s*>/gi;
   const LABEL_ATTR = /(?<![\w-])(?:aria-label|title)\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+)/gi; // what a link is called besides its text
   const ALT_ATTR = /(?<![\w-])alt\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+)/gi;
-  const LANG_TOGGLE = /(?<![\w-])id\s*=\s*["']?lang-(?:en|th)["']?(?![\w-])/i;
+  // The one live button the site allows is the language switch, and it is allowed NARROWLY: the button's whole text must be one of the strings the shared render writes (SWITCH_BUTTONS in
+  // scripts/lib/legal-render.mjs) and it must sit between the markers of the synced header or footer block. An attribute alone allows nothing.
+  let SWITCH = [], SHARED_BLOCKS = [];
+  try {
+    const lib = await import(pathToFileURL(resolve('scripts/lib/legal-render.mjs')).href);
+    SWITCH = lib.SWITCH_BUTTONS;
+    SHARED_BLOCKS = lib.SYNC_BLOCKS.filter(b => b.shared === 'header' || b.shared === 'footer');
+  } catch (e) { note('scripts/lib/legal-render.mjs', 'could not be loaded, so rule 17 allows no live button at all (' + (e.code || 'import failed') + ')'); }
+  const isSwitchButton = (s, at) => {
+    const outer = s.slice(at, s.indexOf('</button>', at) + '</button>'.length);
+    return SWITCH.includes(outer) && SHARED_BLOCKS.some(b => { const i = s.indexOf(b.begin), j = s.indexOf(b.end); return i >= 0 && j > i && at > i && at < j; });
+  };
   const SUBMITTY = /(?<![\w-])type\s*=\s*["']?\s*(?:submit|button|image|reset)\b/i;
   const BUY_WORDS = /\b(?:buy|purchase|subscribe|checkout|check\s+out|order|pay|upgrade|sign\s+up)\b|ซื้อ|สมัคร|ชำระ|จ่ายเงิน/i;
   const PAY_HOST = /paddle\.com|paddle\.js|paddlejs/i;
@@ -799,7 +810,7 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
       if (tag === 'button') {
         buttonsSeen++;
         /* BUY_BTN:begin */
-        if (!hasAttr(attrs, 'disabled') && !LANG_TOGGLE.test(attrs)) note(f, 'line ' + at + ': has a button that is not disabled; a production page sells nothing yet, so every buy button stays disabled');
+        if (!hasAttr(attrs, 'disabled') && !isSwitchButton(s, m.index)) note(f, 'line ' + at + ': has a button that is not disabled; a production page sells nothing yet, so every buy button stays disabled');
         /* BUY_BTN:end */
       }
       /* BUY_FORM:begin */

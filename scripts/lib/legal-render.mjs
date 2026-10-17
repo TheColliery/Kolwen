@@ -197,66 +197,125 @@ function refundBody(clauseMd, termsClass, lang, opts) {
   return { html: out.join('\n      '), stats: { passages: REFUND_ROWS.length, text, held: pending }, errors };
 }
 
-// ── 5. The shared footer, and the page shell
-// The footer is ONE block per language, written here and nowhere else. Its lines carry no indentation so the block is byte-identical
-// wherever it sits; `legal-pages.mjs --write` writes it into the hand-kept pages (index, pricing, 404) between markers (SYNC_BLOCKS, below)
-// and `--check` compares it byte for byte.
-// FOOTER_CSS uses no page variable and no opacity: every footer text takes the colour its page gives the footer at full strength (WCAG 2.2 SC 1.4.3
-// measures that colour against the page, and a test computes it), and hover changes the underline, not the colour. The same rules sit in every page's own style block.
+// ── 5. The shared header and footer, and the page shell
+// The header and the footer are written ONCE, here and nowhere else, and `legal-pages.mjs --write` puts them into every page between fixed markers (5a
+// below). Their lines carry no indentation so each block is byte-identical wherever it sits, and `--check` compares it byte for byte.
+// The header and footer rules use no page variable and no opacity: every text takes the colour its page gives it at full strength (WCAG 2.2 SC 1.4.3
+// measures that colour against the page, and a test computes it), and hover changes the underline, not the colour. The same rules sit in every page's
+// own style block, between markers.
+// LAYOUT: the header and the footer are children of <body>, not of <main>, so their width does not depend on the page's own column (560px on the home
+// page, 720px elsewhere, which made the same footer lay out in 3 columns on one page and 4 on another). The footer's five groups lay out by VIEWPORT
+// width, the same on every page: 2 columns below 640px, 3 from 640px, 5 in one row from 1024px (the most common points in a read of 12 sites; market
+// practice, not a standard). WCAG 2.2 SC 1.4.10 (reflow at 320px) is the one standard width: every track is minmax(0,1fr), every link may break
+// anywhere, and the header's row wraps, so nothing in either has a width of its own.
+// THE LANGUAGE follows <html lang>, which the page script sets: the header holds one <nav> per language and the footer one <footer> per language, and a
+// rule shows the one that matches. With no script the Thai ones are shown too (NOSCRIPT_STYLE), as the Thai document is.
+export const HEADER_CSS = [
+  "  .site-header{border-bottom:1px solid rgba(128,128,128,.35);padding:6px 20px}",
+  "  .site-header nav{display:flex;flex-wrap:wrap;align-items:center;gap:4px 18px;width:100%;max-width:1100px;margin:0 auto;font-size:14.5px}",
+  '  .site-header nav[lang="th"]{display:none}',
+  '  html[lang="th"] .site-header nav[lang="en"]{display:none}',
+  '  html[lang="th"] .site-header nav[lang="th"]{display:flex}',
+  "  .site-header a{color:inherit;text-decoration:none;display:inline-flex;align-items:center;min-height:44px;overflow-wrap:anywhere}",
+  "  .site-header a:hover{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}",
+  "  .site-header .hmark{gap:10px;font-weight:700;font-size:18px;letter-spacing:.01em;margin-right:auto}",
+  "  .site-header .hglyph,.site-footer .fglyph{flex:none;display:block;fill:var(--accent,var(--amber,#e8833a))}",
+  "  .lswitch{display:inline-flex;gap:6px}",
+  "  .lswitch button{font:inherit;font-size:12.5px;color:inherit;background:transparent;border:1px solid rgba(128,128,128,.7);border-radius:8px;padding:6px 12px;min-height:34px;cursor:pointer}",
+  "  .lswitch button:hover{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}",
+  '  .lswitch button[aria-pressed="true"]{border-color:currentColor;font-weight:600}',
+  "  .site-header :focus-visible,.site-footer :focus-visible{outline:2px solid currentColor;outline-offset:2px}"].join('\n');
+
 export const FOOTER_CSS = [
-  "  .site-footer{margin-top:28px;padding-top:20px;border-top:1px solid rgba(128,128,128,.35);font-size:13.5px;line-height:1.7;display:flex;flex-direction:column;gap:14px}",
-  "  .site-footer .fgroups{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:18px}",
-  "  .site-footer .fgroup{display:flex;flex-direction:column;align-items:flex-start;gap:2px}",
+  "  .site-footer{display:block;margin-top:72px;padding:44px 20px 32px;border-top:1px solid rgba(128,128,128,.35);font-size:13.5px;line-height:1.7}",
+  '  .site-footer[lang="th"]{display:none}',
+  '  html[lang="th"] .site-footer[lang="en"]{display:none}',
+  '  html[lang="th"] .site-footer[lang="th"]{display:block}',
+  "  .site-footer .fwrap{width:100%;max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:28px}",
+  "  .site-footer .fbrand{display:flex;align-items:center;gap:10px;margin:0;font-size:20px;font-weight:700;letter-spacing:.01em}",
+  "  .site-footer .fgroups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 18px}",
+  "  @media (min-width:640px){.site-footer .fgroups{grid-template-columns:repeat(3,minmax(0,1fr))}}",
+  "  @media (min-width:1024px){.site-footer .fgroups{grid-template-columns:repeat(5,minmax(0,1fr))}}",
+  "  .site-footer .fgroup{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0}",
   "  .site-footer .fh{font-size:12px;letter-spacing:.04em;text-transform:uppercase;margin:0}",
-  "  .site-footer a{color:inherit;text-decoration:underline;text-underline-offset:3px;display:inline-block;padding:5px 0;min-height:32px}",
+  "  .site-footer a{color:inherit;text-decoration:underline;text-underline-offset:3px;display:inline-block;padding:5px 0;min-height:32px;overflow-wrap:anywhere}",
   "  .site-footer a:hover{text-decoration-thickness:2px}",
-  "  .fine{font-size:12px;margin:0}",
-  ""].join('\n');
+  "  .site-footer .fbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid rgba(128,128,128,.25);padding-top:16px}",
+  "  .fine{font-size:12px;margin:0}"].join('\n');
+
+// The Kolwen mark, on one line (the blocks carry no indentation). The fill is CSS (HEADER_CSS), so a light page can give it its darker on-light colour.
+export const markSvg = (size, cls) => `<svg class="${cls}" viewBox="0 0 100 100" width="${size}" height="${size}" aria-hidden="true"><rect x="8.5" y="9.1" width="64.3" height="25"/><rect x="17.85" y="46.25" width="64.3" height="19.66"/><rect x="27.2" y="75.46" width="64.3" height="15.45"/></svg>`;
 
 const FOOTER = {
   en: { label: 'Footer', note: '© 2026 Kolwen · trademark application pending', groups: [
     ['Kolwen', [['/', 'Home']]],
     ['Product', [['/pricing', 'Pricing'], ['/changelog', 'Changelog']]],
     ['Legal', [['/terms', 'Terms'], ['/privacy', 'Privacy'], ['/refund', 'Refunds']]],
-    ['Code', [['https://github.com/TheColliery/Kolwen', 'GitHub'], ['https://huggingface.co/kolwen', 'Hugging Face'], ['https://www.npmjs.com/package/kolwen', 'npm']]],
-    ['Contact', [['mailto:info@kolwen.com', 'Email'], ['https://kolwen.com/.well-known/security.txt', 'Security']]]] },
+    ['Code', [['https://github.com/TheColliery/Kolwen', 'GitHub'], ['https://huggingface.co/kolwen', 'Hugging Face'], ['https://www.npmjs.com/package/kolwen', 'npm'], ['/llms.txt', 'llms.txt']]],
+    ['Contact', [['mailto:info@kolwen.com', 'Email'], ['mailto:support@kolwen.com', 'Support'], ['mailto:abuse@kolwen.com', 'Report abuse'], ['mailto:appeals@kolwen.com', 'Appeals'], ['https://kolwen.com/.well-known/security.txt', 'Security']]]] },
   th: { label: 'ส่วนท้ายเว็บ', note: '© 2026 Kolwen · เครื่องหมายการค้าอยู่ระหว่างการจดทะเบียน', groups: [
     ['Kolwen', [['/', 'หน้าแรก']]],
     ['สินค้า', [['/pricing', 'ราคา'], ['/changelog', 'บันทึกการเปลี่ยนแปลง']]],
     ['กฎหมาย', [['/terms', 'ข้อกำหนด'], ['/privacy', 'ความเป็นส่วนตัว'], ['/refund', 'การคืนเงิน']]],
-    ['โค้ด', [['https://github.com/TheColliery/Kolwen', 'GitHub'], ['https://huggingface.co/kolwen', 'Hugging Face'], ['https://www.npmjs.com/package/kolwen', 'npm']]],
-    ['ติดต่อ', [['mailto:info@kolwen.com', 'อีเมล'], ['https://kolwen.com/.well-known/security.txt', 'ความปลอดภัย']]]] },
+    ['โค้ด', [['https://github.com/TheColliery/Kolwen', 'GitHub'], ['https://huggingface.co/kolwen', 'Hugging Face'], ['https://www.npmjs.com/package/kolwen', 'npm'], ['/llms.txt', 'llms.txt']]],
+    ['ติดต่อ', [['mailto:info@kolwen.com', 'อีเมล'], ['mailto:support@kolwen.com', 'ขอความช่วยเหลือ'], ['mailto:abuse@kolwen.com', 'แจ้งการละเมิด'], ['mailto:appeals@kolwen.com', 'ยื่นอุทธรณ์'], ['https://kolwen.com/.well-known/security.txt', 'ความปลอดภัย']]]] },
 };
-export const siteFooterHtml = lang => {
+// A render parameter for the commercial registration number and the DBD mark: { en: 'text', th: 'text' }, or null. It prints NOTHING until it is set (no
+// placeholder text, no empty element), and is set only after the registration and the lawyer's issue are in.
+export const REGISTRATION = null;
+export const siteFooterHtml = (lang, registration = REGISTRATION) => {
   const f = FOOTER[lang];
-  return ['<footer class="site-footer">', `<nav class="fgroups" aria-label="${escAttr(f.label)}">`,
+  const reg = registration && registration[lang] ? `<p class="fine freg">${escText(registration[lang])}</p>` : '';
+  return [`<footer class="site-footer" lang="${lang}">`, '<div class="fwrap">', `<p class="fbrand">${markSvg(24, 'fglyph')}Kolwen</p>`,
+    `<nav class="fgroups" aria-label="${escAttr(f.label)}">`,
     ...f.groups.map(([h, links]) => `<div class="fgroup"><p class="fh">${escText(h)}</p>${links.map(([u, t]) => `<a href="${escAttr(u)}">${escText(t)}</a>`).join('')}</div>`),
-    '</nav>', `<p class="fine">${escText(f.note)}</p>`, '</footer>'].join('\n');
+    '</nav>', '<div class="fbar">', `<p class="fine">${escText(f.note)}</p>`, reg, switchHtml(lang), '</div>', '</div>', '</footer>'].filter(Boolean).join('\n');
 };
+
+const HEADER = {
+  en: { label: 'Main', home: 'Kolwen home', pricing: 'Pricing', lang: 'Language' },
+  th: { label: 'เมนูหลัก', home: 'หน้าแรกของ Kolwen', pricing: 'ราคา', lang: 'ภาษา' },
+};
+// The TH/EN switch. Both buttons carry data-lang-set, which the page script reads; the script keeps aria-pressed on every switch of the page.
+// Each language is named in its own language. The two buttons are the ONLY live buttons the site's pages may carry (surface-check rule 17 compares a button with SWITCH_BUTTONS byte for byte
+// and requires it to sit inside the shared header or footer block), so the strings are written once, here.
+export const SWITCH_BUTTONS = [
+  '<button type="button" data-lang-set="en" lang="en" aria-pressed="true">English</button>',
+  '<button type="button" data-lang-set="th" lang="th" aria-pressed="false">ไทย</button>',
+];
+const switchHtml = lang => `<div class="lswitch" role="group" aria-label="${escAttr(HEADER[lang].lang)}">${SWITCH_BUTTONS.join('')}</div>`;
+// The header: the Kolwen mark linking to /, Pricing, the switch. No Dashboard and no Sign in until the service exists, and no link to a page that does not.
+export const siteHeaderHtml = () => ['<header class="site-header">', ...['en', 'th'].map(lang => {
+  const h = HEADER[lang];
+  return [`<nav lang="${lang}" aria-label="${escAttr(h.label)}">`, `<a class="hmark" href="/" aria-label="${escAttr(h.home)}">${markSvg(26, 'hglyph')}<span>Kolwen</span></a>`,
+    `<a href="/pricing">${escText(h.pricing)}</a>`, switchHtml(lang), '</nav>'].join('\n');
+}), '</header>'].join('\n');
+
 // What is true only of pages that store the language choice and load the fonts (not of the 404 page), so it is not in the shared block.
 export const pageNoteHtml = lang => lang === 'en'
   ? '<p class="fine">This page: your language choice is stored locally in your browser · fonts are loaded from Google Fonts</p>'
   : '<p class="fine">หน้านี้: ภาษาที่เลือกถูกเก็บไว้ในเบราว์เซอร์ของคุณ · ฟอนต์โหลดจาก Google Fonts</p>';
 // The footer blocks a page holds, in document order.
-export const footersOf = html => html.match(/<footer class="site-footer">[\s\S]*?<\/footer>/g) || [];
-
-// The header slot. Version 1 is EMPTY: nothing visible changes while the slot is only a place in each page, and the header itself is a later unit.
-export const siteHeaderHtml = () => '';
+export const footersOf = html => html.match(/<footer class="site-footer"[^>]*>[\s\S]*?<\/footer>/g) || [];
 
 // ── 5a. The blocks the build-time sync owns, and the markers around them (the one place the marker names are written) ──
 // `node scripts/legal-pages.mjs --write` replaces, in each hand-kept page (index, pricing, 404), exactly the text between each pair of markers with the render
-// below, and the four generated pages are rendered with the same markers, so one edit to the footer or the header reaches all seven pages in one run.
-// A marker pair is a fixed comment, an HTML comment in the body and a CSS comment in the style block; scripts/lib/page-sync.mjs reads and writes them.
+// below, and the four generated pages are rendered with the same markers, so one edit to the header, the footer or the page script reaches all seven pages in one run.
+// A marker pair is a fixed comment: an HTML comment in the body, a CSS comment in a style block, a JS comment in the script. scripts/lib/page-sync.mjs reads and writes them.
 const htmlPair = name => ({ name, begin: `<!-- ${name}:begin -->`, end: `<!-- ${name}:end -->` });
 const cssPair = name => ({ name, begin: `/* ${name}:begin */`, end: `/* ${name}:end */` });
-// THE ORDER OF THIS ARRAY IS THE ONE EXPECTED DOCUMENT ORDER of the pairs in every one of the seven pages, declared here once: the footer rules in the
-// style block (the head), then the header slot, then the English footer, then the Thai one. scripts/lib/page-sync.mjs reads the pairs in this order and
-// refuses (--check and --write) a page whose pairs overlap, nest across each other or stand in another order, so swapping the two footers cannot pass.
+// THE ORDER OF THIS ARRAY IS THE ONE EXPECTED DOCUMENT ORDER of the pairs in every one of the seven pages, declared here once: the header rules and the footer
+// rules in the style block (the head), the rules for a reader without script, then the header slot, the English footer, the Thai footer, and the page script at
+// the end of the body. scripts/lib/page-sync.mjs reads the pairs in this order and refuses (--check and --write) a page whose pairs overlap, nest across each
+// other or stand in another order, so swapping the two footers cannot pass.
 export const SYNC_BLOCKS = [
-  { ...cssPair('site-footer-css'), label: 'footer css', shared: 'footer rules', render: () => FOOTER_CSS.replace(/\n$/, '') },
+  { ...cssPair('site-header-css'), label: 'header css', shared: 'header rules', render: () => HEADER_CSS },
+  { ...cssPair('site-footer-css'), label: 'footer css', shared: 'footer rules', render: () => FOOTER_CSS },
+  { ...cssPair('site-noscript-css'), label: 'noscript css', shared: 'rules for a reader without script', render: () => NOSCRIPT_STYLE },
   { ...htmlPair('site-header'), label: 'header', shared: 'header', render: siteHeaderHtml },
   { ...htmlPair('site-footer:en'), label: 'en footer', shared: 'footer', render: () => siteFooterHtml('en') },
   { ...htmlPair('site-footer:th'), label: 'th footer', shared: 'footer', render: () => siteFooterHtml('th') },
+  { ...cssPair('site-script'), label: 'page script', shared: 'page script', render: () => SCRIPT },
 ];
 const BLOCK = Object.fromEntries(SYNC_BLOCKS.map(b => [b.name, b]));
 // A block as a page carries it: begin marker, the render, end marker, with the end marker at the start of its line.
@@ -268,12 +327,8 @@ export const fenced = name => `${BLOCK[name].begin}\n${BLOCK[name].render() ? BL
 export const STYLE = `
   :root{--bg:#0f0d0b;--bg2:#15130f;--card:#1a1714;--line:rgba(255,255,255,.08);--txt:#ece4d9;--txt2:#a89a8c;--quiet:#a2968a;--accent:#e8833a;--accent2:#ffbb7a}
   *{box-sizing:border-box;margin:0}
-  body{background:radial-gradient(circle at 20% 0%,rgba(232,131,58,.07),transparent 55%),var(--bg);color:var(--txt);font-family:'IBM Plex Sans Thai',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:72px 20px 32px;line-height:1.6}
-  main{max-width:720px;width:100%;display:flex;flex-direction:column;gap:28px}
-  .langbar{position:fixed;top:0;right:0;z-index:10;display:flex;gap:6px;padding:12px 16px}
-  .langbar button{font:inherit;font-size:12.5px;color:var(--quiet);background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;min-height:34px;cursor:pointer}
-  .langbar button:hover{border-color:rgba(232,131,58,.4);color:var(--accent2)}
-  .langbar button[aria-pressed="true"]{color:var(--accent2);border-color:rgba(232,131,58,.55);background:rgba(232,131,58,.10)}
+  body{background:radial-gradient(circle at 20% 0%,rgba(232,131,58,.07),transparent 55%),var(--bg);color:var(--txt);font-family:'IBM Plex Sans Thai',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:stretch;padding:0;line-height:1.6}
+  main{flex:1 0 auto;width:100%;max-width:760px;margin:0 auto;padding:36px 20px 0;display:flex;flex-direction:column;gap:28px}
   a:focus-visible,button:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
   .mark{display:flex;align-items:center;gap:12px;color:inherit;text-decoration:none}
   .glyph{flex:none;display:block}
@@ -326,31 +381,36 @@ export const STYLE = `
   .pcard ul{padding-left:18px;display:flex;flex-direction:column;gap:5px}
   .pcard li{font-size:14px;color:var(--txt2)}
   .note{font-size:13px;color:var(--quiet)}
+${fenced('site-header-css')}
 ${fenced('site-footer-css')}
   [hidden]{display:none !important}
   @media (max-width:420px){.name{font-size:28px}h1{font-size:20px}.plans th,.plans td{padding-right:6px;font-size:13px}.plans button{padding:6px 8px}}
 `;
 
-export const NOSCRIPT_STYLE = `
-  .langbar{display:none}
-  #doc-th{display:block !important;border-top:1px solid var(--line);padding-top:28px}
-`;
+// What a reader without script gets: no switch (it would do nothing), the Thai document shown under the English one, and the Thai header and footer shown too.
+export const NOSCRIPT_STYLE = [
+  "  .lswitch{display:none}",
+  "  #doc-th{display:block !important;border-top:1px solid var(--line);padding-top:28px}",
+  '  .site-header nav[lang="th"]{display:flex !important}',
+  '  .site-footer[lang="th"]{display:block !important}'].join('\n');
 
-export const SCRIPT = `
-(function () {
+// The page script: the language choice. It keeps the SAME localStorage key as before, 'kolwen-lang', and the same behaviour (show the saved language, switch on a
+// click, remember it); the only difference is that it finds the switches by data-lang-set instead of by id, so a page can hold more than one (the header's and the
+// footer's), and it keeps aria-pressed right on all of them. PRIVACY.md's sentence that the page stores one key stays true: one setItem, one getItem, one key.
+export const SCRIPT = `(function () {
   var KEY = 'kolwen-lang';
   var en = document.getElementById('doc-en');
   var th = document.getElementById('doc-th');
-  var bEn = document.getElementById('lang-en');
-  var bTh = document.getElementById('lang-th');
+  var buttons = document.querySelectorAll('[data-lang-set]');
 
   function apply(lang, persist) {
     var thai = lang === 'th';
     th.hidden = !thai;
     en.hidden = thai;
     document.documentElement.lang = thai ? 'th' : 'en';
-    bTh.setAttribute('aria-pressed', String(thai));
-    bEn.setAttribute('aria-pressed', String(!thai));
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].setAttribute('aria-pressed', String(buttons[i].getAttribute('data-lang-set') === lang));
+    }
     if (persist) {
       // Language preference only. localStorage, never a cookie: it is a
       // client-only concern that never needs to ride on an HTTP request.
@@ -362,16 +422,23 @@ export const SCRIPT = `
   try { saved = localStorage.getItem(KEY); } catch (e) {}
   if (saved === 'th' || saved === 'en') apply(saved, false);
 
-  bEn.addEventListener('click', function () { apply('en', true); });
-  bTh.addEventListener('click', function () { apply('th', true); });
-})();
-`;
-
-const MARK_SVG = `<svg class="glyph" viewBox="0 0 100 100" width="34" height="34" aria-hidden="true" fill="#e8833a">
-      <rect x="8.5" y="9.1" width="64.3" height="25"/>
-      <rect x="17.85" y="46.25" width="64.3" height="19.66"/>
-      <rect x="27.2" y="75.46" width="64.3" height="15.45"/>
-    </svg>`;
+  // Pressing a switch changes the page language on the root element, which hides the header nav or the footer holding the pressed button. So focus goes to the same switch in the block that is now shown,
+  // in the same place (header to header, footer to footer), and without a scroll jump (WCAG 2.2 SC 2.4.3 and 2.4.7). Pressing the language already shown hides nothing and moves nothing.
+  function bind(button) {
+    button.addEventListener('click', function () {
+      var lang = button.getAttribute('data-lang-set');
+      var changed = document.documentElement.lang !== lang;
+      var place = button.closest('.site-header') ? '.site-header' : (button.closest('.site-footer') ? '.site-footer' : '');
+      apply(lang, true);
+      if (!changed || !place) return;
+      var same = document.querySelectorAll(place + ' [data-lang-set]');
+      for (var j = 0; j < same.length; j++) {
+        if (same[j].getAttribute('data-lang-set') === lang && same[j].parentNode.closest('[lang]').getAttribute('lang') === lang) { same[j].focus({ preventScroll: true }); return; }
+      }
+    });
+  }
+  for (var i = 0; i < buttons.length; i++) bind(buttons[i]);
+})();`;
 
 export function shell({ title, description, path, en, th }) {
   return `<!DOCTYPE html>
@@ -389,21 +456,13 @@ export function shell({ title, description, path, en, th }) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>${STYLE}</style>
-<noscript><style>${NOSCRIPT_STYLE}</style></noscript>
+<noscript><style>
+${fenced('site-noscript-css')}
+</style></noscript>
 </head>
 <body>
 ${fenced('site-header')}
-<nav class="langbar" aria-label="Language">
-  <button type="button" id="lang-en" lang="en" aria-pressed="true">English</button>
-  <button type="button" id="lang-th" lang="th" aria-pressed="false">ไทย</button>
-</nav>
 <main>
-  <a class="mark" href="/" aria-label="Kolwen home">
-    ${MARK_SVG}
-    <span class="name">Kolwen</span>
-    <span class="thai" lang="th">โคลเวน</span>
-  </a>
-
   <div id="doc-en" lang="en">
 ${en}
   </div>
@@ -412,7 +471,11 @@ ${en}
 ${th}
   </div>
 </main>
-<script>${SCRIPT}</script>
+${fenced('site-footer:en')}
+${fenced('site-footer:th')}
+<script>
+${fenced('site-script')}
+</script>
 </body>
 </html>
 `;
@@ -429,7 +492,6 @@ function docHtml(lang, title, body, draft = true, note = '') {
       <p class="pending">${escText(THAI_OWED[lang])}</p>` : ''}
     </div>
 
-${fenced('site-footer:' + lang)}
 ${pageNoteHtml(lang)}`;
 }
 

@@ -64,17 +64,17 @@
 #    The beacon carries no Subresource Integrity, a named exception to the W3C Subresource Integrity practice for third-party scripts: the FAQ
 #    ("How can I enforce Subresource Integrity (SRI) with the JS beacon?") says Cloudflare does not support
 #    version-pinning the beacon, so no stable hash exists to pin.
-#  - style-src: the three inline <style> blocks (two in index.html, one of them inside <noscript>, one
-#    in 404.html) are admitted by hash too, so there is no 'unsafe-inline' anywhere. The Google Fonts
+#  - style-src: every inline <style> block of the pages (surface-check rule 13 recomputes them and reports how many it hashed) is admitted by hash too, so there
+#    is no 'unsafe-inline' anywhere. The Google Fonts
 #    stylesheet varies by user agent, so it cannot carry a fixed integrity hash; it is the named
 #    exception, pinned by origin. Self-hosting the two IBM Plex families would retire it.
 #  - The pricing page (/pricing; it began as /plans, which now answers a 301 from web/_redirects) and the four pages scripts/legal-pages.mjs generates (/terms,
 #    /privacy and /refund from the repository's TERMS.md, PRIVACY.md and legal/thai-7day-clause.md, and /changelog from CHANGELOG.md) share ONE <style> block, so
-#    the five carry one hash. `node scripts/legal-pages.mjs --check` (a CI step) fails if the pricing page's block is not byte for byte the generated pages'. Their inline script and
-#    their <noscript> style are the same bytes as index.html's, so they reuse its hashes. None loads a payment script or a new origin; each takes the `/*` rule
+#    the five carry one hash. `node scripts/legal-pages.mjs --check` (a CI step) fails if the pricing page's block is not byte for byte the generated pages'. The page script and
+#    the rules for a reader without script are synced blocks, the same bytes on all seven pages, so each adds one hash and no page adds its own. None loads a payment script or a new origin; each takes the `/*` rule
 #    like `/`, and no rule here sets noindex on any of them. /llms.txt is plain text and takes only the `/*` rule.
-#  - The shared footer's rules (FOOTER_CSS in scripts/lib/legal-render.mjs) sit inside that shared block and are written between fixed markers into the style blocks of
-#    index.html and 404.html, which are their own; `node scripts/legal-pages.mjs --write` updates the three style-src hashes here, and `--check` fails on a stale one, or on a style-src-elem (none today) that lacks one: `--write` never edits that directive, and surface-check rule 13 judges the directive a browser applies to a block.
+#  - The header and footer rules (HEADER_CSS and FOOTER_CSS in scripts/lib/legal-render.mjs) sit inside the shared block on the pages that generate it, and are written between fixed markers into the style blocks of
+#    index.html and 404.html, which are their own; `node scripts/legal-pages.mjs --write` updates the style-src and script-src hashes here, and `--check` fails on a stale one, or on a style-src-elem (none today) that lacks one: `--write` never edits that directive, and surface-check rule 13 judges the directive a browser applies to a block.
 #  - The ld+json block in index.html is a DATA block, not script: CSP's script-src does not govern it.
 #  - NAMED CONSEQUENCE: on kolwen.com the edge appends an inline bot-detection script to the HTML (the
 #    Web Analytics beacon above is a separate, allowed script). It has per-request contents, so no hash can
@@ -101,7 +101,7 @@
 # Permissions-Policy: every standardized feature the page does not use, names from the W3C
 # webappsec-permissions-policy feature registry (read 2026-09-25). The page uses none of them.
 /*
-  Content-Security-Policy: default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; script-src 'self' 'sha256-loIfZEEZsGRc+OUW6Qn2FqqBy/dPc0m0OlkLDXwFryM=' https://static.cloudflareinsights.com/beacon.min.js/; style-src 'sha256-Vi72hw4MdpntX+qEbfI8uVwJjp1EEbW2xDKORG6HkQY=' 'sha256-Gq8k+8DNN4RStI9EUl5KO/5BmbVotx6ZB0JmUcZtYJE=' 'sha256-sRe1xzYMWCufN3IkTaMGoBnWIWxGQ2oXebIv+Q6CFWw=' 'sha256-yiBz/0sMeyFVvBAg50qLaYaC0J2RDlb9PuFkSYmx5EE=' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; form-action 'self'
+  Content-Security-Policy: default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; script-src 'self' https://static.cloudflareinsights.com/beacon.min.js/ 'sha256-E7qPAYbONhknD/BCPohidP4Ita9lluXiIgAgddNS2sU='; style-src 'sha256-yzjIvtJjATLj6yYy1gfv7FPI/iiIcDsPlKDZ4vqKwRM=' 'sha256-2i6LGTd6xisBxcmJzbn5t//dyFWGLfpllzAxB9oQ/gc=' https://fonts.googleapis.com 'sha256-RXXSUk/Tex3SrAqKO2Y8ATeEvwd7gRpoDCIaHGeUq0M=' 'sha256-xZraTIl+lXrG5o+N37qLXTlqf5xhKfQk90/pFZHO5Gs='; font-src https://fonts.gstatic.com; form-action 'self'
   Referrer-Policy: strict-origin-when-cross-origin
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin

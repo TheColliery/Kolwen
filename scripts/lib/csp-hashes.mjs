@@ -15,3 +15,10 @@ export const STYLE_BLOCK_SOURCE = '<style\\b[^>]*>([\\s\\S]*?)<\\/style\\b[^>]*>
 
 // The bodies of the inline <style> blocks of a page, in document order (the one in a <noscript> included, as rule 13 counts it).
 export const inlineStyles = html => [...html.replace(/\r\n/g, '\n').matchAll(new RegExp(STYLE_BLOCK_SOURCE, 'gi'))].map(m => m[1]);
+
+// The bodies of the inline EXECUTABLE <script> blocks of a page, in document order: no src, and a type of nothing, a JavaScript type or module. A JSON data
+// block (ld+json) is not code, so the policy needs no hash for it; surface-check rule 13 classifies the same way, and recomputes every hash itself.
+const EXEC_TYPES = new Set(['', 'text/javascript', 'application/javascript', 'module']);
+export const inlineScripts = html => [...html.replace(/\r\n/g, '\n').matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi)]
+  .filter(m => !/\bsrc\s*=/i.test(m[1]) && EXEC_TYPES.has(((m[1].match(/\btype\s*=\s*["']?([^"'\s>]+)/i) || [])[1] || '').toLowerCase()))
+  .map(m => m[2]);
