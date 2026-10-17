@@ -71,7 +71,9 @@ export async function fetchAllRules(getPage, perPage = PER_PAGE) {
   for (let page = 1; ; page++) {
     if (page > MAX_PAGES) throw new Error(`the routing rules did not end within ${MAX_PAGES} pages of ${perPage}; the response is not trusted and no verdict is given`);
     const body = await getPage(page, perPage) || {};
-    const results = Array.isArray(body.result) ? body.result : [];
+    if (body.success === false) throw new Error(`the routing rules page ${page} answered with an error (success false); no verdict is given`);
+    if (!Array.isArray(body.result)) throw new Error(`the routing rules page ${page} did not return a list; no verdict is given`);
+    const results = body.result;
     rules.push(...results);
     const info = body.result_info || {};
     const size = Number.isInteger(info.per_page) && info.per_page > 0 ? info.per_page : perPage;

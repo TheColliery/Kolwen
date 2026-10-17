@@ -151,3 +151,11 @@ test('a response that never ends hits the page bound and fails loudly; pages tha
   const lying = fakeZone(filler(53), (page, total, perPage) => ({ page, per_page: perPage, total_count: 60 }));
   await assert.rejects(fetchAllRules(lying), /disagree with the zone: 53 rules read, the zone says 60/);
 });
+
+test('a page that answers success false, or whose result is not a list, fails by name instead of reading as an empty page', async () => {
+  const first = { result: filler(50), result_info: {} };
+  const failed = { success: false, errors: [{ code: 10000, message: 'Authentication error' }], result: null };
+  await assert.rejects(fetchAllRules(async page => (page === 1 ? first : failed)), /answered with an error|did not return a list/);
+  await assert.rejects(fetchAllRules(async () => ({ success: true, result: null })), /did not return a list/);
+  await assert.rejects(fetchAllRules(async () => ({})), /did not return a list/);
+});
