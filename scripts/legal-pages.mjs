@@ -95,16 +95,24 @@ async function main() {
       // The hashes the pages carry now (on disk) and the ones they will carry once the render and the blocks are written.
       const disk = webPages(), after = { ...disk, ...Object.fromEntries(Object.entries(pages).map(([f, h]) => [f, lf(h)])) };
       for (const f of HAND_KEPT) after[f] = handNew[f].text;
-      const hashesOf = set => Object.fromEntries(Object.entries(set).map(([f, h]) => [f, sync.styleHashes(h)]));
-      const pre = hashesOf(disk), post = hashesOf(after);
+      const hashesOf = (set, of) => Object.fromEntries(Object.entries(set).map(([f, h]) => [f, of(h)]));
       const old = headersText();
       if (old === null) fails.push(`FAIL ${HEADERS} is missing, so its style-src hashes could not be updated`);
-      else { const plan = sync.planStyleSrc(old, pre, post); if (plan.problem) fails.push('FAIL ' + plan.problem); else if (plan.text !== old) headersNew = plan; }
+      else {
+        // The style-src hashes, then the script-src hashes, each planned on the text the one before left.
+        let text = old; const note = [];
+        for (const [dir, plan, of] of [['style-src', sync.planStyleSrc, sync.styleHashes], ['script-src', sync.planScriptSrc, sync.scriptHashes]]) {
+          const r = plan(text, hashesOf(disk, of), hashesOf(after, of));
+          if (r.problem) { fails.push('FAIL ' + r.problem); break; }
+          text = r.text; note.push(`${dir}: ${r.replaced} replaced, ${r.removed} removed, ${r.added} added`);
+        }
+        if (!fails.length && text !== old) headersNew = { text, note: note.join('; ') };
+      }
     }
     if (fails.length) { fails.forEach(f => console.error(f)); console.error('nothing was written'); process.exitCode = 1; return; }
     for (const [file, html] of Object.entries(pages)) { writeFileSync(resolve(ROOT, file), html); console.log('wrote ' + file); }
     for (const f of HAND_KEPT) if (handNew[f].changed.length) { writeFileSync(resolve(ROOT, f), handNew[f].raw); console.log(`wrote ${f} (${handNew[f].changed.join(', ')})`); }
-    if (headersNew) { writeFileSync(resolve(ROOT, HEADERS), headersNew.text); console.log(`wrote ${HEADERS} (style-src: ${headersNew.replaced} replaced, ${headersNew.removed} removed, ${headersNew.added} added)`); }
+    if (headersNew) { writeFileSync(resolve(ROOT, HEADERS), headersNew.text); console.log(`wrote ${HEADERS} (${headersNew.note})`); }
     return;
   }
 

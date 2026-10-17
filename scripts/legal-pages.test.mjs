@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const lib = await import(new URL('./lib/legal-render.mjs', import.meta.url));
 const { REFUND_ROWS } = await import(new URL('./lib/legal-page-text.mjs', import.meta.url));
-const { classify, renderPages, renderSource, shell, inline, plain, escText, escAttr, anchorOf, holdProblems, siteFooterHtml, footersOf, FOOTER_CSS, STYLE, SOURCES } = lib;
+const { HEADER_CSS, classify, renderPages, renderSource, shell, inline, plain, escText, escAttr, anchorOf, holdProblems, siteFooterHtml, footersOf, FOOTER_CSS, STYLE, SOURCES } = lib;
 // The text of rendered HTML with its tags removed, entities left as they are (so it compares with escText(plain(markdown))).
 const textOf = html => html.split('<').map((part, i) => (i === 0 ? part : part.slice(part.indexOf('>') + 1))).join('').replace(/\s+/g, ' ').trim();
 const read = rel => readFileSync(join(ROOT, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -155,7 +155,8 @@ test('the pages carry no raw {{token}}, no marker-less pending line, and nothing
     assert.ok(!/noindex/i.test(html), file + ' asks search engines to skip it');
     assert.ok(!/PREVIEW/.test(html), file + ' is marked as a preview');
     assert.ok(!/<form\b|<input\b[^>]*type=["']?(?:submit|button)/i.test(html), file + ' has a form or a submit control');
-    assert.equal(count(html, '<button'), 2, file + ' has more than the two language buttons');
+    assert.equal(count(html, '<button'), 4, file + ' has more than the two language switches (header: one per language)');
+    assert.equal(count(html, '<button'), count(html, 'data-lang-set='), file + ' has a button that is not a language switch');
     for (const m of html.matchAll(/class="pending"[^>]*>([^<]*)</g)) assert.ok(/^\[(?:pending legal review|รอที่ปรึกษากฎหมาย)\]/.test(m[1]), file + ': ' + m[1].slice(0, 50));
     assert.equal(count(docEn(html), 'class="pending"'), count(docTh(html), 'class="pending"'), file + ': both languages show the same number of pending lines');
     assert.equal(count(docEn(html), 'class="t"'), count(docTh(html), 'class="t"'), file + ': both languages show the same number of statements');
@@ -358,7 +359,7 @@ test('--check fails, naming the page and the language, when the footer of a hand
 
 test('--check fails when a hand-kept page loses its footer or its footer rules', () => {
   for (const [file, fn, re] of [
-    ['web/index.html', x => x.replace(/<footer class="site-footer">[\s\S]*?<\/footer>/, ''), /FAIL web\/index\.html en footer differs from the shared footer, line \d+/],
+    ['web/index.html', x => x.replace(/<footer class="site-footer"[^>]*>[\s\S]*?<\/footer>/, ''), /FAIL web\/index\.html en footer differs from the shared footer, line \d+/],
     ['web/404.html', x => x.replace(FOOTER_CSS, ''), /FAIL web\/404\.html footer css differs from the shared footer rules, line \d+/],
   ]) {
     const dir = copyTree();
@@ -393,8 +394,8 @@ test('the CLI child runs with HOME, USERPROFILE and the temp variables inside th
 const HAND = ['web/index.html', 'web/pricing.html', 'web/404.html'];
 const WATCHED = [...HAND, 'web/_headers', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html'];
 const mk = (name, css) => (css ? { name, begin: `/* ${name}:begin */`, end: `/* ${name}:end */` } : { name, begin: `<!-- ${name}:begin -->`, end: `<!-- ${name}:end -->` });
-const MARK = { header: mk('site-header'), en: mk('site-footer:en'), th: mk('site-footer:th'), css: mk('site-footer-css', true) };
-const LABEL = { header: 'header', en: 'en footer', th: 'th footer', css: 'footer css' };
+const MARK = { hcss: mk('site-header-css', true), css: mk('site-footer-css', true), ncss: mk('site-noscript-css', true), header: mk('site-header'), en: mk('site-footer:en'), th: mk('site-footer:th'), script: mk('site-script', true) };
+const LABEL = { hcss: 'header css', css: 'footer css', ncss: 'noscript css', header: 'header', en: 'en footer', th: 'th footer', script: 'page script' };
 const lf = s => s.replace(/\r\n/g, '\n');
 const snap = (dir, files) => Object.fromEntries(files.map(f => [f, readFileSync(join(dir, f))]));
 const sameBytes = (a, b) => Object.keys(a).every(f => Buffer.compare(a[f], b[f]) === 0);
@@ -415,20 +416,18 @@ test('reEscape turns any text into a regex that matches exactly that text, backs
 });
 
 test('the sync markers are named once, in the lib, and are the ones the pages carry', () => {
-  assert.deepEqual(lib.SYNC_BLOCKS.map(b => [b.name, b.begin, b.end]), [MARK.css, MARK.header, MARK.en, MARK.th].map(m => [m.name, m.begin, m.end]), 'the array order is the one expected document order');
+  assert.deepEqual(lib.SYNC_BLOCKS.map(b => [b.name, b.begin, b.end]), [MARK.hcss, MARK.css, MARK.ncss, MARK.header, MARK.en, MARK.th, MARK.script].map(m => [m.name, m.begin, m.end]), 'the array order is the one expected document order');
   const cli = read('scripts/legal-pages.mjs');
   for (const m of Object.values(MARK)) assert.ok(!cli.includes(m.name), 'the CLI does not retype ' + m.name);
 });
 
-test('the header slot is empty today and every one of the seven pages carries it, one pair, nothing between', () => {
-  assert.equal(lib.siteHeaderHtml(), '');
+test('every one of the seven pages carries every marker pair exactly once, and the header pair holds the header', () => {
   const pages = { ...renderPages(inputs()).pages };
   for (const f of HAND) pages[f] = read(f);
   assert.equal(Object.keys(pages).length, 7);
   for (const [f, html] of Object.entries(pages)) {
-    assert.equal(count(html, MARK.header.begin), 1, f + ' begin');
-    assert.ok(html.includes(MARK.header.begin + '\n' + MARK.header.end), f + ' the slot is empty');
-    for (const k of ['en', 'th', 'css']) assert.equal(count(html, MARK[k].begin) + count(html, MARK[k].end), 2, f + ' ' + k);
+    for (const k of Object.keys(MARK)) assert.equal(count(html, MARK[k].begin) + count(html, MARK[k].end), 2, f + ' ' + k);
+    assert.ok(html.includes(MARK.header.begin + '\n' + lib.siteHeaderHtml() + '\n' + MARK.header.end), f + ' the header pair holds the header');
   }
 });
 
@@ -528,7 +527,7 @@ test('a hand edit of a footer rule makes --check fail on the page and on the has
   const dir = copyTree();
   try {
     const before = snap(dir, [...HAND, 'web/_headers']);
-    edit(dir, 'web/index.html', x => { assert.ok(x.includes('.site-footer{margin-top:28px'), 'anchor'); return x.replace('.site-footer{margin-top:28px', '.site-footer{margin-top:29px'); });
+    edit(dir, 'web/index.html', x => { assert.ok(x.includes('.site-footer{display:block;margin-top:72px'), 'anchor'); return x.replace('.site-footer{display:block;margin-top:72px', '.site-footer{display:block;margin-top:73px'); });
     const r = check(dir);
     assert.equal(r.status, 1, r.stdout + r.stderr);
     assert.match(r.stdout, /FAIL web\/index\.html footer css differs from the shared footer rules, line \d+/);
@@ -733,6 +732,104 @@ test('surface-check rule 13 judges style-src-elem and script-src-elem, the direc
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+// ── the header, the footer as a zone of its own, the grid, the switch ──────────────────────────────────────────────────────────
+// All seven pages as text: the four generated (rendered now) and the three hand-kept (read from disk).
+const sevenPages = () => { const pages = { ...renderPages(inputs()).pages }; for (const f of HAND) pages[f] = read(f); return pages; };
+const mainOf = html => html.slice(html.indexOf('<main'), html.indexOf('</main>') + 7);
+const bodyOf = html => html.slice(html.indexOf('<body>'));
+
+test('the header is on every page with its three items, one per language, and no language bar is left anywhere', () => {
+  for (const [f, html] of Object.entries(sevenPages())) {
+    assert.equal(count(html, '<header'), 1, f + ' has one header');
+    const header = html.slice(html.indexOf('<header'), html.indexOf('</header>'));
+    assert.equal(count(header, '<nav '), 2, f + ': one labelled nav per language');
+    for (const lang of ['en', 'th']) {
+      const nav = header.slice(header.indexOf(`<nav lang="${lang}"`)).split('</nav>')[0];
+      assert.match(nav, /aria-label="[^"]+"/, f + ' ' + lang + ': the nav is labelled');
+      assert.deepEqual([...nav.matchAll(/<a\b[^>]*\shref="([^"]*)"/g)].map(m => m[1]), ['/', '/pricing'], f + ' ' + lang + ': the mark links to / and then Pricing, and nothing else');
+      assert.match(nav, /<a class="hmark" href="\/" aria-label="[^"]+"><svg[^>]*aria-hidden="true">/, f + ' ' + lang + ': the mark link has an accessible name');
+      assert.equal(count(nav, '<button'), 2, f + ' ' + lang + ': the TH/EN switch');
+      assert.equal(count(nav, 'data-lang-set="en"') + count(nav, 'data-lang-set="th"'), 2);
+    }
+    assert.ok(!/dashboard|sign.?in|log.?in|แดชบอร์ด|เข้าสู่ระบบ/i.test(header), f + ': no Dashboard and no Sign in until the service exists');
+    assert.ok(!/langbar|id="lang-(en|th)"/.test(html), f + ': no language bar and no id-keyed switch is left, in markup or in CSS');
+    assert.ok(html.indexOf('<header') < html.indexOf('<main'), f + ': the header comes before main');
+  }
+});
+
+test('the footer and the header are outside main on every page, so their width does not depend on the page column', () => {
+  for (const [f, html] of Object.entries(sevenPages())) {
+    const main = mainOf(html);
+    assert.ok(!main.includes('<footer') && !main.includes('<header'), f + ': nothing of the shared blocks is inside main');
+    const after = html.slice(html.indexOf('</main>'));
+    assert.equal(count(after, '<footer class="site-footer"'), 2, f + ': both footers follow main');
+    assert.deepEqual(footersOf(html), [siteFooterHtml('en'), siteFooterHtml('th')], f);
+  }
+});
+
+test('the footer grid is 2 columns below 640px, 3 from 640px and 5 from 1024px, by viewport, with nothing else keyed to a width', () => {
+  const media = [...FOOTER_CSS.matchAll(/@media \(min-width:(\d+)px\)\{[^{]*\{grid-template-columns:repeat\((\d+),minmax\(0,1fr\)\)\}\}/g)].map(m => [+m[1], +m[2]]);
+  assert.deepEqual(media, [[640, 3], [1024, 5]]);
+  assert.match(FOOTER_CSS, /\.site-footer \.fgroups\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/, 'the base is 2 columns');
+  assert.equal(count(FOOTER_CSS, '@media'), 2, 'no other media query');
+  assert.ok(!/@media/.test(HEADER_CSS), 'the header has no width breakpoint: it wraps');
+  for (const [f, html] of Object.entries(sevenPages())) assert.ok(css(html).includes(FOOTER_CSS), f + ' carries the same rules');
+});
+
+test('reflow at 320px, structurally: every track may shrink to zero, every link may break anywhere, the header row wraps, and no rule gives the header or the footer a width of its own', () => {
+  assert.ok(!/(?<![-\w])(?:min-)?width:\d+(?:px|rem)/.test(FOOTER_CSS.replace(/@media \(min-width:\d+px\)/g, '')), 'no fixed width in the footer rules');
+  assert.ok(!/(?<![-\w])(?:min-)?width:\d+(?:px|rem)/.test(HEADER_CSS), 'no fixed width in the header rules');
+  for (const m of FOOTER_CSS.matchAll(/grid-template-columns:([^;}]*)[;}]/g)) assert.match(m[1], /^repeat\(\d,minmax\(0,1fr\)\)$/, 'every track is minmax(0,1fr): ' + m[1]);
+  assert.match(FOOTER_CSS, /\.site-footer a\{[^}]*overflow-wrap:anywhere/);
+  assert.match(HEADER_CSS, /\.site-header a\{[^}]*overflow-wrap:anywhere/);
+  assert.match(HEADER_CSS, /\.site-header nav\{[^}]*flex-wrap:wrap/);
+  assert.match(FOOTER_CSS, /\.fbar\{[^}]*flex-wrap:wrap/);
+  assert.match(FOOTER_CSS, /\.fgroup\{[^}]*min-width:0/, 'a grid item may shrink below its content');
+  assert.match(FOOTER_CSS, /\.fwrap\{width:100%;max-width:1100px/);
+});
+
+test('the registration slot prints nothing until it is set: no placeholder text and no empty element', () => {
+  for (const lang of ['en', 'th']) {
+    assert.equal(siteFooterHtml(lang), siteFooterHtml(lang, null));
+    assert.ok(!siteFooterHtml(lang).includes('freg'), 'no slot element');
+    assert.equal(siteFooterHtml(lang, { en: '', th: '' }), siteFooterHtml(lang), 'an empty value prints nothing');
+    assert.equal(siteFooterHtml(lang, {}), siteFooterHtml(lang));
+  }
+  assert.equal(lib.REGISTRATION, null, 'nothing is set today');
+  const set = siteFooterHtml('en', { en: 'Registration no. 123', th: 'เลขทะเบียน 123' });
+  assert.match(set, /<p class="fine freg">Registration no\. 123<\/p>/);
+  assert.ok(!set.includes('เลขทะเบียน'), 'each language prints its own');
+  assert.match(siteFooterHtml('th', { en: 'Registration no. 123', th: 'เลขทะเบียน 123' }), /<p class="fine freg">เลขทะเบียน 123<\/p>/);
+});
+
+test("the switch keeps its storage key and its behaviour: one key 'kolwen-lang', one getItem, one setItem, no cookie, on every page", () => {
+  assert.equal(count(lib.SCRIPT, "var KEY = 'kolwen-lang';"), 1);
+  assert.equal(count(lib.SCRIPT, 'localStorage.setItem(KEY'), 1);
+  assert.equal(count(lib.SCRIPT, 'localStorage.getItem(KEY'), 1);
+  assert.equal(count(lib.SCRIPT, 'localStorage.'), 2, 'localStorage is used by those two calls and nothing else');
+  assert.ok(!/cookie|sessionStorage|indexedDB/.test(lib.SCRIPT.split('\n').filter(l => !l.trim().startsWith('//')).join('\n')), 'no other storage in the code (a comment may name the cookie it avoids)');
+  assert.match(lib.SCRIPT, /if \(saved === 'th' \|\| saved === 'en'\) apply\(saved, false\);/, 'the saved language is applied without being saved again');
+  assert.match(lib.SCRIPT, /apply\(button\.getAttribute\('data-lang-set'\), true\)/, 'a click applies the language and saves it');
+  for (const [f, html] of Object.entries(sevenPages())) {
+    const scripts = [...html.matchAll(/<script>\n([\s\S]*?)\n<\/script>/g)].map(m => m[1]);
+    assert.equal(scripts.length, 1, f + ' has one page script');
+    assert.equal(scripts[0], MARK.script.begin + '\n' + lib.SCRIPT + '\n' + MARK.script.end, f + ' carries the shared script between its markers');
+    assert.equal(count(html, 'data-lang-set='), 4, f + ' has four switch buttons for the one script to keep right');
+    assert.ok(html.includes('id="doc-en"') && html.includes('id="doc-th"'), f + ' keeps the two document ids the script toggles');
+  }
+  assert.match(read('PRIVACY.md'), /one key/, "PRIVACY.md's one-key sentence is still there");
+});
+
+test('a reader without script gets no switch and sees the Thai document, header and footer too; one with script sees the language that matches <html lang>', () => {
+  assert.match(lib.NOSCRIPT_STYLE, /\.lswitch\{display:none\}/);
+  assert.match(lib.NOSCRIPT_STYLE, /#doc-th\{display:block !important/);
+  assert.match(lib.NOSCRIPT_STYLE, /\.site-header nav\[lang="th"\]\{display:flex !important\}/);
+  assert.match(lib.NOSCRIPT_STYLE, /\.site-footer\[lang="th"\]\{display:block !important\}/);
+  assert.match(lib.HEADER_CSS, /html\[lang="th"\] \.site-header nav\[lang="en"\]\{display:none\}/);
+  assert.match(lib.FOOTER_CSS, /html\[lang="th"\] \.site-footer\[lang="en"\]\{display:none\}/);
+  for (const [f, html] of Object.entries(sevenPages())) assert.match(html, /<html lang="en">/, f + ': English until the script says otherwise');
+});
+
 // ── WCAG 2.2 SC 1.4.3: every footer text colour against the background it sits on, at least 4.5:1 ──────────
 // The footer takes its page's colour at full strength (no opacity anywhere in FOOTER_CSS) and hover does not change the colour, so what is
 // measured is the colour each page gives the footer. WCAG 2.x relative luminance and contrast ratio.
@@ -744,10 +841,12 @@ const mix = (fg, a, bg) => fg.map((c, i) => Math.round(c * a + bg[i] * (1 - a)))
 const css = html => (html.match(/<style>[\s\S]*?<\/style>/g) || []).join('\n');
 const varIn = (text, name) => { const m = new RegExp('--' + name + ':(#[0-9a-fA-F]{6})').exec(text); assert.ok(m, 'var --' + name); return rgb(m[1]); };
 
-test('the footer css has no opacity and no hover colour, so no footer text is dimmed below its page colour', () => {
-  assert.ok(!/opacity/.test(FOOTER_CSS), 'no opacity in the footer rules');
-  for (const m of FOOTER_CSS.matchAll(/[{;]\s*color:([^;}]*)/g)) assert.equal(m[1], 'inherit', 'the only colour a footer rule sets is inherit');
-  assert.ok(!/:hover\{[^}]*color/.test(FOOTER_CSS), 'hover does not change the colour');
+test('the footer and header css have no opacity and no hover colour, so no text is dimmed below its page colour', () => {
+  for (const [name, rules] of [['footer', FOOTER_CSS], ['header', HEADER_CSS]]) {
+    assert.ok(!/opacity/.test(rules), 'no opacity in the ' + name + ' rules');
+    for (const m of rules.matchAll(/[{;]\s*color:([^;}]*)/g)) assert.equal(m[1], 'inherit', 'the only colour a ' + name + ' rule sets is inherit');
+    assert.ok(!/:hover\{[^}]*color/.test(rules), name + ': hover does not change the colour (it underlines)');
+  }
 });
 
 test('every footer text colour measures at least 4.5:1 on every page background (dark pages with the brightest gradient point, the 404 page in both colour schemes)', () => {
@@ -761,7 +860,11 @@ test('every footer text colour measures at least 4.5:1 on every page background 
     const g = /radial-gradient\(circle at [^,]+,rgba\((\d+),(\d+),(\d+),([.\d]+)\)/.exec(c);
     assert.ok(g, file + ': the body gradient');
     const peak = mix([+g[1], +g[2], +g[3]], +g[4], bg);
-    rows.push([file + ' (base)', ratio(text, bg)], [file + ' (gradient peak)', ratio(text, peak)]);
+    rows.push([file + ' footer (base)', ratio(text, bg)], [file + ' footer (gradient peak)', ratio(text, peak)]);
+    // The header takes the page's body colour (--txt): its links, the Kolwen name and the switch buttons inherit it, and hover and the pressed state change no colour.
+    assert.match(c, /body\{[^}]*color:var\(--txt\)/, file + ': the body colour is --txt');
+    const head = varIn(c, 'txt');
+    rows.push([file + ' header (base)', ratio(head, bg)], [file + ' header (gradient peak)', ratio(head, peak)]);
   }
   const nf = css(read('web/404.html'));
   const light = { ink: varIn(nf.split('@media')[0], 'ink'), bg: varIn(nf.split('@media')[0], 'bg') };
@@ -773,6 +876,7 @@ test('every footer text colour measures at least 4.5:1 on every page background 
   const dimLight = varIn(nf.split('@media')[0], 'dim'), dimDark = varIn(darkM[1], 'dim'), bgDark = varIn(darkM[1], 'bg');
   rows.push(['web/404.html link (light)', ratio(light.ink, light.bg)], ['web/404.html label and copyright (light)', ratio(dimLight, light.bg)],
     ['web/404.html link (dark)', ratio(varIn(darkM[1], 'ink'), bgDark)], ['web/404.html label and copyright (dark)', ratio(dimDark, bgDark)]);
+  if (process.env.PRINT_CONTRAST) for (const [name, r] of rows) console.log('CONTRAST ' + r.toFixed(2) + ':1 ' + name);
   for (const [name, r] of rows) assert.ok(r >= 4.5, name + ' measures ' + r.toFixed(2) + ':1');
-  assert.ok(rows.length >= 16, 'the sample covers seven pages, two backgrounds on the dark ones, and the 404 page in two schemes for its links and for its paragraphs');
+  assert.ok(rows.length >= 23, 'the sample covers seven pages, two backgrounds on the dark ones, and the 404 page in two schemes for its links and for its paragraphs');
 });

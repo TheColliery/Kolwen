@@ -742,17 +742,17 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
 // that plan exists to be named. This is the preview rule's Free check read over EVERY tracked page (WEB_PAGES), so a
 // production page cannot carry what a preview page may not.
 // (b) NOTHING TO BUY: no production page (PRODUCTION_PAGES, rule 15's list minus PREVIEW_EXEMPT) carries a control that
-// can start a purchase. A <button> must be disabled (the two language-toggle buttons, by id, are the one allowance);
+// can start a purchase. A <button> must be disabled (the language-toggle buttons, by their data-lang-set attribute, are the one allowance);
 // no <form> and no submit/button/image/reset <input>; no link that reads as a buy control, by its text, its aria-label or title, or the alt of an image inside it (buy, purchase, subscribe,
 // checkout, order, pay, upgrade, sign up, and the Thai for buy, subscribe and pay) or has role=button; no <script src> from
 // a Paddle host and no Paddle global in an inline script; no URL attribute (href, action, src, formaction, data-*)
 // naming a Paddle host, a checkout path or a _ptxn query (a <script src> belongs to the payment-script clause alone,
 // so each shape has exactly one clause that owns it).
 //
-// NON-VACUITY: if no production page holds any <button> at all the button check read nothing (the home page's two
+// NON-VACUITY: if no production page holds any <button> at all the button check read nothing (the header's
 // language buttons are the standing sample), and that is a finding, not a pass. STATED LIMITS: the HTML is read as text, so
 // a control inside a comment counts (fails safe); "disabled" is read as a bare attribute, so a button the page's own
-// script enables at run time is not seen; the language-toggle allowance is by id, so a live button given the id lang-en
+// script enables at run time is not seen; the language-toggle allowance is by attribute, so a live button given data-lang-set="en"
 // passes; a link that sells without saying so ("Continue", a bare arrow), a payment script served from the site's own
 // origin, a checkout URL on another word, a custom element and an onclick handler are not read (rule 13 already refuses
 // inline handlers and any script origin the CSP does not name); a link named only by aria-labelledby, or by CSS content, is not read. Clause (a) reads the capitalised word Free (so
@@ -768,7 +768,7 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
   const ANCHOR = /<a\b((?:"[^"]*"|'[^']*'|[^>"'])*)>([\s\S]*?)<\/a\s*>/gi;
   const LABEL_ATTR = /(?<![\w-])(?:aria-label|title)\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+)/gi; // what a link is called besides its text
   const ALT_ATTR = /(?<![\w-])alt\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+)/gi;
-  const LANG_TOGGLE = /(?<![\w-])id\s*=\s*["']?lang-(?:en|th)["']?(?![\w-])/i;
+  const LANG_TOGGLE = /(?<![\w-])data-lang-set\s*=\s*["']?(?:en|th)["']?(?![\w-])/i;
   const SUBMITTY = /(?<![\w-])type\s*=\s*["']?\s*(?:submit|button|image|reset)\b/i;
   const BUY_WORDS = /\b(?:buy|purchase|subscribe|checkout|check\s+out|order|pay|upgrade|sign\s+up)\b|ซื้อ|สมัคร|ชำระ|จ่ายเงิน/i;
   const PAY_HOST = /paddle\.com|paddle\.js|paddlejs/i;
