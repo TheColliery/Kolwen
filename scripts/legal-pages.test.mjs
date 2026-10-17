@@ -3,6 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import vm from 'node:vm';
 import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
@@ -808,7 +809,7 @@ test("the switch keeps its storage key and its behaviour: one key 'kolwen-lang',
   assert.equal(count(lib.SCRIPT, 'localStorage.'), 2, 'localStorage is used by those two calls and nothing else');
   assert.ok(!/cookie|sessionStorage|indexedDB/.test(lib.SCRIPT.split('\n').filter(l => !l.trim().startsWith('//')).join('\n')), 'no other storage in the code (a comment may name the cookie it avoids)');
   assert.match(lib.SCRIPT, /if \(saved === 'th' \|\| saved === 'en'\) apply\(saved, false\);/, 'the saved language is applied without being saved again');
-  assert.match(lib.SCRIPT, /apply\(button\.getAttribute\('data-lang-set'\), true\)/, 'a click applies the language and saves it');
+  assert.match(lib.SCRIPT, /var lang = button\.getAttribute\('data-lang-set'\);[\s\S]*?apply\(lang, true\)/, 'a click applies the language and saves it');
   for (const [f, html] of Object.entries(sevenPages())) {
     const scripts = [...html.matchAll(/<script>\n([\s\S]*?)\n<\/script>/g)].map(m => m[1]);
     assert.equal(scripts.length, 1, f + ' has one page script');
@@ -887,6 +888,80 @@ test('surface-check rule 17 allows a live button only when it is exactly a switc
     writeFileSync(page, real);
     assert.equal(surface(dir).status, 0, 'back to the committed page it passes again');
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ── focus follows the switch (WCAG 2.2 SC 2.4.3 Focus Order, 2.4.7 Focus Visible) ─────────────────────────────────────────────────────────
+// Pressing a switch sets <html lang>, which hides the nav or footer that holds the pressed button. The page script is run here against a small fake DOM built from the REAL
+// rendered header and footers (no browser): a tree of elements with attributes, a selector matcher for the few selectors the script uses, and a focus log.
+function fakeDom(html) {
+  const VOID = new Set(['rect', 'br', 'img', 'meta', 'link']);
+  const mk = (tag, attrs, parent) => ({ tag, attrs, parent, get parentNode() { return this.parent; }, children: [], hidden: false, listeners: [], getAttribute(n) { return n in this.attrs ? this.attrs[n] : null; }, setAttribute(n, v) { this.attrs[n] = String(v); },
+    addEventListener(type, fn) { this.listeners.push([type, fn]); }, focus(opts) { focusLog.push({ node: this, opts }); }, click() { for (const [type, fn] of this.listeners) if (type === 'click') fn(); },
+    closest(sel) { for (let n = this; n && n.parent; n = n.parent) if (matches(n, sel)) return n; return null; } });
+  const focusLog = [];
+  const root = mk('#root', {}, null);
+  let cur = root;
+  for (const m of html.matchAll(/<(\/?)([a-zA-Z][\w-]*)([^>]*?)(\/?)>/g)) {
+    const [, close, tag, rest, self] = m;
+    if (close) { let n = cur; while (n && n.tag !== tag) n = n.parent; if (n && n.parent) cur = n.parent; continue; }
+    const attrs = {}; for (const a of rest.matchAll(/([\w-]+)(?:="([^"]*)")?/g)) attrs[a[1]] = a[2] === undefined ? '' : a[2];
+    const node = mk(tag, attrs, cur); cur.children.push(node);
+    if (!self && !VOID.has(tag)) cur = node;
+  }
+  const simple = (n, s) => [...s.matchAll(/^([a-z][\w-]*)|\.([\w-]+)|\[([\w-]+)(?:="([^"]*)")?\]/g)].filter(x => x[0]).every(x => (x[1] ? n.tag === x[1] : x[2] ? (n.attrs.class || '').split(/\s+/).includes(x[2]) : x[4] === undefined ? x[3] in n.attrs : n.attrs[x[3]] === x[4]));
+  function matches(n, sel) { const parts = sel.trim().split(/\s+/); if (!simple(n, parts.pop())) return false; let p = n.parent; while (parts.length) { const want = parts.pop(); while (p && !simple(p, want)) p = p.parent; if (!p) return false; p = p.parent; } return true; }
+  const all = [];
+  (function walk(n) { for (const c of n.children) { all.push(c); walk(c); } })(root);
+  const doc = {
+    documentElement: { lang: 'en' },
+    getElementById: id => (id === 'doc-en' || id === 'doc-th' ? (doc[id] = doc[id] || { hidden: id === 'doc-th' }) : null),
+    querySelectorAll: sel => all.filter(n => matches(n, sel)),
+    querySelector: sel => all.find(n => matches(n, sel)) || null,
+  };
+  return { doc, focusLog, all };
+}
+const runPageScript = () => {
+  const html = [lib.siteHeaderHtml(), siteFooterHtml('en'), siteFooterHtml('th')].join('\n');
+  const dom = fakeDom(html);
+  const store = {};
+  vm.runInNewContext(lib.SCRIPT, { document: dom.doc, localStorage: { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } }, String });
+  return { ...dom, store };
+};
+const blockLang = n => n.parentNode.closest('[lang]').attrs.lang;
+
+test('pressing a switch moves focus to the same switch in the block that is now shown, header to header and footer bar to footer bar, without scrolling', () => {
+  for (const place of ['.site-header', '.site-footer']) {
+    const d = runPageScript();
+    const pressTh = d.all.find(n => n.attrs['data-lang-set'] === 'th' && n.closest(place) && blockLang(n) === 'en');
+    assert.ok(pressTh, place + ': the Thai button of the English block');
+    pressTh.click();
+    assert.equal(d.doc.documentElement.lang, 'th', place + ': the page language changed');
+    assert.equal(d.focusLog.length, 1, place + ': focus moved once');
+    const moved = d.focusLog[0];
+    assert.equal(moved.node.attrs['data-lang-set'], 'th', place + ': to the Thai button');
+    assert.equal(blockLang(moved.node), 'th', place + ': which sits in the Thai block that is now shown');
+    assert.ok(moved.node.closest(place), place + ': in the same place (header or footer), not the other one');
+    assert.equal(moved.opts && moved.opts.preventScroll, true, place + ': without a scroll jump'); // not deepEqual: the options object is made inside the vm context, a different realm
+    // and back: the English button of the Thai block is pressed, focus goes to the English button of the English block
+    const pressEn = d.all.find(n => n.attrs['data-lang-set'] === 'en' && n.closest(place) && blockLang(n) === 'th');
+    pressEn.click();
+    assert.equal(d.doc.documentElement.lang, 'en');
+    const back = d.focusLog[1];
+    assert.equal(back.node.attrs['data-lang-set'], 'en');
+    assert.equal(blockLang(back.node), 'en');
+    assert.ok(back.node.closest(place));
+  }
+});
+
+test('pressing the language that is already shown moves no focus (the block stays visible), and aria-pressed follows the language on every switch', () => {
+  const d = runPageScript();
+  const pressEn = d.all.find(n => n.attrs['data-lang-set'] === 'en' && n.closest('.site-header') && blockLang(n) === 'en');
+  pressEn.click();
+  assert.equal(d.focusLog.length, 0, 'nothing moved');
+  const pressTh = d.all.find(n => n.attrs['data-lang-set'] === 'th' && n.closest('.site-footer') && blockLang(n) === 'en');
+  pressTh.click();
+  for (const b of d.all.filter(n => 'data-lang-set' in n.attrs)) assert.equal(b.attrs['aria-pressed'], String(b.attrs['data-lang-set'] === 'th'), 'every switch shows Thai as pressed');
+  assert.equal(d.store['kolwen-lang'], 'th', 'the choice is still saved under the same key');
 });
 
 // ── WCAG 2.2 SC 1.4.3: every footer text colour against the background it sits on, at least 4.5:1 ──────────

@@ -238,8 +238,20 @@
   try { saved = localStorage.getItem(KEY); } catch (e) {}
   if (saved === 'th' || saved === 'en') apply(saved, false);
 
+  // Pressing a switch changes the page language on the root element, which hides the header nav or the footer holding the pressed button. So focus goes to the same switch in the block that is now shown,
+  // in the same place (header to header, footer to footer), and without a scroll jump (WCAG 2.2 SC 2.4.3 and 2.4.7). Pressing the language already shown hides nothing and moves nothing.
   function bind(button) {
-    button.addEventListener('click', function () { apply(button.getAttribute('data-lang-set'), true); });
+    button.addEventListener('click', function () {
+      var lang = button.getAttribute('data-lang-set');
+      var changed = document.documentElement.lang !== lang;
+      var place = button.closest('.site-header') ? '.site-header' : (button.closest('.site-footer') ? '.site-footer' : '');
+      apply(lang, true);
+      if (!changed || !place) return;
+      var same = document.querySelectorAll(place + ' [data-lang-set]');
+      for (var j = 0; j < same.length; j++) {
+        if (same[j].getAttribute('data-lang-set') === lang && same[j].parentNode.closest('[lang]').getAttribute('lang') === lang) { same[j].focus({ preventScroll: true }); return; }
+      }
+    });
   }
   for (var i = 0; i < buttons.length; i++) bind(buttons[i]);
 })();
