@@ -124,3 +124,80 @@ test('surface-check admits the font files by name and nothing else: a font outsi
     assert.match(d.stdout + d.stderr, /web\/fonts\/mono\/IBMPlexMono-Medium-Latin1\.woff2: is declared a shipped asset but is missing from the publish root/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+// ── what the pages fetch: the manifest, and nothing from outside the site ───────────────────────────────────────────────────────
+// The text of every inline <style> block of a page.
+const css = html => (html.match(/<style>[\s\S]*?<\/style>/g) || []).join('\n');
+const linkTags = html => [...html.matchAll(/<link\b[^>]*>/gi)].map(m => m[0]);
+const attr = (tag, name) => (new RegExp('\\b' + name + '\\s*=\\s*"([^"]*)"', 'i').exec(tag) || [])[1];
+const cspLine = text => /^[ \t]+Content-Security-Policy:[^\r\n]*/m.exec(text)[0];
+const directiveOf = (line, name) => { const part = line.replace(/^[^:]*:/, '').split(';').map(d => d.trim()).find(d => d.split(/\s+/)[0] === name); return part ? part.split(/\s+/).slice(1) : null; };
+
+test('every page links the font manifest once and no link fetches anything from outside the site', () => {
+  for (const p of PAGES) {
+    const html = read(p);
+    const head = html.slice(0, html.indexOf('</head>'));
+    const manifestLinks = linkTags(head).filter(t => attr(t, 'href') === '/fonts/fonts.css');
+    assert.equal(manifestLinks.length, 1, p + ' links the manifest once');
+    assert.match(manifestLinks[0], /rel="stylesheet"/, p);
+    for (const tag of linkTags(html)) {
+      if (/rel="canonical"/i.test(tag)) continue; // a canonical link names the page itself and is never fetched
+      assert.ok(!/^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(attr(tag, 'href') || ''), p + ' fetches from outside the site: ' + tag);
+    }
+    assert.ok(!/rel="(?:preconnect|dns-prefetch|preload|prefetch)"/i.test(html) || linkTags(html).filter(t => /rel="(?:preconnect|dns-prefetch)"/i.test(t)).length === 0, p + ' opens no connection to another origin');
+    assert.ok(!/@import|url\(\s*['"]?(?:https?:)?\/\//i.test(css(html)), p + ' loads nothing from CSS outside the site');
+    assert.ok(!/googleapis|gstatic/i.test(html), p + ' names no Google font host');
+    assert.ok(!/fonts are loaded from Google Fonts|ฟอนต์โหลดจาก Google Fonts/.test(html), p + ' does not say the fonts come from Google');
+  }
+});
+
+test('the CSP admits the site itself for styles and fonts and names no font origin', () => {
+  const line = cspLine(read('web/_headers'));
+  assert.deepEqual(directiveOf(line, 'font-src'), ["'self'"], 'font-src is exactly self');
+  assert.ok(directiveOf(line, 'style-src').includes("'self'"), "style-src names 'self' for the same-origin manifest");
+  assert.ok(!/googleapis|gstatic/i.test(line), 'no Google origin in the policy');
+  assert.ok(!directiveOf(line, 'style-src').some(t => /^https?:/i.test(t)), 'style-src names no other origin');
+  assert.ok(!/googleapis|gstatic/i.test(read('web/_headers').split('\n').filter(l => !l.trim().startsWith('#')).join('\n')), 'no Google host in a non-comment line of _headers');
+});
+
+test('surface-check rule 13 judges the font manifest: self in style-src, font-src exactly self, no outside url() in a stylesheet, no url() to a missing or undeclared file', () => {
+  const dir = surfaceCopy();
+  try {
+    const base = surface(dir);
+    assert.equal(base.status, 0, 'the committed tree passes: ' + base.stdout + base.stderr);
+    const headers = join(dir, 'web/_headers'), real = readFileSync(headers, 'utf8');
+    const out = r => r.stdout + r.stderr;
+    writeFileSync(headers, real.replace(/font-src 'self'/, "font-src 'self' https://fonts.gstatic.com"));
+    const a = surface(dir);
+    assert.equal(a.status, 1, out(a));
+    assert.match(out(a), /the CSP floor needs font-src 'self', found 'self' https:\/\/fonts\.gstatic\.com/);
+    writeFileSync(headers, real.replace(/style-src 'self' /, 'style-src '));
+    const b = surface(dir);
+    assert.equal(b.status, 1, out(b));
+    assert.match(out(b), /the HTML loads a stylesheet from 'self', which style-src does not name/);
+    writeFileSync(headers, real);
+    const css = join(dir, 'web/fonts/fonts.css'), realCss = readFileSync(css, 'utf8');
+    writeFileSync(css, realCss.replace("url('/fonts/thai/IBMPlexSansThai-Regular.woff2')", "url('https://fonts.gstatic.com/x.woff2')"));
+    const c = surface(dir);
+    assert.equal(c.status, 1, out(c));
+    assert.match(out(c), /web\/fonts\/fonts\.css: .*https:\/\/fonts\.gstatic\.com\/x\.woff2.*not on this site/);
+    writeFileSync(css, realCss.replace("url('/fonts/thai/IBMPlexSansThai-Regular.woff2')", "url('/fonts/thai/Nope.woff2')"));
+    const d = surface(dir);
+    assert.equal(d.status, 1, out(d));
+    assert.match(out(d), /web\/fonts\/fonts\.css: .*\/fonts\/thai\/Nope\.woff2.*(does not exist|is not a declared shipped asset)/);
+    mkdirSync(join(dir, 'web/fonts/thai'), { recursive: true });
+    writeFileSync(join(dir, 'web/fonts/thai/Extra.woff2'), 'wOF2');
+    track(dir);
+    writeFileSync(css, realCss.replace("url('/fonts/thai/IBMPlexSansThai-Regular.woff2')", "url('/fonts/thai/Extra.woff2')"));
+    const d2 = surface(dir);
+    assert.equal(d2.status, 1, out(d2));
+    assert.match(out(d2), /web\/fonts\/fonts\.css: url\(\/fonts\/thai\/Extra\.woff2\) points at web\/fonts\/thai\/Extra\.woff2, which is not a declared shipped asset/);
+    rmSync(join(dir, 'web/fonts/thai/Extra.woff2'));
+    writeFileSync(css, realCss);
+    const page = join(dir, 'web/index.html'), realPage = readFileSync(page, 'utf8');
+    writeFileSync(page, realPage.replace('</head>', '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=X"></head>'));
+    const e = surface(dir);
+    assert.equal(e.status, 1, out(e));
+    assert.match(out(e), /the HTML loads a stylesheet from https:\/\/fonts\.googleapis\.com, which style-src does not name/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
