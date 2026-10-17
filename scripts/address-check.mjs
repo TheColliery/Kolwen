@@ -57,6 +57,38 @@ export function catchAllNote(catchAll) {
   return delivers(catchAll) ? 'forwards' : 'drops';
 }
 
+// Every routing rule, page by page. `getPage(page, perPage)` returns one parsed response body. Pure apart from that call: no network, no clock.
+// The vendor's list-rules page documents `page` (minimum 1), `per_page` (minimum 5, maximum 50) and a `result_info` of count, page, per_page, total_count and total_pages
+// (developers.cloudflare.com/api/resources/email_routing/subresources/rules/methods/list/, read 2026-10-17), but a response can still omit `total_pages`, and defaulting it to 1
+// hid every rule past page one. So the page count is `total_pages` when present, else ceil(total_count / per_page), and the loop also stops on a short page (fewer than
+// per_page results). Cross-check: the rules collected must equal `total_count`, else the pages disagree with the zone and the check fails by name rather than judge half a list.
+// MAX_PAGES bounds the loop so a response that never ends cannot spin it: 100 pages of 50 is 5,000 rules, far above any zone this check reads; reaching it fails by name.
+export const MAX_PAGES = 100;
+export const PER_PAGE = 50;
+export async function fetchAllRules(getPage, perPage = PER_PAGE) {
+  const rules = [];
+  let totalCount = null;
+  for (let page = 1; ; page++) {
+    if (page > MAX_PAGES) throw new Error(`the routing rules did not end within ${MAX_PAGES} pages of ${perPage}; the response is not trusted and no verdict is given`);
+    const body = await getPage(page, perPage) || {};
+    if (body.success === false) throw new Error(`the routing rules page ${page} answered with an error (success false); no verdict is given`);
+    if (!Array.isArray(body.result)) throw new Error(`the routing rules page ${page} did not return a list; no verdict is given`);
+    const results = body.result;
+    rules.push(...results);
+    const info = body.result_info || {};
+    const size = Number.isInteger(info.per_page) && info.per_page > 0 ? info.per_page : perPage;
+    if (Number.isInteger(info.total_count) && info.total_count >= 0) {
+      // The first total_count seen is the one the rules are checked against: a later page reporting another number means the list changed while it was read, and a rule can have moved across a page already read.
+      if (totalCount !== null && info.total_count !== totalCount) throw new Error(`the routing rules changed during the read: page ${page} says ${info.total_count} rules, an earlier page said ${totalCount}; no verdict is given`);
+      totalCount = info.total_count;
+    }
+    const pages = Number.isInteger(info.total_pages) && info.total_pages > 0 ? info.total_pages : totalCount !== null ? Math.ceil(totalCount / size) : null;
+    if (results.length < size || (pages !== null && page >= pages)) break;
+  }
+  if (totalCount !== null && rules.length !== totalCount) throw new Error(`the routing rules pages disagree with the zone: ${rules.length} rules read, the zone says ${totalCount}; no verdict is given`);
+  return rules;
+}
+
 // The addresses the built pages publish: every top-level web/*.html and web/llms.txt.
 export function publishedAddresses(root = ROOT) {
   const dir = resolve(root, 'web');
@@ -89,16 +121,12 @@ async function main() {
   if (!token || !account) { console.error('FAIL the Cloudflare read token or the account id is not set in the environment (names: CLOUDFLARE_READ_TOKEN_ALL, CLOUDFLARE_ACCOUNT_ID_KOLWEN); nothing was asked'); process.exitCode = 1; return; }
   const addresses = publishedAddresses();
   if (!addresses.length) { console.error('FAIL no @kolwen.com address found in web/*.html or web/llms.txt, so there is nothing to check (an empty check is not a pass)'); process.exitCode = 1; return; }
-  let rules = [], catchAll = null;
+  let rules, catchAll = null;
   try {
     const zones = await get('/zones?name=kolwen.com&account.id=' + encodeURIComponent(account), token, 'the zone lookup');
     const zone = (zones.result || [])[0];
     if (!zone) throw new Error('the zone kolwen.com was not found for this account');
-    for (let page = 1; ; page++) {
-      const body = await get(`/zones/${zone.id}/email/routing/rules?per_page=50&page=${page}`, token, 'the email routing rules');
-      rules.push(...(body.result || []));
-      if (page >= ((body.result_info || {}).total_pages || 1)) break;
-    }
+    rules = await fetchAllRules((page, perPage) => get(`/zones/${zone.id}/email/routing/rules?per_page=${perPage}&page=${page}`, token, 'the email routing rules'));
     catchAll = (await get(`/zones/${zone.id}/email/routing/rules/catch_all`, token, 'the catch-all rule')).result || null;
   } catch (e) { console.error('FAIL ' + (e && e.message ? e.message : 'the zone could not be read')); process.exitCode = 1; return; }
   const verdicts = judge(addresses, rules);
