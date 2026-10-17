@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 // An address built from its parts: the fixtures are made up, and no literal address sits in this file.
 const at = (local, domain = 'kolwen.com') => local + String.fromCharCode(64) + domain;
-const { addressesIn, judge, catchAllNote, publishedAddresses } = await import(new URL('./address-check.mjs', import.meta.url));
+const { addressesIn, judge, catchAllNote, publishedAddresses, fetchAllRules, MAX_PAGES } = await import(new URL('./address-check.mjs', import.meta.url));
 
 const rule = (to, enabled = true, actions = [{ type: 'forward', value: [at('x', 'example.test')] }], priority = 0) => ({ enabled, priority, matchers: [{ type: 'literal', field: 'to', value: to }], actions });
 const DROP = [{ type: 'drop' }];
@@ -112,4 +112,42 @@ test('an unknown flag exits 2 and --help prints usage and exits 0, both before a
     assert.equal(h.status, 0);
     assert.match(h.stdout, /usage: node scripts\/address-check\.mjs/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ── paging: the rules past page one are read (the response may carry no total_pages) ───────────────────────────────────────────────────────
+// A fake zone of `rules`, served 50 to a page. `info(page, total)` builds result_info, so a test chooses which fields the response carries.
+const fakeZone = (rules, info) => async (page, perPage) => ({ result: rules.slice((page - 1) * perPage, page * perPage), result_info: info(page, rules.length, perPage) });
+const noTotalPages = (page, total, perPage) => ({ page, per_page: perPage, count: Math.min(perPage, total - (page - 1) * perPage), total_count: total });
+const filler = n => Array.from({ length: n }, (_, i) => rule(at('filler' + i)));
+
+test('a rule on page two is read when the response carries no total_pages: a drop there is not hidden', async () => {
+  const rules = [...filler(50), rule(at('info'), true, DROP)];
+  const read = await fetchAllRules(fakeZone(rules, noTotalPages));
+  assert.equal(read.length, 51, 'all 51 rules read, not the first 50');
+  assert.deepEqual(verdictOf([at('info')], read, null), { [at('info')]: 'DROPS' });
+  assert.equal(verdictOf([at('info')], [rule(at('info')), ...rules.slice(50)], null)[at('info')], 'CONFLICT', 'a delivering rule with a drop behind it on a later page conflicts');
+});
+
+test('total_pages, when the response has it, is used; a short last page stops the loop with no extra request', async () => {
+  let calls = 0;
+  const zone = fakeZone([...filler(50), ...filler(3)], (page, total, perPage) => ({ page, per_page: perPage, total_count: total, total_pages: 2 }));
+  assert.equal((await fetchAllRules(async (p, n) => { calls++; return zone(p, n); })).length, 53);
+  assert.equal(calls, 2);
+  calls = 0;
+  const noCounts = fakeZone(filler(7), (page, total, perPage) => ({ page, per_page: perPage }));
+  assert.equal((await fetchAllRules(async (p, n) => { calls++; return noCounts(p, n); })).length, 7, 'no counts at all: a short page ends it');
+  assert.equal(calls, 1);
+  const exact = fakeZone(filler(50), noTotalPages);
+  calls = 0;
+  assert.equal((await fetchAllRules(async (p, n) => { calls++; return exact(p, n); })).length, 50, 'exactly one full page, total_count says 50: no second request');
+  assert.equal(calls, 1);
+});
+
+test('a response that never ends hits the page bound and fails loudly; pages that disagree with total_count fail by name', async () => {
+  let calls = 0;
+  const endless = async (page, perPage) => { calls++; return { result: filler(perPage), result_info: { page, per_page: perPage } }; };
+  await assert.rejects(fetchAllRules(endless), /did not end within \d+ pages/);
+  assert.equal(calls, MAX_PAGES, 'it asked for exactly the bounded number of pages and no more');
+  const lying = fakeZone(filler(53), (page, total, perPage) => ({ page, per_page: perPage, total_count: 60 }));
+  await assert.rejects(fetchAllRules(lying), /disagree with the zone: 53 rules read, the zone says 60/);
 });
