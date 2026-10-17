@@ -401,7 +401,7 @@ const sameBytes = (a, b) => Object.keys(a).every(f => Buffer.compare(a[f], b[f])
 // The page text with every fenced block's contents cut out: what --write must leave alone.
 const outside = text => { let t = text; for (const m of Object.values(MARK)) { const i = t.indexOf(m.begin), j = t.indexOf(m.end); if (i >= 0 && j > i) t = t.slice(0, i + m.begin.length) + t.slice(j); } return t; };
 // The comments of _headers talk about style-src too, so the directive is read from the one indented policy line.
-const styleSrcLine = text => /^[ \t]+Content-Security-Policy:[^\r\n]*/m.exec(text)[0].match(/(?<![\w-])style-src(?![\w-])[^;]*/)[0];
+const styleSrcLine = text => /^[ \t]+Content-Security-Policy:[^\r\n]*/m.exec(text)[0].split(';').map(d => d.trim()).find(d => d.split(/\s+/)[0] === 'style-src');
 const sortedStyleSrc = text => styleSrcLine(text).split(/\s+/).filter(t => t.startsWith("'sha256-")).sort();
 const FOOTER_ANCHOR = { 'web/index.html': ['<a href="/terms">Terms</a>', '<a href="/terms">Terms </a>'], 'web/pricing.html': ['<a href="/privacy">ความเป็นส่วนตัว</a>', '<a href="/privacy">ความเป็นส่วนตัว </a>'], 'web/404.html': ['<a href="/changelog">Changelog</a>', '<a href="/changelogs">Changelog</a>'] };
 
@@ -610,18 +610,23 @@ for (const [what, f, k, fn, re] of CROSS) {
   });
 }
 
-// ── the style-src directive is found by its whole name: style-src-elem and style-src-attr are other directives ──────────
+// ── the style-src directive is found by its NAME at the start of a directive, and the EFFECTIVE directive is judged ──────────
 const cspLine = text => /^[ \t]+Content-Security-Policy:[^\r\n]*/m.exec(text)[0];
 const directive = (line, name) => line.split(';').map(d => d.trim()).find(d => d === name || d.startsWith(name + ' '));
+const SEVEN = ['web/index.html', 'web/pricing.html', 'web/404.html', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html'];
+const pagesOf = () => Object.fromEntries(SEVEN.map(f => [f, read(f)]));
+// The committed _headers with extra directives put in front of the real style-src directive (in the CSP line only: the comments mention style-src too).
+const withBefore = (extra, text = read('web/_headers')) => text.replace(cspLine(text), line => line.replace('style-src ', () => extra + ' style-src '));
+const hashesIn = text => styleSrcLine(text).split(/\s+/).filter(t => t.startsWith("'sha256-"));
+const DECOY = "'sha256-DECOYDECOYDECOYDECOYDECOYDECOYDECOYDECOY000='";
+
 for (const other of ['style-src-elem', 'style-src-attr']) {
-  test(`a ${other} directive listed before style-src is left alone: the line is rewritten at style-src only, and the check reads style-src`, async () => {
+  test(`a ${other} directive listed before style-src is left alone: the line is rewritten at style-src only`, async () => {
     const { planStyleSrc, hashProblems, styleHashes } = await import(new URL('./lib/page-sync.mjs', import.meta.url));
-    const real = read('web/_headers');
-    const decoy = `${other} 'self' 'sha256-DECOYDECOYDECOYDECOYDECOYDECOYDECOYDECOY000=';`;
-    const headers = real.replace(cspLine(real), line => line.replace('style-src ', () => decoy + ' style-src '));
+    const decoy = `${other} 'self' ${DECOY};`;
+    const headers = withBefore(decoy);
     assert.ok(headers.includes(decoy + ' style-src '), 'the decoy sits before style-src');
-    const pages = Object.fromEntries(['web/index.html', 'web/pricing.html', 'web/404.html', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html'].map(f => [f, read(f)]));
-    assert.deepEqual(hashProblems(pages, headers), [], 'a matching style-src reads as matching with the decoy directive first');
+    const pages = pagesOf();
     const moved = { ...pages, 'web/404.html': pages['web/404.html'].replace('.fine{font-size:12px;margin:0}', '.fine{font-size:13px;margin:0}') };
     const pre = Object.fromEntries(Object.entries(pages).map(([f, h]) => [f, styleHashes(h)])), post = Object.fromEntries(Object.entries(moved).map(([f, h]) => [f, styleHashes(h)]));
     const plan = planStyleSrc(headers, pre, post);
@@ -633,8 +638,100 @@ for (const other of ['style-src-elem', 'style-src-attr']) {
     for (const d of was.split(';')) if (!d.trim().startsWith('style-src ')) assert.ok(now.includes(d), 'every other directive survives: ' + d.trim().slice(0, 30));
     assert.equal(plan.text.split('\n').filter((l, i) => l !== headers.split('\n')[i]).length, 1, 'one line of the file changed');
     assert.ok(now.indexOf(decoy) < now.indexOf('style-src '), 'the order of the directives is kept');
+    if (other === 'style-src-attr') assert.deepEqual(hashProblems(pages, headers), [], 'style-src-attr governs style attributes, not <style> blocks: nothing to report');
   });
 }
+
+test('style-src-elem is the directive a browser applies to <style> blocks: --check judges it, --write leaves it byte for byte', async () => {
+  const { planStyleSrc, hashProblems, styleHashes } = await import(new URL('./lib/page-sync.mjs', import.meta.url));
+  const pages = pagesOf();
+  const lacking = withBefore(`style-src-elem 'self' ${DECOY};`);
+  const problems = hashProblems(pages, lacking);
+  assert.ok(problems.length >= 1, 'a style-src-elem that lacks the hashes is a problem');
+  for (const p of problems) assert.match(p, /^web\/_headers style-src-elem does not admit sha256-/, 'each problem names style-src-elem, not style-src');
+  const admitting = withBefore(`style-src-elem 'self' ${hashesIn(read('web/_headers')).join(' ')};`);
+  assert.deepEqual(hashProblems(pages, admitting), [], 'a style-src-elem that admits every hash is not a problem');
+  const post = Object.fromEntries(Object.entries(pages).map(([f, h]) => [f, styleHashes(h)]));
+  const plan = planStyleSrc(lacking, post, post);
+  assert.ok(!plan.problem, plan.problem);
+  assert.equal(plan.text, lacking, 'nothing to move, so nothing is rewritten');
+  assert.equal(directive(cspLine(plan.text), 'style-src-elem'), directive(cspLine(lacking), 'style-src-elem'));
+});
+
+test('style-src inside a source of another directive is not the style-src directive: it is read and rewritten by directive name', async () => {
+  const { planStyleSrc, hashProblems, styleHashes } = await import(new URL('./lib/page-sync.mjs', import.meta.url));
+  const pages = pagesOf();
+  for (const decoy of ['script-src https://cdn.example/style-src', "img-src 'self' https://x.example/style-src 'none'", 'connect-src style-src']) {
+    const headers = withBefore(decoy + ';');
+    assert.deepEqual(hashProblems(pages, headers), [], decoy + ': a matching policy reads as matching');
+    const moved = { ...pages, 'web/404.html': pages['web/404.html'].replace('.fine{font-size:12px;margin:0}', '.fine{font-size:13px;margin:0}') };
+    const pre = Object.fromEntries(Object.entries(pages).map(([f, h]) => [f, styleHashes(h)])), post = Object.fromEntries(Object.entries(moved).map(([f, h]) => [f, styleHashes(h)]));
+    const plan = planStyleSrc(headers, pre, post);
+    assert.ok(!plan.problem, plan.problem);
+    const was = cspLine(headers), now = cspLine(plan.text);
+    assert.equal(directive(now, decoy.split(' ')[0]), directive(was, decoy.split(' ')[0]), decoy + ': that directive survives byte for byte');
+    assert.notEqual(directive(now, 'style-src'), directive(was, 'style-src'), decoy + ': style-src took the new hash');
+    assert.equal(plan.replaced, 1);
+  }
+});
+
+test('the CLI: a style-src-elem without the hashes fails --check naming it, --write leaves it alone, and one that admits them passes', () => {
+  const dir = copyTree();
+  try {
+    const real = readFileSync(join(dir, 'web/_headers'), 'utf8');
+    const lacking = withBefore(`style-src-elem 'self' ${DECOY};`, real);
+    writeFileSync(join(dir, 'web/_headers'), lacking);
+    const r = check(dir);
+    assert.equal(r.status, 1, r.stdout + r.stderr);
+    assert.match(r.stdout, /FAIL web\/_headers style-src-elem does not admit sha256-[A-Za-z0-9+/=]+ \(the <style> block of web\/index\.html\)/);
+    assert.doesNotMatch(r.stdout, /FAIL web\/_headers style-src does not admit/, 'style-src itself is fine');
+    const w = check(dir, '--write');
+    assert.equal(w.status, 0, w.stdout + w.stderr);
+    assert.equal(readFileSync(join(dir, 'web/_headers'), 'utf8'), lacking, '--write did not touch the file: the only directive that lacks hashes is the one it never edits');
+    assert.equal(check(dir).status, 1, 'still named by --check');
+    writeFileSync(join(dir, 'web/_headers'), withBefore(`style-src-elem 'self' ${hashesIn(real).join(' ')};`, real));
+    const ok = check(dir);
+    assert.equal(ok.status, 0, ok.stdout + ok.stderr);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// surface-check rule 13 judges the EFFECTIVE directive too. It reads the tracked files with git, so it runs in a throwaway repository of them.
+function surfaceCopy() {
+  const dir = mkdtempSync(join(tmpdir(), 'surface-'));
+  const env = childEnv(dir);
+  const files = spawnSync('git', ['ls-files', '-z'], { cwd: ROOT, encoding: 'utf8', timeout: 30000 }).stdout.split('\0').filter(Boolean);
+  for (const f of files) { mkdirSync(dirname(join(dir, f)), { recursive: true }); writeFileSync(join(dir, f), readFileSync(join(ROOT, f))); }
+  for (const args of [['init', '-q'], ['add', '-A']]) assert.equal(spawnSync('git', args, { cwd: dir, env, timeout: 60000 }).status, 0, 'git ' + args[0]);
+  return dir;
+}
+const surface = dir => spawnSync(process.execPath, ['--max-old-space-size=2048', join(dir, 'scripts/surface-check.mjs')], { encoding: 'utf8', timeout: 120000, cwd: dir, env: childEnv(dir) });
+
+test('surface-check rule 13 judges style-src-elem and script-src-elem, the directives a browser applies to the blocks', () => {
+  const dir = surfaceCopy();
+  try {
+    const real = readFileSync(join(dir, 'web/_headers'), 'utf8');
+    const base = surface(dir);
+    assert.equal(base.status, 0, 'the committed tree passes: ' + base.stdout + base.stderr);
+    const put = text => writeFileSync(join(dir, 'web/_headers'), text);
+    put(withBefore(`style-src-elem 'self' ${DECOY};`, real));
+    const a = surface(dir);
+    assert.equal(a.status, 1, 'a style-src-elem that lacks the hashes fails rule 13: ' + a.stdout + a.stderr);
+    assert.match(a.stdout + a.stderr, /style-src-elem does not admit the inline style whose hash is/);
+    assert.match(a.stdout + a.stderr, /style-src-elem admits 'sha256-DECOY/, 'its stale hash is named too');
+    put(withBefore(`style-src-elem 'self' ${hashesIn(real).join(' ')} https://fonts.googleapis.com;`, real));
+    const b = surface(dir);
+    assert.equal(b.status, 0, 'a style-src-elem that admits every hash and the fonts origin passes: ' + b.stdout + b.stderr);
+    put(real.replace(cspLine(real), line => line.replace('script-src ', () => "script-src-elem 'self'; script-src ")));
+    const c = surface(dir);
+    assert.equal(c.status, 1, 'a script-src-elem without the hash and the beacon fails: ' + c.stdout + c.stderr);
+    assert.match(c.stdout + c.stderr, /script-src-elem does not admit the inline script whose hash is/);
+    assert.match(c.stdout + c.stderr, /script-src-elem is the directive a browser applies to the beacon/);
+    put(real.replace(cspLine(real), line => line.replace('script-src ', () => "script-src-elem 'self' 'unsafe-inline'; script-src ")));
+    const d = surface(dir);
+    assert.equal(d.status, 1, d.stdout + d.stderr);
+    assert.match(d.stdout + d.stderr, /script-src-elem carries 'unsafe-inline'/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
 
 // ── WCAG 2.2 SC 1.4.3: every footer text colour against the background it sits on, at least 4.5:1 ──────────
 // The footer takes its page's colour at full strength (no opacity anywhere in FOOTER_CSS) and hover does not change the colour, so what is

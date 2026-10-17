@@ -99,20 +99,29 @@ export function sync(text, blocks) {
 // The hash of every inline <style> block of a page, in document order (a page with a <noscript><style> has two).
 export const styleHashes = html => inlineStyles(html).map(cspHash);
 
-// The whole directive name: style-src-elem and style-src-attr are other directives that begin with the same letters.
-const STYLE_SRC = /(?<![\w-])style-src(?![\w-])((?:[ \t]+[^;\s]+)*)/;
-
-// The line of the one Content-Security-Policy declaration, or { problem }.
+// The one Content-Security-Policy declaration of _headers, read by DIRECTIVE: the value is split at ";" and a directive is found by its NAME at the
+// start of a part (after trimming), never by searching the line, so "style-src" inside a source URL of another directive, or as the start of
+// style-src-elem, is not the style-src directive. Returns { no, line, head, parts, at, tokens, elem, cr } or { problem }.
+//   at = index of the style-src part, tokens = its sources, elem = the sources of style-src-elem (null when there is none).
 function cspLineOf(headersText) {
   const d = declarations(parseHeadersFile(headersText), 'Content-Security-Policy');
   if (d.length !== 1) return { problem: `declares ${d.length} Content-Security-Policy headers, expected 1` };
   const line = headersText.split('\n')[d[0].line - 1];
-  const m = STYLE_SRC.exec(line);
-  if (!m) return { problem: 'its Content-Security-Policy has no style-src directive' };
-  return { no: d[0].line, line, tokens: m[1].split(/\s+/).filter(Boolean) };
+  const m = /^(\s*Content-Security-Policy:)([^\r]*)(\r?)$/i.exec(line);
+  if (!m) return { problem: 'has a Content-Security-Policy line this sync cannot read' };
+  const parts = m[2].split(';');
+  const nameOf = part => part.trim().split(/\s+/)[0].toLowerCase();
+  const sourcesOf = part => part.trim().split(/\s+/).slice(1);
+  const at = parts.findIndex(p => nameOf(p) === 'style-src');
+  if (at < 0) return { problem: 'its Content-Security-Policy has no style-src directive' };
+  const e = parts.findIndex(p => nameOf(p) === 'style-src-elem');
+  return { no: d[0].line, line, head: m[1], parts, at, tokens: sourcesOf(parts[at]), elem: e < 0 ? null : sourcesOf(parts[e]), cr: m[3] };
 }
 
-// Problems between the pages and the style-src of _headers, as named lines. pages: { 'web/x.html': html } with every page the site serves.
+// Problems between the pages and the policy of _headers, as named lines. pages: { 'web/x.html': html } with every page the site serves.
+// style-src is the directive the sync owns (--write keeps its hashes exact, so a missing and a stale hash are both problems). A browser applies
+// style-src-elem to <style> blocks when the policy has one (CSP3: it falls back to style-src, then default-src, only when absent), so when it is
+// present it must admit every hash too; --write never edits it, so a hash it lacks is a problem named here and fixed by hand.
 export function hashProblems(pages, headersText) {
   const at = cspLineOf(headersText);
   if (at.problem) return ['web/_headers ' + at.problem];
@@ -122,12 +131,14 @@ export function hashProblems(pages, headersText) {
   const out = [];
   for (const [h, from] of want) if (!have.has(h)) out.push(`web/_headers style-src does not admit ${h.slice(1, -1)} (${from}), so the browser would refuse that block`);
   for (const h of have) if (!want.has(h)) out.push(`web/_headers style-src admits ${h.slice(1, -1)}, which no <style> block of the pages matches (a stale hash)`);
+  if (at.elem) for (const [h, from] of want) if (!at.elem.includes(h)) out.push(`web/_headers style-src-elem does not admit ${h.slice(1, -1)} (${from}); the browser applies style-src-elem, not style-src, to <style> blocks, and --write never edits it, so add the hash to it by hand`);
   return out;
 }
 
 // The new text of _headers once the pages have moved from `pre` to `post` (both { file: [hash per style block] }): a hash no page carries any
-// more is replaced, in its place, by the hash its block moved to, or dropped when none did; a hash a page now needs is appended. The rest of
-// the file, the rest of the line and every other directive are kept byte for byte. Returns { text, replaced, removed, added } or { problem }.
+// more is replaced, in its place, by the hash its block moved to, or dropped when none did; a hash a page now needs is appended. Only the
+// style-src part of the policy changes: the rest of the file, the rest of the line and every other directive (style-src-elem included) are kept
+// byte for byte. Returns { text, replaced, removed, added } or { problem }.
 export function planStyleSrc(headersText, pre, post) {
   const at = cspLineOf(headersText);
   if (at.problem) return { problem: 'web/_headers ' + at.problem };
@@ -143,7 +154,11 @@ export function planStyleSrc(headersText, pre, post) {
     if (to.length) { replaced++; to.forEach(push); } else removed++;
   }
   for (const h of want) if (!seen.has(h)) { push(h); added++; }
+  const old = at.parts[at.at];
+  const lead = /^\s*/.exec(old)[0], trail = /\s*$/.exec(old)[0];
+  const parts = at.parts.slice();
+  parts[at.at] = lead + 'style-src ' + out.join(' ') + trail;
   const lines = headersText.split('\n');
-  lines[at.no - 1] = at.line.replace(STYLE_SRC, () => 'style-src ' + out.join(' '));
+  lines[at.no - 1] = at.head + parts.join(';') + at.cr;
   return { text: lines.join('\n'), replaced, removed, added };
 }
