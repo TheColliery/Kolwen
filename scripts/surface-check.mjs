@@ -178,6 +178,11 @@ const SHIPPED = new Set([
   // The plain-text guide for language models (llmstxt.org shape); it states only what the pages state and is not in the sitemap.
   'web/llms.txt',
   'web/favicon.svg', 'web/favicon-32.png', 'web/apple-touch-icon.png', 'web/og.png',
+  // The self-hosted fonts, BY NAME like everything above (a new face or a new script is a deliberate act here, with its OFL.txt beside it): the one manifest every page
+  // links, and the WOFF2 files and licence texts of IBM Plex Sans Thai (a folder per script) and IBM Plex Mono. post-deploy-check lists web/ recursively, so these are checked when deployed.
+  'web/fonts/fonts.css',
+  'web/fonts/thai/IBMPlexSansThai-Regular.woff2', 'web/fonts/thai/IBMPlexSansThai-Medium.woff2', 'web/fonts/thai/IBMPlexSansThai-SemiBold.woff2', 'web/fonts/thai/IBMPlexSansThai-Bold.woff2', 'web/fonts/thai/OFL.txt',
+  'web/fonts/mono/IBMPlexMono-Regular-Latin1.woff2', 'web/fonts/mono/IBMPlexMono-Medium-Latin1.woff2', 'web/fonts/mono/OFL.txt',
 ]);
 for (const f of tracked.filter(f => f.startsWith('web/'))) {
   if (!SHIPPED.has(f)) note(f, 'is tracked under the publish root but is not a declared shipped asset — every path under web/ is a live URL');
