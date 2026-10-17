@@ -8,7 +8,7 @@
 // All text here is LF. The caller splits a page's line endings off with eolOf and puts them back, so a CRLF checkout stays CRLF.
 //
 // Stated limits: a marker is found by its exact text, so a marker copied inside another block's contents would be read as that block's own;
-// the sync does not parse HTML or CSS, and it refuses (never guesses) a page whose markers are missing, doubled or out of order.
+// the sync does not parse HTML or CSS, and it refuses (never guesses) a page whose markers are missing, doubled, out of the order SYNC_BLOCKS gives, or in pairs that overlap or nest.
 import { inlineStyles, cspHash } from './csp-hashes.mjs';
 import { parseHeadersFile, declarations } from './headers-file.mjs';
 

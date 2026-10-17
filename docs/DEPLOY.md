@@ -200,8 +200,9 @@ list of record). Each takes the same `/*` header rule, so the same CSP applies, 
 style block that `/pricing` and the four generated pages share. The home, pricing and not-found pages are hand-kept, but
 the blocks they share with the generated pages (the footer of each language and its CSS) are written into them by
 `node scripts/legal-pages.mjs --write` between fixed markers, and that run also updates the `style-src` hashes in
-`web/_headers`; `--check` (a CI step) fails on a block that differs, a marker that is missing, doubled or out of order, or a
-stale hash. `/pricing`'s buy controls are disabled "Coming soon"
+`web/_headers` (it never edits a `style-src-elem` directive); `--check` (a CI step) fails on a block that differs, a marker
+that is missing, doubled or out of order, marker pairs that overlap or nest, a stale hash, or a `style-src-elem` that lacks one
+(a browser applies that directive to `<style>` blocks when the policy has one). `/pricing`'s buy controls are disabled "Coming soon"
 buttons, and rule 17 of the surface check refuses a live one, a Paddle script or a checkout URL on any production page.
 
 ### Redirects: `web/_redirects`

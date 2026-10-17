@@ -8,12 +8,12 @@
 //
 //   node scripts/legal-pages.mjs --write    render the four pages (terms, privacy, refund, changelog) into web/ (the default); replace what sits
 //                                           between each pair of markers on the three hand-kept pages (every other byte of a page, and its line
-//                                           endings, are kept); update the style-src hashes in web/_headers. A marker that is missing, doubled or
-//                                           out of order makes it refuse: exit 1, loud, nothing written anywhere.
+//                                           endings, are kept); update the style-src hashes in web/_headers (never a style-src-elem directive). A marker that is missing, doubled or
+//                                           out of order, or marker pairs that overlap or nest, make it refuse: exit 1, loud, nothing written anywhere.
 //   node scripts/legal-pages.mjs --check    render in memory; exit 1 with a named difference if a committed page differs, or if
 //                                           web/pricing.html does not carry the same style block, a block on a hand-kept page differs from the
-//                                           shared one or has a marker missing, doubled or out of order, a style-src hash of web/_headers no longer
-//                                           matches the pages, or the hold list is unsound
+//                                           shared one or has a marker missing, doubled or out of order, or pairs that overlap or nest, a style-src hash of web/_headers no longer
+//                                           matches the pages (or a style-src-elem, when the policy has one, lacks one), or the hold list is unsound
 //
 // WHAT IT RENDERS and what it does not: see the header of scripts/lib/legal-render.mjs (the rules for a held passage, the three
 // Markdown shapes it reads, the stated limits). The pages are a pure function of their sources (TERMS.md, PRIVACY.md, the clause file, CHANGELOG.md), the legal-state record
