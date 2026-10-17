@@ -2,7 +2,7 @@
 // Renders web/terms.html, web/privacy.html and web/refund.html from TERMS.md, PRIVACY.md and legal/thai-7day-clause.md, and
 // web/changelog.html from the repository's own CHANGELOG.md (every passage shown as written, no hold), and checks they are the committed
 // pages. It also owns the SHARED BLOCKS: the header and its CSS, the footer of each language and its CSS, the rules for a reader without script and
-// the page script (seven marker pairs) are written once in scripts/lib/legal-render.mjs (SYNC_BLOCKS), and `--write` puts them into the three
+// the page script (eight marker pairs, the link to the font manifest first) are written once in scripts/lib/legal-render.mjs (SYNC_BLOCKS), and `--write` puts them into the three
 // hand-kept pages (index, pricing, 404) between fixed markers, so one edit reaches all seven pages in one run. It also keeps the style-src and
 // script-src hashes of web/_headers in step with the pages' inline <style> and <script> blocks, with the one hash routine surface-check uses (scripts/lib/csp-hashes.mjs), so a footer CSS edit needs no hand-typed hash.
 //

@@ -46,8 +46,8 @@ This repository is the public face of Kolwen. What ships from it:
 - **The model.** Kolwen is in development. No model, weights, or inference service has been
   released and no release date is set, so there is nothing here that runs a model. If and when
   one is released, this scope will be updated.
-- Vulnerabilities in third-party services this repo depends on—Cloudflare, GitHub, PyPI, npm,
-  Google Fonts. Report those to the vendor.
+- Vulnerabilities in third-party services this repo depends on—Cloudflare, GitHub, PyPI and
+  npm. Report those to the vendor.
 - The npm package `kolwen`, which is published from outside this repository. It is ours, so
   **report it here anyway** through the same private link above—this bullet exists to say the
   code is not in this tree, not to leave you without a destination.
