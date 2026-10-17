@@ -26,7 +26,8 @@ export function eolOf(raw) {
 }
 export const withEol = (text, crlf) => (crlf ? text.replace(/\n/g, '\r\n') : text);
 
-// Where a block sits in a page's text: { from, to } (the text between the markers), or { problem }.
+// Where a block sits in a page's text: { from, to } (the text between the markers) and { start, stop } (the whole fenced block, markers
+// included), or { problem }.
 export function locate(text, block) {
   const b = count(text, block.begin), e = count(text, block.end);
   if (b === 0 && e === 0) return { problem: `both markers are missing (${block.begin} and ${block.end})` };
@@ -35,31 +36,63 @@ export function locate(text, block) {
   if (b > 1 || e > 1) return { problem: `a marker is doubled (${b} begin, ${e} end: ${block.begin} ... ${block.end})` };
   const i = text.indexOf(block.begin), j = text.indexOf(block.end);
   if (j < i + block.begin.length) return { problem: `the end marker comes before the begin marker (${block.end} ... ${block.begin})` };
-  return { from: i + block.begin.length, to: j };
+  return { from: i + block.begin.length, to: j, start: i, stop: j + block.end.length };
+}
+
+// EVERY block located on the ORIGINAL text, before anything is replaced, and the blocks checked against each other. `blocks` is in the one expected
+// document order (SYNC_BLOCKS in scripts/lib/legal-render.mjs). Two pairs that overlap or nest across each other, or that do not stand in that
+// order, are problems, never guessed at: a replacement made while another pair's markers sit inside its range would delete them.
+// Returns [{ block, problem } | { block, at }] in the order of `blocks`.
+export function locateAll(text, blocks) {
+  const found = blocks.map(block => ({ block, at: locate(text, block) }));
+  const bad = new Set(found.filter(f => f.at.problem).map(f => f.block));
+  const good = found.filter(f => !f.at.problem);
+  const problem = new Map(found.filter(f => f.at.problem).map(f => [f.block, f.at.problem]));
+  const names = blocks.map(b => b.label).join(', ');
+  for (let i = 0; i < good.length; i++) {
+    for (let j = i + 1; j < good.length; j++) {
+      const a = good[i], b = good[j];
+      const cross = a.at.start < b.at.stop && b.at.start < a.at.stop;
+      if (cross) {
+        const how = (a.at.start < b.at.start && b.at.stop < a.at.stop) || (b.at.start < a.at.start && a.at.stop < b.at.stop) ? 'nest' : 'overlap';
+        for (const [x, y] of [[a, b], [b, a]]) { bad.add(x.block); if (!problem.has(x.block)) problem.set(x.block, `its markers and the ${y.block.label} markers ${how} across each other (${x.block.begin} ... ${x.block.end} against ${y.block.begin} ... ${y.block.end})`); }
+      }
+    }
+  }
+  // Order, among the pairs that are whole and do not cross: each must stand after the one before it in the expected order.
+  const clean = good.filter(f => !bad.has(f.block));
+  for (let i = 1; i < clean.length; i++) {
+    if (clean[i].at.start < clean[i - 1].at.start) {
+      bad.add(clean[i].block);
+      problem.set(clean[i].block, `the ${clean[i].block.label} block stands before the ${clean[i - 1].block.label} block, out of the expected document order (${names})`);
+    }
+  }
+  return found.map(f => (bad.has(f.block) ? { block: f.block, problem: problem.get(f.block) } : f));
 }
 
 // What each block of a page holds against its render: [{ block, problem } | { block, have, want, same }].
 export function inspect(text, blocks) {
-  return blocks.map(block => {
-    const at = locate(text, block);
-    if (at.problem) return { block, problem: at.problem };
-    const have = text.slice(at.from, at.to), want = inner(block.render());
-    return { block, have, want, same: have === want };
+  return locateAll(text, blocks).map(r => {
+    if (r.problem) return r;
+    const have = text.slice(r.at.from, r.at.to), want = inner(r.block.render());
+    return { block: r.block, have, want, same: have === want };
   });
 }
 
-// The page with every block's contents replaced by its render. Writes nothing, and returns the problems instead of a page when any marker is
-// wrong: { text, problems: [{ block, problem }], changed: [label of each block whose contents moved] }.
+// The page with every block's contents replaced by its render. Every pair is located on the original text first; the replacements then run from
+// the end of the page backward, so none of them moves a position another one still needs. Writes nothing, and returns the problems instead of a
+// page when any marker is wrong: { text, problems: [{ block, problem }], changed: [label of each block whose contents moved, in page order] }.
 export function sync(text, blocks) {
-  const problems = [], changed = [];
+  const all = locateAll(text, blocks);
+  const problems = all.filter(r => r.problem).map(r => ({ block: r.block, problem: r.problem }));
+  if (problems.length) return { text, problems, changed: [] };
+  const changed = [];
   let out = text;
-  for (const block of blocks) {
-    const at = locate(out, block);
-    if (at.problem) { problems.push({ block, problem: at.problem }); continue; }
-    const want = inner(block.render());
-    if (out.slice(at.from, at.to) !== want) { changed.push(block.label); out = out.slice(0, at.from) + want + out.slice(at.to); }
+  for (const r of [...all].sort((a, b) => b.at.from - a.at.from)) {
+    const want = inner(r.block.render());
+    if (text.slice(r.at.from, r.at.to) !== want) { changed.unshift(r.block.label); out = out.slice(0, r.at.from) + want + out.slice(r.at.to); }
   }
-  return { text: problems.length ? text : out, problems, changed };
+  return { text: out, problems, changed };
 }
 
 // ── the style-src hashes of web/_headers ────────────────────────────────────────────────────────────

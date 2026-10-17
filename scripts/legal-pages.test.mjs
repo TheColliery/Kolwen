@@ -415,7 +415,7 @@ test('reEscape turns any text into a regex that matches exactly that text, backs
 });
 
 test('the sync markers are named once, in the lib, and are the ones the pages carry', () => {
-  assert.deepEqual(lib.SYNC_BLOCKS.map(b => [b.name, b.begin, b.end]), [MARK.header, MARK.en, MARK.th, MARK.css].map(m => [m.name, m.begin, m.end]));
+  assert.deepEqual(lib.SYNC_BLOCKS.map(b => [b.name, b.begin, b.end]), [MARK.css, MARK.header, MARK.en, MARK.th].map(m => [m.name, m.begin, m.end]), 'the array order is the one expected document order');
   const cli = read('scripts/legal-pages.mjs');
   for (const m of Object.values(MARK)) assert.ok(!cli.includes(m.name), 'the CLI does not retype ' + m.name);
 });
@@ -580,6 +580,35 @@ test('--check fails when a style hash of _headers no longer matches any page, an
     assert.deepEqual(sortedStyleSrc(readFileSync(join(dir, 'web/_headers'), 'utf8')), sortedStyleSrc(before));
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+// ── the pairs are located on the original text and checked against each other: overlap, nesting, order ──────────
+// The text of a pair with its markers, and the page with that text cut out / put back.
+const pairText = (x, m) => x.slice(x.indexOf(m.begin), x.indexOf(m.end) + m.end.length);
+const CROSS = [
+  ['overlap: the end marker of the English footer moved past the begin marker of the Thai one', 'web/index.html', 'en', (x, M) => x.replace(M.en.end, '').replace(M.th.begin, M.th.begin + '\n' + M.en.end), /overlap/],
+  ['nesting: the Thai footer pair inside the English one', 'web/pricing.html', 'en', (x, M) => x.replace(M.en.end, '').replace(M.th.end, M.th.end + '\n' + M.en.end), /nest/],
+  ['overlap: the header pair runs into the English footer pair', 'web/404.html', 'header', (x, M) => x.replace(M.header.end, '').replace(M.en.begin, M.en.begin + '\n' + M.header.end), /overlap/],
+  ['order: the English and Thai footer blocks swapped whole', 'web/index.html', 'th', (x, M) => { const e = pairText(x, M.en), t = pairText(x, M.th); return x.replace(e, '@@E@@').replace(t, e).replace('@@E@@', t); }, /expected document order/],
+  ['order: the header pair above the footer rules in the style block', 'web/404.html', 'header', (x, M) => { const c = pairText(x, M.css), h = pairText(x, M.header); return x.replace(c, '@@C@@').replace(h, c).replace('@@C@@', h); }, /expected document order/],
+];
+for (const [what, f, k, fn, re] of CROSS) {
+  test(`${what} fails --check and --write loudly, and --write writes nothing`, () => {
+    const dir = copyTree();
+    try {
+      edit(dir, f, x => { const y = fn(x, MARK); assert.notEqual(y, x, 'the edit changed the page'); return y; });
+      const before = snap(dir, WATCHED);
+      const r = check(dir);
+      assert.equal(r.status, 1, what + '\n' + r.stdout + r.stderr);
+      assert.match(r.stdout, new RegExp('FAIL ' + reEscape(f) + ' ' + reEscape(LABEL[k]) + ': .*'), what);
+      assert.match(r.stdout, re, what);
+      const w = check(dir, '--write');
+      assert.equal(w.status, 1, what + '\n' + w.stdout + w.stderr);
+      assert.match(w.stdout + w.stderr, re, what);
+      assert.match(w.stdout + w.stderr, /nothing was written/);
+      assert.ok(sameBytes(before, snap(dir, WATCHED)), what + ': nothing changed');
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+}
 
 // ── the style-src directive is found by its whole name: style-src-elem and style-src-attr are other directives ──────────
 const cspLine = text => /^[ \t]+Content-Security-Policy:[^\r\n]*/m.exec(text)[0];

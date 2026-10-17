@@ -249,11 +249,14 @@ export const siteHeaderHtml = () => '';
 // A marker pair is a fixed comment, an HTML comment in the body and a CSS comment in the style block; scripts/lib/page-sync.mjs reads and writes them.
 const htmlPair = name => ({ name, begin: `<!-- ${name}:begin -->`, end: `<!-- ${name}:end -->` });
 const cssPair = name => ({ name, begin: `/* ${name}:begin */`, end: `/* ${name}:end */` });
+// THE ORDER OF THIS ARRAY IS THE ONE EXPECTED DOCUMENT ORDER of the pairs in every one of the seven pages, declared here once: the footer rules in the
+// style block (the head), then the header slot, then the English footer, then the Thai one. scripts/lib/page-sync.mjs reads the pairs in this order and
+// refuses (--check and --write) a page whose pairs overlap, nest across each other or stand in another order, so swapping the two footers cannot pass.
 export const SYNC_BLOCKS = [
+  { ...cssPair('site-footer-css'), label: 'footer css', shared: 'footer rules', render: () => FOOTER_CSS.replace(/\n$/, '') },
   { ...htmlPair('site-header'), label: 'header', shared: 'header', render: siteHeaderHtml },
   { ...htmlPair('site-footer:en'), label: 'en footer', shared: 'footer', render: () => siteFooterHtml('en') },
   { ...htmlPair('site-footer:th'), label: 'th footer', shared: 'footer', render: () => siteFooterHtml('th') },
-  { ...cssPair('site-footer-css'), label: 'footer css', shared: 'footer rules', render: () => FOOTER_CSS.replace(/\n$/, '') },
 ];
 const BLOCK = Object.fromEntries(SYNC_BLOCKS.map(b => [b.name, b]));
 // A block as a page carries it: begin marker, the render, end marker, with the end marker at the start of its line.
