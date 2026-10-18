@@ -258,6 +258,19 @@ test('seam 4: a Set-Cookie header, a document.cookie write and a Worker cookie c
   p('web/index.html', inline('const d = document; d.cookie = "a=b";'), /writes document\.cookie/, 'a write through another name for the document');
   p('web/index.html', inline('cookieLib.set("s", v, { domain: ".kolwen.com" });'), /Domain attribute/, 'a cookie library domain option in an inline script');
   p('web/index.html', inline('cookies.set("s", v);'), /sets a cookie \(a cookie call\)/, 'a cookie library call in an inline script');
+  // a write whose `=` is not right after the property: a comment between them, a destructuring target (array or object, any position), a for-of or for-in target
+  for (const code of ['document.cookie /* c */ = "a=b";', 'document.cookie // c\n = "a=b";', 'document["cookie"] /* c */ += "a=b";', '[document.cookie] = ["a=b"];', '[x, document.cookie] = ["a", "a=b"];', '[document.cookie, y] = z;', '[...document.cookie] = z;',
+    '({ k: document.cookie } = o);', '({ k: document.cookie, j } = o);', '({ a, k: d.cookie } = o);', '[[document.cookie]] = [["a=b"]];', '[document["cookie"]] = ["a=b"];', '[document.cookie = "d"] = [];',
+    'for (document.cookie of ["a=b"]) {}', 'for (d.cookie in o) {}', 'for await (document.cookie of s) {}', 'for (document["cookie"] of l) {}']) {
+    p('web/index.html', inline(code), /writes document\.cookie/, code);
+    p('worker/index.js', code, /writes document\.cookie/, 'a code file: ' + code);
+  }
+  // and the look-alikes that only read are not writes
+  for (const code of ['var [a, b] = [x, document.cookie];', 'f({ k: document.cookie });', 'for (const c of document.cookie.split(";")) {}', 'var o = { k: document.cookie }; var z = 1;', 'if ([document.cookie] == z) {}', 'if ([document.cookie] === z) {}', 'for (var i in document.cookie) {}', 'var q = { k: document.cookie }\nb = 1', 'x = [document.cookie]\ny = 2'])
+    assert.deepEqual(one('web/index.html', inline(code)), [], code);
+  // the stated limits, kept true: these writes are NOT seen (an item that holds = after the target, a parenthesised target), and a destructuring default that only reads is reported
+  for (const code of ['[document.cookie, z = 1] = a;', '[document.cookie, [y = 1]] = a;', '[(document.cookie)] = a;', 'for ((document.cookie) of l) {}']) assert.deepEqual(one('web/index.html', inline(code)), [], 'a stated limit: ' + code);
+  assert.ok(has(one('web/index.html', inline('const { a = document.cookie } = o;')), /writes document\.cookie/), 'a stated loud false positive: a default that reads');
   // a script that is not code (structured data) or prose on the page is not a cookie
   assert.deepEqual(one('web/index.html', '<script type="application/ld+json">{"note": "set-cookie"}</script><p>The Set-Cookie header and cookieStore.set(x) are named here in prose.</p>'), []);
   assert.deepEqual(one('web/index.html', inline('var a = d.cookie; if (d.cookie == "x") {} var s = "Set-Cookie is not sent";')), []);
@@ -313,11 +326,17 @@ test('the one entry point reports every seam: a cookie, a catalogue host key, a 
 
 // A host of the brand other than the one the owner holds: `kolwen.` and a label that is not `com`, except the Worker's own production alias (`kolwen.hetcreep.workers.dev`, which wrangler.jsonc
 // disables and which three files record). Generic: it names no host, and catches any other top-level domain.
-const OTHER_BRAND_HOST = /\bkolwen\.(?!com\b)(?!hetcreep\.workers\.dev\b)[a-z][a-z0-9-]*/i;
+// Each exemption ends at a HOST boundary: a word character or a hyphen, or a dot followed by a letter or digit, continues the host (`kolwen.com.au`, `kolwen.com-shop`,
+// `kolwen.hetcreep.workers.dev.evil`); a dot that ends a sentence does not.
+const OTHER_BRAND_HOST = /\bkolwen\.(?!com(?![\w-]|\.[a-z0-9]))(?!hetcreep\.workers\.dev(?![\w-]|\.[a-z0-9]))[a-z][a-z0-9-]*/i;
 
 test('the guard against a host the owner does not hold names none, and catches any other top-level domain', () => {
   for (const host of ['kolwen.invalid', 'KOLWEN.INVALID', 'kolwen.example', 'a visit to kolwen.test/x', 'kolwen.some-other']) assert.ok(OTHER_BRAND_HOST.test(host), host);
+  // an exemption ends at a HOST boundary: a name that only STARTS with an approved host is another host (a different registrable domain, or a suffixed alias)
+  for (const host of ['kolwen.com.au', 'kolwen.com.th/x', 'see kolwen.com.au.', 'kolwen.com-shop.example', 'kolwen.comx', 'kolwen.hetcreep.workers.dev.evil', 'kolwen.hetcreep.workers.devx', 'kolwen.hetcreep.workers.dev-2.example']) assert.ok(OTHER_BRAND_HOST.test(host), host);
   for (const ok of ['kolwen.com', 'KOLWEN.COM/pricing', 'ic.kolwen.com', 'kolwen.hetcreep.workers.dev', 'the Kolwen word mark']) assert.ok(!OTHER_BRAND_HOST.test(ok), ok);
+  // the host also ends at punctuation: a sentence that ends with the host, or a list of them, is not another host
+  for (const ok of ['Visit kolwen.com.', 'kolwen.com, kolwen.com; kolwen.com) kolwen.com?', 'kolwen.com.\nNext line', 'kolwen.com:443/x', 'https://kolwen.com/', 'the alias kolwen.hetcreep.workers.dev.', 'kolwen.hetcreep.workers.dev/path']) assert.ok(!OTHER_BRAND_HOST.test(ok), ok);
 });
 
 test('the map holds only the live group, and no tracked file but this test names a host the owner has not bought', () => {
