@@ -7,13 +7,26 @@
 // ONE PROFILE, REUSED, NEVER DELETED. Every run uses the same profile folder: KOLWEN_BROWSER_PROFILE if set, else kolwen-browser-profile in the OS temp folder (profilePath()). It is made once and this
 // module never deletes it or anything in it (it imports no delete call, and a test holds it to that). Why: measured on the owner's Windows box, a file-system filter refuses every process but the
 // browser READ, WRITE and DELETE on the files Edge writes, so a profile made per run (or per launch) can never be removed again and they pile up (81 folders, about 1 GB; warehouse
-// research/browser-test-profiles-2026-10-18/FINDINGS.md). State is cleared between pages over the protocol instead (page.clearState). A profile can be open in one browser at a time: a second
-// launch finds the first browser's port in the profile's DevToolsActivePort, asks it over HTTP, and fails at once with one line. The browser child gets the profile as its HOME and TEMP.
+// research/browser-test-profiles-2026-10-18/FINDINGS.md). A profile can be open in one browser at a time: a second launch finds the first browser's port in the profile's DevToolsActivePort,
+// asks it over HTTP, and fails at once with one line. The browser child gets the profile as its HOME and TEMP.
+//
+// ONLY A FOLDER THIS CODE MADE. The profile folder carries a marker file (MARKER) written when the code made it; an existing folder with files in it and no marker is refused with one line, before
+// anything is started, so KOLWEN_BROWSER_PROFILE can never point this code at a person's real browser profile (prepareProfile).
+//
+// EVERY PAGE IN A CONTEXT OF ITS OWN. newPage() creates a browser context (Target.createBrowserContext) and the page lives in it: it is off the record, so the page sees no cookie or storage of the
+// profile's default context, nothing it writes outlives the context, and page.close() disposes the context. Nothing here clears cookies or cache browser-wide. The default context is only ever
+// READ (defaultCookies()), so a run can fail loudly if the profile holds a cookie from outside the served origin.
+//
+// NO SIGN-IN, NO NETWORK. Measured on the owner's box: a headless Edge on a fresh profile signs the Windows Microsoft account in by itself at start and puts 17 cookies in the default context
+// (.bing.com, .msn.com, www.bing.com, among them .MSA.Auth and _U); with --disable-features=msImplicitSignin it puts none, on two launches of the same profile. A profile that was ALREADY signed in
+// is not helped by that switch alone: after the cookies were cleared, Edge put the same 17 back within 4 s. What stops it there is that the browser can resolve no host name at all
+// (--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE 127.0.0.1): the cookies stayed at 0 at 4 s and at 12 s. The check opens only the caller's own server on 127.0.0.1, so it needs no other host.
+// Both are in the arguments of launchBrowser.
 //
 // WHAT IS NOT SANDBOXED: with CI set, the browser is started with --no-sandbox, because the runner's kernel refuses the browser's own sandbox to an unprivileged user (Ubuntu 24.04) and the only pages
 // it opens are this repository's own files served from 127.0.0.1 by the caller. Locally the sandbox stays on.
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, delimiter } from 'node:path';
 
@@ -40,6 +53,27 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 
 // The one profile folder of this machine and user. The same path on every call, in every run.
 export const profilePath = (env = process.env, temp = tmpdir()) => resolve(env[PROFILE_ENV] || join(temp, 'kolwen-browser-profile'));
+
+// The file this code writes into a profile folder when it makes the folder.
+export const MARKER = 'kolwen-browser-profile.marker';
+
+// Make the profile folder if it is not there (and mark it), accept a folder that carries the marker, adopt an existing EMPTY folder (nothing of anyone's is in it), and refuse anything else with
+// one line naming the path: a folder with files in it and no marker was not made by this code, and may be a person's real browser profile.
+export function prepareProfile(profile) {
+  const marker = join(profile, MARKER);
+  if (existsSync(marker)) return;
+  const refuse = () => new Error(`the browser profile ${profile} is a folder this check did not make (it has no ${MARKER}), so it is not used; point ${PROFILE_ENV} at a new or empty folder`);
+  if (existsSync(profile)) {
+    if (!statSync(profile).isDirectory() || readdirSync(profile).length > 0) throw refuse();
+  } else mkdirSync(profile, { recursive: true });
+  writeFileSync(marker, 'made by scripts/lib/browser.mjs for the Kolwen rendered check; only that check uses this folder\n');
+}
+
+// A cookie reduced to what may be shown: its name and its domain. The value is dropped here, where the browser's answer is received, so no later line can print it.
+const shown = ({ name, domain }) => ({ name: String(name), domain: String(domain) });
+
+// The cookies of a list that are not the served origin's own (127.0.0.1): what a run must not find in any jar.
+export const foreignCookies = list => list.filter(c => c.domain.replace(/^\./, '') !== '127.0.0.1');
 
 // A port from the first line of DevToolsActivePort: decimal digits, 1 to 65535, as a number; null for anything else. The file is data, so the number is all that is taken from that line.
 const portOf = line => (/^[0-9]{1,5}$/.test(line) && Number(line) >= 1 && Number(line) <= 65535 ? Number(line) : null);
@@ -101,13 +135,16 @@ class Connection {
 export async function launchBrowser({ binary, lifetimeMs = 300000, commandTimeoutMs = 20000, ci = process.env.CI === 'true' } = {}) {
   if (typeof WebSocket !== 'function') throw new Error('this Node has no global WebSocket (Node 22.4 or newer is needed)');
   const profile = profilePath();
-  mkdirSync(profile, { recursive: true });
+  prepareProfile(profile); // before anything is started: a folder this code did not make is refused here
   if (await profileInUse(profile)) throw new Error(`the browser profile ${profile} is in use by another run`);
   const portFile = join(profile, 'DevToolsActivePort');
   // a port file left by an earlier browser that was killed is not this browser's: only a file that differs from it (or is newer) is
   const left = existsSync(portFile) ? { text: readFileSync(portFile, 'utf8'), mtimeMs: statSync(portFile).mtimeMs } : null;
   const args = ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', '--disable-gpu', '--disable-extensions', '--disable-background-networking',
-    '--disable-component-update', '--disable-sync', '--metrics-recording-only', '--hide-scrollbars', '--js-flags=--max-old-space-size=512', ...(ci ? ['--no-sandbox'] : []), 'about:blank'];
+    '--disable-component-update', '--disable-sync', '--metrics-recording-only', '--hide-scrollbars', '--js-flags=--max-old-space-size=512',
+    '--disable-features=msImplicitSignin', // Edge signs the Windows Microsoft account in by itself at start without it (see NO SIGN-IN above); Chrome and Chromium ignore the name
+    '--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE 127.0.0.1', // no host name resolves: nothing of Microsoft's (or anyone's) is reachable, so no sign-in cookie can come back
+    ...(ci ? ['--no-sandbox'] : []), 'about:blank'];
   // the browser's own HOME and TEMP are the profile, so what it writes outside --user-data-dir lands in the one folder, not in the user's. USERPROFILE is NOT overridden: measured with
   // Microsoft Edge on Windows, a headless Edge started with USERPROFILE set to its profile never wrote DevToolsActivePort (8 s), while HOME, the XDG folders and TEMP/TMP/TMPDIR each did.
   const env = { ...process.env, HOME: profile, TEMP: profile, TMP: profile, TMPDIR: profile, XDG_CONFIG_HOME: profile, XDG_CACHE_HOME: profile };
@@ -142,8 +179,15 @@ export async function launchBrowser({ binary, lifetimeMs = 300000, commandTimeou
     return {
       binary,
       profile,
+      // Browser-level protocol commands, for a test that has to reach the default context.
+      send: (method, params) => conn.send(method, params),
+      // The cookies of the profile's DEFAULT context, names and domains only. Read, never cleared.
+      async defaultCookies() { return (await conn.send('Storage.getCookies', {})).cookies.map(shown); },
+      // A page in a browser context of its own (see EVERY PAGE IN A CONTEXT OF ITS OWN above); page.close() disposes the context.
       async newPage() {
-        const { targetId } = await conn.send('Target.createTarget', { url: 'about:blank' });
+        // disposeOnDetach: the context goes with the connection if this process dies before close()
+        const { browserContextId } = await conn.send('Target.createBrowserContext', { disposeOnDetach: true });
+        const { targetId } = await conn.send('Target.createTarget', { url: 'about:blank', browserContextId });
         const { sessionId } = await conn.send('Target.attachToTarget', { targetId, flatten: true });
         const send = (method, params) => conn.send(method, params, sessionId);
         await send('Page.enable');
@@ -157,13 +201,8 @@ export async function launchBrowser({ binary, lifetimeMs = 300000, commandTimeou
           // Resize the viewport (CSS px). `mobile: false`: the page is laid out as a desktop browser window of this width.
           async setViewport(width, height = 800) { await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false }); },
           async setColorScheme(scheme) { await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: scheme }] }); },
-          // Clear what an earlier page left in the one profile, over the protocol and not by touching a file: the cookies, every kind of storage of `origin` (localStorage included) and the HTTP cache.
-          // Storage of an origin from an earlier run (this server's port differs every run) is not reachable by name and stays in the profile, a few bytes each.
-          async clearState(origin) {
-            await send('Network.clearBrowserCookies');
-            await send('Network.clearBrowserCache');
-            await send('Storage.clearDataForOrigin', { origin, storageTypes: 'all' });
-          },
+          // The cookies of THIS page's context, names and domains only.
+          async cookies() { return (await conn.send('Storage.getCookies', { browserContextId })).cookies.map(shown); },
           async goto(url) {
             const loaded = new Promise((res, rej) => {
               const timer = setTimeout(() => rej(new Error(`${url}: the page did not finish loading in ${commandTimeoutMs} ms`)), commandTimeoutMs);
@@ -180,7 +219,10 @@ export async function launchBrowser({ binary, lifetimeMs = 300000, commandTimeou
             return r.result.value;
           },
           async screenshot() { const { data } = await send('Page.captureScreenshot', { format: 'png' }); return Buffer.from(data, 'base64'); },
-          async close() { try { await conn.send('Target.closeTarget', { targetId }); } catch { /* the browser may be gone */ } },
+          async close() {
+            try { await conn.send('Target.closeTarget', { targetId }); } catch { /* the browser may be gone */ }
+            try { await conn.send('Target.disposeBrowserContext', { browserContextId }); } catch { /* the browser may be gone */ }
+          },
         };
       },
       async close() {

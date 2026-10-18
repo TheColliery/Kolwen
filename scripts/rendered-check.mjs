@@ -26,7 +26,7 @@
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { htmlPages } from './lib/web-files.mjs';
-import { findBrowser, launchBrowser, BROWSER_ENV } from './lib/browser.mjs';
+import { findBrowser, launchBrowser, foreignCookies, BROWSER_ENV } from './lib/browser.mjs';
 import { serveWeb } from './lib/static-server.mjs';
 import { READING } from './lib/layout-tokens.mjs';
 import { parseColor } from './lib/contrast.mjs';
@@ -210,22 +210,42 @@ export function classifyLogs(logs) {
 
 // ── the run ──────────────────────────────────────────────────────────────────────────────────────────────────────
 // Returns { failures: [{ page, lang, check, detail }], measured: [{ page, lang, check, ... }], notes: [{ page, lang, kind, text }] }. A note is something the browser said that is not a failure.
+// Cookies for a failure line: the domain and the names, never a value (a cookie reaches this file with its value already dropped).
+const jarDetail = (list, where) => {
+  const by = new Map();
+  for (const c of list) by.set(c.domain, [...(by.get(c.domain) ?? []), c.name]);
+  const shown = [...by.entries()].sort().slice(0, 8).map(([d, names]) => `${d} (${names.sort().slice(0, 12).join(', ')}${names.length > 12 ? ', ...' : ''})`).join('; ');
+  return `${list.length} cookie(s) outside the served 127.0.0.1 origin in ${where}: ${shown}${by.size > 8 ? '; ...' : ''}`;
+};
+
 export async function renderedChecks({ webDir, browser, checks = ALL_CHECKS, headers = true }) {
   const failures = [], measured = [], notes = [], languageFailed = new Set();
   const server = await serveWeb(webDir, { headers });
-  const page = await browser.newPage();
+  // Every page and language is measured in a browser context of its own (see browser.mjs): off the record, so it sees nothing of the profile's default context and leaves nothing in it. Before
+  // the context is disposed its jar is read: any cookie from outside the served origin is a failure, names and domains only.
+  let page = null, pageTag = null;
+  const closePage = async () => {
+    if (!page) return;
+    const done = page;
+    page = null;
+    try {
+      const bad = foreignCookies(await done.cookies());
+      if (bad.length) failures.push({ ...pageTag, check: 'cookies', detail: jarDetail(bad, 'the browser context of this page') });
+    } finally { await done.close(); }
+  };
   try {
     for (const file of htmlPages(webDir)) {
       const path = urlPathOf(file);
       for (const lang of ['en', 'th']) {
         const tag = { page: file, lang };
+        await closePage();
+        page = await browser.newPage();
+        pageTag = tag;
         const open = async width => {
           page.logs.length = 0;
           await page.setViewport(width, 800);
-          // The browser profile is the same one on every run and its storage outlives a page: the cookies, the storage of this origin and the cache are cleared over the protocol before every load.
-          await page.clearState(server.origin);
           await page.goto(server.origin + path);
-          // The page script remembers the language in localStorage (one key), and every page shares this server's origin: so the language is chosen by pressing its switch on every load, never assumed.
+          // The page script remembers the language in localStorage (one key) of its context, and the context is new for every page and language: still, the language is chosen by pressing its switch on every load, never assumed.
           const got = await page.evaluate(`(() => { const b = document.querySelector('[data-lang-set="${lang}"]'); if (b) b.click(); return document.documentElement.lang; })()`);
           // a page whose switch is missing, or does not set the language, would be measured in the language it opens in, not the one asked for: say so, once
           if (got !== lang && !languageFailed.has(file + ' ' + lang)) {
@@ -304,7 +324,10 @@ export async function renderedChecks({ webDir, browser, checks = ALL_CHECKS, hea
         }
       }
     }
-  } finally { await page.close(); await server.close(); }
+  } finally { await closePage(); await server.close(); }
+  // After every run: the profile's default context must hold no cookie from outside the served origin (Edge once signed the Windows Microsoft account in there by itself). Read, never cleared.
+  const stray = foreignCookies(await browser.defaultCookies());
+  if (stray.length) failures.push({ page: '(browser profile)', lang: '-', check: 'cookies', detail: jarDetail(stray, `the default context of the browser profile ${browser.profile}`) });
   return { failures, measured, notes };
 }
 

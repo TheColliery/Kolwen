@@ -6,7 +6,7 @@
 // Every child has a bound: the browser has a heap cap and a kill timer (scripts/lib/browser.mjs). Run: node --test scripts/rendered-check.test.mjs
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -341,18 +341,117 @@ test('a second launch while a browser has the profile fails at once with one lin
   try { assert.equal(await page.evaluate('1 + 1'), 2); } finally { await page.close(); }
 });
 
-test('clearState: a language the last page left in localStorage is gone on the next load, so a page is measured in the language it opens in', { skip: SKIP }, async () => {
+// ── a context for every page, a marker for the profile, a jar that stays clean ──────────────────────────────────
+// The profile of a headless Edge held the owner's Microsoft account sign-in cookies (.bing.com, .msn.com: .MSA.Auth and _U), put there by Edge itself at start. Pages are measured in a browser
+// context of their own so they never see that jar, nothing clears a jar browser-wide, a run fails if any jar holds a cookie from outside the served origin, and only a folder this code made is used.
+test('prepareProfile: it makes and marks a new folder, accepts its own, adopts an empty one, and refuses any other folder with one line before anything starts', () => {
+  const root = mkdtempSync(join(tmpdir(), 'kolwen-test-prep-'));
+  copies.push(root);
+  const { prepareProfile, MARKER } = browserLib;
+  const fresh = join(root, 'fresh');
+  prepareProfile(fresh);
+  assert.ok(existsSync(join(fresh, MARKER)), 'the marker is written when the folder is made');
+  prepareProfile(fresh); // its own folder again: accepted
+  const empty = join(root, 'empty');
+  mkdirSync(empty);
+  prepareProfile(empty);
+  assert.ok(existsSync(join(empty, MARKER)), 'an empty folder holds nothing of anyone, so it is adopted and marked');
+  // a real browser profile has files and no marker
+  const real = join(root, 'User Data');
+  mkdirSync(join(real, 'Default'), { recursive: true });
+  writeFileSync(join(real, 'Default', 'Cookies'), 'x');
+  writeFileSync(join(real, 'Local State'), '{}');
+  assert.throws(() => prepareProfile(real), e => {
+    assert.match(e.message, /^the browser profile .*User Data is a folder this check did not make \(it has no kolwen-browser-profile\.marker\), so it is not used; point KOLWEN_BROWSER_PROFILE at a new or empty folder$/);
+    assert.ok(!e.message.includes('\n'), 'one line');
+    return true;
+  });
+  assert.equal(existsSync(join(real, MARKER)), false, 'and nothing is written into it');
+  const file = join(root, 'afile');
+  writeFileSync(file, 'x');
+  assert.throws(() => prepareProfile(file), /is a folder this check did not make/);
+});
+
+test('launchBrowser refuses a profile folder it did not make before it starts anything, and writes nothing into it', async () => {
+  const real = mkdtempSync(join(tmpdir(), 'kolwen-test-real-'));
+  copies.push(real);
+  writeFileSync(join(real, 'Local State'), '{}');
+  const old = process.env.KOLWEN_BROWSER_PROFILE;
+  process.env.KOLWEN_BROWSER_PROFILE = real;
+  try {
+    // the binary does not exist: a launch that got as far as starting it would fail with a different error
+    await assert.rejects(launchBrowser({ binary: join(tmpdir(), 'no-such-browser-binary') }), /^Error: the browser profile .* is a folder this check did not make/);
+  } finally { if (old === undefined) delete process.env.KOLWEN_BROWSER_PROFILE; else process.env.KOLWEN_BROWSER_PROFILE = old; }
+  assert.deepEqual(readdirSync(real), ['Local State']);
+});
+
+test('foreignCookies: only the served origin\'s own cookies are allowed in a jar', () => {
+  const f = browserLib.foreignCookies;
+  const jar = [{ name: 'a', domain: '127.0.0.1' }, { name: 'b', domain: '.bing.com' }, { name: 'c', domain: 'www.bing.com' }, { name: 'd', domain: '.127.0.0.1' }, { name: 'e', domain: 'localhost' }];
+  assert.deepEqual(f(jar).map(c => c.name), ['b', 'c', 'e']);
+  assert.deepEqual(f([]), []);
+});
+
+test('nothing clears cookies or the cache browser-wide: no clearBrowserCookies, clearBrowserCache, clearCookies or clearState in the run path', () => {
+  const code = f => readFileSync(join(ROOT, f), 'utf8').split(/\r?\n/).map(l => l.replace(/\/\/.*$/, '')).join('\n');
+  for (const f of ['scripts/lib/browser.mjs', 'scripts/rendered-check.mjs']) assert.doesNotMatch(code(f), /clearBrowserCookies|clearBrowserCache|clearCookies|clearState|clearDataForOrigin/, f);
+});
+
+test('every page lives in a context of its own: it sees nothing of another page\'s storage or cookies or of the default context, a cookie list carries no value, and close() disposes the context', { skip: SKIP }, async () => {
+  const server = await serveWeb(join(ROOT, 'web'), { headers: false });
+  const contexts = async () => (await browser.send('Target.getBrowserContexts')).browserContextIds.length;
+  const base = await contexts();
+  const a = await browser.newPage(), b = await browser.newPage();
+  try {
+    assert.equal(await contexts(), base + 2, 'one context for each page');
+    await a.goto(server.origin + '/pricing');
+    await a.evaluate('document.querySelector(\'[data-lang-set="th"]\').click()');
+    await a.goto(server.origin + '/terms');
+    assert.equal(await a.evaluate('document.documentElement.lang'), 'th', 'precondition: a context remembers its own language');
+    await b.goto(server.origin + '/terms');
+    assert.equal(await b.evaluate('document.documentElement.lang'), 'en', 'another context does not');
+    await a.send('Network.setCookie', { name: 'kwctx', value: 'not-for-print', url: server.origin + '/' });
+    const mine = await a.cookies();
+    assert.deepEqual(mine.map(c => c.name), ['kwctx']);
+    assert.deepEqual(Object.keys(mine[0]).sort(), ['domain', 'name'], 'name and domain only: the value is dropped where the browser answers');
+    assert.deepEqual(await b.cookies(), [], 'not in the other context');
+    assert.equal((await browser.defaultCookies()).some(c => c.name === 'kwctx'), false, 'and not in the default jar');
+  } finally { await a.close(); await b.close(); await server.close(); }
+  assert.equal(await contexts(), base, 'both contexts are disposed');
+});
+
+test('the browser resolves no host name: localhost does not resolve, the server on 127.0.0.1 does', { skip: SKIP }, async () => {
   const server = await serveWeb(join(ROOT, 'web'), { headers: false });
   const page = await browser.newPage();
   try {
-    await page.goto(server.origin + '/pricing');
-    await page.evaluate('document.querySelector(\'[data-lang-set="th"]\').click()');
-    await page.goto(server.origin + '/terms');
-    assert.equal(await page.evaluate('document.documentElement.lang'), 'th', 'precondition: the remembered language carries to the next page');
-    await page.clearState(server.origin);
-    await page.goto(server.origin + '/terms');
-    assert.equal(await page.evaluate('document.documentElement.lang'), 'en', 'cleared');
+    const port = new URL(server.origin).port;
+    const named = await page.send('Page.navigate', { url: `http://localhost:${port}/` });
+    assert.equal(named.errorText, 'net::ERR_NAME_NOT_RESOLVED', 'a host name is not resolved, so no Microsoft endpoint can be reached');
+    const ip = await page.send('Page.navigate', { url: server.origin + '/' });
+    assert.equal(ip.errorText, undefined, 'the served origin on 127.0.0.1 loads');
   } finally { await page.close(); await server.close(); }
+});
+
+test('the jar check: a cookie from outside the served origin fails the run, in the default context and in the context of a page, with its name and domain and never its value', { skip: SKIP }, async () => {
+  const PLANTED_VALUE = 'kwplantedvalue';
+  const planted = value => browser.send('Storage.setCookies', { cookies: [{ name: 'kwplanted', value, domain: 'kwprobe.invalid', path: '/', ...(value === PLANTED_VALUE ? {} : { expires: 1 }) }] });
+  await planted(PLANTED_VALUE);
+  try {
+    const r = await run(copyWeb(), ['reflow']);
+    const hit = r.failures.filter(f => f.check === 'cookies');
+    assert.equal(hit.length, 1, JSON.stringify(r.failures));
+    assert.equal(hit[0].page, '(browser profile)');
+    assert.match(hit[0].detail, /^1 cookie\(s\) outside the served 127\.0\.0\.1 origin in the default context of the browser profile .+: kwprobe\.invalid \(kwplanted\)$/);
+    assert.ok(!JSON.stringify(r).includes(PLANTED_VALUE), 'the value is nowhere in the result');
+  } finally { await planted('gone'); } // an expired cookie of the same name is the removal
+  assert.equal((await browser.defaultCookies()).some(c => c.name === 'kwplanted'), false, 'the planted cookie is gone again');
+  assert.deepEqual((await run(copyWeb(), ['reflow'])).failures, [], 'with the jar clean the same run passes');
+  // the jar of a page's own context is read before the context is disposed
+  const wrapped = { ...browser, newPage: async () => { const p = await browser.newPage(), real = p.cookies; return Object.assign(p, { cookies: async () => [...(await real()), { name: 'kwctxbad', domain: '.bing.com' }] }); } };
+  const r2 = await renderedChecks({ webDir: copyWeb(), browser: wrapped, checks: ['reflow'], headers: false });
+  const pages = r2.failures.filter(f => f.check === 'cookies');
+  assert.equal(pages.length, 14, 'one per page and language (7 x 2): ' + pages.length);
+  assert.ok(pages.every(f => f.detail === '1 cookie(s) outside the served 127.0.0.1 origin in the browser context of this page: .bing.com (kwctxbad)'), pages[0].detail);
 });
 
 test('the command line: with no browser CI fails and a developer run skips visibly', () => {
