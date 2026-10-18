@@ -8,6 +8,7 @@ import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { reEscape } from './lib/re-escape.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const lib = await import(new URL('./lib/legal-render.mjs', import.meta.url));
@@ -20,8 +21,6 @@ const holds = JSON.parse(read('scripts/lib/legal-holds.json'));
 const state = JSON.parse(read('legal/legal-state.json'));
 const inputs = () => ({ terms: read('TERMS.md'), privacy: read('PRIVACY.md'), clause: read('legal/thai-7day-clause.md'), changelog: read('CHANGELOG.md'), state, holds });
 const count = (s, needle) => s.split(needle).length - 1;
-// A literal string as a regex source: every metacharacter is escaped, the backslash included, in one pass.
-const reEscape = text => text.replace(/[\\^$.*+?()[\]{}|\/-]/g, m => '\\' + m);
 // The English document of a page: the text between the two document containers.
 const docEn = html => html.slice(html.indexOf('id="doc-en"'), html.indexOf('id="doc-th"'));
 const docTh = html => html.slice(html.indexOf('id="doc-th"'), html.indexOf('</main>'));
@@ -414,6 +413,16 @@ test('reEscape turns any text into a regex that matches exactly that text, backs
   assert.ok(new RegExp('^' + reEscape(text) + '$').test(text));
   assert.ok(!new RegExp('^' + reEscape('a.c') + '$').test('abc'), 'a dot stays a dot');
   assert.ok(!new RegExp('^' + reEscape('a\\.c') + '$').test('a.c'), 'a backslash before a dot is two characters');
+});
+
+test('reEscape output is a valid pattern under the u and v flags too, for every printable ASCII character (a hyphen outside a class needs no escape, and "\\-" is a SyntaxError there)', () => {
+  for (const flags of ['', 'u', 'v']) {
+    for (let code = 0x20; code < 0x7f; code++) {
+      const c = String.fromCharCode(code);
+      assert.ok(new RegExp('^' + reEscape(c) + '$', flags).test(c), `U+${code.toString(16)} with flags "${flags}"`);
+      assert.ok(new RegExp('^' + reEscape('a' + c + 'b') + '$', flags).test('a' + c + 'b'), `a${c}b with flags "${flags}"`);
+    }
+  }
 });
 
 test('the sync markers are named once, in the lib, and are the ones the pages carry', () => {

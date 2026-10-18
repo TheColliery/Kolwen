@@ -3,26 +3,27 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { readFileSync, readdirSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { facesOf, inRange } from './lib/font-coverage.mjs';
+import { reEscape } from './lib/re-escape.mjs';
+import { servedFiles } from './lib/web-files.mjs';
+import { renderedChars } from './lib/rendered-text.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const WEB = join(ROOT, 'web');
 const read = rel => readFileSync(join(ROOT, rel), 'utf8').replace(/\r\n/g, '\n');
-const PAGES = ['index', 'pricing', '404', 'terms', 'privacy', 'refund', 'changelog'].map(n => `web/${n}.html`);
+// Every page of web/, derived (a fixed list stops covering the day a page is added, a /th/ page among them), by the lister the font coverage check uses.
+const PAGES = servedFiles(WEB).filter(f => f.endsWith('.html')).map(f => 'web/' + f);
 
-// The faces of a manifest: one object per @font-face.
-const facesOf = css => [...css.matchAll(/@font-face\s*\{([^}]*)\}/g)].map(m => {
-  const b = m[1];
-  return { family: (/font-family:\s*'([^']+)'/.exec(b) || [])[1], weight: Number((/font-weight:\s*(\d+)/.exec(b) || [])[1]), display: (/font-display:\s*(\w+)/.exec(b) || [])[1],
-    urls: [...b.matchAll(/url\(\s*'?([^')\s]+)'?\s*\)/g)].map(x => x[1]), range: (/unicode-range:\s*([^;]+);/.exec(b) || [])[1] };
-});
 const manifest = () => facesOf(read('web/fonts/fonts.css'));
-const inRange = (cp, range) => range.split(',').some(part => { const [a, b] = part.trim().replace(/^U\+/i, '').split('-'); return cp >= parseInt(a, 16) && cp <= parseInt(b || a, 16); });
 const filesUnder = dir => readdirSync(dir, { withFileTypes: true }).flatMap(e => (e.isDirectory() ? filesUnder(join(dir, e.name)) : [join(dir, e.name)]));
 const rel = p => relative(ROOT, p).split(sep).join('/');
+// The manifest's own url for a font file (the names carry a hash of the bytes, so a test never writes one).
+const urlOf = re => manifest().flatMap(f => f.urls).find(u => re.test(u));
+const SANS_400 = () => urlOf(/kw-sans-thai-400\./), MONO_500 = () => urlOf(/kw-mono-500\./);
 
 test('the manifest names every face of the two families, each with font-display swap, a unicode-range and one same-origin woff2 file that exists', () => {
   const faces = manifest();
@@ -32,16 +33,16 @@ test('the manifest names every face of the two families, each with font-display 
     assert.equal(f.display, 'swap', id + ': font-display swap');
     assert.ok(f.range && /^U\+/i.test(f.range.trim()), id + ': a unicode-range');
     assert.equal(f.urls.length, 1, id + ': one src url');
-    assert.match(f.urls[0], /^\/fonts\/[a-z]+\/[A-Za-z0-9-]+\.woff2$/, id + ': a same-origin woff2 under /fonts/: ' + f.urls[0]);
+    assert.match(f.urls[0], /^\/fonts\/[a-z]+\/[a-z0-9-]+\.[0-9a-f]{10}\.woff2$/, id + ': a same-origin versioned woff2 under /fonts/: ' + f.urls[0]);
     const file = join(WEB, f.urls[0]);
     assert.ok(existsSync(file), id + ': the file exists: ' + f.urls[0]);
     assert.equal(readFileSync(file).subarray(0, 4).toString('latin1'), 'wOF2', id + ': the file is a WOFF2');
   }
   const have = new Set(faces.map(f => `${f.family}|${f.weight}`));
-  for (const w of [400, 500, 600, 700]) assert.ok(have.has(`IBM Plex Sans Thai|${w}`), 'Plex Sans Thai ' + w);
-  for (const w of [400, 500]) assert.ok(have.has(`IBM Plex Mono|${w}`), 'Plex Mono ' + w);
+  for (const w of [400, 500, 600, 700]) assert.ok(have.has(`KW Sans Thai|${w}`), 'Sans Thai ' + w);
+  for (const w of [400, 500]) assert.ok(have.has(`KW Mono|${w}`), 'Mono ' + w);
   assert.equal(new Set(faces.map(f => f.family)).size, 2, 'two families and no other');
-  for (const w of [400, 500, 600, 700]) assert.equal(faces.filter(f => f.family === 'IBM Plex Sans Thai' && f.weight === w).length, 2, 'Sans ' + w + ': one declaration for Thai and one for Latin');
+  for (const w of [400, 500, 600, 700]) assert.equal(faces.filter(f => f.family === 'KW Sans Thai' && f.weight === w).length, 2, 'Sans ' + w + ': one declaration for Thai and one for Latin');
 });
 
 test('no font file is left out of the manifest, and every font folder carries the full OFL text', () => {
@@ -59,16 +60,35 @@ test('no font file is left out of the manifest, and every font folder carries th
   assert.deepEqual(onDisk.map(rel).filter(p => !p.endsWith('.woff2') && !p.endsWith('OFL.txt')), ['web/fonts/fonts.css'], 'nothing else sits under web/fonts');
 });
 
+// Every character a page of `root` draws that no declared Sans range holds (coverageGaps hands such a character to this check). The characters are the derived set of the font checks (entities, CSS content and script strings included), not a second extractor.
+const sansMisses = root => {
+  const sans = facesOf(readFileSync(join(root, 'web/fonts/fonts.css'), 'utf8')).filter(f => f.family === 'KW Sans Thai').map(f => f.range).join(', ');
+  const out = [];
+  for (const [cp, pages] of renderedChars(join(root, 'web'))) if (cp > 0x20 && !inRange(cp, sans)) out.push('U+' + cp.toString(16).toUpperCase() + ' ' + [...pages].join(','));
+  return out;
+};
+
 test('every character the pages show in the sans family is inside a declared Sans range, so no page falls back for a letter the files carry', () => {
-  const sans = manifest().filter(f => f.family === 'IBM Plex Sans Thai').map(f => f.range).join(', ');
-  const ENT = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
-  const missing = new Map();
-  for (const p of PAGES) {
-    let t = read(p).replace(/<(style|script)\b[\s\S]*?<\/\1\b[^>]*>/gi, ' ').replace(/<!--[\s\S]*?-->/g, ' ').replace(/<[^>]*>/g, ' ');
-    t = t.replace(/&#x([0-9a-f]+);/gi, (m, h) => String.fromCodePoint(parseInt(h, 16))).replace(/&#(\d+);/g, (m, d) => String.fromCodePoint(+d)).replace(/&(\w+);/g, (m, n) => ENT[n] || m);
-    for (const ch of t) { const cp = ch.codePointAt(0); if (cp > 0x20 && !inRange(cp, sans)) missing.set(cp, (missing.get(cp) || new Set()).add(p)); }
-  }
-  assert.deepEqual([...missing].map(([cp, pages]) => 'U+' + cp.toString(16).toUpperCase() + ' ' + [...pages].join(',')), []);
+  assert.deepEqual(sansMisses(ROOT), []);
+});
+
+test('RED PROOF: the Sans-range check sees an out-of-range character written as an entity, as CSS generated content, and as a script string, not only as plain text', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sans-range-'));
+  try {
+    cpSync(WEB, join(dir, 'web'), { recursive: true });
+    const f = join(dir, 'web/pricing.html');
+    const html = readFileSync(f, 'utf8');
+    for (const [what, edit] of [
+      ['an entity', h => h.replace('</body>', '<p>&rarr;</p></body>')],
+      ['CSS generated content', h => h.replace('</style>', 'p::after{content:"\\2192"}</style>')],
+      ['a script string', h => h.replace('</body>', '<script>var a = "\\u2192";</script></body>')],
+    ]) {
+      writeFileSync(f, edit(html));
+      assert.deepEqual(sansMisses(dir), ['U+2192 web/pricing.html'], what);
+    }
+    writeFileSync(f, html);
+    assert.deepEqual(sansMisses(dir), [], 'control: the unedited copy has none');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('the list of deployed files is recursive: a font under web/fonts is listed, _headers and _redirects are not, and the order is the code-unit order', async () => {
@@ -82,7 +102,7 @@ test('the list of deployed files is recursive: a font under web/fonts is listed,
     assert.ok(servedFiles(dir).includes('fonts/_headers'), 'only the two files at the root are not served');
   } finally { rmSync(dir, { recursive: true, force: true }); }
   const real = servedFiles(WEB);
-  assert.ok(real.includes('fonts/fonts.css') && real.includes('fonts/thai/IBMPlexSansThai-Regular.woff2'), 'the real tree lists the manifest and a face');
+  assert.ok(real.includes('fonts/fonts.css') && real.includes(SANS_400().slice(1)), 'the real tree lists the manifest and a face');
   assert.ok(!real.includes('_headers') && !real.includes('_redirects'));
 });
 
@@ -117,11 +137,11 @@ test('surface-check admits the font files by name and nothing else: a font outsi
     const c = put('web/fonts/other/OFL.txt');
     assert.match(c.stdout + c.stderr, /web\/fonts\/other\/OFL\.txt: is tracked under the publish root but is not a declared shipped asset/);
     rmSync(join(dir, 'web/fonts/other'), { recursive: true });
-    rmSync(join(dir, 'web/fonts/mono/IBMPlexMono-Medium-Latin1.woff2'));
+    rmSync(join(dir, 'web' + MONO_500()));
     track(dir);
     const d = surface(dir);
     assert.equal(d.status, 1, d.stdout + d.stderr);
-    assert.match(d.stdout + d.stderr, /web\/fonts\/mono\/IBMPlexMono-Medium-Latin1\.woff2: is declared a shipped asset but is missing from the publish root/);
+    assert.match(d.stdout + d.stderr, new RegExp(reEscape('web' + MONO_500()) + ': is declared a shipped asset but is missing from the publish root'));
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -177,18 +197,18 @@ test('surface-check rule 13 judges the font manifest: self in style-src, font-sr
     assert.match(out(b), /the HTML loads a stylesheet from 'self', which style-src does not name/);
     writeFileSync(headers, real);
     const css = join(dir, 'web/fonts/fonts.css'), realCss = readFileSync(css, 'utf8');
-    writeFileSync(css, realCss.replace("url('/fonts/thai/IBMPlexSansThai-Regular.woff2')", "url('https://fonts.gstatic.com/x.woff2')"));
+    writeFileSync(css, realCss.replace("url('" + SANS_400() + "')", "url('https://fonts.gstatic.com/x.woff2')"));
     const c = surface(dir);
     assert.equal(c.status, 1, out(c));
     assert.match(out(c), /web\/fonts\/fonts\.css: .*https:\/\/fonts\.gstatic\.com\/x\.woff2.*not on this site/);
-    writeFileSync(css, realCss.replace("url('/fonts/thai/IBMPlexSansThai-Regular.woff2')", "url('/fonts/thai/Nope.woff2')"));
+    writeFileSync(css, realCss.replace("url('" + SANS_400() + "')", "url('/fonts/thai/Nope.woff2')"));
     const d = surface(dir);
     assert.equal(d.status, 1, out(d));
     assert.match(out(d), /web\/fonts\/fonts\.css: .*\/fonts\/thai\/Nope\.woff2.*(does not exist|is not a declared shipped asset)/);
     mkdirSync(join(dir, 'web/fonts/thai'), { recursive: true });
     writeFileSync(join(dir, 'web/fonts/thai/Extra.woff2'), 'wOF2');
     track(dir);
-    writeFileSync(css, realCss.replace("url('/fonts/thai/IBMPlexSansThai-Regular.woff2')", "url('/fonts/thai/Extra.woff2')"));
+    writeFileSync(css, realCss.replace("url('" + SANS_400() + "')", "url('/fonts/thai/Extra.woff2')"));
     const d2 = surface(dir);
     assert.equal(d2.status, 1, out(d2));
     assert.match(out(d2), /web\/fonts\/fonts\.css: url\(\/fonts\/thai\/Extra\.woff2\) points at web\/fonts\/thai\/Extra\.woff2, which is not a declared shipped asset/);
@@ -200,4 +220,16 @@ test('surface-check rule 13 judges the font manifest: self in style-src, font-sr
     assert.equal(e.status, 1, out(e));
     assert.match(out(e), /the HTML loads a stylesheet from https:\/\/fonts\.googleapis\.com, which style-src does not name/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// OFL-1.1 condition 3: a Modified Version (a subset is one) may not use a Reserved Font Name ("Plex", named in the OFL.txt beside the files) as its primary font name.
+test('no font-family in the manifest, a page or the page stylesheet source names the reserved font name "Plex"', () => {
+  const sources = [['web/fonts/fonts.css', read('web/fonts/fonts.css')], ['scripts/lib/legal-render.mjs', read('scripts/lib/legal-render.mjs')], ...PAGES.map(p => [p, css(read(p))])];
+  for (const [name, text] of sources) {
+    // a source that yields no declaration (a <style> tag that gained an attribute, say) would pass unread, so each must be seen to hold at least one
+    let scanned = 0;
+    for (const m of text.matchAll(/font-family\s*:\s*([^;}]*)/gi)) { scanned++; assert.ok(!/plex/i.test(m[1]), `${name}: font-family names the reserved name: ${m[1]}`); }
+    for (const m of text.matchAll(/\bfont\s*:\s*([^;}]*)/gi)) { scanned++; assert.ok(!/plex/i.test(m[1]), `${name}: font shorthand names the reserved name: ${m[1]}`); }
+    assert.ok(scanned > 0, `${name}: no font-family or font shorthand was found, so nothing was checked`);
+  }
 });

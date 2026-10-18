@@ -120,3 +120,58 @@ export function notFoundVerdict(hostname, bodyIsOurPage, headers, declared) {
     notes: [`${hostname} answers an unmatched path with a platform 404, not web/404.html, so the header check on the 404 page was skipped on this host (measured on a Workers Preview, 2026-09-25: a 9-byte body, no asset default headers, no _headers rule applied). Production is held to both.`],
   };
 }
+
+// ── the long cache of the versioned font files (web-build rule W-PERF-02) ──────────────────────────────────────────────────────
+// The WOFF2 files under /fonts/ carry a hash of their bytes in their names (lib/font-coverage.mjs), so they are served `public, max-age=31536000, immutable`. fonts.css, the one
+// unhashed file that names them, and each OFL.txt keep the platform default (revalidated), because their urls never change.
+export const FONT_CACHE_CONTROL = 'public, max-age=31536000, immutable';
+const ONE_YEAR = 31536000;
+
+// Does a `_headers` path pattern match a request path? A `*` splat matches any run of characters (slashes too), a `:name` placeholder one path segment, everything else literally.
+export function patternMatches(pattern, path) {
+  const re = pattern.split(/(\*|:[A-Za-z]\w*)/).map(part => (part === '*' ? '.*' : /^:[A-Za-z]/.test(part) ? '[^/]+' : part.replace(/[.+?^${}()|[\]\\]/g, '\\$&'))).join('');
+  return new RegExp('^' + re + '$').test(path);
+}
+
+// The directives of a Cache-Control value: [{ name (lower case), arg (unquoted; null when there is none), bad }]. The value splits on commas outside quotes; a piece that is not `name` or `name=argument` (an argument
+// is a token or a quoted string) is kept as { name: the piece, bad: true }, so it can never pass for a directive.
+function cacheDirectives(value) {
+  return (value.match(/(?:"[^"]*"|[^,"])+/g) || []).map(piece => {
+    const m = /^\s*([^\s=,"]+)(?:\s*=\s*(?:"([^"]*)"|([^\s,"]*)))?\s*$/.exec(piece);
+    return m ? { name: m[1].toLowerCase(), arg: m[2] ?? m[3] ?? null } : { name: piece.trim().toLowerCase(), arg: null, bad: true };
+  });
+}
+
+// null when a served Cache-Control value is a long immutable one (public, exactly one max-age whose whole value is a year or more, immutable), else the reason it is not.
+export function fontCacheMiss(value) {
+  if (value == null) return 'is served with no Cache-Control, expected ' + FONT_CACHE_CONTROL;
+  const served = `is served Cache-Control "${value}"`, directives = cacheDirectives(value);
+  // a directive that overrides the year: no-store keeps the file out of the cache, a bare no-cache makes every use ask the origin again, a bare private forbids a shared cache the public the check requires
+  // (no-cache="field" and private="field" only name fields, and are not read as bare)
+  const override = directives.find(d => !d.bad && (d.name === 'no-store' || ((d.name === 'no-cache' || d.name === 'private') && d.arg === null)));
+  if (override) return `${served} with ${override.name}, which stops the year-long reuse, expected ${FONT_CACHE_CONTROL}`;
+  // exactly one max-age (a second may undo the first, and a cache is free to take either), and its whole value is digits (a numeric prefix such as 31536000junk is a malformed directive a cache drops)
+  const ages = directives.filter(d => d.name === 'max-age');
+  if (ages.length > 1) return `${served} with ${ages.length} max-age directives, expected exactly one (${FONT_CACHE_CONTROL})`;
+  if (ages.length === 1 && !/^\d+$/.test(ages[0].arg ?? '')) return `${served} with a malformed max-age ("${ages[0].arg ?? ''}"), expected ${FONT_CACHE_CONTROL}`;
+  if (!ages.length || Number(ages[0].arg) < ONE_YEAR) return `${served}, expected max-age of at least ${ONE_YEAR} (${FONT_CACHE_CONTROL})`;
+  if (!directives.some(d => !d.bad && d.name === 'immutable')) return `${served} without immutable, expected ${FONT_CACHE_CONTROL}`;
+  if (!directives.some(d => !d.bad && d.name === 'public')) return `${served} without public, expected ${FONT_CACHE_CONTROL}`;
+  return null;
+}
+
+// The first font url the manifest names, read from the manifest text (the live one, never a name written in this repo's checks).
+export const firstFontUrl = css => (/url\(\s*['"]?(\/fonts\/[^'")\s]+\.woff2)['"]?\s*\)/.exec(css) || [])[1] || null;
+
+// The misses of one origin: fetch its fonts.css, take the first font url it names, fetch that, and require the long immutable cache on it. `get(url)` returns a fetch Response.
+// `origin` ends with a slash, as in post-deploy-check.
+export async function fontCacheMisses(origin, get) {
+  const sheet = await get(origin + 'fonts/fonts.css');
+  if (!sheet.ok) return [`fonts/fonts.css: served HTTP ${sheet.status}, so no font url can be read from it`];
+  const url = firstFontUrl(await sheet.text());
+  if (!url) return ['fonts/fonts.css: names no font url, so no font cache header can be checked'];
+  const font = await get(origin + url.replace(/^\//, ''));
+  if (font.status !== 200) return [`${url}: served HTTP ${font.status}, expected 200`];
+  const miss = fontCacheMiss(font.headers.get('cache-control'));
+  return miss ? [`${url}: ${miss}`] : [];
+}

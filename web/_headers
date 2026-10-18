@@ -1,14 +1,28 @@
 # Cache-Control for kolwen.com (LWK-134a). Parsed by Workers, NOT served as an asset.
 #
-# The assets here are NOT content-hashed, so the doc's `immutable, max-age=31556952` must never be
-# copied: a regenerated brand mark would stay stale in caches for a year. These are finite and
-# short enough that a redeploy is visible the same day.
+# The images and the icon here are NOT content-hashed, so the doc's `immutable, max-age=31556952`
+# must never be copied onto them: a regenerated brand mark would stay stale in caches for a year.
+# These are finite and short enough that a redeploy is visible the same day. Only the font files
+# below are content-hashed, and only they may carry `immutable`.
 /*.png
   Cache-Control: public, max-age=86400
 /*.svg
   Cache-Control: public, max-age=86400
 /*.ico
   Cache-Control: public, max-age=86400
+
+# The font files ARE content-hashed: each name carries the first ten hex digits of the sha256 of its
+# bytes (scripts/font-subset.mjs writes it, scripts/font-versions.test.mjs holds name and bytes
+# together), so changed bytes are a new url and a year in every cache is safe. The patterns name the
+# .woff2 files only. fonts.css, the one unhashed file that names them and that every page links,
+# and the OFL.txt licence texts keep the platform default (revalidated), because their urls never
+# change. One rule per folder with one splat each, and no other Cache-Control rule matches these
+# paths: a header set by two matching rules is joined with a comma (see the security-headers note
+# below). font-versions.test.mjs holds both.
+/fonts/thai/*.woff2
+  Cache-Control: public, max-age=31536000, immutable
+/fonts/mono/*.woff2
+  Cache-Control: public, max-age=31536000, immutable
 
 # The page itself must always be revalidated: it carries the claims, and a stale claim is the
 # failure this room exists to prevent.
@@ -100,7 +114,7 @@
 # Permissions-Policy: every standardized feature the page does not use, names from the W3C
 # webappsec-permissions-policy feature registry (read 2026-09-25). The page uses none of them.
 /*
-  Content-Security-Policy: default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; script-src 'self' https://static.cloudflareinsights.com/beacon.min.js/ 'sha256-E7qPAYbONhknD/BCPohidP4Ita9lluXiIgAgddNS2sU='; style-src 'self' 'sha256-yzjIvtJjATLj6yYy1gfv7FPI/iiIcDsPlKDZ4vqKwRM=' 'sha256-2i6LGTd6xisBxcmJzbn5t//dyFWGLfpllzAxB9oQ/gc=' 'sha256-RXXSUk/Tex3SrAqKO2Y8ATeEvwd7gRpoDCIaHGeUq0M=' 'sha256-xZraTIl+lXrG5o+N37qLXTlqf5xhKfQk90/pFZHO5Gs='; font-src 'self'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; script-src 'self' https://static.cloudflareinsights.com/beacon.min.js/ 'sha256-E7qPAYbONhknD/BCPohidP4Ita9lluXiIgAgddNS2sU='; style-src 'self' 'sha256-yzjIvtJjATLj6yYy1gfv7FPI/iiIcDsPlKDZ4vqKwRM=' 'sha256-g9NjTUqRtQ85elXJjc8q6EgKuyFAf9YUrtbaK225H74=' 'sha256-p8Mg0S72AO5CY75H/gPWjc+SeRtQ6+pQQxSSsAZOTTw=' 'sha256-7Gyh1QEjiBfGgAuN/64gb+/kxPDzlowoWBdgxlHdYJ8='; font-src 'self'; form-action 'self'
   Referrer-Policy: strict-origin-when-cross-origin
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin
