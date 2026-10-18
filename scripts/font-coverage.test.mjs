@@ -4,11 +4,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, cpSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { brotliCompressSync } from 'node:zlib';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { decodeEntities, textOf, cssContentOf, scriptStringsOf, renderedChars } from './lib/rendered-text.mjs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { decodeEntities, textOf, stripCssComments, cssContentOf, scriptStringsOf, renderedChars } from './lib/rendered-text.mjs';
 import { woff2Cmap, woff2Names } from './lib/woff2-cmap.mjs';
 import { htmlPages } from './lib/web-files.mjs';
 import { glyphSets, coverageGaps, facesOf, asksForLayoutFeature, THAI_SHAPING } from './lib/font-coverage.mjs';
@@ -158,6 +159,88 @@ test('RED PROOF: var() resolves a definition with !important, a function name in
   assert.equal(css(':root{--ab:"x"} p::after{content:var(--a' + BS + '62 )}'), 'x', 'an escaped name in the use, its hex escape ended by a space');
   assert.equal(css(':root{--a' + BS + '62:"x"} p::after{content:var(--a' + BS + '62)}'), 'x', 'the same escaped name on both sides');
   assert.equal(css(':root{--a:"x"} p::after{content:var(--A)}'), '', 'custom property names are case-sensitive');
+});
+
+// Behaviours of the custom property reader that no other test pins: each of these goes wrong silently (a character the page draws drops out of the derived set, or one it does not draw is added).
+test('RED PROOF: !important is removed only at the end of a value, two different properties are both read, a hex escape takes its ending space, an astral name resolves, and a seventh hex digit is a name character', () => {
+  const css = b => cssContentOf(`<style>${b}</style>`);
+  const set = b => css(b).split(' ').filter(Boolean).sort().join(' ');
+  const BS = String.fromCharCode(92);
+  assert.equal(css(':root{--a:"x" !important "y"} p::after{content:var(--a)}'), '', '!important between two strings is no end of a value: nothing is read');
+  assert.equal(set(':root{--a:"x";--b:"y"} p::after{content:var(--a) var(--b)}'), 'x y', 'two properties in one content value');
+  assert.equal(set(':root{--a:"x";--b:"y"} p::after{content:var(--a)} q::after{content:var(--b)}'), 'x y', 'two properties in two content declarations');
+  assert.equal(css(':root{--a' + BS + '62 c:"x"} p::after{content:var(--abc)}'), 'x', 'the ending space of a hex escape belongs to the escape: --a\\62 c is --abc');
+  const emoji = '--' + String.fromCodePoint(0x1f600);
+  assert.equal(css(':root{' + emoji + ':"x"} p::after{content:var(' + emoji + ')}'), 'x', 'an astral name');
+  assert.equal(css(':root{--' + BS + '000061' + '1:"x"} p::after{content:var(--a1)}'), 'x', 'six hex digits are the escape and a seventh is a name character: --\\0000611 is --a1');
+  assert.equal(set(':root{--a' + BS + '62:"x"} p::after{content:var(--a' + BS + '62,"y")}'), 'x y', 'a fallback after an escaped name');
+  assert.equal(css(':root{--a' + BS + String.fromCharCode(10) + 'b:"x"} p::after{content:var(--a)}'), '', 'a backslash and a line break is no escape: it ends the name');
+  assert.equal(css(':root{--a' + BS + String.fromCharCode(10) + 'b:"x"} p::after{content:var(--ab)}'), '', 'and the rest of the line is no part of any name');
+  assert.equal(css('p::after{content:"x content:' + "'y'" + '"}'), "x content:'y'", 'a content: inside the string of a content value is text, read once with the string');
+});
+
+// CSS comments are removed outside strings; a string that never closes is a bad string, which ends at its line break (CSS Syntax 3), so a `/*` inside it is text and one after the line break is a comment.
+test('RED PROOF: stripCssComments keeps strings whole, removes comments outside them, and ends a bad string at its line break', () => {
+  const BS = String.fromCharCode(92);
+  const LF = String.fromCharCode(10);
+  const Q = String.fromCharCode(34);
+  assert.equal(stripCssComments('a{content:' + Q + '/* x */' + Q + '}'), 'a{content:' + Q + '/* x */' + Q + '}', 'a comment inside a string is text');
+  assert.equal(stripCssComments('/* c */a'), ' a');
+  assert.equal(stripCssComments('a/* never closed'), 'a ', 'a comment that never closes runs to the end');
+  assert.equal(stripCssComments('a' + Q + 'b' + BS + Q + '/* c */' + Q + 'd/* e */f'), 'a' + Q + 'b' + BS + Q + '/* c */' + Q + 'd f', 'an escaped quote does not end the string');
+  assert.equal(stripCssComments("'a" + Q + "/*'/* b */c"), "'a" + Q + "/*' c", 'the other quote inside a string');
+  assert.equal(stripCssComments(Q + 'ab /* not a comment' + LF + 'b/* c */d'), Q + 'ab /* not a comment' + LF + 'b d', 'a bad string ends at its line break: what is inside it is text, what follows is read again');
+  assert.equal(stripCssComments('x' + Q + BS + LF + 'y /* c */' + Q + 'z'), 'x' + Q + BS + LF + 'y /* c */' + Q + 'z', 'a backslash before a line break continues the string');
+  assert.equal(stripCssComments(Q + 'never closed /* c */'), Q + 'never closed /* c */', 'a string cut off by the end of the text keeps what is inside it');
+});
+
+// The reader is linear: no input makes it super-linear. Each adversarial style block is built and read in a CHILD (heap cap, kill timeout, its own HOME and TEMP), so a reader that hangs fails this test and not the run.
+// Before the fix a name of n hex escapes with no colon took 3.4 s at n = 24 and never finished at n = 50,000 (an escape could be read whole or as a shorter escape and a name character: 2^n ways), and n repetitions of
+// an escaped space and `--a` took 5.7 s at n = 20,000 and were killed at n = 40,000 (a name that failed was tried again from every `--` inside it: n^2), and a string of n escaped quotes that never closes took 3.2 s at
+// n = 40,000 in the comment stripper (a string was tried again from every escaped quote inside it: n^2). The bound is generous (the fixed reader takes milliseconds).
+const CHILD_HOME = mkdtempSync(join(tmpdir(), 'fc-linear-'));
+test.after(() => rmSync(CHILD_HOME, { recursive: true, force: true }));
+const LINEAR_BOUND_MS = 2000;
+const LINEAR_KILL_MS = 10000;
+const CHILD_CODE = `
+import { cssContentOf } from ${JSON.stringify(pathToFileURL(join(ROOT, 'scripts/lib/rendered-text.mjs')).href)};
+const BS = String.fromCharCode(92);
+const [kind, n] = JSON.parse(process.argv[1]);
+const GEN = {
+  'escapes, no colon': () => '<style>:root{--' + (BS + '61').repeat(n) + '}</style>',
+  'escapes inside var( --...)': () => '<style>p::after{content:var( --' + (BS + '61').repeat(n) + ')}</style>',
+  'escaped-space starts': () => '<style>:root{' + ('--a' + BS + ' ').repeat(n) + '}</style>',
+  'one long hex run': () => '<style>:root{--' + BS + 'a'.repeat(n) + '}</style>',
+  'many names, no colon': () => '<style>:root{' + '--a '.repeat(n) + '}</style>',
+  'many definitions': () => '<style>:root{' + '--a:"x";'.repeat(n) + '} p::after{content:var(--a)}</style>',
+  'unterminated strings': () => '<style>:root{' + ('--a:"x' + String.fromCharCode(10)).repeat(n) + '}</style>',
+  'var( and spaces': () => '<style>p::after{content:var(' + ' '.repeat(n) + '}</style>',
+  'a string of escaped quotes that never closes': () => '<style>:root{--a:' + String.fromCharCode(34) + (BS + String.fromCharCode(34)).repeat(n) + '}</style>',
+  'many content declarations': () => '<style>' + ('p::after{content:' + String.fromCharCode(34) + 'x' + String.fromCharCode(34) + '}').repeat(n) + '</style>',
+  'many var( uses': () => '<style>:root{--a:"x"} p::after{content:' + 'var( --a) '.repeat(n) + '}</style>',
+};
+const html = GEN[kind]();
+const t = process.hrtime.bigint();
+const out = cssContentOf(html);
+console.log(JSON.stringify({ ms: Number(process.hrtime.bigint() - t) / 1e6, len: out.length }));
+`;
+const readInChild = (kind, n) => {
+  const env = { ...process.env, HOME: CHILD_HOME, USERPROFILE: CHILD_HOME, TEMP: CHILD_HOME, TMP: CHILD_HOME, TMPDIR: CHILD_HOME };
+  const r = spawnSync(process.execPath, ['--max-old-space-size=256', '--input-type=module', '-e', CHILD_CODE, JSON.stringify([kind, n])], { encoding: 'utf8', timeout: LINEAR_KILL_MS, env });
+  if (r.error) return { killed: true, why: `${kind} (n = ${n}) did not finish in ${LINEAR_KILL_MS} ms: ${r.error.code}` };
+  if (r.status !== 0) return { killed: true, why: `${kind} (n = ${n}) exited ${r.status}: ${r.stderr.slice(0, 200)}` };
+  return { killed: false, ...JSON.parse(r.stdout.trim().split('\n').pop()) };
+};
+test('RED PROOF: no adversarial style block makes the custom property reader slower than linear: hex escapes with no colon, repeated escaped spaces and names, and the other shapes that fail late', () => {
+  const inputs = [['escapes, no colon', 50000], ['escapes inside var( --...)', 50000], ['escaped-space starts', 40000], ['one long hex run', 50000], ['many names, no colon', 50000],
+    ['many definitions', 50000], ['unterminated strings', 20000], ['var( and spaces', 50000], ['a string of escaped quotes that never closes', 40000], ['many content declarations', 20000], ['many var( uses', 20000]];
+  const failures = [];
+  for (const [kind, n] of inputs) {
+    const r = readInChild(kind, n);
+    if (r.killed) failures.push(r.why);
+    else if (r.ms > LINEAR_BOUND_MS) failures.push(`${kind} (n = ${n}) took ${r.ms.toFixed(0)} ms, over the bound of ${LINEAR_BOUND_MS} ms`);
+  }
+  assert.deepEqual(failures, []);
 });
 
 // The noscript decision (the font coverage): what a visitor without script is shown must stay covered, so renderedChars reads <noscript> as markup (scripting off) while a visitor with script sees none of it.
