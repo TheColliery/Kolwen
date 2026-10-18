@@ -207,6 +207,7 @@ that is missing, doubled or out of order, marker pairs that overlap or nest, a s
 (a browser applies that directive to `<style>` blocks when the policy has one), or a problem in the catalogue or a template (a visible string that is not a catalogue slot, a key in one language and not the other, a language tag that is not BCP 47). `/pricing`'s buy controls are disabled "Coming soon"
 buttons, and rule 17 of the surface check refuses a live one, a Paddle script or a checkout URL on any production page; the only
 button it lets stand without being disabled is a language switch, marked `data-lang-set="en"` or `data-lang-set="th"`.
+The pages are mapped in `web-src/seams.json`: each page belongs to one group, and today there is one, the company site, served by this one Worker (this `web/` and its `web/_headers` are its zone); surface-check rule 20 holds the map against the files (`CONTRIBUTING.md` says how to add a page).
 `node scripts/address-check.mjs` is run by hand, never in CI (CI holds no Cloudflare token): it asks the zone whether every
 `@kolwen.com` address the pages publish has an enabled Email Routing rule.
 
