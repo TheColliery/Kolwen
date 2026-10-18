@@ -4,7 +4,7 @@
 //   - no double quote and no backslash inside any string value (the settings editor mangles both; the quotes that delimit a scalar are not inside it);
 //   - every glob of path_instructions and path_filters matches at least one tracked file, each brace alternative on its own;
 //   - no instruction teaches the reviewer to stay quiet (the owner's law on teaching: a fact or a contract, never a suppression);
-//   - path_filters hide only files git marks as binary (i/-text), and every surface-check rule an instruction cites exists in scripts/surface-check.mjs.
+//   - path_filters hide only files git marks as binary (i/-text), and every surface-check rule number an instruction or a comment line cites (in a list, or as a bare "rule N") exists in scripts/surface-check.mjs.
 // LIMIT, stated so the file does not read as a guard it is not: the suppression check is a word list. It catches the plain forms (ignore, skip, do not report, exempt ...) and NOT a paraphrase (a sentence that
 // calls a class of findings expected, by design or low priority). The real check of the teaching law is the INSPECT read of every instruction; and a citation that exists can still be a wrong claim about what the rule checks.
 // Node builtins only. Planted-defect tests run the same checks on a changed copy of the text; the real file is never written.
@@ -149,10 +149,14 @@ function problemsOf(text, tracked, binary = BINARY) {
     if (kind !== 'path_filters') continue;
     for (const alt of expandBraces(glob)) for (const f of tracked) if (globToRegExp(alt).test(f) && !binary.has(f)) problems.push(`path_filters: ${alt} hides ${f}, which is a text file: a filter may hide only a binary file`);
   }
-  // a cited rule must exist
-  for (const item of doc.reviews?.path_instructions ?? []) {
-    for (const cite of (item.instructions ?? '').matchAll(/surface-check rules? (\d+[a-z]?(?:(?:, and |, | and )\d+[a-z]?)*)/gi)) {
-      for (const n of cite[1].split(/, and |, | and /)) if (!SURFACE_RULES.has(n)) problems.push(`${item.path}: cites surface-check rule ${n}, which scripts/surface-check.mjs does not define`);
+  // a cited rule must exist. Read: every instruction that names surface-check, and every comment line that names it (the parsed document does not hold comments); in each, every number after "rule" or "rules",
+  // every item of a list ("rules 1, 2 and 17"), also a bare "and rule 5" that does not repeat the word surface-check.
+  const citing = [];
+  for (const item of doc.reviews?.path_instructions ?? []) if (/surface-check/i.test(item.instructions ?? '')) citing.push([item.path, item.instructions]);
+  for (const line of text.split('\n')) if (/^\s*#/.test(line) && /surface-check/i.test(line)) citing.push(['a comment line', line]);
+  for (const [where, words] of citing) {
+    for (const cite of words.matchAll(/\brules?\s+(\d+[a-z]?(?:(?:, and |, | and )\d+[a-z]?)*)/gi)) {
+      for (const n of cite[1].split(/, and |, | and /)) if (!SURFACE_RULES.has(n)) problems.push(`${where}: cites surface-check rule ${n}, which scripts/surface-check.mjs does not define`);
     }
   }
   return problems;
@@ -206,11 +210,34 @@ test('RED PROOF: a filter that hides a text file is a problem, and so is a citat
   assert.notEqual(text, FILE);
   assert.ok(problemsOf(text, TRACKED).some(p => /path_filters: web\/\*\* hides web\/index\.html, which is a text file/.test(p)));
   assert.ok(problemsOf(FILE.replace('"!**/*.png"', '"!**/*.svg"'), TRACKED).some(p => /hides .*\.svg, which is a text file/.test(p)), 'an SVG is text');
-  const rule = FILE.replace('Surface-check rule 13 fails on', 'Surface-check rule 99 fails on').replace('surface-check rule 13b', 'surface-check rule 98b');
-  assert.notEqual(rule, FILE);
-  assert.ok(problemsOf(rule, TRACKED).some(p => /cites surface-check rule 99, which scripts\/surface-check\.mjs does not define/.test(p)));
+  const cites = (from, to, n) => {
+    const planted = FILE.replace(from, to);
+    assert.notEqual(planted, FILE, from);
+    assert.ok(problemsOf(planted, TRACKED).some(p => new RegExp(`cites surface-check rule ${n}, which scripts/surface-check\\.mjs does not define`).test(p)), `${from} -> ${to}`);
+  };
+  // each plant is its own assertion, so a detector that fails on one shape cannot hide behind another
+  cites('Surface-check rule 13 fails on', 'Surface-check rule 99 fails on', '99');
+  cites('surface-check rule 13b', 'surface-check rule 98b', '98b');
   assert.ok(SURFACE_RULES.has('13b') && SURFACE_RULES.has('5') && !SURFACE_RULES.has('14'), 'the rule numbers are read from the file');
   assert.ok(BINARY.has('web/og.png') && BINARY.has('brand/kolwen-wordmark.png') && !BINARY.has('web/favicon.svg'), 'binary means git i/-text');
+});
+
+// Every cited number counts, wherever it stands: in a list at any position, behind the words surface-check or only behind rule (the same sentence cites a second rule with a bare "and rule N"), and in a comment line of the file.
+test('RED PROOF: every surface-check rule number cited is checked, in a list at any position, in a bare "rule N", and in a comment line', () => {
+  const cites = (from, to, n) => {
+    const planted = FILE.replace(from, to);
+    assert.notEqual(planted, FILE, from);
+    assert.ok(problemsOf(planted, TRACKED).some(p => new RegExp(`cites surface-check rule ${n}, which scripts/surface-check\\.mjs does not define`).test(p)), `${from} -> ${to}`);
+  };
+  cites('surface-check rules 1, 2 and 17', 'surface-check rules 1, 2 and 71', '71'); // the last of a list
+  cites('surface-check rules 1, 2 and 17', 'surface-check rules 1, 72 and 17', '72'); // the middle of a list
+  cites('surface-check rules 1, 2 and 17', 'surface-check rules 73, 2 and 17', '73'); // the first of a list
+  cites('surface-check rules 7 and 13.', 'surface-check rules 7 and 74.', '74'); // a comment line, the last of a list
+  cites('and rule 13 checks both', 'and rule 99 checks both', '99'); // no surface-check words before it
+  cites('and rule 5 asserts', 'and rule 55 asserts', '55');
+  cites('surface-check rules 10 and 19.', 'surface-check rules 10 and 91.', '91'); // a comment line, which the parsed document does not hold
+  cites('(rules 1, 2, 4, 5 and 17)', '(rules 1, 2, 4, 5 and 76)', '76'); // a comment line naming surface-check.mjs, a list of five
+  assert.deepEqual(problemsOf(FILE, TRACKED), [], 'and the real file cites only rules the script defines');
 });
 
 test('RED PROOF: the one git child of this file has its own HOME, TEMP and TMP under os.tmpdir() and no system config, and nothing else starts a child', () => {

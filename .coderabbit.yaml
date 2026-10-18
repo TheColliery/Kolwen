@@ -86,7 +86,7 @@ reviews:
     - path: "web/_headers"
       instructions: |
         This file is read by Workers and is not itself served as an asset. Its own comments are the contract. Report a change that breaks any of these:
-        - One rule, on /*, carries the Content-Security-Policy, Referrer-Policy and Permissions-Policy. A header set by two matching rules is joined with a comma, so a second rule carrying any of them serves two policies, or one policy twice. Surface-check rule 13 fails on a second rule that carries the Content-Security-Policy; no check fails on a second Referrer-Policy or Permissions-Policy, so review is the only check for those two.
+        - One rule, on /*, carries the Content-Security-Policy, Referrer-Policy and Permissions-Policy. A header set by two matching rules is joined with a comma, so a second rule carrying any of them serves two policies, or one policy twice. Surface-check rule 13 fails on a second rule that carries the Content-Security-Policy; no check before merge fails on a second Referrer-Policy or Permissions-Policy, so review is the only check for those two before merge; after deploy, scripts/post-deploy-check.mjs fails when an HTML page is served the joined value and not the declared one.
         - The style-src and script-src hashes equal the hashes of the inline blocks the pages carry.
         - Cloudflare caps a file at 100 rules and 2,000 characters per line, and rule 13 checks both.
         - Only the content-hashed font files under /fonts/ carry Cache-Control immutable with a one-year max-age. The images and the icon are not content-hashed, so they keep a short max-age and never immutable. The pages keep max-age=0 with must-revalidate.
