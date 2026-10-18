@@ -73,6 +73,28 @@ test('a weak colour is found: the same grey that passes on the dark ground fails
   } finally { READING.light.accent2 = probe; }
 });
 
+test('a scheme that is missing or renamed is failing rows, never a rule that measures the other scheme alone (rule 22 cannot be emptied by its data)', () => {
+  const dark = READING.dark;
+  try {
+    delete READING.dark;
+    READING.night = dark; // the palette renamed
+    const rows = readingContrast();
+    assert.equal(rows.length, 2 * READING_PAIRS.length, 'both schemes are still named: light and dark');
+    const darkRows = rows.filter(r => r.scheme === 'dark');
+    assert.equal(darkRows.length, READING_PAIRS.length);
+    assert.ok(darkRows.every(r => !r.ok && r.ratio === null), 'every dark row fails');
+    assert.ok(rows.filter(r => r.scheme === 'light').every(r => r.ok), 'the light rows are unchanged');
+  } finally { delete READING.night; READING.dark = dark; }
+  assert.equal(readingContrast().filter(r => r.scheme === 'dark').every(r => r.ok), true, 'restored');
+});
+
+test('the two linearisation thresholds, 0.04045 (WCAG 2.2) and the 0.03928 it replaced, give the same luminance for every 8-bit channel value', () => {
+  const lin = (c, t) => { const v = c / 255; return v <= t ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  let max = 0;
+  for (let c = 0; c <= 255; c++) max = Math.max(max, Math.abs(lin(c, 0.04045) - lin(c, 0.03928)));
+  assert.equal(max, 0);
+});
+
 test('the reading theme is a variant of the colour names the pages already use, with a solid ground and the Thai line height set once', () => {
   const css = readingCss();
   assert.match(css, /html\[data-job="prose"\]\{color-scheme:light dark;--bg:#fbfaf8;/);

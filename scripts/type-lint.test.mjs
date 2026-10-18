@@ -80,11 +80,13 @@ test('the viewport meta must be exactly the layout formula\'s: device width, sca
   assert.ok(why('p{font-size:1rem}', VIEWPORT_META + VIEWPORT_META).some(m => /2 viewport metas/.test(m)), 'two');
 });
 
-test('declarations are split outside strings and parentheses, and a selector with a colon is no declaration of ours', () => {
-  const d = declarationsOf('a:hover{color:red} @media (min-width:640px){p{font-size:1rem;margin:0}} b::after{content:"a;b{c}"}');
+test('declarations are split outside strings and parentheses, and a selector with a colon creates no font-size finding', () => {
+  // declarationsOf understands no selector, so it does hand back selector-shaped entries for a:hover and b::after; what matters is what the lint does with them
+  const css = 'a:hover{color:red} @media (min-width:640px){p{font-size:1rem;margin:0}} b::after{content:"a;b{c}"}';
+  const d = declarationsOf(css);
   assert.deepEqual(d.filter(x => x.prop === 'font-size').map(x => x.value), ['1rem']);
-  assert.ok(!d.some(x => x.prop === 'a' && x.value !== 'hover'), 'a selector colon');
-  assert.deepEqual(fontSizeProblems(['p{font-size:1rem}']), []);
+  assert.deepEqual(fontSizeProblems([css]), [], 'selector colons do not create font-size findings');
+  assert.ok(fontSizeProblems([css + ' i{font-size:12px}']).length === 1, 'and a real px size in the same text is still the one finding');
 });
 
 // ── the tokens ────────────────────────────────────────────────────────────────────────────────────────────────

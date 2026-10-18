@@ -4,7 +4,9 @@
 //            - the page does not scroll sideways, and
 //            - no element's text is cut: an element with overflow hidden or clip whose content is larger than its box, and a text rectangle that sticks out of an ancestor that clips. Nothing else is
 //              measured: a box that grows with its text is not a loss, and text a script moves is not read.
-//   csp      the browser reports no Content-Security-Policy violation while the page loads under the real headers (a hash that no longer matches shows here, in a real browser).
+//   csp      the browser reports no Content-Security-Policy violation while the page loads under the real headers (a hash that no longer matches shows here, in a real browser). Only a CSP violation
+//            fails it. What the browser says about the Permissions-Policy header (a feature name it does not know) is printed on a separate NOTE line and never fails the run.
+// Before any check, the language of the page is set by pressing its switch, and a page whose switch does not set the wanted lang fails (check name: language).
 // And for the reading theme (layout-tokens.mjs), on the pages that declare data-job="prose", in the light and the dark colour scheme, each emulated on its own:
 //   theme      the ground is the solid colour of the scheme (no background image), and the page says it supports both schemes;
 //   contrast   every element that holds text has a computed text colour against the colour it really sits on of at least 4.5:1, or 3:1 for large text (SC 1.4.3). A translucent colour is composited
@@ -20,7 +22,7 @@
 // The pages are served by scripts/lib/static-server.mjs and driven by scripts/lib/browser.mjs (DevTools protocol over Node's own WebSocket; no dependency).
 //
 // With no browser found, CI (CI=true) FAILS; anywhere else the run says it was skipped and exits 0. A silent skip in CI is the one outcome this script refuses.
-// Usage: node scripts/rendered-check.mjs [--web <dir>] [--only reflow,zoom,csp,theme,contrast,lineheight] [--no-headers]
+// Usage: node scripts/rendered-check.mjs [--web <dir>] [--only reflow,zoom,csp,theme,contrast,lineheight,measure] [--no-headers]
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { htmlPages } from './lib/web-files.mjs';
@@ -193,10 +195,23 @@ function measureTheme() {
   return { job: document.documentElement.dataset.job ?? null, image: cs.backgroundImage, color: cs.backgroundColor, scheme: getComputedStyle(document.documentElement).colorScheme };
 }
 
+// What the browser's own log says about a page's response headers, sorted. A Content-Security-Policy violation is what the csp check is for and fails it. A message about the Permissions-Policy
+// header (the browser does not know a feature name that another engine, or a later version of the same one, does) is not a CSP violation: it is returned as a note and never fails the check, so
+// the run is not red on the version of the browser the runner happens to ship. Any other message the browser files under 'security' (mixed content, say) is a note too: not this check's to fail.
+export function classifyLogs(logs) {
+  const violations = [], notes = [];
+  for (const l of logs) {
+    if (/permissions[- ]policy|feature[- ]policy/i.test(l.text)) notes.push({ kind: 'permissions-policy', text: l.text });
+    else if (/content security policy/i.test(l.text)) violations.push(l);
+    else if (l.source === 'security') notes.push({ kind: 'security', text: l.text });
+  }
+  return { violations, notes };
+}
+
 // ── the run ──────────────────────────────────────────────────────────────────────────────────────────────────────
-// Returns { failures: [{ page, lang, check, detail }], measured: [{ page, lang, check, ... }] }.
+// Returns { failures: [{ page, lang, check, detail }], measured: [{ page, lang, check, ... }], notes: [{ page, lang, kind, text }] }. A note is something the browser said that is not a failure.
 export async function renderedChecks({ webDir, browser, checks = ALL_CHECKS, headers = true }) {
-  const failures = [], measured = [];
+  const failures = [], measured = [], notes = [], languageFailed = new Set();
   const server = await serveWeb(webDir, { headers });
   const page = await browser.newPage();
   try {
@@ -209,7 +224,12 @@ export async function renderedChecks({ webDir, browser, checks = ALL_CHECKS, hea
           await page.setViewport(width, 800);
           await page.goto(server.origin + path);
           // The page script remembers the language in localStorage (one key), and every page shares this server's origin: so the language is chosen by pressing its switch on every load, never assumed.
-          await page.evaluate(`(() => { const b = document.querySelector('[data-lang-set="${lang}"]'); if (b) b.click(); return document.documentElement.lang; })()`);
+          const got = await page.evaluate(`(() => { const b = document.querySelector('[data-lang-set="${lang}"]'); if (b) b.click(); return document.documentElement.lang; })()`);
+          // a page whose switch is missing, or does not set the language, would be measured in whatever language the last page left in localStorage: say so, once
+          if (got !== lang && !languageFailed.has(file + ' ' + lang)) {
+            languageFailed.add(file + ' ' + lang);
+            failures.push({ ...tag, check: 'language', detail: `the language switch did not set lang="${lang}" (the page reports lang="${got}"), so the measurements of this page in ${lang} would be those of another language` });
+          }
         };
         if (checks.includes('reflow')) {
           await open(320);
@@ -265,9 +285,10 @@ export async function renderedChecks({ webDir, browser, checks = ALL_CHECKS, hea
         if (checks.includes('zoom') || checks.includes('csp')) {
           await open(1280);
           if (checks.includes('csp')) {
-            const bad = page.logs.filter(l => l.source === 'security' || /content security policy/i.test(l.text));
-            measured.push({ ...tag, check: 'csp', violations: bad.length });
-            for (const l of bad) failures.push({ ...tag, check: 'csp', detail: `the browser reports: ${l.text.slice(0, 200)}` });
+            const { violations, notes: said } = classifyLogs(page.logs);
+            measured.push({ ...tag, check: 'csp', violations: violations.length, notes: said.length });
+            for (const l of violations) failures.push({ ...tag, check: 'csp', detail: `the browser reports: ${l.text.slice(0, 200)}` });
+            for (const n of said) notes.push({ ...tag, kind: n.kind, text: n.text });
           }
           if (checks.includes('zoom')) {
             await page.evaluate(`document.documentElement.style.setProperty('font-size', '200%', 'important')`);
@@ -282,14 +303,14 @@ export async function renderedChecks({ webDir, browser, checks = ALL_CHECKS, hea
       }
     }
   } finally { await page.close(); await server.close(); }
-  return { failures, measured };
+  return { failures, measured, notes };
 }
 
 // ── the command line ─────────────────────────────────────────────────────────────────────────────────────────────
 async function main() {
   const args = process.argv.slice(2);
   const take = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
-  if (args.includes('-h') || args.includes('--help')) { console.log('usage: node scripts/rendered-check.mjs [--web <dir>] [--only reflow,zoom,csp,theme,contrast,lineheight] [--no-headers]\n  renders every page of web/ in headless Chrome or Edge, in both languages: 320 px reflow, 200% text, no CSP violation, and the reading theme (ground, contrast per colour scheme, line heights). KOLWEN_BROWSER names the binary.'); return; }
+  if (args.includes('-h') || args.includes('--help')) { console.log('usage: node scripts/rendered-check.mjs [--web <dir>] [--only ' + ALL_CHECKS.join(',') + '] [--no-headers]\n  renders every page of web/ in headless Chrome or Edge, in both languages: 320 px reflow, 200% text, no CSP violation, and the reading theme (ground, contrast per colour scheme, line heights, line length). KOLWEN_BROWSER names the binary.'); return; }
   const known = new Set(['--web', '--only', '--no-headers', '-h', '--help']);
   const bad = args.find((a, i) => a.startsWith('-') && !known.has(a));
   if (bad) { console.error('unknown argument ' + bad); process.exitCode = 2; return; }
@@ -306,8 +327,12 @@ async function main() {
   }
   const browser = await launchBrowser({ binary });
   try {
-    const { failures, measured } = await renderedChecks({ webDir, browser, checks, headers: !args.includes('--no-headers') });
+    const { failures, measured, notes } = await renderedChecks({ webDir, browser, checks, headers: !args.includes('--no-headers') });
     for (const f of failures) console.log(`FAIL ${f.page} [${f.lang}] ${f.check}: ${f.detail}`);
+    if (notes.length) {
+      const texts = [...new Set(notes.map(n => n.text.slice(0, 160)))].sort();
+      console.log(`NOTE rendered-check: the browser reported ${notes.length} message(s) about the response headers on ${new Set(notes.map(n => n.page)).size} page(s) that are not a CSP violation and do not fail this run: ${texts.join(' | ')}`);
+    }
     const pages = new Set(measured.map(m => m.page)).size;
     if (failures.length) { console.error(`rendered-check FAILED: ${failures.length} finding(s) over ${pages} page(s)`); process.exitCode = 1; return; }
     console.log(`rendered-check passed: ${pages} page(s) x 2 languages, ${checks.join(' + ')} (${measured.length} measurements) in ${binary}`);

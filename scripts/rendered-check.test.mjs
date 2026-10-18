@@ -6,13 +6,15 @@
 // Every child has a bound: the browser has a heap cap and a kill timer (scripts/lib/browser.mjs). Run: node --test scripts/rendered-check.test.mjs
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { findBrowser, launchBrowser, BROWSER_ENV } from './lib/browser.mjs';
+import * as browserLib from './lib/browser.mjs'; // devToolsEndpoint, removeProfile, runDir are used through the namespace
 import { renderedChecks, urlPathOf } from './rendered-check.mjs';
+import * as checkLib from './rendered-check.mjs'; // classifyLogs
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const CI = process.env.CI === 'true';
@@ -103,6 +105,47 @@ test('an inline style whose hash is not in the Content-Security-Policy is report
   const hit = where((await run(web, ['csp'], true)).failures, 'index.html', 'csp');
   assert.ok(hit.length >= 1 && /style/i.test(hit[0].detail), JSON.stringify(hit));
   assert.deepEqual((await run(web, ['csp'], false)).failures, [], 'with the headers off the same page is not a violation: the check reads the browser, not the file');
+});
+
+test('a Permissions-Policy message alone does not fail the csp check and is reported as a note; a CSP violation beside it still fails', { skip: SKIP }, async () => {
+  // a feature name no browser knows: the same message the runner's Chrome gave for 'bluetooth' and 'web-share', whatever version of the engine runs here
+  const planted = w => editPage(w, '_headers', h => h.replace('Permissions-Policy: accelerometer=()', 'Permissions-Policy: kolwen-no-such-feature=(), accelerometer=()'));
+  const web = copyWeb(planted);
+  const r = await run(web, ['csp'], true);
+  assert.deepEqual(r.failures, [], 'no csp failure for a Permissions-Policy message: ' + JSON.stringify(r.failures));
+  assert.equal(r.notes.length, 14, 'one note per page and language (7 pages x 2): ' + r.notes.length);
+  assert.ok(r.notes.every(n => n.kind === 'permissions-policy' && /Unrecognized feature: 'kolwen-no-such-feature'/.test(n.text)), JSON.stringify(r.notes[0]));
+  assert.ok(r.measured.filter(m => m.check === 'csp').every(m => m.violations === 0 && m.notes === 1));
+  const both = copyWeb(w => { planted(w); editPage(w, 'index.html', h => h.replace('</head>', '<style>body{outline:0}</style></head>')); });
+  const hit = where((await run(both, ['csp'], true)).failures, 'index.html', 'csp');
+  assert.ok(hit.length >= 1 && /style/i.test(hit[0].detail) && !/Permissions-Policy/.test(hit[0].detail), 'the planted CSP violation still fails, and it is the CSP message: ' + JSON.stringify(hit));
+});
+
+test('classifyLogs: a CSP violation is a violation, a Permissions-Policy or Feature-Policy message is a note, other page noise is neither', () => {
+  const csp = { source: 'security', level: 'error', text: "Applying inline style violates the following Content Security Policy directive style-src self" };
+  const pp = { source: 'other', level: 'error', text: "Error with Permissions-Policy header: Unrecognized feature: 'bluetooth'." };
+  const fp = { source: 'security', level: 'warning', text: 'Feature-Policy: unknown feature' };
+  const mixed = { source: 'security', level: 'warning', text: 'Mixed Content: the page was loaded over HTTPS' };
+  const noise = { source: 'javascript', level: 'error', text: 'Uncaught TypeError: x is not a function' };
+  const classifyLogs = checkLib.classifyLogs;
+  assert.deepEqual(classifyLogs([pp]), { violations: [], notes: [{ kind: 'permissions-policy', text: pp.text }] });
+  assert.equal(classifyLogs([csp]).violations.length, 1);
+  assert.equal(classifyLogs([pp, csp, noise]).violations.length, 1);
+  assert.equal(classifyLogs([pp, csp, noise]).notes.length, 1);
+  assert.equal(classifyLogs([fp]).notes[0].kind, 'permissions-policy');
+  assert.deepEqual(classifyLogs([mixed]), { violations: [], notes: [{ kind: 'security', text: mixed.text }] });
+  assert.deepEqual(classifyLogs([noise]), { violations: [], notes: [] });
+  assert.deepEqual(classifyLogs([]), { violations: [], notes: [] });
+});
+
+test('a page whose language switch does not set the wanted lang fails, instead of being measured in the language the last page left behind', { skip: SKIP }, async () => {
+  // pricing comes after a page whose Thai pass left "th" in localStorage; with no working switch its English pass would be measured in Thai and the run would say 2 languages
+  const web = copyWeb(w => editPage(w, 'pricing.html', h => h.split('data-lang-set=').join('data-lang-x=')));
+  const { failures } = await run(web, ['reflow']);
+  const lang = failures.filter(f => f.check === 'language');
+  assert.deepEqual(lang.map(f => [f.page, f.lang]), [['pricing.html', 'en']], JSON.stringify(failures));
+  assert.match(lang[0].detail, /the language switch did not set lang="en" \(the page reports lang="th"\)/);
+  assert.deepEqual((await run(copyWeb(), ['reflow'])).failures, [], 'with its switch the same page is measured in both languages, with no failure');
 });
 
 test('the zoom check really runs at 200%: the root font size is 32 px on every page', { skip: SKIP }, async () => {
@@ -214,9 +257,73 @@ test('findBrowser: an explicit path wins, a wrong explicit path is never replace
   assert.equal(findBrowser({ PATH: '' }, 'linux'), null);
 });
 
+test('devToolsEndpoint: the file the browser writes is checked before it opens a connection (port 1 to 65535, path /devtools/browser/<id>, a fixed host)', () => {
+  const devToolsEndpoint = browserLib.devToolsEndpoint;
+  const good = 'ws://127.0.0.1:9222/devtools/browser/0f3a-4B1c-9d';
+  assert.equal(devToolsEndpoint('9222\n/devtools/browser/0f3a-4B1c-9d'), good);
+  assert.equal(devToolsEndpoint('9222\r\n/devtools/browser/0f3a-4B1c-9d'), good);
+  assert.equal(devToolsEndpoint('1\n/devtools/browser/a'), 'ws://127.0.0.1:1/devtools/browser/a');
+  assert.equal(devToolsEndpoint('65535\n/devtools/browser/a'), 'ws://127.0.0.1:65535/devtools/browser/a');
+  for (const unfinished of ['', '9222', '9222\n', '\n/devtools/browser/a']) assert.equal(devToolsEndpoint(unfinished), null, JSON.stringify(unfinished));
+  const path = '/devtools/browser/a';
+  for (const port of ['0', '65536', '99999', '123456', '-1', '12a', '9222.5', ' 9222', '9222 ', '1e3', '9222@evil.example', '0x50', String.fromCharCode(0x0663).repeat(4)]) // the last: four Arabic-Indic digits, which are not the decimal digits 0 to 9
+    assert.throws(() => devToolsEndpoint(port + '\n' + path), /DevToolsActivePort names the port/, JSON.stringify(port));
+  for (const bad of ['/devtools/browser/', '/devtools/browser/../x', '/devtools/page/abc', '/devtools/browser/a/b', '/devtools/browser/a b', '//evil.example/x', 'evil', '@evil.example/devtools/browser/a', '/devtools/browser/a?x=1', '/devtools/browser/a#h', '/DEVTOOLS/browser/a'])
+    assert.throws(() => devToolsEndpoint('9222\n' + bad), /DevToolsActivePort names the path/, JSON.stringify(bad));
+  assert.match(devToolsEndpoint('9222\n/devtools/browser/x'), /^ws:\/\/127\.0\.0\.1:\d+\/devtools\/browser\/[A-Za-z0-9-]+$/);
+});
+
+test('removeProfile deletes a profile inside the run folder and nothing else; a refusal by the OS is one line naming the path, never silence', () => {
+  const root = mkdtempSync(join(tmpdir(), 'kolwen-test-run-'));
+  copies.push(root);
+  const profile = join(root, 'profile-a');
+  mkdirSync(join(profile, 'Default'), { recursive: true });
+  writeFileSync(join(profile, 'Default', 'Preferences'), '{}');
+  assert.equal(browserLib.removeProfile(profile, root), null);
+  assert.equal(existsSync(profile), false, 'the profile is gone');
+  assert.equal(browserLib.removeProfile(profile, root), null, 'a profile that is already gone is not a problem');
+  // the run folder itself, a folder beside it and a folder above it are refused and left alone
+  const beside = mkdtempSync(join(tmpdir(), 'kolwen-test-beside-'));
+  copies.push(beside);
+  writeFileSync(join(beside, 'keep.txt'), 'x');
+  for (const target of [root, beside, tmpdir()]) {
+    assert.match(browserLib.removeProfile(target, root), /did not delete .*: it is not inside the folder this run made/, target);
+    assert.ok(existsSync(target), target + ' is still there');
+  }
+  assert.ok(existsSync(join(beside, 'keep.txt')));
+  // the OS refuses: one line, the path in it
+  const stuck = join(root, 'profile-b');
+  mkdirSync(stuck);
+  const eperm = () => { throw Object.assign(new Error('operation not permitted'), { code: 'EPERM' }); };
+  const line = browserLib.removeProfile(stuck, root, eperm);
+  assert.match(line, /could not delete the browser profile .*profile-b \(EPERM\); it is a throwaway headless-browser profile, safe to delete by hand/);
+  assert.ok(!line.includes('\n'), 'one line');
+  assert.ok(existsSync(stuck), 'and the folder is left as it was');
+});
+
+test('a browser run leaves no profile behind, or names the one it could not delete', { skip: SKIP }, async () => {
+  const said = [];
+  const orig = console.error;
+  const root = browserLib.runDir(); // the shared browser of this file already made it, and holds a profile in it
+  const before = new Set(readdirSync(root));
+  console.error = (...a) => { said.push(a.join(' ')); };
+  try {
+    const b = await launchBrowser({ binary, lifetimeMs: 60000 });
+    const p = await b.newPage();
+    await p.close();
+    await b.close();
+  } finally { console.error = orig; }
+  const left = readdirSync(root).filter(n => !before.has(n)).map(n => join(root, n));
+  for (const dir of left) assert.ok(said.some(s => s.includes(dir)), `a profile left behind is named on stderr: ${dir} / said: ${said.join(' | ')}`);
+  if (left.length === 0) assert.deepEqual(said, [], 'and when it was deleted nothing was said');
+});
+
 test('the command line: with no browser CI fails and a developer run skips visibly', () => {
   const script = join(ROOT, 'scripts/rendered-check.mjs');
-  const env = { ...process.env, [BROWSER_ENV]: join(tmpdir(), 'no-such-browser-binary') };
+  // the children run with their own HOME and TEMP, in a folder this test made
+  const home = mkdtempSync(join(tmpdir(), 'kolwen-cli-home-'));
+  copies.push(home);
+  const env = { ...process.env, HOME: home, USERPROFILE: home, TEMP: home, TMP: home, TMPDIR: home, XDG_CONFIG_HOME: home, [BROWSER_ENV]: join(tmpdir(), 'no-such-browser-binary') };
   const ci = spawnSync(process.execPath, ['--max-old-space-size=256', script], { encoding: 'utf8', timeout: 60000, env: { ...env, CI: 'true' } });
   assert.equal(ci.status, 1);
   assert.match(ci.stderr, /FAIL rendered-check: no Chrome or Edge was found.*In CI a missing browser is a failure, never a skip/);
