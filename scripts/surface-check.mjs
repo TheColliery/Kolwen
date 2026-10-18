@@ -1012,7 +1012,10 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
   let ds = null;
   try { ds = await import(pathToFileURL(resolve('scripts/lib/domain-seams.mjs')).href); }
   catch (e) { note('scripts/lib/domain-seams.mjs', 'could not be loaded, so rule 20 could not check the domain seams (' + (e.code || 'import failed') + ')'); }
-  if (ds) for (const p of ds.seamProblems(ds.snapshotOf(tracked, read))) note(p.file, p.msg);
+  if (ds) {
+    try { for (const p of ds.seamProblems(ds.snapshotOf(tracked, read))) note(p.file, p.msg); }
+    catch (e) { note('scripts/lib/domain-seams.mjs', 'rule 20 could not complete (' + String(e.message || e).slice(0, 160) + ')'); }
+  }
 }
 
 if (fail.length) {

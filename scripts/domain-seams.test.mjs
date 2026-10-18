@@ -239,6 +239,11 @@ test('seam 4: a Set-Cookie header, a document.cookie write and a Worker cookie c
   p('web/_headers', '/*\n  set-cookie: a=b; Domain=.kolwen.com\n', /Domain attribute.*every subdomain/, 'a Domain attribute in a header');
   p('web/index.html', '<script>document.cookie = "a=b";</script>', /writes document\.cookie/, 'a document.cookie write');
   p('web/index.html', '<script>document["cookie"] += "a=b";</script>', /writes document\.cookie/, 'a bracket write');
+  // every assignment operator that writes: the logical ones ("set it if absent") and the shifts and the rest, not only the single-character ones
+  for (const op of ['||=', '&&=', '??=', '%=', '**=', '<<=', '>>=', '>>>=', '+=', '-=', '*=', '/=', '&=', '|=', '^=']) {
+    p('web/index.html', `<script>document.cookie ${op} "a=b";</script>`, /writes document\.cookie/, `a write with ${op}`);
+    p('web/index.html', `<script>d["cookie"]${op}"a=b";</script>`, /writes document\.cookie/, `a bracket write with ${op}, no spaces`);
+  }
   p('web/index.html', '<script>document.cookie="a=b; domain=kolwen.com";</script>', /Domain attribute/, 'a Domain attribute in script');
   p('web/index.html', '<meta http-equiv="set-cookie" content="a=b">', /sets a cookie/, 'a meta set-cookie');
   p('worker/index.js', 'export default { fetch() { const r = new Response(""); r.headers.append("Set-Cookie", "a=b"); return r; } }', /sets a cookie/, 'a Worker Set-Cookie');
@@ -258,6 +263,8 @@ test('seam 4: a Set-Cookie header, a document.cookie write and a Worker cookie c
   assert.deepEqual(one('web/index.html', inline('var a = d.cookie; if (d.cookie == "x") {} var s = "Set-Cookie is not sent";')), []);
   // reading, comparing and prose are not setting
   assert.deepEqual(one('web/index.html', '<script>if (document.cookie === "") {}; var c = document.cookie;</script><p>This site sets no cookie and no Domain is shared.</p>'), []);
+  for (const cmp of ['==', '===', '!=', '!==', '<=', '>=', '<', '>']) assert.deepEqual(one('web/index.html', `<script>if (document.cookie ${cmp} "x") {}</script>`), [], `a comparison with ${cmp} reads, never writes`);
+  assert.deepEqual(one('web/index.html', '<script>var f = x => x.cookie; var g = (document.cookie, 1);</script>'), [], 'an arrow function that returns the property reads');
   assert.deepEqual(one('web/_headers', '# no Set-Cookie header is sent here, no Domain\n# a cookie sent with ; Domain=.x would reach every subdomain, so none is\n/*\n  Referrer-Policy: no-referrer\n'), []);
 });
 
@@ -304,11 +311,35 @@ test('the one entry point reports every seam: a cookie, a catalogue host key, a 
   assert.deepEqual(msgs(seamProblems(snap(x => { x.seamsText = null; }))).length, 1);
 });
 
+// A host of the brand other than the one the owner holds: `kolwen.` and a label that is not `com`, except the Worker's own production alias (`kolwen.hetcreep.workers.dev`, which wrangler.jsonc
+// disables and which three files record). Generic: it names no host, and catches any other top-level domain.
+const OTHER_BRAND_HOST = /\bkolwen\.(?!com\b)(?!hetcreep\.workers\.dev\b)[a-z][a-z0-9-]*/i;
+
+test('the guard against a host the owner does not hold names none, and catches any other top-level domain', () => {
+  for (const host of ['kolwen.invalid', 'KOLWEN.INVALID', 'kolwen.example', 'a visit to kolwen.test/x', 'kolwen.some-other']) assert.ok(OTHER_BRAND_HOST.test(host), host);
+  for (const ok of ['kolwen.com', 'KOLWEN.COM/pricing', 'ic.kolwen.com', 'kolwen.hetcreep.workers.dev', 'the Kolwen word mark']) assert.ok(!OTHER_BRAND_HOST.test(ok), ok);
+});
+
 test('the map holds only the live group, and no tracked file but this test names a host the owner has not bought', () => {
   assert.deepEqual(Object.keys(JSON.parse(REAL.seamsText).groups), ['company']);
   // a later group is added to the map by its own unit, on the owner's word for what it serves; until then no public file announces one
-  const hits = REAL.files.filter(f => f.file !== 'scripts/domain-seams.test.mjs' && /kolwen\.(?:ai|dev|app)\b/i.test(f.text)).map(f => f.file);
+  // address-check names look-alike domains (kolwen.community, kolwen.com.au) only as the negatives its address pattern must refuse; no page, header or catalogue is among the exempt
+  const NEGATIVES = new Set(['scripts/domain-seams.test.mjs', 'scripts/address-check.mjs', 'scripts/address-check.test.mjs']);
+  const hits = REAL.files.filter(f => !NEGATIVES.has(f.file) && OTHER_BRAND_HOST.test(f.text)).map(f => f.file);
   assert.deepEqual(hits, []);
+});
+
+test('a map or a catalogue file that is not a JSON object is a finding, never a thrown error', () => {
+  for (const text of ['null', '[]', '7', '"x"', 'true']) {
+    const r = parseSeams(text);
+    assert.equal(r.seams, null, text);
+    assert.ok(r.problems.some(p => /is not a JSON object/.test(p.msg)), text + ': ' + JSON.stringify(r.problems));
+    assert.ok(has(seamProblems(snap(x => { x.seamsText = text; })), /is not a JSON object/), 'through the one entry point: ' + text);
+  }
+  for (const text of ['null', '[]', '7', '"x"']) {
+    const ps = catalogueDomainProblems({ 'web-src/i18n/en.json': text }, REAL.templates);
+    assert.ok(ps.some(p => /is not a JSON object/.test(p.msg)), text + ': ' + JSON.stringify(ps));
+  }
 });
 
 test('the seam map is the file the rule reads', () => {
@@ -343,8 +374,23 @@ test('surface-check rule 20 runs the seams on a copy of the tree: clean passes, 
     assert.equal(b.status, 1, 'an orphan page fails: ' + b.stdout + b.stderr);
     assert.match(b.stdout + b.stderr, /web-src\/seams\.json: \/orphan belongs to no group/);
     rmSync(join(dir, 'web/orphan.html'));
+    const page404 = readFileSync(join(dir, 'web/404.html'), 'utf8');
     edit('web/404.html', s => s.split('href="/privacy"').join('href="/privacy-x"'));
     const c = surface();
     assert.match(c.stdout + c.stderr, /web\/404\.html: group company: no link to the privacy page/);
+    edit('web/404.html', () => page404);
+    // a bad input is a FAIL line, never a stack trace: a map that is the literal null, and a throw inside the seams
+    const seams = readFileSync(join(dir, SEAMS_FILE), 'utf8');
+    edit(SEAMS_FILE, () => 'null');
+    const d = surface();
+    assert.equal(d.status, 1, 'a null map fails: ' + d.stdout + d.stderr);
+    assert.match(d.stdout + d.stderr, /web-src\/seams\.json: is not a JSON object/);
+    assert.doesNotMatch(d.stdout + d.stderr, /\n\s+at /, 'no stack trace');
+    edit(SEAMS_FILE, () => seams);
+    edit('scripts/lib/domain-seams.mjs', s => s.replace('export function seamProblems(snap) {', "export function seamProblems(snap) {\n  throw new Error('planted');"));
+    const e = surface();
+    assert.equal(e.status, 1, 'a throw fails: ' + e.stdout + e.stderr);
+    assert.match(e.stdout + e.stderr, /scripts\/lib\/domain-seams\.mjs: rule 20 could not complete \(planted\)/);
+    assert.doesNotMatch(e.stdout + e.stderr, /\n\s+at /, 'no stack trace');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

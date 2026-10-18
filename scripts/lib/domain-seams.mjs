@@ -50,9 +50,10 @@ export function parseSeams(text) {
   const problems = [];
   const bad = msg => problems.push(prob(SEAMS_FILE, msg));
   if (text == null) { bad('is missing, so no page belongs to any group and nothing is checked (seam 1 to 5); restore it'); return { seams: null, problems }; }
+  const obj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
   let seams;
   try { seams = JSON.parse(text); } catch (e) { bad(`is not valid JSON (${e.message.slice(0, 100)})`); return { seams: null, problems }; }
-  const obj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+  if (!obj(seams)) { bad('is not a JSON object'); return { seams: null, problems }; }
   const strs = v => Array.isArray(v) && v.length > 0 && v.every(x => typeof x === 'string' && x !== '');
   if (!obj(seams.groups) || !obj(seams.groups.company)) bad('the company group is missing from "groups"');
   if (!obj(seams.zones)) bad('"zones" is missing');
@@ -195,7 +196,7 @@ export function cspZoneProblems(seams, zoneName, headersText, paths) {
 // SEAM 4. Nothing shipped sets a cookie (today none is set), and no cookie carries a Domain attribute.
 const CODE_FILE = /\.(?:m?js|cjs|ts|tsx)$/i;
 // A write to a `.cookie` property or a ['cookie'] member of anything (the document under another name too), and the Object.assign form.
-const DOC_COOKIE_WRITE = /(?:\.\s*cookie|\[\s*['"`]cookie['"`]\s*\])\s*[+\-*/|&^]?=(?!=)/;
+const DOC_COOKIE_WRITE = /(?:\.\s*cookie|\[\s*['"`]cookie['"`]\s*\])\s*(?:\*\*|<<|>>>?|&&|\|\||\?\?|[+\-*/%|&^])?=(?![=>])/;
 const ASSIGN_COOKIE = /\bObject\s*\.\s*assign\s*\(\s*document\s*,[^)]*\bcookie\b/;
 const COOKIE_CALLS = /\b(?:cookieStore\s*\.\s*set|cookies\s*\.\s*set|setCookie|serialize(?:Cookie)?)\s*\(/;
 const DOMAIN_ATTR = /;\s*domain\s*=/i;
@@ -258,6 +259,7 @@ export function catalogueDomainProblems(files, templates) {
   for (const file of names) {
     let cat;
     try { cat = JSON.parse(files[file]); } catch (e) { out.push(prob(file, `is not valid JSON (${e.message.slice(0, 100)})`)); continue; }
+    if (cat === null || typeof cat !== 'object' || Array.isArray(cat)) { out.push(prob(file, 'is not a JSON object')); continue; }
     for (const k of Object.keys(cat)) if (!pageKeys.has(k)) out.push(prob(file, `top-level key "${k}" is neither a template page nor shared; the catalogue is keyed by page, never by domain`));
     const walk = (o, path) => {
       for (const [k, v] of Object.entries(o)) {
