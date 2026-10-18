@@ -91,6 +91,18 @@ test('RED PROOF: the Sans-range check sees an out-of-range character written as 
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+test("RED PROOF: a stray quote in an unquoted attribute value (content=Kolwen's) hides nothing after it from the Sans-range check", () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sans-range-'));
+  try {
+    cpSync(WEB, join(dir, 'web'), { recursive: true });
+    const f = join(dir, 'web/index.html');
+    const html = readFileSync(f, 'utf8');
+    writeFileSync(f, html.replace('<link rel="stylesheet"', "<meta name=x content=Kolwen's><link rel=\"stylesheet\"").replace('</body>', '<p>&#x416;</p></body>'));
+    assert.deepEqual(sansMisses(dir), ['U+416 web/index.html']);
+    assert.ok(readFileSync(f, 'utf8').includes("content=Kolwen's"), 'the witness edit landed');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('the list of deployed files is recursive: a font under web/fonts is listed, _headers and _redirects are not, and the order is the code-unit order', async () => {
   const { servedFiles } = await import(new URL('./lib/web-files.mjs', import.meta.url));
   const dir = mkdtempSync(join(tmpdir(), 'web-files-'));

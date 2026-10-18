@@ -50,6 +50,34 @@ test('attributes are read in order: a whole name, three value forms, the first o
   assert.equal(img.attrs.get('alt'), 'a > b, src=/no');
 });
 
+// A quote opens a value only right after "=": in an unquoted value or a name it is an ordinary character (a parse error the tokenizer appends), and the tag still ends at its ">".
+test('RED PROOF: a stray quote in an unquoted value or an attribute name does not end the scan: the tags and the text after it are all read', () => {
+  const THAI = String.fromCodePoint(0x0e01);
+  const after = ['<p', 'text:' + THAI, '/p'];
+  assert.deepEqual(kinds(`<meta content=Kolwen's><link rel=stylesheet href=/a.css><p>${THAI}</p>`), ['<meta', '<link', ...after]);
+  assert.deepEqual(kinds(`<a b=x"y>t</a><p>${THAI}</p>`), ['<a', 'text:t', '/a', ...after]);
+  assert.deepEqual(kinds(`<a "x>t</a><p>${THAI}</p>`), ['<a', 'text:t', '/a', ...after]);
+  assert.deepEqual(kinds(`<div data-a=it's>x</div><span title='q'>y</span><p>${THAI}</p>`), ['<div', 'text:x', '/div', '<span', 'text:y', '/span', ...after]);
+  assert.deepEqual(kinds(`<a b = it's c>t</a><p>${THAI}</p>`), ['<a', 'text:t', '/a', ...after], 'spaces around the = and a quote in the unquoted value');
+  assert.equal(htmlTokens('<meta content=Kolwen\'s name=x>')[0].attrs.get('content'), "Kolwen's");
+  assert.equal(htmlTokens('<a b=x"y c=1>')[0].attrs.get('b'), 'x"y');
+  assert.deepEqual(kinds(`</a b=x"y><p>${THAI}</p>`), ['/a', ...after], 'an end tag too');
+  assert.deepEqual(kinds(`</a "x><p>${THAI}</p>`), ['/a', ...after]);
+  assert.deepEqual(kinds('<a b=>t</a>'), ['<a', 'text:t', '/a'], 'an empty unquoted value');
+  assert.deepEqual(kinds('<a b= "x>y">t</a>'), ['<a', 'text:t', '/a'], 'a quoted value after "=" and spaces still hides its ">"');
+  assert.deepEqual(kinds('<a b= c=\'x>y\'>t</a>'), ['<a', "text:y'>t", '/a'], 'but the first character after "=" and spaces decides: here it is c, so the value is unquoted and ends at the ">"');
+});
+
+// A tag that is never closed is dropped only when it is really cut off by the end of the input. Anything else is refused out loud: a gate whose data can empty it must say so.
+test('RED PROOF: a tag never closed but followed by a ">" throws a named error, and only a tag cut off by the end of the input (no ">" left) is dropped', () => {
+  assert.throws(() => htmlTokens('<p>ก</p><a title="x>t</a><p>y</p>'), /html-tokens: the tag at offset \d+ \(<a\b[^)]*\) is never closed/);
+  assert.throws(() => htmlTokens("<a title='x>t</a>"), /never closed/);
+  assert.throws(() => htmlTokens('</a title="x><p>'), /never closed/);
+  assert.deepEqual(kinds('ok <img src="/a.png"'), ['text:ok '], 'no ">" after it: the end of the input');
+  assert.deepEqual(kinds('ok <img src=/a.png'), ['text:ok '], 'an unquoted value cut off by the end of the input');
+  assert.deepEqual(kinds('a<b'), ['text:a'], 'a tag name cut off by the end of the input');
+});
+
 test('what is not a tag: a "<" that starts nothing is text, a bogus comment (<!doctype>, <?x>, </ >) is a comment, and a tag never ended is dropped with the rest', () => {
   assert.deepEqual(kinds('a < b <3 c'), ['text:a < b <3 c']);
   assert.deepEqual(kinds('<!doctype html><p>'), ['comment', '<p']);

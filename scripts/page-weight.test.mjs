@@ -2,7 +2,7 @@
 // Node builtins only. Every child process has a heap cap and a kill timeout.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, cpSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { tmpdir } from 'node:os';
@@ -402,6 +402,26 @@ test('RED PROOF: an <img> or a <link> written inside a script string is not an a
     'app.js': 'var a = 1;',
   });
   try { assert.deepEqual(urlsOf(only(checkTree(dir))), ['/app.js', '/f.woff2', '/i.png', '/index.html', '/j.png', '/k.png', '/s.css']); } finally { gone(dir); }
+});
+
+// Reviewer M1 of round 2: the real index with a stray quote in an unquoted value before its stylesheet link counted 6,105 bytes and 4 requests instead of 116,594 and 11, and exited 0.
+test("RED PROOF: a stray quote in an unquoted attribute value (content=Kolwen's, content=a\"b) before the stylesheet link leaves the real index's parts and request count unchanged", () => {
+  const dir = mkdtempSync(join(tmpdir(), 'page-weight-stray-'));
+  try {
+    cpSync(join(ROOT, 'web'), join(dir, 'web'), { recursive: true });
+    const f = join(dir, 'web/index.html');
+    const html = readFileSync(f, 'utf8');
+    const control = checkTree(join(dir, 'web')).find(r => r.page === 'index.html');
+    assert.ok(control.requests >= 8 && control.parts.some(p => p.url === '/fonts/fonts.css'), 'the control loads the manifest and its fonts');
+    for (const meta of ["<meta name=x content=Kolwen's>", '<meta name=x content=a"b>', '<meta name=x "y>']) {
+      const edited = html.replace('<link rel="stylesheet"', meta + '<link rel="stylesheet"');
+      assert.notEqual(edited, html, 'the witness edit landed: ' + meta);
+      writeFileSync(f, edited);
+      const row = checkTree(join(dir, 'web')).find(r => r.page === 'index.html');
+      assert.deepEqual(row.parts.map(p => p.url).sort(), control.parts.map(p => p.url).sort(), meta);
+      assert.equal(row.requests, control.requests, meta);
+    }
+  } finally { gone(dir); }
 });
 
 test('an unknown flag exits 2, --help prints usage and exits 0, and a tree with no page fails rather than passes', () => {
