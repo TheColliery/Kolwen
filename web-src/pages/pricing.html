@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{pricing.meta.title}}</title>
+<meta name="description" content="{{=pricing.meta.description}}">
+<link rel="canonical" href="https://kolwen.com/pricing">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#15130f">
+{{block:site-fonts}}
+<style>{{raw:style}}</style>
+<noscript><style>
+{{block:site-noscript-css}}
+</style></noscript>
+</head>
+<body>
+{{block:site-header}}
+<main>
+  <div id="doc-en" lang="en">
+{{lang en}}
+    <div>
+      <h1>{{pricing.title}}</h1>
+      <p class="sub">{{pricing.intro}}</p>
+    </div>
+    <div class="card">
+      <h2>{{pricing.plans.title}}</h2>
+      <p>{{pricing.plans.names}}</p>
+      <p>{{pricing.plans.billing}}</p>
+      <div class="bill" role="radiogroup" aria-label="{{=pricing.billing.label}}">
+        <input type="radio" name="bill-en" id="bill-m-en" value="m" checked><label for="bill-m-en">{{pricing.billing.monthly}}</label>
+        <input type="radio" name="bill-en" id="bill-y-en" value="y"><label for="bill-y-en">{{pricing.billing.yearly}}</label>
+        <div class="pcards">
+          <div class="pcard">
+            <h3>{{pricing.plan.lite}}</h3>
+            <span class="badge">{{pricing.status.later}}</span>
+            <p class="price"><span class="mo">{{pricing.lite.price-monthly}}</span><span class="yr">{{pricing.lite.price-yearly}}</span></p>
+            <ul>
+              <li>{{pricing.lite.quota}}</li>
+              <li>{{pricing.lite.usage}}</li>
+              <li>{{pricing.lite.price-lock}}</li>
+              <li>{{pricing.lite.cancel}}</li>
+              <li>{{pricing.lite.export}}</li>
+            </ul>
+            <button type="button" disabled>{{pricing.soon}}</button>
+          </div>
+          <div class="pcard">
+            <h3>{{pricing.plan.standard}}</h3>
+            <span class="badge">{{pricing.status.first}}</span>
+            <p class="price"><span class="mo">{{pricing.standard.price-monthly}}</span><span class="yr">{{pricing.standard.price-yearly}}</span></p>
+            <p>{{pricing.standard.includes}}</p>
+            <ul>
+              <li>{{pricing.standard.quota}}</li>
+            </ul>
+            <button type="button" disabled>{{pricing.soon}}</button>
+          </div>
+          <div class="pcard">
+            <h3>{{pricing.plan.premium}}</h3>
+            <span class="badge">{{pricing.status.later}}</span>
+            <p class="price"><span class="mo">{{pricing.premium.price-monthly}}</span><span class="yr">{{pricing.premium.price-yearly}}</span></p>
+            <p>{{pricing.premium.includes}}</p>
+            <ul>
+              <li>{{pricing.premium.quota}}</li>
+            </ul>
+            <button type="button" disabled>{{pricing.soon}}</button>
+          </div>
+          <div class="pcard">
+            <h3>{{pricing.plan.exclusive}}</h3>
+            <span class="badge">{{pricing.status.later}}</span>
+            <p class="price"><span class="mo">{{pricing.exclusive.price-monthly}}</span><span class="yr">{{pricing.exclusive.price-yearly}}</span></p>
+            <p>{{pricing.exclusive.includes}}</p>
+            <ul>
+              <li>{{pricing.exclusive.quota}}</li>
+            </ul>
+            <button type="button" disabled>{{pricing.soon}}</button>
+          </div>
+        </div>
+      </div>
+      <p>{{pricing.yearly.explain}}</p>
+      <p>{{pricing.yearly.howto}}</p>
+      <p class="note">{{pricing.soon-note}}</p>
+      <p class="note">{{pricing.tax-note}}</p>
+    </div>
+    <div class="card">
+      <h2>{{pricing.compare.title}}</h2>
+      <table class="plans">
+        <caption>{{pricing.compare.caption}}</caption>
+        <thead><tr><th scope="col">{{pricing.compare.feature}}</th><th scope="col">{{pricing.plan.lite}}</th><th scope="col">{{pricing.plan.standard}}</th><th scope="col">{{pricing.plan.premium}}</th><th scope="col">{{pricing.plan.exclusive}}</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">{{pricing.compare.quota-row}}</th><td>{{pricing.multiple.lite}}</td><td>{{pricing.multiple.standard}}</td><td>{{pricing.multiple.premium}}</td><td>{{pricing.multiple.exclusive}}</td></tr>
+          <tr><th scope="row">{{pricing.compare.percent-row}}</th><td>{{pricing.yes}}</td><td>{{pricing.yes}}</td><td>{{pricing.yes}}</td><td>{{pricing.yes}}</td></tr>
+          <tr><th scope="row">{{pricing.compare.export-row}}</th><td>{{pricing.yes}}</td><td>{{pricing.yes}}</td><td>{{pricing.yes}}</td><td>{{pricing.yes}}</td></tr>
+          <tr><th scope="row">{{pricing.compare.billing-row}}</th><td>{{pricing.yes}}</td><td>{{pricing.yes}}</td><td>{{pricing.yes}}</td><td>{{pricing.yes}}</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card faq">
+      <h2>{{pricing.faq.title}}</h2>
+      <h3>{{pricing.faq.usage-q}}</h3>
+      <p>{{pricing.faq.usage-a}}</p>
+      <h3>{{pricing.faq.limit-q}}</h3>
+      <p>{{pricing.faq.limit-a}}</p>
+      <h3>{{pricing.faq.refund-q}}</h3>
+      <p>{{pricing.faq.refund-a}}</p>
+      <h3>{{pricing.faq.tax-q}}</h3>
+      <p>{{pricing.faq.tax-a}}</p>
+    </div>
+    <div class="card">
+      <h2>{{pricing.buy.title}}</h2>
+      <p>{{pricing.buy.shapes}}</p>
+      <p>{{pricing.buy.draft}}</p>
+      <p>{{pricing.buy.subscription}}</p>
+      <p>{{pricing.buy.key}}</p>
+      <ul>
+        <li>{{pricing.buy.key-time}}</li>
+        <li>{{pricing.buy.key-refund}}</li>
+        <li>{{pricing.buy.key-limits}}</li>
+        <li>{{pricing.buy.key-bind}}</li>
+      </ul>
+      <p>{{pricing.buy.credits}}</p>
+    </div>
+    <div class="card">
+      <h2>{{pricing.setting.title}}</h2>
+      <p>{{pricing.setting.formula}}</p>
+      <ul>
+        <li>{{pricing.setting.axis}}</li>
+        <li>{{pricing.setting.tax}}</li>
+        <li>{{pricing.setting.keeps}}</li>
+        <li>{{pricing.setting.regional}}</li>
+      </ul>
+    </div>
+
+    <p class="fine">{{shared.page.note}}</p>
+{{/lang}}
+  </div>
+
+  <div id="doc-th" lang="th" hidden>
+{{lang th}}
+    <div>
+      <h1>{{pricing.title}}</h1>
+      <p class="sub">{{pricing.intro}}</p>
+    </div>
+    <div class="card">
+      <h2>{{pricing.plans.title}}</h2>
+      <p>{{pricing.plans.names}}</p>
+      <p>{{pricing.plans.billing}}</p>
+      <div class="bill" role="radiogroup" aria-label="{{=pricing.billing.label}}">
+        <input type="radio" name="bill-th" id="bill-m-th" value="m" checked><label for="bill-m-th">{{pricing.billing.monthly}}</label>
+        <input type="radio" name="bill-th" id="bill-y-th" value="y"><label for="bill-y-th">{{pricing.billing.yearly}}</label>
+        <div class="pcards">
+          <div class="pcard">
+            <h3>{{pricing.plan.lite}}</h3>
+            <span class="badge">{{pricing.status.later}}</span>
+            <p class="price"><span class="mo">{{pricing.lite.price-monthly}}</span><span class="yr">{{pricing.lite.price-yearly}}</span></p>
+            <ul>
+              <li>{{pricing.lite.quota}}</li>
+              <li>{{pricing.lite.usage}}</li>
+              <li>{{pricing.lite.price-lock}}</li>
+              <li>{{pricing.lite.cancel}}</li>
+              <li>{{pricing.lite.export}}</li>
+            </ul>
+            <button type="button" disabled>{{pricing.soon}}</button>
+          </div>
+          <div class="pcard">
+            <h3>{{pricing.plan.standard}}</h3>
+            <span class="badge">{{pricing.status.first}}</span>
+            <p class="price"><span class="mo">{{pricing.standard.price-monthly}}</span><span class="yr">{{pricing.standard.price-yearly}}</span></p>
+            <p>{{pricing.standard.includes}}</p>
+            <ul>
+              <li>{{pricing.standard.quota}}</li>
+            </ul>
+            <button type="button" disabled>{{pricing.soon}}</button>
+          </div>
+          <div class="pcard">
+            <h3>{{pricing.plan.premium}}</h3>
+            <span class="badge">{{pricing.status.later}}</span>
+            <p class="price"><span class="mo">{{pricing.premium.price-monthly}}</span><span class="yr">{{pricing.premium.price-yearly}}</span></p>
+            <p>{{pricing.premium.includes}}</p>
+            <ul>
+              <li>{{pricing.premium.quota}}</li>
+            </ul>
+            <button type="button" disabled>{{pricing.soon}}</button>
+          </div>
+          <div class="pcard">
+            <h3>{{pricing.plan.exclusive}}</h3>
+            <span class="badge">{{pricing.status.later}}</span>
+            <p class="price"><span class="mo">{{pricing.exclusive.price-monthly}}</span><span class="yr">{{pricing.exclusive.price-yearly}}</span></p>
+            <p>{{pricing.exclusive.includes}}</p>
+            <ul>
+              <li>{{pricing.exclusive.quota}}</li>
+            </ul>
+            <button type="button" disabled>{{pricing.soon}}</button>
+          </div>
+        </div>
+      </div>
+      <p>{{pricing.yearly.explain}}</p>
+      <p>{{pricing.yearly.howto}}</p>
+      <p class="note">{{pricing.soon-note}}</p>
+      <p class="note">{{pricing.tax-note}}</p>
+    </div>
+    <div class="card">
+      <h2>{{pricing.compare.title}}</h2>
+      <table class="plans">
+        <caption>{{pricing.compare.caption}}</caption>
+        <thead><tr><th scope="col">{{pricing.compare.feature}}</th><th scope="col">{{pricing.plan.lite}}</th><th scope="col">{{pricing.plan.standard}}</th><th scope="col">{{pricing.plan.premium}}</th><th scope="col">{{pricing.plan.exclusive}}</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">{{pricing.compare.quota-row}}</th><td>{{pricing.multiple.lite}}</td><td>{{pricing.multiple.standard}}</td><td>{{pricing.multiple.premium}}</td><td>{{pricing.multiple.exclusive}}</td></tr>
+          <tr><th scope="row">{{pricing.compare.percent-row}}</th><td>{{pricing.yes}}</td><td>{{pricing.yes}}</td><td>{{pricing.yes}}</td><td>{{pricing.yes}}</td></tr>
+          <tr><th scope="row">{{pricing.compare.export-row}}</th><td>{{pricing.yes}}</td><td>{{pricing.yes}}</td><td>{{pricing.yes}}</td><td>{{pricing.yes}}</td></tr>
+          <tr><th scope="row">{{pricing.compare.billing-row}}</th><td>{{pricing.yes}}</td><td>{{pricing.yes}}</td><td>{{pricing.yes}}</td><td>{{pricing.yes}}</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card faq">
+      <h2>{{pricing.faq.title}}</h2>
+      <h3>{{pricing.faq.usage-q}}</h3>
+      <p>{{pricing.faq.usage-a}}</p>
+      <h3>{{pricing.faq.limit-q}}</h3>
+      <p>{{pricing.faq.limit-a}}</p>
+      <h3>{{pricing.faq.refund-q}}</h3>
+      <p>{{pricing.faq.refund-a}}</p>
+      <h3>{{pricing.faq.tax-q}}</h3>
+      <p>{{pricing.faq.tax-a}}</p>
+    </div>
+    <div class="card">
+      <h2>{{pricing.buy.title}}</h2>
+      <p>{{pricing.buy.shapes}}</p>
+      <p>{{pricing.buy.draft}}</p>
+      <p>{{pricing.buy.subscription}}</p>
+      <p>{{pricing.buy.key}}</p>
+      <ul>
+        <li>{{pricing.buy.key-time}}</li>
+        <li>{{pricing.buy.key-refund}}</li>
+        <li>{{pricing.buy.key-limits}}</li>
+        <li>{{pricing.buy.key-bind}}</li>
+      </ul>
+      <p>{{pricing.buy.credits}}</p>
+    </div>
+    <div class="card">
+      <h2>{{pricing.setting.title}}</h2>
+      <p>{{pricing.setting.formula}}</p>
+      <ul>
+        <li>{{pricing.setting.axis}}</li>
+        <li>{{pricing.setting.tax}}</li>
+        <li>{{pricing.setting.keeps}}</li>
+        <li>{{pricing.setting.regional}}</li>
+      </ul>
+    </div>
+
+    <p class="fine">{{shared.page.note}}</p>
+{{/lang}}
+  </div>
+</main>
+{{block:site-footer:en}}
+{{block:site-footer:th}}
+{{raw:script}}
+</body>
+</html>
