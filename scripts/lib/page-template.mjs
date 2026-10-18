@@ -20,7 +20,8 @@
 //     are data, not words; an @value or @comment is a word);
 //   - no script: a template holds no executable <script> element, no inline event handler and no javascript: URL (href, src, action, formaction, xlink:href), so nothing a script writes into the page can
 //     be a string outside the catalogue; the page script comes in whole as {{raw:script}};
-//   - each slot in its place (above), and no slot in an attribute name, a <style> block or a data block that is not structured data;
+//   - each slot in its place (above), and no slot in an attribute name, a <style> block or a data block that is not structured data; an attribute slot is refused in a text node and in a `style`
+//     attribute, a slot of any kind is refused between the strings of structured data, and a block or raw slot stands alone on its line (the one other form: the whole body of a <style> element);
 //   - no join: two slots in one text node or one attribute, or a slot beside literal text, are joined fragments (a language that orders its words otherwise cannot be translated);
 //   - the slot syntax is exact, the language regions are balanced and each language is a valid BCP 47 tag.
 // And usageProblems reads the templates against the catalogue: a slot whose key is missing in a language, a page that reads another page's group, a slot that would show an empty value, and a
@@ -38,6 +39,8 @@ const NAME = '[a-z][a-z0-9:-]*';
 const SLOT = new RegExp(`\\{\\{(?:(=|j:)(${KEY})|(block:|raw:)(${NAME})|(${KEY}))\\}\\}`, 'g');
 const LANG_OPEN = /^\{\{lang ([^\s{}]+)\}\}$/;
 const LANG_CLOSE = /^\{\{\/lang\}\}$/;
+// A block or raw slot is whole markup or code the build owns: its line holds that slot and nothing else, or the slot is the whole body of a <style> element (the pricing page's `<style>{{raw:style}}</style>`).
+const WHOLE_LINE = new RegExp(`^\\s*(?:\\{\\{(?:block:|raw:)${NAME}\\}\\}|<style>\\{\\{(?:block:|raw:)${NAME}\\}\\}</style>)\\s*$`);
 // Private-use characters stand in for a masked slot while the template is read as HTML (built from code points: the source holds no invisible text).
 // One mask per slot kind, so the lint can tell where each kind stands (a JSON string is escaped for JSON, not for an attribute or a text node).
 const TEXT_MASK = String.fromCharCode(0xe001), ATTR_MASK = String.fromCharCode(0xe002), CODE_MASK = String.fromCharCode(0xe003), JSON_MASK = String.fromCharCode(0xe004);
@@ -105,6 +108,7 @@ export function templateProblems(src, name = 'template') {
   src.split('\n').forEach((line, i) => {
     if (LANG_OPEN.test(line) || LANG_CLOSE.test(line)) return;
     const rest = line.replace(SLOT, '');
+    if ([...line.matchAll(SLOT)].some(m => m[3]) && !WHOLE_LINE.test(line)) out.push(`${at} line ${i + 1}: a {{block:}} or {{raw:}} slot must stand alone on its line (it is whole markup or code the build owns, and is not written into a paragraph or beside other markup or slots)`);
     if (/\{\{/.test(rest)) out.push(`${at} line ${i + 1}: a slot that is not {{key}}, {{=key}}, {{j:key}}, {{block:name}} or {{raw:name}} (a key is lowercase dot-path, a slot holds no space and no expression)`);
   });
   // literals and joins
@@ -137,6 +141,7 @@ export function templateProblems(src, name = 'template') {
         if (HAS_MASK.test(k)) out.push(`${at}: the ${t.name} element has an attribute name that holds a slot; a slot fills a value`);
         if (v.includes(JSON_MASK)) out.push(`${at}: attribute ${k} reads a {{j:key}} slot; an attribute reads {{=key}}`);
         else if (v.includes(TEXT_MASK)) out.push(`${at}: attribute ${k} reads a text slot; an attribute reads {{=key}}`);
+        else if (k === 'style' && v.includes(ATTR_MASK)) out.push(`${at}: attribute style holds an attribute slot; only structured data takes one (the value would be written into inline CSS, as a <style> block refuses)`);
         if (JS_URL_ATTRS.has(k) && isJsUrl(v)) out.push(`${at}: attribute ${k} is a javascript: URL; a template holds no script`);
       }
       if (LABELLED.has(t.name) && (t.attrs.get('label') ?? '') !== '') attrProblems(`label of the ${t.name}`, t.attrs.get('label'));
@@ -155,6 +160,7 @@ export function templateProblems(src, name = 'template') {
       if (rest !== '') out.push(`${at}: literal text ${JSON.stringify(rest.slice(0, 60))} in a text node; a visible string is a catalogue slot`);
       else if (n >= 2) out.push(`${at}: a text node joins ${n} catalogue keys in one text; each catalogue string is a whole sentence`);
       if (t.text.includes(JSON_MASK)) out.push(`${at}: a text node reads a {{j:key}} slot; a text node reads {{key}}`);
+      if (t.text.includes(ATTR_MASK)) out.push(`${at}: a text node reads an {{=key}} slot; a text node reads {{key}} (an attribute value is plain text, and a text slot may hold markup)`);
     } else if (t.type === 'raw' && t.name === 'script' && scriptType(tag) === 'application/ld+json') {
       let owner = '';
       for (const m of t.body.matchAll(/"((?:[^"\\]|\\.)*)"(\s*:)?/g)) {
@@ -168,6 +174,8 @@ export function templateProblems(src, name = 'template') {
         const data = v === JSON_MASK || /^(?:https?:\/\/|mailto:)\S+$/.test(v) || /^[^\s@]+@[^\s@]+$/.test(v) || ENDORSED_KEYS.has(owner);
         if (!data) out.push(`${at}: structured data value ${JSON.stringify(v.replace(MASKS, '').trim() || v)} is a literal; a visible string is a {{j:key}} slot`);
       }
+      // a slot between the strings (a bare value or a bare key) writes text that is no JSON string
+      if (HAS_MASK.test(t.body.replace(/"(?:[^"\\]|\\.)*"/g, ''))) out.push(`${at}: structured data holds a slot outside a JSON string; a slot goes inside the quotes`);
     } else if (t.type === 'raw' && t.name === 'script') {
       // a data block that is not structured data (importmap, speculationrules, application/json) is no place for a slot; an executable script is already refused above
       if (HAS_VALUE_MASK.test(t.body) && /^(?:application\/json|importmap|speculationrules)$/.test(scriptType(tag))) out.push(`${at}: a <script type="${scriptType(tag)}"> block holds a catalogue slot; only structured data takes one`);

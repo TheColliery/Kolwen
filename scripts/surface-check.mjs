@@ -119,7 +119,8 @@ for (const f of tracked.filter(PUBLISHED)) {
     try { decoded = (await import(pathToFileURL(resolve('scripts/lib/rendered-text.mjs')).href)).decodeEntities(s); }
     catch (e) { note(f, `has a character reference rule 4 cannot read (${String(e.message).slice(0, 100)}), so its invisible characters are not all checked`); }
     if (decoded !== null && decoded !== s) scan(decoded, ' (written as a character reference)');
-    if (/&nbsp;|&NonBreakingSpace;|&#0*160;|&#x0*a0;/i.test(s)) note(f, 'invisible character U+A0 written as an entity (&nbsp;); a page uses a no-break space only before the Thai repetition mark, as the character');
+    // the HTML decoder reads `&nbsp` and a numeric reference without its semicolon as the same character, so the source is read both ways; a digit after the number is another character (&#1600;)
+    if (/&nbsp|&NonBreakingSpace;|&#0*160(?![0-9])|&#x0*a0(?![0-9a-f])/i.test(s)) note(f, 'invisible character U+A0 written as an entity (&nbsp;); a page uses a no-break space only before the Thai repetition mark, as the character');
   }
   if (s.includes('…')) note(f, 'U+2026 ellipsis — use three ASCII dots');
 }

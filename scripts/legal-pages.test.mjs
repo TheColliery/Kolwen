@@ -899,11 +899,18 @@ test('surface-check rule 4 refuses every other space separator and default-ignor
       assert.equal(r.status, 1, name + ': ' + r.stdout + r.stderr);
       assert.match(r.stdout + r.stderr, new RegExp('web/pricing\\.html: invisible character U\\+' + cp.toString(16).toUpperCase() + '\\b'), name);
     }
-    for (const entity of ['&nbsp;', '&#160;', '&#xA0;']) {
-      writeFileSync(join(dir, 'web/pricing.html'), page.replace('Coming soon', 'Coming' + entity + 'soon'));
+    // with and without the closing semicolon: the HTML decoder reads `&nbsp` and a numeric reference whose digits end at a non-digit as the same no-break space (CodeRabbit 4307106778)
+    for (const entity of ['&nbsp;', '&#160;', '&#xA0;', '&nbsp', '&#160', '&#xA0', '&#0160', '&#x00a0', '&#X0A0', '&NBSP;']) {
+      writeFileSync(join(dir, 'web/pricing.html'), page.replace('Coming soon', 'Coming' + entity + ' soon'));
       const r = surface(dir);
       assert.equal(r.status, 1, entity + ': ' + r.stdout + r.stderr);
       assert.match(r.stdout + r.stderr, /web\/pricing\.html: invisible character U\+A0 written as an entity/, entity);
+    }
+    // a reference that only STARTS with those digits is another character, not a no-break space (U+0640, U+0A01, U+3E80): no finding from this rule
+    for (const other of ['&#1600;', '&#xA01;', '&#16000;']) {
+      writeFileSync(join(dir, 'web/pricing.html'), page.replace('Coming soon', 'Coming' + other + ' soon'));
+      const r = surface(dir);
+      assert.doesNotMatch(r.stdout + r.stderr, /written as an entity \(&nbsp;\)/, other + ': ' + r.stdout + r.stderr);
     }
     for (const [what, text] of [['an emoji presentation selector after a symbol', page.replace('Coming soon', 'Coming' + String.fromCharCode(0x26a0, 0xfe0f) + 'soon')], ['a plain space', page.replace('Coming soon', 'Coming  soon')]]) {
       writeFileSync(join(dir, 'web/pricing.html'), text);
