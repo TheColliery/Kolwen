@@ -21,6 +21,7 @@ import { MARK_EN, MARK_TH, PAGES, BANNER, PENDING, THAI_OWED, TEXT_TWINS, PENDIN
 import { activeSince } from './legal-state.mjs';
 import { t, html as tHtml, escText, escAttr, withCatalogue } from './i18n-catalogue.mjs';
 import { renderTemplate } from './page-template.mjs';
+import { tokensCss, readingMeta, VIEWPORT_META, JOBS } from './layout-tokens.mjs';
 export { escText, escAttr };
 
 export const SOURCES = { terms: 'TERMS.md', privacy: 'PRIVACY.md', clause: 'legal/thai-7day-clause.md', changelog: 'CHANGELOG.md' };
@@ -211,37 +212,37 @@ function refundBody(clauseMd, termsClass, lang, opts) {
 // THE LANGUAGE follows <html lang>, which the page script sets: the header holds one <nav> per language and the footer one <footer> per language, and a
 // rule shows the one that matches. With no script the Thai ones are shown too (NOSCRIPT_STYLE), as the Thai document is.
 export const HEADER_CSS = [
-  "  .site-header{border-bottom:1px solid rgba(128,128,128,.35);padding:6px 20px}",
-  "  .site-header nav{display:flex;flex-wrap:wrap;align-items:center;gap:4px 18px;width:100%;max-width:1100px;margin:0 auto;font-size:14.5px}",
+  "  .site-header{border-bottom:1px solid rgba(128,128,128,.35);padding-block:var(--kw-space-header-top) var(--kw-space-header-block);padding-inline:var(--kw-space-gutter-inline)}",
+  "  .site-header nav{display:flex;flex-wrap:wrap;align-items:center;gap:4px 18px;width:100%;max-width:var(--kw-size-container-wide);margin:0 auto;font-size:var(--kw-font-size-6)}",
   '  .site-header nav[lang="th"]{display:none}',
   '  html[lang="th"] .site-header nav[lang="en"]{display:none}',
   '  html[lang="th"] .site-header nav[lang="th"]{display:flex}',
   "  .site-header a{color:inherit;text-decoration:none;display:inline-flex;align-items:center;min-height:44px;overflow-wrap:anywhere}",
   "  .site-header a:hover{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}",
-  "  .site-header .hmark{gap:10px;font-weight:700;font-size:18px;letter-spacing:.01em;margin-right:auto}",
+  "  .site-header .hmark{gap:10px;font-weight:700;font-size:var(--kw-font-size-9);letter-spacing:.01em;margin-right:auto}",
   "  .site-header .hglyph,.site-footer .fglyph{flex:none;display:block;fill:var(--accent,var(--amber,#e8833a))}",
   "  .lswitch{display:inline-flex;gap:6px}",
-  "  .lswitch button{font:inherit;font-size:12.5px;color:inherit;background:transparent;border:1px solid rgba(128,128,128,.7);border-radius:8px;padding:6px 12px;min-height:34px;cursor:pointer}",
+  "  .lswitch button{font:inherit;font-size:var(--kw-font-size-2);color:inherit;background:transparent;border:1px solid var(--kw-color-switch-border);border-radius:8px;padding:6px 12px;min-height:34px;cursor:pointer}",
   "  .lswitch button:hover{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}",
   '  .lswitch button[aria-pressed="true"]{border-color:currentColor;font-weight:600}',
   "  .site-header :focus-visible,.site-footer :focus-visible{outline:2px solid currentColor;outline-offset:2px}"].join('\n');
 
 export const FOOTER_CSS = [
-  "  .site-footer{display:block;margin-top:72px;padding:44px 20px 32px;border-top:1px solid rgba(128,128,128,.35);font-size:13.5px;line-height:1.7}",
+  "  .site-footer{display:block;margin-top:var(--kw-space-footer-offset);padding-block:var(--kw-space-footer-top) var(--kw-space-footer-end);padding-inline:var(--kw-space-gutter-inline);border-top:1px solid rgba(128,128,128,.35);font-size:var(--kw-font-size-4);line-height:1.7}",
   '  .site-footer[lang="th"]{display:none}',
   '  html[lang="th"] .site-footer[lang="en"]{display:none}',
   '  html[lang="th"] .site-footer[lang="th"]{display:block}',
-  "  .site-footer .fwrap{width:100%;max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:28px}",
-  "  .site-footer .fbrand{display:flex;align-items:center;gap:10px;margin:0;font-size:20px;font-weight:700;letter-spacing:.01em}",
+  "  .site-footer .fwrap{width:100%;max-width:var(--kw-size-container-wide);margin:0 auto;display:flex;flex-direction:column;gap:28px}",
+  "  .site-footer .fbrand{display:flex;align-items:center;gap:10px;margin:0;font-size:var(--kw-font-size-10);font-weight:700;letter-spacing:.01em}",
   "  .site-footer .fgroups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 18px}",
   "  @media (min-width:640px){.site-footer .fgroups{grid-template-columns:repeat(3,minmax(0,1fr))}}",
   "  @media (min-width:1024px){.site-footer .fgroups{grid-template-columns:repeat(5,minmax(0,1fr))}}",
   "  .site-footer .fgroup{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0}",
-  "  .site-footer .fh{font-size:12px;letter-spacing:.04em;text-transform:uppercase;margin:0}",
+  "  .site-footer .fh{font-size:var(--kw-font-size-1);letter-spacing:.04em;text-transform:uppercase;margin:0}",
   "  .site-footer a{color:inherit;text-decoration:underline;text-underline-offset:3px;display:inline-block;padding:5px 0;min-height:32px;overflow-wrap:anywhere}",
   "  .site-footer a:hover{text-decoration-thickness:2px}",
   "  .site-footer .fbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid rgba(128,128,128,.25);padding-top:16px}",
-  "  .fine{font-size:12px;margin:0}"].join('\n');
+  "  .fine{font-size:var(--kw-font-size-1);margin:0}"].join('\n');
 
 // The Kolwen mark, on one line (the blocks carry no indentation). The fill is CSS (HEADER_CSS), so a light page can give it its darker on-light colour.
 export const markSvg = (size, cls) => `<svg class="${cls}" viewBox="0 0 100 100" width="${size}" height="${size}" aria-hidden="true"><rect x="8.5" y="9.1" width="64.3" height="25"/><rect x="17.85" y="46.25" width="64.3" height="19.66"/><rect x="27.2" y="75.46" width="64.3" height="15.45"/></svg>`;
@@ -298,12 +299,13 @@ export const footersOf = html => html.match(/<footer class="site-footer"[^>]*>[\
 export const FONT_LINK = '<link rel="stylesheet" href="/fonts/fonts.css">';
 const htmlPair = name => ({ name, begin: `<!-- ${name}:begin -->`, end: `<!-- ${name}:end -->` });
 const cssPair = name => ({ name, begin: `/* ${name}:begin */`, end: `/* ${name}:end */` });
-// THE ORDER OF THIS ARRAY IS THE ONE EXPECTED DOCUMENT ORDER of the pairs in every one of the seven pages, declared here once: the header rules and the footer
+// THE ORDER OF THIS ARRAY IS THE ONE EXPECTED DOCUMENT ORDER of the pairs in every one of the seven pages, declared here once: the layout tokens, then the header rules and the footer
 // rules in the style block (the head), the rules for a reader without script, then the header slot, the English footer, the Thai footer, and the page script at
 // the end of the body. scripts/lib/page-sync.mjs reads the pairs in this order and refuses (--check and --write) a page whose pairs overlap, nest across each
 // other or stand in another order, so swapping the two footers cannot pass.
 export const SYNC_BLOCKS = [
   { ...htmlPair('site-fonts'), label: 'font manifest link', shared: 'font manifest link', render: () => FONT_LINK },
+  { ...cssPair('site-tokens-css'), label: 'layout tokens', shared: 'layout tokens', render: tokensCss },
   { ...cssPair('site-header-css'), label: 'header css', shared: 'header rules', render: () => HEADER_CSS },
   { ...cssPair('site-footer-css'), label: 'footer css', shared: 'footer rules', render: () => FOOTER_CSS },
   { ...cssPair('site-noscript-css'), label: 'noscript css', shared: 'rules for a reader without script', render: () => NOSCRIPT_STYLE },
@@ -322,66 +324,68 @@ export const pageScriptHtml = () => `<script>\n${fenced('site-script')}\n</scrip
 // One style block serves the four generated pages (terms, privacy, refund, changelog) AND web/pricing.html, so the five share one CSP hash (surface-check rule 13). The pricing template
 // takes it whole as {{raw:style}}; `legal-pages.mjs --check` fails if the page's style block is not byte-for-byte this one.
 export const STYLE = `
+${fenced('site-tokens-css')}
   :root{--bg:#0f0d0b;--bg2:#15130f;--card:#1a1714;--line:rgba(255,255,255,.08);--txt:#ece4d9;--txt2:#a89a8c;--quiet:#a2968a;--accent:#e8833a;--accent2:#ffbb7a}
   *{box-sizing:border-box;margin:0}
-  body{background:radial-gradient(circle at 20% 0%,rgba(232,131,58,.07),transparent 55%),var(--bg);color:var(--txt);font-family:'KW Sans Thai',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:stretch;padding:0;line-height:1.6}
-  main{flex:1 0 auto;width:100%;max-width:760px;margin:0 auto;padding:36px 20px 0;display:flex;flex-direction:column;gap:28px}
+  body{background:radial-gradient(circle at 20% 0%,rgba(232,131,58,.07),transparent 55%),var(--bg);color:var(--txt);font-family:'KW Sans Thai',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:stretch;padding:0;line-height:var(--kw-line-height-body)}
+  main{flex:1 0 auto;width:100%;max-width:var(--kw-size-container-reading);margin:0 auto;padding-block:var(--kw-space-inset-block-start) 0;padding-inline:var(--kw-space-gutter-inline);display:flex;flex-direction:column;gap:var(--kw-space-section)}
   a:focus-visible,button:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
   .mark{display:flex;align-items:center;gap:12px;color:inherit;text-decoration:none}
   .glyph{flex:none;display:block}
-  .name{font-size:34px;font-weight:700;letter-spacing:.01em}
-  .thai{font-size:15px;color:var(--quiet);font-weight:500}
-  h1{font-size:24px;font-weight:600;line-height:1.5}
-  .sub{color:var(--txt2);font-size:14.5px;margin-top:8px}
+  .name{font-size:var(--kw-font-size-display);font-weight:700;letter-spacing:.01em}
+  .thai{font-size:var(--kw-font-size-7);color:var(--quiet);font-weight:500}
+  h1{font-size:var(--kw-font-size-title);font-weight:600;line-height:1.5}
+  .sub{color:var(--txt2);font-size:var(--kw-font-size-6);margin-top:8px}
   .card{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:18px 20px;display:flex;flex-direction:column;gap:10px}
-  .card h2,.card h3{font-size:13px;font-weight:600;color:var(--quiet);letter-spacing:.04em;text-transform:uppercase;font-family:'KW Mono',monospace}
-  .card p,.card li{font-size:14.5px;color:var(--txt2)}
+  .card h2,.card h3{font-size:var(--kw-font-size-3);font-weight:600;color:var(--quiet);letter-spacing:.04em;text-transform:uppercase;font-family:'KW Mono',monospace}
+  .card p,.card li{font-size:var(--kw-font-size-6);color:var(--txt2)}
   .card strong{color:var(--txt);font-weight:600}
   .card ul{padding-left:20px;display:flex;flex-direction:column;gap:6px}
-  .card code{font-family:'KW Mono',monospace;font-size:13.5px;color:var(--txt)}
-  .plans{width:100%;border-collapse:collapse;font-size:14px}
-  .plans caption{text-align:left;padding:0 0 8px;font-size:12.5px;color:var(--quiet);font-family:'KW Mono',monospace}
-  .plans th,.plans td{text-align:left;padding:8px 10px 8px 0;border-bottom:1px solid var(--line);color:var(--txt2);font-weight:400;vertical-align:middle}
-  .plans thead th{font-size:12.5px;color:var(--quiet);font-family:'KW Mono',monospace}
+  .card code{font-family:'KW Mono',monospace;font-size:var(--kw-font-size-4);color:var(--txt)}
+  .plans{width:100%;border-collapse:collapse;font-size:var(--kw-font-size-5)}
+  .plans caption{text-align:left;padding:0 0 8px;font-size:var(--kw-font-size-2);color:var(--quiet);font-family:'KW Mono',monospace}
+  .plans th,.plans td{text-align:left;padding:8px var(--kw-space-cell) 8px 0;font-size:var(--kw-font-size-cell);border-bottom:1px solid var(--line);color:var(--txt2);font-weight:400;vertical-align:middle}
+  .plans thead th{font-size:var(--kw-font-size-2);color:var(--quiet);font-family:'KW Mono',monospace}
   .plans tbody th{color:var(--txt);font-weight:600}
-  .plans tbody th small{display:block;font-size:12.5px;color:var(--quiet);font-weight:400}
-  .plans button,.pcard button{font:inherit;font-size:12.5px;color:var(--quiet);background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;min-height:34px;cursor:not-allowed}
+  .plans tbody th small{display:block;font-size:var(--kw-font-size-2);color:var(--quiet);font-weight:400}
+  .plans button,.pcard button{font:inherit;font-size:var(--kw-font-size-2);color:var(--quiet);background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;min-height:34px;cursor:not-allowed}
+  .plans button{padding-inline:var(--kw-space-button)}
   .ch{display:flex;flex-wrap:wrap;gap:8px}
-  .ch a{color:var(--txt);text-decoration:none;font-size:13.5px;border:1px solid var(--line);border-radius:9px;padding:7px 12px;background:var(--bg2);display:inline-flex;align-items:center;gap:7px;min-height:44px}
+  .ch a{color:var(--txt);text-decoration:none;font-size:var(--kw-font-size-4);border:1px solid var(--line);border-radius:9px;padding:7px 12px;background:var(--bg2);display:inline-flex;align-items:center;gap:7px;min-height:44px}
   .ch a:hover{border-color:rgba(232,131,58,.4);color:var(--accent2)}
-  footer{margin-top:6px;font-size:12px;color:var(--quiet);display:flex;flex-direction:column;gap:4px}
-  #doc-en > * + *,#doc-th > * + *{margin-top:28px}
-  .banner{border:1px solid rgba(232,131,58,.45);background:rgba(232,131,58,.08);border-radius:10px;padding:12px 14px;font-size:14.5px;color:var(--txt);margin-top:14px}
+  footer{margin-top:6px;font-size:var(--kw-font-size-1);color:var(--quiet);display:flex;flex-direction:column;gap:4px}
+  #doc-en > * + *,#doc-th > * + *{margin-top:var(--kw-space-section)}
+  .banner{border:1px solid rgba(232,131,58,.45);background:rgba(232,131,58,.08);border-radius:10px;padding:12px 14px;font-size:var(--kw-font-size-6);color:var(--txt);margin-top:14px}
   .legal{display:flex;flex-direction:column;gap:14px}
   .legal > * + *{margin-top:0}
-  .legal h2{font-size:18px;font-weight:600;line-height:1.5;margin-top:14px}
-  .legal h3{font-size:15.5px;font-weight:600;line-height:1.5;margin-top:6px}
-  .legal p,.legal li{font-size:14.5px;color:var(--txt2);overflow-wrap:anywhere}
+  .legal h2{font-size:var(--kw-font-size-9);font-weight:600;line-height:1.5;margin-top:14px}
+  .legal h3{font-size:var(--kw-font-size-8);font-weight:600;line-height:1.5;margin-top:6px}
+  .legal p,.legal li{font-size:var(--kw-font-size-6);color:var(--txt2);overflow-wrap:anywhere}
   .legal strong{color:var(--txt);font-weight:600}
   .legal ul,.legal ol{padding-left:22px;display:flex;flex-direction:column;gap:8px}
-  .legal code{font-family:'KW Mono',monospace;font-size:13px;color:var(--txt);overflow-wrap:anywhere}
+  .legal code{font-family:'KW Mono',monospace;font-size:var(--kw-font-size-3);color:var(--txt);overflow-wrap:anywhere}
   .pending{color:var(--quiet) !important;font-style:italic}
   .bill{display:flex;flex-wrap:wrap;gap:8px;align-items:center;position:relative}
   .bill > input{position:absolute;opacity:0;width:1px;height:1px;margin:0}
-  .bill > label{font-size:13.5px;color:var(--quiet);background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:8px 14px;min-height:40px;display:inline-flex;align-items:center;cursor:pointer}
+  .bill > label{font-size:var(--kw-font-size-4);color:var(--quiet);background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:8px 14px;min-height:40px;display:inline-flex;align-items:center;cursor:pointer}
   .bill > input:checked + label{color:var(--accent2);border-color:rgba(232,131,58,.55);background:rgba(232,131,58,.10)}
   .bill > input:focus-visible + label{outline:2px solid var(--accent2);outline-offset:2px}
   .bill .pcards{flex-basis:100%;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-top:6px}
   .bill > input[value="y"]:checked ~ .pcards .mo{display:none}
   .bill > input[value="m"]:checked ~ .pcards .yr{display:none}
   .pcard{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:16px 18px;display:flex;flex-direction:column;gap:8px}
-  .pcard h3{font-size:18px;font-weight:600;color:var(--txt);font-family:inherit;text-transform:none;letter-spacing:0}
-  .faq h3{font-size:15px;font-weight:600;color:var(--txt);font-family:inherit;text-transform:none;letter-spacing:0}
+  .pcard h3{font-size:var(--kw-font-size-9);font-weight:600;color:var(--txt);font-family:inherit;text-transform:none;letter-spacing:0}
+  .faq h3{font-size:var(--kw-font-size-7);font-weight:600;color:var(--txt);font-family:inherit;text-transform:none;letter-spacing:0}
   .card a,.legal a{color:var(--accent2)}
-  .pcard .badge{font-size:12.5px;color:var(--quiet);font-family:'KW Mono',monospace}
-  .pcard .price{font-size:26px;font-weight:700;color:var(--txt)}
+  .pcard .badge{font-size:var(--kw-font-size-2);color:var(--quiet);font-family:'KW Mono',monospace}
+  .pcard .price{font-size:var(--kw-font-size-11);font-weight:700;color:var(--txt)}
   .pcard ul{padding-left:18px;display:flex;flex-direction:column;gap:5px}
-  .pcard li{font-size:14px;color:var(--txt2)}
-  .note{font-size:13px;color:var(--quiet)}
+  .pcard li{font-size:var(--kw-font-size-5);color:var(--txt2)}
+  .note{font-size:var(--kw-font-size-3);color:var(--quiet)}
 ${fenced('site-header-css')}
 ${fenced('site-footer-css')}
   [hidden]{display:none !important}
-  @media (max-width:420px){.name{font-size:28px}h1{font-size:20px}.plans th,.plans td{padding-right:6px;font-size:13px}.plans button{padding:6px 8px}}
+  @media (max-width:359px){.plans th,.plans td{padding-right:2px}}
 `;
 
 // What a reader without script gets: no switch (it would do nothing), the Thai document shown under the English one, and the Thai header and footer shown too.
@@ -437,19 +441,21 @@ export const SCRIPT = `(function () {
   for (var i = 0; i < buttons.length; i++) bind(buttons[i]);
 })();`;
 
-export function shell({ title, description, path, en, th }) {
+// `job` is the page's declaration of what it is for (layout-tokens.mjs, THE READING THEME): a prose page is read top to bottom and takes the reading theme, and says so on <html> and in its theme-color.
+export function shell({ title, description, path, en, th, job }) {
+  if (!JOBS.includes(job)) throw new Error(`the page ${path} declares no job (one of ${JOBS.join(', ')})`);
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-job="${job}">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+${VIEWPORT_META}
 <title>${escText(title)} — Kolwen</title>
 <meta name="description" content="${escAttr(description)}">
 <link rel="canonical" href="https://kolwen.com${escAttr(path)}">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<meta name="theme-color" content="#15130f">
+${job === 'prose' ? readingMeta() : '<meta name="theme-color" content="#15130f">'}
 ${fenced('site-fonts')}
 <style>${STYLE}</style>
 <noscript><style>
@@ -537,7 +543,7 @@ export function renderPages(inputs) {
   const done = (key, lines, draft = true) => {
     const P = PAGES[key];
     const html = shell({
-      title: P.titleEn, description: P.descEn, path: P.path,
+      title: P.titleEn, description: P.descEn, path: P.path, job: P.job,
       en: docHtml('en', P.titleEn, lines.en.html, draft, ''), th: docHtml('th', P.titleTh, lines.th.html, draft, P.noteTh || ''),
     });
     pages[P.file] = html;

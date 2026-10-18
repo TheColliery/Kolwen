@@ -9,24 +9,24 @@ export const MARK_TH = '[รอที่ปรึกษากฎหมาย]';
 
 export const PAGES = {
   terms: {
-    file: 'web/terms.html', path: '/terms',
+    file: 'web/terms.html', path: '/terms', job: 'prose',
     titleEn: 'Terms', titleTh: 'ข้อกำหนด',
     descEn: 'Kolwen terms: a draft, not in force. Nothing is for sale, and parts of it wait for review by counsel.',
   },
   privacy: {
-    file: 'web/privacy.html', path: '/privacy',
+    file: 'web/privacy.html', path: '/privacy', job: 'prose',
     titleEn: 'Privacy', titleTh: 'ความเป็นส่วนตัว',
     descEn: 'Kolwen privacy notice: a draft. It states what this site does today, and parts of it wait for review by counsel.',
   },
   refund: {
-    file: 'web/refund.html', path: '/refund',
+    file: 'web/refund.html', path: '/refund', job: 'prose',
     titleEn: 'Refunds', titleTh: 'การคืนเงิน',
     descEn: 'Kolwen refund terms: a draft. Nothing is for sale yet, and parts of it wait for review by counsel.',
   },
 };
 
 PAGES.changelog = {
-  file: 'web/changelog.html', path: '/changelog',
+  file: 'web/changelog.html', path: '/changelog', job: 'prose',
   titleEn: 'Changelog', titleTh: 'บันทึกการเปลี่ยนแปลง',
   // The log is kept in English; the Thai view says so (a status statement, no obligation).
   noteTh: 'บันทึกการเปลี่ยนแปลงนี้เขียนเป็นภาษาอังกฤษ',
