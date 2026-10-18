@@ -330,7 +330,7 @@ export const fenced = name => `${BLOCK[name].begin}\n${BLOCK[name].render() ? BL
 export const STYLE = `
   :root{--bg:#0f0d0b;--bg2:#15130f;--card:#1a1714;--line:rgba(255,255,255,.08);--txt:#ece4d9;--txt2:#a89a8c;--quiet:#a2968a;--accent:#e8833a;--accent2:#ffbb7a}
   *{box-sizing:border-box;margin:0}
-  body{background:radial-gradient(circle at 20% 0%,rgba(232,131,58,.07),transparent 55%),var(--bg);color:var(--txt);font-family:'IBM Plex Sans Thai',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:stretch;padding:0;line-height:1.6}
+  body{background:radial-gradient(circle at 20% 0%,rgba(232,131,58,.07),transparent 55%),var(--bg);color:var(--txt);font-family:'KW Sans Thai',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:stretch;padding:0;line-height:1.6}
   main{flex:1 0 auto;width:100%;max-width:760px;margin:0 auto;padding:36px 20px 0;display:flex;flex-direction:column;gap:28px}
   a:focus-visible,button:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
   .mark{display:flex;align-items:center;gap:12px;color:inherit;text-decoration:none}
@@ -340,15 +340,15 @@ export const STYLE = `
   h1{font-size:24px;font-weight:600;line-height:1.5}
   .sub{color:var(--txt2);font-size:14.5px;margin-top:8px}
   .card{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:18px 20px;display:flex;flex-direction:column;gap:10px}
-  .card h2,.card h3{font-size:13px;font-weight:600;color:var(--quiet);letter-spacing:.04em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace}
+  .card h2,.card h3{font-size:13px;font-weight:600;color:var(--quiet);letter-spacing:.04em;text-transform:uppercase;font-family:'KW Mono',monospace}
   .card p,.card li{font-size:14.5px;color:var(--txt2)}
   .card strong{color:var(--txt);font-weight:600}
   .card ul{padding-left:20px;display:flex;flex-direction:column;gap:6px}
-  .card code{font-family:'IBM Plex Mono',monospace;font-size:13.5px;color:var(--txt)}
+  .card code{font-family:'KW Mono',monospace;font-size:13.5px;color:var(--txt)}
   .plans{width:100%;border-collapse:collapse;font-size:14px}
-  .plans caption{text-align:left;padding:0 0 8px;font-size:12.5px;color:var(--quiet);font-family:'IBM Plex Mono',monospace}
+  .plans caption{text-align:left;padding:0 0 8px;font-size:12.5px;color:var(--quiet);font-family:'KW Mono',monospace}
   .plans th,.plans td{text-align:left;padding:8px 10px 8px 0;border-bottom:1px solid var(--line);color:var(--txt2);font-weight:400;vertical-align:middle}
-  .plans thead th{font-size:12.5px;color:var(--quiet);font-family:'IBM Plex Mono',monospace}
+  .plans thead th{font-size:12.5px;color:var(--quiet);font-family:'KW Mono',monospace}
   .plans tbody th{color:var(--txt);font-weight:600}
   .plans tbody th small{display:block;font-size:12.5px;color:var(--quiet);font-weight:400}
   .plans button,.pcard button{font:inherit;font-size:12.5px;color:var(--quiet);background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;min-height:34px;cursor:not-allowed}
@@ -365,7 +365,7 @@ export const STYLE = `
   .legal p,.legal li{font-size:14.5px;color:var(--txt2);overflow-wrap:anywhere}
   .legal strong{color:var(--txt);font-weight:600}
   .legal ul,.legal ol{padding-left:22px;display:flex;flex-direction:column;gap:8px}
-  .legal code{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--txt);overflow-wrap:anywhere}
+  .legal code{font-family:'KW Mono',monospace;font-size:13px;color:var(--txt);overflow-wrap:anywhere}
   .pending{color:var(--quiet) !important;font-style:italic}
   .bill{display:flex;flex-wrap:wrap;gap:8px;align-items:center;position:relative}
   .bill > input{position:absolute;opacity:0;width:1px;height:1px;margin:0}
@@ -379,7 +379,7 @@ export const STYLE = `
   .pcard h3{font-size:18px;font-weight:600;color:var(--txt);font-family:inherit;text-transform:none;letter-spacing:0}
   .faq h3{font-size:15px;font-weight:600;color:var(--txt);font-family:inherit;text-transform:none;letter-spacing:0}
   .card a,.legal a{color:var(--accent2)}
-  .pcard .badge{font-size:12.5px;color:var(--quiet);font-family:'IBM Plex Mono',monospace}
+  .pcard .badge{font-size:12.5px;color:var(--quiet);font-family:'KW Mono',monospace}
   .pcard .price{font-size:26px;font-weight:700;color:var(--txt)}
   .pcard ul{padding-left:18px;display:flex;flex-direction:column;gap:5px}
   .pcard li{font-size:14px;color:var(--txt2)}
