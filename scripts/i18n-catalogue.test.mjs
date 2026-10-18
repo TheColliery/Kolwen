@@ -517,7 +517,15 @@ test('(b) a {{j:}} slot is read only inside structured data, and an attribute or
     ['a raw slot beside another slot', into('<p>{{home.origin}}</p>', '{{raw:script}}{{block:site-header}}'), /a \{\{block:\}\} or \{\{raw:\}\} slot must stand alone on its line/],
     ['a raw slot inside an element that is not a style element', into('<p>{{home.origin}}</p>', '<div>{{raw:script}}</div>'), /a \{\{block:\}\} or \{\{raw:\}\} slot must stand alone on its line/],
     ['an attribute slot in a text node', into('<p>{{home.origin}}</p>', '<p>{{=home.origin}}</p>'), /a text node reads an \{\{=key\}\} slot; a text node reads \{\{key\}\}/],
-    ['an attribute slot in a style attribute', into('<p>', '<p style="margin:{{=home.origin}}">'), /attribute style holds an attribute slot; only structured data takes one/],
+    // the diagnostic names what to do: structured data does NOT take an attribute slot (it reads {{j:key}}), so it must not be named as the place for one (CodeRabbit 4309062054)
+    ['an attribute slot in a style attribute', into('<p>', '<p style="margin:{{=home.origin}}">'), /attribute style holds an attribute slot; a catalogue value is not written into inline CSS: remove the slot, or put the CSS the build owns in a <style> block as a \{\{block:\}\} or \{\{raw:\}\} slot/],
+    // a block or raw slot is structure: inside a parsed attribute value it is text of the attribute, however many lines the value spans (CodeRabbit 4309062053)
+    ['a raw slot inside a multiline attribute', into('<p>{{home.origin}}</p>', '<div title="\n{{raw:script}}\n">{{home.origin}}</div>'), /attribute title holds a block or raw slot/],
+    ['a block slot inside a multiline attribute', into('<p>{{home.origin}}</p>', '<div data-x=\'\n{{block:site-header}}\n\'>{{home.origin}}</div>'), /attribute data-x holds a block or raw slot/],
+    ['a block slot inside an attribute on one line', into('<p>{{home.origin}}</p>', '<div title="{{block:site-header}}">{{home.origin}}</div>'), /attribute title holds a block or raw slot/],
+    ['a block slot inside an unquoted attribute', into('<p>{{home.origin}}</p>', '<div title={{raw:script}}>{{home.origin}}</div>'), /attribute title holds a block or raw slot/],
+    ['a block slot inside a title element, alone on its lines', into('<title>{{home.meta.title}}</title>', '<title>\n{{block:site-header}}\n</title>'), /a block or raw slot inside a <title> element/],
+    ['a raw slot inside a textarea, alone on its lines', into('<p>{{home.origin}}</p>', '<textarea>\n{{raw:script}}\n</textarea>'), /a block or raw slot inside a <textarea> element/],
     ['a json slot outside a JSON string', ld('{"@type": "Organization", "name": {{j:shared.brand}}}'), /structured data holds a slot outside a JSON string; a slot goes inside the quotes/],
     ['an attribute slot outside a JSON string', ld('{"@type": "Organization", "name": {{=shared.brand}}}'), /structured data holds a slot outside a JSON string/],
     ['a text slot as a bare JSON key', ld('{{{shared.brand}}: "x"}'), /structured data holds a slot outside a JSON string/],
@@ -531,6 +539,8 @@ test('(b) a {{j:}} slot is read only inside structured data, and an attribute or
     ['a raw slot that is the whole body of a style element on one line (the pricing page)', into('<p>{{home.origin}}</p>', '<style>{{raw:style}}</style>\n<p>{{home.origin}}</p>')],
     ['a block slot and a raw slot, each alone on its line, with a colon in the name', into('</body>', '{{block:site-footer:en}}\n  {{raw:script}}\n</body>')],
     ['a slot inside a JSON string beside a bare number and a literal', ld('{"@type": "Organization", "name": "{{j:shared.brand}}", "n": 3, "ok": true}')],
+    ['a block slot alone on its line AFTER the title element has closed (the title is not still open)', into('</head>', '</head>\n{{block:site-header}}\n')],
+    ['an attribute slot in a multiline tag, and a block slot on the lines after the tag', into('<p>{{home.origin}}</p>', '<div title="{{=home.origin}}"\n     data-x="1">\n{{block:site-header}}\n</div>')],
   ]) assert.deepEqual(templateProblems(src, 'home'), [], what);
 });
 

@@ -115,7 +115,7 @@ export function templateProblems(src, name = 'template') {
   let tokens;
   // `scripting: false`: a visitor without script reads a <noscript> body as markup, so its text, attributes and styles are visible strings too. With the default (scripting on) the body is one raw token the lint never walks.
   try { tokens = htmlTokens(masked(src), { scripting: false }); } catch (e) { return [...out, `${at}: the HTML could not be read (${e.message.slice(0, 160)})`]; }
-  let tag = null;
+  let tag = null, rcdata = null; // rcdata: the title or textarea element that is open, whose body is text a page draws (markup written there is shown, not built)
   const attrProblems = (what, value, kind = 'attribute') => {
     const rest = value.replace(MASKS, '').trim();
     const n = (value.match(MASKS) || []).length;
@@ -128,8 +128,10 @@ export function templateProblems(src, name = 'template') {
     if (shown !== '') out.push(`${at}: a CSS content string ${JSON.stringify(shown.slice(0, 60))} in ${where} is text a visitor sees; a visible string is a catalogue slot`);
   };
   for (const t of tokens) {
+    if (t.type === 'tag' && t.closing && (t.name === 'title' || t.name === 'textarea')) rcdata = null;
     if (t.type === 'tag' && !t.closing) {
       tag = t;
+      rcdata = t.name === 'title' || t.name === 'textarea' ? t.name : null;
       for (const a of VISIBLE_ATTRS) if (t.attrs.has(a) && t.attrs.get(a) !== '') attrProblems(a, t.attrs.get(a));
       if (t.name === 'input' && (t.attrs.get('value') ?? '') !== '') {
         const type = t.attrs.get('type') ?? '';
@@ -141,7 +143,9 @@ export function templateProblems(src, name = 'template') {
         if (HAS_MASK.test(k)) out.push(`${at}: the ${t.name} element has an attribute name that holds a slot; a slot fills a value`);
         if (v.includes(JSON_MASK)) out.push(`${at}: attribute ${k} reads a {{j:key}} slot; an attribute reads {{=key}}`);
         else if (v.includes(TEXT_MASK)) out.push(`${at}: attribute ${k} reads a text slot; an attribute reads {{=key}}`);
-        else if (k === 'style' && v.includes(ATTR_MASK)) out.push(`${at}: attribute style holds an attribute slot; only structured data takes one (the value would be written into inline CSS, as a <style> block refuses)`);
+        else if (k === 'style' && v.includes(ATTR_MASK)) out.push(`${at}: attribute style holds an attribute slot; a catalogue value is not written into inline CSS: remove the slot, or put the CSS the build owns in a <style> block as a {{block:}} or {{raw:}} slot`);
+        // a block or raw slot is structure, never the text of an attribute: a line of its own inside a quoted value (even across lines) is still inside the attribute
+        if (v.includes(CODE_MASK)) out.push(`${at}: attribute ${k} holds a block or raw slot; it is whole markup or code the build owns, and stands alone on its own line outside any tag`);
         if (JS_URL_ATTRS.has(k) && isJsUrl(v)) out.push(`${at}: attribute ${k} is a javascript: URL; a template holds no script`);
       }
       if (LABELLED.has(t.name) && (t.attrs.get('label') ?? '') !== '') attrProblems(`label of the ${t.name}`, t.attrs.get('label'));
@@ -160,6 +164,7 @@ export function templateProblems(src, name = 'template') {
       if (rest !== '') out.push(`${at}: literal text ${JSON.stringify(rest.slice(0, 60))} in a text node; a visible string is a catalogue slot`);
       else if (n >= 2) out.push(`${at}: a text node joins ${n} catalogue keys in one text; each catalogue string is a whole sentence`);
       if (t.text.includes(JSON_MASK)) out.push(`${at}: a text node reads a {{j:key}} slot; a text node reads {{key}}`);
+      if (rcdata && t.text.includes(CODE_MASK)) out.push(`${at}: a block or raw slot inside a <${rcdata}> element; its body is text the page draws, so markup written there would be shown as text`);
       if (t.text.includes(ATTR_MASK)) out.push(`${at}: a text node reads an {{=key}} slot; a text node reads {{key}} (an attribute value is plain text, and a text slot may hold markup)`);
     } else if (t.type === 'raw' && t.name === 'script' && scriptType(tag) === 'application/ld+json') {
       let owner = '';
