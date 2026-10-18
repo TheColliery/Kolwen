@@ -216,7 +216,7 @@ test('the same inputs give the same pages', () => {
 });
 
 // ── the CLI, against a throwaway copy of the tree ──────────────────────────────────────────────
-const FILES = ['scripts/legal-pages.mjs', 'scripts/lib/legal-render.mjs', 'scripts/lib/legal-page-text.mjs', 'scripts/lib/legal-state.mjs', 'scripts/lib/legal-holds.json', 'TERMS.md', 'PRIVACY.md', 'legal/thai-7day-clause.md', 'legal/legal-state.json', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/pricing.html', 'CHANGELOG.md', 'web/changelog.html', 'web/index.html', 'web/404.html', 'web/_headers', 'scripts/lib/headers-file.mjs', 'scripts/lib/page-sync.mjs', 'scripts/lib/csp-hashes.mjs',
+const FILES = ['scripts/legal-pages.mjs', 'scripts/lib/legal-render.mjs', 'scripts/lib/layout-tokens.mjs', 'scripts/lib/legal-page-text.mjs', 'scripts/lib/legal-state.mjs', 'scripts/lib/legal-holds.json', 'TERMS.md', 'PRIVACY.md', 'legal/thai-7day-clause.md', 'legal/legal-state.json', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/pricing.html', 'CHANGELOG.md', 'web/changelog.html', 'web/index.html', 'web/404.html', 'web/_headers', 'scripts/lib/headers-file.mjs', 'scripts/lib/page-sync.mjs', 'scripts/lib/csp-hashes.mjs',
   'scripts/lib/i18n-catalogue.mjs', 'scripts/lib/page-template.mjs', 'scripts/lib/html-tokens.mjs', 'scripts/lib/rendered-text.mjs', 'scripts/lib/web-files.mjs', 'scripts/lib/html-entities.json', 'web-src/i18n/en.json', 'web-src/i18n/th.json', 'web-src/pages/home.html', 'web-src/pages/pricing.html', 'web-src/pages/notfound.html'];
 function copyTree() {
   const dir = mkdtempSync(join(tmpdir(), 'legal-pages-'));
@@ -395,8 +395,8 @@ test('the CLI child runs with HOME, USERPROFILE and the temp variables inside th
 const TEMPLATE_PAGES = ['web/index.html', 'web/pricing.html', 'web/404.html'];
 const WATCHED = [...TEMPLATE_PAGES, 'web/_headers', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html'];
 const mk = (name, css) => (css ? { name, begin: `/* ${name}:begin */`, end: `/* ${name}:end */` } : { name, begin: `<!-- ${name}:begin -->`, end: `<!-- ${name}:end -->` });
-const MARK = { fonts: mk('site-fonts'), hcss: mk('site-header-css', true), css: mk('site-footer-css', true), ncss: mk('site-noscript-css', true), header: mk('site-header'), en: mk('site-footer:en'), th: mk('site-footer:th'), script: mk('site-script', true) };
-const LABEL = { fonts: 'font manifest link', hcss: 'header css', css: 'footer css', ncss: 'noscript css', header: 'header', en: 'en footer', th: 'th footer', script: 'page script' };
+const MARK = { fonts: mk('site-fonts'), tokens: mk('site-tokens-css', true), hcss: mk('site-header-css', true), css: mk('site-footer-css', true), ncss: mk('site-noscript-css', true), header: mk('site-header'), en: mk('site-footer:en'), th: mk('site-footer:th'), script: mk('site-script', true) };
+const LABEL = { fonts: 'font manifest link', tokens: 'layout tokens', hcss: 'header css', css: 'footer css', ncss: 'noscript css', header: 'header', en: 'en footer', th: 'th footer', script: 'page script' };
 const lf = s => s.replace(/\r\n/g, '\n');
 const snap = (dir, files) => Object.fromEntries(files.map(f => [f, readFileSync(join(dir, f))]));
 const sameBytes = (a, b) => Object.keys(a).every(f => Buffer.compare(a[f], b[f]) === 0);
@@ -425,7 +425,7 @@ test('reEscape output is a valid pattern under the u and v flags too, for every 
 });
 
 test('the sync markers are named once, in the lib, and are the ones the pages carry', () => {
-  assert.deepEqual(lib.SYNC_BLOCKS.map(b => [b.name, b.begin, b.end]), [MARK.fonts, MARK.hcss, MARK.css, MARK.ncss, MARK.header, MARK.en, MARK.th, MARK.script].map(m => [m.name, m.begin, m.end]), 'the array order is the one expected document order');
+  assert.deepEqual(lib.SYNC_BLOCKS.map(b => [b.name, b.begin, b.end]), [MARK.fonts, MARK.tokens, MARK.hcss, MARK.css, MARK.ncss, MARK.header, MARK.en, MARK.th, MARK.script].map(m => [m.name, m.begin, m.end]), 'the array order is the one expected document order');
   const cli = read('scripts/legal-pages.mjs');
   for (const m of Object.values(MARK)) assert.ok(!cli.includes(m.name), 'the CLI does not retype ' + m.name);
 });
@@ -536,7 +536,7 @@ test('a hand edit of a footer rule makes --check fail on the page and on the has
   const dir = copyTree();
   try {
     const before = snap(dir, [...TEMPLATE_PAGES, 'web/_headers']);
-    edit(dir, 'web/index.html', x => { assert.ok(x.includes('.site-footer{display:block;margin-top:72px'), 'anchor'); return x.replace('.site-footer{display:block;margin-top:72px', '.site-footer{display:block;margin-top:73px'); });
+    edit(dir, 'web/index.html', x => { assert.ok(x.includes('.site-footer{display:block;margin-top:var(--kw-space-footer-offset)'), 'anchor'); return x.replace('.site-footer{display:block;margin-top:var(--kw-space-footer-offset)', '.site-footer{display:block;margin-top:73px'); });
     const r = check(dir);
     assert.equal(r.status, 1, r.stdout + r.stderr);
     assert.match(r.stdout, /FAIL web\/index\.html footer css differs from the shared footer rules, line \d+/);
@@ -634,7 +634,7 @@ for (const other of ['style-src-elem', 'style-src-attr']) {
     const headers = withBefore(decoy);
     assert.ok(headers.includes(decoy + ' style-src '), 'the decoy sits before style-src');
     const pages = pagesOf();
-    const moved = { ...pages, 'web/404.html': pages['web/404.html'].replace('.fine{font-size:12px;margin:0}', '.fine{font-size:13px;margin:0}') };
+    const moved = { ...pages, 'web/404.html': pages['web/404.html'].replace('.fine{font-size:var(--kw-font-size-1);margin:0}', '.fine{font-size:var(--kw-font-size-3);margin:0}') };
     const pre = Object.fromEntries(Object.entries(pages).map(([f, h]) => [f, styleHashes(h)])), post = Object.fromEntries(Object.entries(moved).map(([f, h]) => [f, styleHashes(h)]));
     const plan = planStyleSrc(headers, pre, post);
     assert.ok(!plan.problem, plan.problem);
@@ -671,7 +671,7 @@ test('style-src inside a source of another directive is not the style-src direct
   for (const decoy of ['script-src https://cdn.example/style-src', "img-src 'self' https://x.example/style-src 'none'", 'connect-src style-src']) {
     const headers = withBefore(decoy + ';');
     assert.deepEqual(hashProblems(pages, headers), [], decoy + ': a matching policy reads as matching');
-    const moved = { ...pages, 'web/404.html': pages['web/404.html'].replace('.fine{font-size:12px;margin:0}', '.fine{font-size:13px;margin:0}') };
+    const moved = { ...pages, 'web/404.html': pages['web/404.html'].replace('.fine{font-size:var(--kw-font-size-1);margin:0}', '.fine{font-size:var(--kw-font-size-3);margin:0}') };
     const pre = Object.fromEntries(Object.entries(pages).map(([f, h]) => [f, styleHashes(h)])), post = Object.fromEntries(Object.entries(moved).map(([f, h]) => [f, styleHashes(h)]));
     const plan = planStyleSrc(headers, pre, post);
     assert.ok(!plan.problem, plan.problem);
@@ -792,7 +792,7 @@ test('reflow at 320px, structurally: every track may shrink to zero, every link 
   assert.match(HEADER_CSS, /\.site-header nav\{[^}]*flex-wrap:wrap/);
   assert.match(FOOTER_CSS, /\.fbar\{[^}]*flex-wrap:wrap/);
   assert.match(FOOTER_CSS, /\.fgroup\{[^}]*min-width:0/, 'a grid item may shrink below its content');
-  assert.match(FOOTER_CSS, /\.fwrap\{width:100%;max-width:1100px/);
+  assert.match(FOOTER_CSS, /\.fwrap\{width:100%;max-width:var\(--kw-size-container-wide\)/);
 });
 
 test('the registration slot prints nothing until it is set: no placeholder text and no empty element', () => {

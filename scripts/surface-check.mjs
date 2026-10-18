@@ -1004,6 +1004,23 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
   }
 }
 
+// ── 21. The layout tokens hold: rem type, no bare viewport type, the viewport meta of the formula ──
+// build-qc.md W-I18N-10 and W-FMT-11, on every tracked page under web/ (and the font manifest it links): every font-size is rem, or a clamp() that carries a rem term, so the visitor's own
+// text size scales it (SC 1.4.4, failure F94); the viewport meta has width=device-width, initial-scale=1 and viewport-fit=cover and nothing that blocks zoom. The rules and their stated limits
+// are in scripts/lib/type-lint.mjs, and scripts/type-lint.test.mjs plants each defect. NON-VACUITY: no tracked page is a finding. (RULE NUMBER: 21, because rule 20 is the domain seams' on the branch
+// that adds them.)
+{
+  let tl = null;
+  try { tl = await import(pathToFileURL(resolve('scripts/lib/type-lint.mjs')).href); }
+  catch (e) { note('scripts/lib/type-lint.mjs', 'could not be loaded, so rule 21 could not check the type sizes (' + (e.code || 'import failed') + ')'); }
+  if (tl) {
+    const pages21 = tracked.filter(f => /^web\/.*\.html$/.test(f));
+    if (pages21.length === 0) note('web/', 'has no tracked HTML page, so rule 21 checked nothing');
+    const fontCss = tracked.includes('web/fonts/fonts.css') ? [read('web/fonts/fonts.css')] : [];
+    for (const f of pages21) for (const why of tl.pageTypeProblems(read(f), fontCss)) note(f, why);
+  }
+}
+
 if (fail.length) {
   console.error('surface check FAILED:\n' + fail.map(f => '  - ' + f).join('\n'));
   process.exit(1);

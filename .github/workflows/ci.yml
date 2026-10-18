@@ -4,9 +4,9 @@ name: CI
 # for a skill repo (build, verify, test). This repo has no build and no product test suite, so it ships
 # `assets` (regenerate every brand file, fail on any byte difference), `surface` (the room's
 # published-claim laws), `reply-language` (the reply-language harness proving it detects the failure, then
-# a tree scan), `clone-test` (the decap battery's label source of truth and its self-test) and
-# `secret-scan` (the house scanner's own tests, then the scan). `all-green` needs all five and is the
-# stable required context either way.
+# a tree scan), `clone-test` (the decap battery's label source of truth and its self-test),
+# `secret-scan` (the house scanner's own tests, then the scan) and `rendered` (the 320 px reflow and 200% text checks in a real headless browser).
+# `all-green` needs all six and is the stable required context either way.
 
 on:
   push:
@@ -82,12 +82,29 @@ jobs:
       - run: node scripts/surface-check.mjs
       # The one robots.txt comparison rule the post-deploy check applies (it cannot run here: it needs the live site).
       # And the legal-state switch's tests: the Thai 7-day clause is in TERMS.md only while legal/legal-state.json says a trigger is met.
-      - run: node --test scripts/robots-edge.test.mjs scripts/legal-state.test.mjs scripts/legal-pages.test.mjs scripts/address-check.test.mjs scripts/fonts.test.mjs scripts/font-coverage.test.mjs scripts/font-versions.test.mjs scripts/page-weight.test.mjs scripts/html-tokens.test.mjs scripts/coderabbit-config.test.mjs scripts/i18n-catalogue.test.mjs
+      - run: node --test scripts/robots-edge.test.mjs scripts/legal-state.test.mjs scripts/legal-pages.test.mjs scripts/address-check.test.mjs scripts/fonts.test.mjs scripts/font-coverage.test.mjs scripts/font-versions.test.mjs scripts/page-weight.test.mjs scripts/html-tokens.test.mjs scripts/coderabbit-config.test.mjs scripts/i18n-catalogue.test.mjs scripts/type-lint.test.mjs
       # All seven pages are generated: terms, privacy and refund from TERMS.md, PRIVACY.md and the clause file; the changelog from CHANGELOG.md; home, pricing and 404 from web-src/pages and the language catalogue web-src/i18n. A page edited by hand, a source edited without a re-render, a visible string that is not a catalogue slot, or a key missing in a language, fails here.
       - run: node scripts/legal-pages.mjs --check
       # The transfer-size budget (web-build rule W-PERF-08): each page's cold-load bytes and requests against twice the HTTP Archive Web Almanac median home page; a FAIL above twice the median unless the page is a named divergence.
       - run: node scripts/page-weight.mjs
 
+  rendered:
+    name: rendered (320 px reflow, 200% text, CSP)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      # The rendered checks (build-qc.md W-A11Y-07, W-FMT-11): every page, in both languages, in the headless Chrome the runner already has, driven over the DevTools protocol with Node's own
+      # WebSocket (no dependency). A 320 CSS px viewport must not scroll sideways (WCAG 2.2 SC 1.4.10); text at 200% must not be cut or lost (SC 1.4.4); the browser must report no
+      # Content-Security-Policy violation under the real headers. CI=true is set by Actions: with no browser the script FAILS here, it never skips.
+      - run: node --max-old-space-size=1024 scripts/rendered-check.mjs
+      # The checks' own tests: each defect planted in a copy of web/ (a 400 px element, a clipped box, an unhashed inline style) must be found.
+      - run: node --max-old-space-size=1024 --test --test-timeout=300000 scripts/rendered-check.test.mjs
   reply-language:
     name: reply language (LWK-131)
     runs-on: ubuntu-latest
@@ -155,7 +172,7 @@ jobs:
   # Rulesets require `all-green`, never the per-job names.
   all-green:
     name: all-green
-    needs: [assets, surface, reply-language, clone-test, secret-scan]
+    needs: [assets, surface, rendered, reply-language, clone-test, secret-scan]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5 # LWK-216: max 5 s over 11 runs
