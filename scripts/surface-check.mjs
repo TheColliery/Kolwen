@@ -1004,6 +1004,20 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
   }
 }
 
+// ── 20. The domain seams: groups, legal pages, CSP per zone, host-only cookies, a catalogue with no host key ──
+// web-src/seams.json maps every served page to one group (today the company site), so a group can move to its own host by a web/_redirects change.
+// The five seams and their stated limits are in scripts/lib/domain-seams.mjs, and scripts/domain-seams.test.mjs plants a defect in each. Nothing is bought and nothing moves: the rule only
+// keeps the site able to. A map that is missing or malformed is one finding and the other four seams are not read, since a page cannot be judged against no map.
+{
+  let ds = null;
+  try { ds = await import(pathToFileURL(resolve('scripts/lib/domain-seams.mjs')).href); }
+  catch (e) { note('scripts/lib/domain-seams.mjs', 'could not be loaded, so rule 20 could not check the domain seams (' + (e.code || 'import failed') + ')'); }
+  if (ds) {
+    try { for (const p of ds.seamProblems(ds.snapshotOf(tracked, read))) note(p.file, p.msg); }
+    catch (e) { note('scripts/lib/domain-seams.mjs', 'rule 20 could not complete (' + String(e.message || e).slice(0, 160) + ')'); }
+  }
+}
+
 if (fail.length) {
   console.error('surface check FAILED:\n' + fail.map(f => '  - ' + f).join('\n'));
   process.exit(1);
