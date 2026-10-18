@@ -119,8 +119,20 @@ for (const f of tracked.filter(PUBLISHED)) {
     try { decoded = (await import(pathToFileURL(resolve('scripts/lib/rendered-text.mjs')).href)).decodeEntities(s); }
     catch (e) { note(f, `has a character reference rule 4 cannot read (${String(e.message).slice(0, 100)}), so its invisible characters are not all checked`); }
     if (decoded !== null && decoded !== s) scan(decoded, ' (written as a character reference)');
-    // the HTML decoder reads `&nbsp` and a numeric reference without its semicolon as the same character, so the source is read both ways; a digit after the number is another character (&#1600;)
-    if (/&nbsp|&NonBreakingSpace;|&#0*160(?![0-9])|&#x0*a0(?![0-9a-f])/i.test(s)) note(f, 'invisible character U+A0 written as an entity (&nbsp;); a page uses a no-break space only before the Thai repetition mark, as the character');
+    // The no-break space written as a reference, read where a browser decodes it (WHATWG, character reference state): in text, a title or a textarea the legacy name `&nbsp` needs no semicolon and any
+    // character may follow it; in an ATTRIBUTE VALUE a legacy name followed by a letter, a digit or `=` is not decoded (a query string `?a=1&nbspx=2` is a URL), while a numeric reference and a name with its
+    // semicolon are; a comment, and the body of a script or a style, are not decoded at all. A digit after the number is another character (`&#1600;`), and a named reference is case-sensitive (`&NBSP;` is none).
+    const NUMERIC_NBSP = '&#0*160(?![0-9])|&#[xX]0*[aA]0(?![0-9a-fA-F])';
+    const NBSP_IN_TEXT = new RegExp('&nbsp|&NonBreakingSpace;|' + NUMERIC_NBSP), NBSP_IN_ATTRIBUTE = new RegExp('&nbsp(?![A-Za-z0-9=])|&NonBreakingSpace;|' + NUMERIC_NBSP);
+    let writtenNbsp = false;
+    try {
+      const { htmlTokens } = await import(pathToFileURL(resolve('scripts/lib/html-tokens.mjs')).href);
+      for (const t of htmlTokens(s, { scripting: false })) {
+        if (t.type === 'text' && NBSP_IN_TEXT.test(t.text)) writtenNbsp = true;
+        else if (t.type === 'tag' && !t.closing) for (const v of t.attrs.values()) if (NBSP_IN_ATTRIBUTE.test(v)) writtenNbsp = true;
+      }
+    } catch (e) { writtenNbsp = NBSP_IN_TEXT.test(s); note(f, `has markup rule 4 cannot walk (${String(e.message).slice(0, 100)}), so its no-break space references are read over the whole source`); }
+    if (writtenNbsp) note(f, 'invisible character U+A0 written as an entity (&nbsp;); a page uses a no-break space only before the Thai repetition mark, as the character');
   }
   if (s.includes('…')) note(f, 'U+2026 ellipsis — use three ASCII dots');
 }
