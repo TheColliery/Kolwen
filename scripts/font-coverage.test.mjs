@@ -131,6 +131,35 @@ test('RED PROOF: content through var() is derived one level: a custom property d
   assert.equal(cssContentOf('<script>var s = "<style>:root{--a:\'x\'} b::after{content:var(--a)}</style>";</script>'), '', 'a <style> inside a script string is no style');
 });
 
+// Every definition of a custom property counts: the cascade is not modelled, so a property defined per theme, per language or per direction keeps the strings of ALL its definitions (a font cut errs only by keeping too much).
+test('RED PROOF: a custom property defined twice keeps the strings of every definition, in one block or across blocks, whichever selector holds it', () => {
+  const css = (...blocks) => cssContentOf(blocks.map(b => `<style>${b}</style>`).join(''));
+  const set = (...blocks) => css(...blocks).split(' ').filter(Boolean).sort().join(' ');
+  assert.equal(set(':root{--a:"' + ch(0x2192) + '"} .rtl{--a:"' + ch(0x2190) + '"} p::after{content:var(--a)}'), ch(0x2190) + ' ' + ch(0x2192), 'two selectors, one block');
+  assert.equal(set(':root{--a:"x"}', '.rtl{--a:"y"}', 'p::after{content:var(--a)}'), 'x y', 'three blocks');
+  assert.equal(set(':root{--a:"x"} .b{--a:"y"} .c{--a:"z"} p::after{content:var(--a)}'), 'x y z', 'three definitions');
+  assert.equal(set(':root{--a:"x"} .b{--a:12px} p::after{content:var(--a)}'), 'x', 'a later non-string definition does not take the earlier strings away');
+  assert.equal(set(':root{--a:"x"} .b{--a:12px} .c{--a:"y"} p::after{content:var(--a)}'), 'x y', 'a non-string definition between two string ones');
+});
+
+// Forms of a valid custom property that a browser resolves: `!important` is removed from the value, the function name `var(` is ASCII case-insensitive, and a name may hold a non-ASCII character or a CSS escape (custom property names are case-sensitive).
+test('RED PROOF: var() resolves a definition with !important, a function name in any case, and a custom property name with a non-ASCII character or an escape', () => {
+  const css = b => cssContentOf(`<style>${b}</style>`);
+  const BS = String.fromCharCode(92);
+  assert.equal(css(':root{--a:"' + ch(0x2192) + '" !important} p::after{content:var(--a)}'), ch(0x2192), '!important');
+  assert.equal(css(':root{--a:"x"!IMPORTANT} p::after{content:var(--a)}'), 'x', '!IMPORTANT without a space');
+  assert.equal(css(':root{--a:"x" ! important ;} p::after{content:var(--a)}'), 'x', 'spaces inside !important');
+  assert.equal(css(':root{--a:"x" !important 12px} p::after{content:var(--a)}'), '', '!important in the middle of a value is not a pure string value');
+  assert.equal(css(':root{--a:"' + ch(0x2192) + '"} p::after{content:VAR(--a)}'), ch(0x2192), 'VAR(');
+  assert.equal(css(':root{--a:"x"} p::after{content:Var( --a )}'), 'x', 'Var( with spaces');
+  const name = '--' + ch(0x77e2);
+  assert.equal(css(':root{' + name + ':"' + ch(0x2192) + '"} p::after{content:var(' + name + ')}'), ch(0x2192), 'a non-ASCII name');
+  assert.equal(css(':root{--a' + BS + '62:"x"} p::after{content:var(--ab)}'), 'x', 'an escaped name in the definition');
+  assert.equal(css(':root{--ab:"x"} p::after{content:var(--a' + BS + '62 )}'), 'x', 'an escaped name in the use, its hex escape ended by a space');
+  assert.equal(css(':root{--a' + BS + '62:"x"} p::after{content:var(--a' + BS + '62)}'), 'x', 'the same escaped name on both sides');
+  assert.equal(css(':root{--a:"x"} p::after{content:var(--A)}'), '', 'custom property names are case-sensitive');
+});
+
 // The noscript decision (the font coverage): what a visitor without script is shown must stay covered, so renderedChars reads <noscript> as markup (scripting off) while a visitor with script sees none of it.
 test('RED PROOF: text and content inside <noscript> are derived for the font coverage (a visitor without script draws them), though a visitor with script (the default view) draws none of it', () => {
   const html = '<p>ok</p><noscript><p>' + ch(0x2030) + '</p><style>b::after{content:"' + ch(0x2122) + '"}</style></noscript>';

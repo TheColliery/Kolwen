@@ -71,22 +71,38 @@ const literalsOf = text => [...text.matchAll(STRING_LITERAL)].map(lit => cssUnes
 // The `content:` strings of the <style> blocks. Read as a browser reads them: the property name in any case and as a whole name (not `x-content:`, not a selector such as `.content:hover`), nothing from a CSS comment, a commented-out
 // <style> block or a <style> inside a script, and a string broken by a raw line break is a bad string that draws nothing (a backslash before the break continues it).
 // A `var(--name)` in the value is resolved ONE level: --name is a custom property the style blocks of the page define as plain string literals (`--arrow: "x"`), and its strings are read as if written in the value.
-// A fallback string (`var(--name, "x")`) is a string literal of the value and is read like any other, whether or not --name is defined (an over-approximation). Not followed, named limits: a custom property
-// defined through another var(), through calc() or any non-string value, one set in a style attribute or by script, and the cascade (every definition in the blocks counts, whichever selector holds it).
+// A fallback string (`var(--name, "x")`) is a string literal of the value and is read like any other, whether or not --name is defined (an over-approximation).
+// The cascade is not modelled and a font cut errs only by keeping too much, so a property defined more than once keeps the strings of EVERY definition in the blocks, whichever selector holds it (a later definition never
+// replaces an earlier one). A definition that ends in `!important` holds its value without it; `var(` is ASCII case-insensitive; a property name is case-sensitive and may hold a non-ASCII character or a CSS escape
+// (--a\62 is --ab), decoded on both sides. Not followed, named limits: a custom property defined through another var(), through calc() or any non-string value (a definition of that kind adds nothing, and takes
+// nothing away from another definition of the same name), and one set in a style attribute or by script.
+const CUSTOM_NAME = /--(?:[\w-]|[^\x00-\x7f]|\\(?:[0-9a-fA-F]{1,6}(?:\r\n|[ \t\r\n\f])?|[^\n\r\f0-9a-fA-F]))+/.source;
+const CUSTOM_DEFINITION = new RegExp(`(?<=^|[{;\\s])(${CUSTOM_NAME})\\s*:\\s*((?:"(?:[^"\\\\\\n\\r\\f]|\\\\[\\s\\S])*"|'(?:[^'\\\\\\n\\r\\f]|\\\\[\\s\\S])*'|[^;}"'])*)`, 'g');
+const CUSTOM_USE = new RegExp(`var\\(\\s*(${CUSTOM_NAME})`, 'gi');
 export function cssContentOf(html, opts) {
   const out = [];
   const blocks = styleBlocksOf(html, opts).map(stripCssComments);
-  const custom = new Map(); // --name -> the strings it is defined as, when its whole value is string literals
+  const custom = new Map(); // --name (unescaped) -> the Set of strings of all its definitions whose whole value is string literals
   for (const block of blocks) {
-    for (const d of block.matchAll(/(?<=^|[{;\s])(--[A-Za-z0-9_-]+)\s*:\s*((?:"(?:[^"\\\n\r\f]|\\[\s\S])*"|'(?:[^'\\\n\r\f]|\\[\s\S])*'|[^;}"'])*)/g)) {
-      const value = d[2].trim();
-      if (value && value.replace(STRING_LITERAL, '').trim() === '') custom.set(d[1], literalsOf(value));
+    for (const d of block.matchAll(CUSTOM_DEFINITION)) {
+      const value = d[2].replace(/\s*!\s*important\s*$/i, '').trim();
+      if (!value || value.replace(STRING_LITERAL, '').trim() !== '') continue;
+      const key = cssUnescape(d[1]);
+      let strings = custom.get(key);
+      if (!strings) custom.set(key, strings = new Set());
+      for (const s of literalsOf(value)) strings.add(s);
     }
   }
+  const emitted = new Set(); // a property's strings are read once: only the SET of strings reaches the font coverage
   for (const block of blocks) {
     for (const m of block.matchAll(/(?<=^|[{;\s])content\s*:\s*((?:"(?:[^"\\\n\r\f]|\\[\s\S])*"|'(?:[^'\\\n\r\f]|\\[\s\S])*'|[^;}"'])*)/gi)) {
-      out.push(...literalsOf(m[1]));
-      for (const v of m[1].matchAll(/var\(\s*(--[A-Za-z0-9_-]+)/g)) out.push(...(custom.get(v[1]) ?? []));
+      for (const s of literalsOf(m[1])) out.push(s);
+      for (const v of m[1].matchAll(CUSTOM_USE)) {
+        const key = cssUnescape(v[1]);
+        if (emitted.has(key)) continue;
+        emitted.add(key);
+        for (const s of custom.get(key) ?? []) out.push(s);
+      }
     }
   }
   return out.join(' ');
