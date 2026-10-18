@@ -11,7 +11,7 @@ import { htmlPages } from './lib/web-files.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const WEB = join(ROOT, 'web');
-const page = (css, meta = VIEWPORT_META) => `<!DOCTYPE html><html lang="en"><head>${meta}<style>${css}</style></head><body><p>x</p></body></html>`;
+const page = (css, meta = VIEWPORT_META) => `<!DOCTYPE html><html lang="en" data-job="default"><head>${meta}<style>${css}</style></head><body><p>x</p></body></html>`;
 const why = (css, meta) => pageTypeProblems(page(css, meta));
 
 test('the built pages and the font manifest pass the lint', () => {

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-job="default">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -42,7 +42,7 @@
 {{block:site-tokens-css}}
   :root{--bg:#0f0d0b;--bg2:#15130f;--card:#1a1714;--line:rgba(255,255,255,.08);--txt:#ece4d9;--txt2:#a89a8c;--quiet:#a2968a;--accent:#e8833a;--accent2:#ffbb7a}
   *{box-sizing:border-box;margin:0}
-  body{background:radial-gradient(circle at 20% 0%,rgba(232,131,58,.07),transparent 55%),var(--bg);color:var(--txt);font-family:'KW Sans Thai',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:stretch;padding:0;line-height:1.6}
+  body{background:radial-gradient(circle at 20% 0%,rgba(232,131,58,.07),transparent 55%),var(--bg);color:var(--txt);font-family:'KW Sans Thai',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:stretch;padding:0;line-height:var(--kw-line-height-body)}
   main{flex:1 0 auto;width:100%;max-width:var(--kw-size-container-narrow);margin:0 auto;padding-block:var(--kw-space-inset-block-start) 0;padding-inline:var(--kw-space-gutter-inline);display:flex;flex-direction:column;justify-content:center;gap:var(--kw-space-section)}
   .mark{display:flex;align-items:center;gap:12px}
   .glyph{flex:none;display:block}

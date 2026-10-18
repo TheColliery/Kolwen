@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { reEscape } from './lib/re-escape.mjs';
+import { READING } from './lib/layout-tokens.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const lib = await import(new URL('./lib/legal-render.mjs', import.meta.url));
@@ -119,7 +120,7 @@ test('a held passage never shows its own text', () => {
 
 test('escaping covers & < > " and \' for text and for attribute values, and a description cannot leave its attribute', () => {
   for (const fn of [escText, escAttr]) assert.equal(fn('a&b<c>d"e\'f'), 'a&amp;b&lt;c&gt;d&quot;e&#39;f');
-  const page = shell({ title: 'T <b>', description: 'x" onmouseover="alert(1)" <script>', path: '/p"q', en: '', th: '' });
+  const page = shell({ title: 'T <b>', description: 'x" onmouseover="alert(1)" <script>', path: '/p"q', en: '', th: '', job: 'default' });
   assert.match(page, /<meta name="description" content="x&quot; onmouseover=&quot;alert\(1\)&quot; &lt;script&gt;">/);
   assert.ok(page.includes('<title>T &lt;b&gt; — Kolwen</title>'));
   assert.ok(page.includes('href="https://kolwen.com/p&quot;q"'));
@@ -834,7 +835,7 @@ test('a reader without script gets no switch and sees the Thai document, header 
   assert.match(lib.NOSCRIPT_STYLE, /\.site-footer\[lang="th"\]\{display:block !important\}/);
   assert.match(lib.HEADER_CSS, /html\[lang="th"\] \.site-header nav\[lang="en"\]\{display:none\}/);
   assert.match(lib.FOOTER_CSS, /html\[lang="th"\] \.site-footer\[lang="en"\]\{display:none\}/);
-  for (const [f, html] of Object.entries(sevenPages())) assert.match(html, /<html lang="en">/, f + ': English until the script says otherwise');
+  for (const [f, html] of Object.entries(sevenPages())) assert.match(html, /<html lang="en"(?: data-job="[a-z]+")?>/, f + ': English until the script says otherwise');
 });
 
 // ── the footer's gaps: llms.txt under Code, the switch in the bottom bar, the contact addresses ──────────────────────────────────
@@ -1056,7 +1057,8 @@ const lum = ([r, g, b]) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
 const ratio = (a, b) => { const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x); return (hi + 0.05) / (lo + 0.05); };
 const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 const mix = (fg, a, bg) => fg.map((c, i) => Math.round(c * a + bg[i] * (1 - a)));
-const css = html => (html.match(/<style>[\s\S]*?<\/style>/g) || []).join('\n');
+// The page's own style blocks, without the layout tokens block (which holds the reading theme's colours for BOTH schemes: they are measured below, from the palette).
+const css = html => (html.match(/<style>[\s\S]*?<\/style>/g) || []).join('\n').replace(/\/\* site-tokens-css:begin \*\/[\s\S]*?\/\* site-tokens-css:end \*\//, '');
 const varIn = (text, name) => { const m = new RegExp('--' + name + ':(#[0-9a-fA-F]{6})').exec(text); assert.ok(m, 'var --' + name); return rgb(m[1]); };
 
 test('the footer and header css have no opacity and no hover colour, so no text is dimmed below its page colour', () => {
@@ -1069,8 +1071,17 @@ test('the footer and header css have no opacity and no hover colour, so no text 
 
 test('every footer text colour measures at least 4.5:1 on every page background (dark pages with the brightest gradient point, the 404 page in both colour schemes)', () => {
   const { pages } = renderPages(inputs());
-  const dark = { ...pages, 'web/index.html': read('web/index.html'), 'web/pricing.html': read('web/pricing.html') };
+  // The dark pages with a gradient are the two default pages that have one. The four prose pages take the reading theme (a solid ground, light or dark by the device): their footer and header
+  // colours are the palette's quiet and txt on its bg, in each scheme, and the page must say it is a prose page.
+  const dark = { 'web/index.html': read('web/index.html'), 'web/pricing.html': read('web/pricing.html') };
   const rows = [];
+  for (const [file, html] of Object.entries(pages)) {
+    assert.match(html, /<html lang="en" data-job="prose">/, file + ': a prose page');
+    for (const scheme of ['light', 'dark']) {
+      const p = READING[scheme];
+      rows.push([`${file} footer (${scheme} scheme)`, ratio(rgb(p.quiet), rgb(p.bg))], [`${file} header (${scheme} scheme)`, ratio(rgb(p.txt), rgb(p.bg))]);
+    }
+  }
   for (const [file, html] of Object.entries(dark)) {
     const c = css(html);
     assert.match(c, /footer\{[^}]*color:var\(--quiet\)/, file + ': the footer takes --quiet');

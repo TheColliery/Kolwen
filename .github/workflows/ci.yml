@@ -82,14 +82,14 @@ jobs:
       - run: node scripts/surface-check.mjs
       # The one robots.txt comparison rule the post-deploy check applies (it cannot run here: it needs the live site).
       # And the legal-state switch's tests: the Thai 7-day clause is in TERMS.md only while legal/legal-state.json says a trigger is met.
-      - run: node --test scripts/robots-edge.test.mjs scripts/legal-state.test.mjs scripts/legal-pages.test.mjs scripts/address-check.test.mjs scripts/fonts.test.mjs scripts/font-coverage.test.mjs scripts/font-versions.test.mjs scripts/page-weight.test.mjs scripts/html-tokens.test.mjs scripts/coderabbit-config.test.mjs scripts/i18n-catalogue.test.mjs scripts/type-lint.test.mjs
+      - run: node --test scripts/robots-edge.test.mjs scripts/legal-state.test.mjs scripts/legal-pages.test.mjs scripts/address-check.test.mjs scripts/fonts.test.mjs scripts/font-coverage.test.mjs scripts/font-versions.test.mjs scripts/page-weight.test.mjs scripts/html-tokens.test.mjs scripts/coderabbit-config.test.mjs scripts/i18n-catalogue.test.mjs scripts/type-lint.test.mjs scripts/reading-theme.test.mjs
       # All seven pages are generated: terms, privacy and refund from TERMS.md, PRIVACY.md and the clause file; the changelog from CHANGELOG.md; home, pricing and 404 from web-src/pages and the language catalogue web-src/i18n. A page edited by hand, a source edited without a re-render, a visible string that is not a catalogue slot, or a key missing in a language, fails here.
       - run: node scripts/legal-pages.mjs --check
       # The transfer-size budget (web-build rule W-PERF-08): each page's cold-load bytes and requests against twice the HTTP Archive Web Almanac median home page; a FAIL above twice the median unless the page is a named divergence.
       - run: node scripts/page-weight.mjs
 
   rendered:
-    name: rendered (320 px reflow, 200% text, CSP)
+    name: rendered (320 px reflow, 200% text, CSP, reading theme)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -101,9 +101,11 @@ jobs:
           node-version: 24
       # The rendered checks (build-qc.md W-A11Y-07, W-FMT-11): every page, in both languages, in the headless Chrome the runner already has, driven over the DevTools protocol with Node's own
       # WebSocket (no dependency). A 320 CSS px viewport must not scroll sideways (WCAG 2.2 SC 1.4.10); text at 200% must not be cut or lost (SC 1.4.4); the browser must report no
-      # Content-Security-Policy violation under the real headers. CI=true is set by Actions: with no browser the script FAILS here, it never skips.
+      # Content-Security-Policy violation under the real headers. On the pages that declare data-job="prose" (the reading theme), in the light and in the dark scheme: a solid ground, every text
+      # element at 4.5:1 (3:1 large) against the colour it really sits on (SC 1.4.3), line heights of 1.5 (Latin) and 1.65 (Thai), and no Latin line over 80 characters. CI=true is set by
+      # Actions: with no browser the script FAILS here, it never skips.
       - run: node --max-old-space-size=1024 scripts/rendered-check.mjs
-      # The checks' own tests: each defect planted in a copy of web/ (a 400 px element, a clipped box, an unhashed inline style) must be found.
+      # The checks' own tests: each defect planted in a copy of web/ (a 400 px element, a clipped box, an unhashed inline style, faint text, a tight line height) must be found.
       - run: node --max-old-space-size=1024 --test --test-timeout=300000 scripts/rendered-check.test.mjs
   reply-language:
     name: reply language (LWK-131)

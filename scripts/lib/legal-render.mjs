@@ -21,7 +21,7 @@ import { MARK_EN, MARK_TH, PAGES, BANNER, PENDING, THAI_OWED, TEXT_TWINS, PENDIN
 import { activeSince } from './legal-state.mjs';
 import { t, html as tHtml, escText, escAttr, withCatalogue } from './i18n-catalogue.mjs';
 import { renderTemplate } from './page-template.mjs';
-import { tokensCss, VIEWPORT_META } from './layout-tokens.mjs';
+import { tokensCss, readingMeta, VIEWPORT_META, JOBS } from './layout-tokens.mjs';
 export { escText, escAttr };
 
 export const SOURCES = { terms: 'TERMS.md', privacy: 'PRIVACY.md', clause: 'legal/thai-7day-clause.md', changelog: 'CHANGELOG.md' };
@@ -222,7 +222,7 @@ export const HEADER_CSS = [
   "  .site-header .hmark{gap:10px;font-weight:700;font-size:var(--kw-font-size-9);letter-spacing:.01em;margin-right:auto}",
   "  .site-header .hglyph,.site-footer .fglyph{flex:none;display:block;fill:var(--accent,var(--amber,#e8833a))}",
   "  .lswitch{display:inline-flex;gap:6px}",
-  "  .lswitch button{font:inherit;font-size:var(--kw-font-size-2);color:inherit;background:transparent;border:1px solid rgba(128,128,128,.7);border-radius:8px;padding:6px 12px;min-height:34px;cursor:pointer}",
+  "  .lswitch button{font:inherit;font-size:var(--kw-font-size-2);color:inherit;background:transparent;border:1px solid var(--kw-color-switch-border);border-radius:8px;padding:6px 12px;min-height:34px;cursor:pointer}",
   "  .lswitch button:hover{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}",
   '  .lswitch button[aria-pressed="true"]{border-color:currentColor;font-weight:600}',
   "  .site-header :focus-visible,.site-footer :focus-visible{outline:2px solid currentColor;outline-offset:2px}"].join('\n');
@@ -327,7 +327,7 @@ export const STYLE = `
 ${fenced('site-tokens-css')}
   :root{--bg:#0f0d0b;--bg2:#15130f;--card:#1a1714;--line:rgba(255,255,255,.08);--txt:#ece4d9;--txt2:#a89a8c;--quiet:#a2968a;--accent:#e8833a;--accent2:#ffbb7a}
   *{box-sizing:border-box;margin:0}
-  body{background:radial-gradient(circle at 20% 0%,rgba(232,131,58,.07),transparent 55%),var(--bg);color:var(--txt);font-family:'KW Sans Thai',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:stretch;padding:0;line-height:1.6}
+  body{background:radial-gradient(circle at 20% 0%,rgba(232,131,58,.07),transparent 55%),var(--bg);color:var(--txt);font-family:'KW Sans Thai',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:stretch;padding:0;line-height:var(--kw-line-height-body)}
   main{flex:1 0 auto;width:100%;max-width:var(--kw-size-container-reading);margin:0 auto;padding-block:var(--kw-space-inset-block-start) 0;padding-inline:var(--kw-space-gutter-inline);display:flex;flex-direction:column;gap:var(--kw-space-section)}
   a:focus-visible,button:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
   .mark{display:flex;align-items:center;gap:12px;color:inherit;text-decoration:none}
@@ -441,9 +441,11 @@ export const SCRIPT = `(function () {
   for (var i = 0; i < buttons.length; i++) bind(buttons[i]);
 })();`;
 
-export function shell({ title, description, path, en, th }) {
+// `job` is the page's declaration of what it is for (layout-tokens.mjs, THE READING THEME): a prose page is read top to bottom and takes the reading theme, and says so on <html> and in its theme-color.
+export function shell({ title, description, path, en, th, job }) {
+  if (!JOBS.includes(job)) throw new Error(`the page ${path} declares no job (one of ${JOBS.join(', ')})`);
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-job="${job}">
 <head>
 <meta charset="utf-8">
 ${VIEWPORT_META}
@@ -453,7 +455,7 @@ ${VIEWPORT_META}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<meta name="theme-color" content="#15130f">
+${job === 'prose' ? readingMeta() : '<meta name="theme-color" content="#15130f">'}
 ${fenced('site-fonts')}
 <style>${STYLE}</style>
 <noscript><style>
@@ -541,7 +543,7 @@ export function renderPages(inputs) {
   const done = (key, lines, draft = true) => {
     const P = PAGES[key];
     const html = shell({
-      title: P.titleEn, description: P.descEn, path: P.path,
+      title: P.titleEn, description: P.descEn, path: P.path, job: P.job,
       en: docHtml('en', P.titleEn, lines.en.html, draft, ''), th: docHtml('th', P.titleTh, lines.th.html, draft, P.noteTh || ''),
     });
     pages[P.file] = html;

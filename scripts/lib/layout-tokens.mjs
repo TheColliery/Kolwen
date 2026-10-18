@@ -71,11 +71,68 @@ export const TOKENS = {
   'size.container.reading': rem(760),
   'size.container.wide': rem(1100),
   'size.container.compact': '38rem',
+  // The measure of a reading page: the width of its text column, in rem. At the body size of the pages (14.5 px) it is 33.1 em, which holds at most 80 Latin characters on a line, measured on the rendered page (SC 1.4.8, a TARGET, never claimed as met).
+  'size.measure.reading': '30rem',
+  // Line heights: the Latin body text (the house's 1.6, at least the 1.5 of SC 1.4.8) and the Thai text of a reading page (1.65: at 1.5 the tallest marks of the bold face collide).
+  'line-height.body': '1.6',
+  'line-height.thai': '1.65',
+  // The language switch's border, which the reading theme darkens on a light ground (SC 1.4.11).
+  'color.switch-border': 'rgba(128, 128, 128, 0.7)',
 };
 
 export const tokenName = path => '--kw-' + path.replace(/\./g, '-');
 
-// The block as a page carries it: one :root rule, one declaration per line.
+// ── THE READING THEME ────────────────────────────────────────────────────────────────────────────────────────────
+// A page declares its JOB with data-job on <html>: a page whose main content is prose read top to bottom (the legal pages, the changelog, and any later page that does the same job) is
+// `prose` and takes the reading theme; a page of cards, buttons or figures to choose from is `default` and keeps its own. The scope is the job, never a list of files: a new page says
+// what it is. The theme is a variant of the same colour names the pages already use (--bg, --txt ...), not a second stylesheet: a solid ground (no gradient), light or dark by the
+// visitor's prefers-color-scheme (no manual toggle), the same header, footer, fonts and accent. Dark is the colours the pages already had; light is new, and darker where a colour sits on it
+// (the accent #a65a19, the link colour #8a4510). Each scheme is measured on its own against SC 1.4.3 (4.5:1 for text, 3:1 for large text and, under SC 1.4.11, for the parts of a control and
+// a graphic that identify it): READING_PAIRS lists every pair, scripts/lib/contrast.mjs computes them, surface-check rule 22 fails a pair under its floor, and the rendered check measures
+// the real computed colours of every text element of a prose page in both schemes. The numbers are the house's own; the floors are WCAG's.
+export const JOBS = ['prose', 'default'];
+export const READING = {
+  light: { bg: '#fbfaf8', bg2: '#f1eee9', card: '#f5f2ed', line: 'rgba(0, 0, 0, 0.12)', txt: '#1a1a1a', txt2: '#464646', quiet: '#585858', accent: '#a65a19', accent2: '#8a4510', switchBorder: '#767676' },
+  dark: { bg: '#0f0d0b', bg2: '#15130f', card: '#1a1714', line: 'rgba(255, 255, 255, 0.08)', txt: '#ece4d9', txt2: '#a89a8c', quiet: '#a2968a', accent: '#e8833a', accent2: '#ffbb7a', switchBorder: '#8c8c8c' },
+};
+// [foreground, ground, floor, what it is]. The header and the footer take the page text colours: the header the body text (txt), the footer and its links the quiet one (the footer rule of
+// the page style), so their pairs are txt/bg and quiet/bg; the accent is the mark's fill, a graphic (3:1).
+export const READING_PAIRS = [
+  ['txt', 'bg', 4.5, 'body text, and the header text and links, on the ground'],
+  ['txt', 'card', 4.5, 'body text on a card'],
+  ['txt', 'bg2', 4.5, 'text on a control or banner ground'],
+  ['txt2', 'bg', 4.5, 'secondary text on the ground'],
+  ['txt2', 'card', 4.5, 'secondary text on a card'],
+  ['txt2', 'bg2', 4.5, 'secondary text on a control ground'],
+  ['quiet', 'bg', 4.5, 'quiet text on the ground, and the footer text and links'],
+  ['quiet', 'card', 4.5, 'quiet text on a card'],
+  ['quiet', 'bg2', 4.5, 'quiet text on a control ground'],
+  ['accent2', 'bg', 4.5, 'links and the focus ring on the ground'],
+  ['accent2', 'card', 4.5, 'links on a card'],
+  ['accent', 'bg', 3, 'the mark glyph on the ground (a graphic, SC 1.4.11)'],
+  ['accent', 'card', 3, 'the mark glyph on a card'],
+  ['switchBorder', 'bg', 3, 'the border of the language switch (SC 1.4.11)'],
+];
+
+const cssVars = p => `--bg:${p.bg};--bg2:${p.bg2};--card:${p.card};--line:${p.line};--txt:${p.txt};--txt2:${p.txt2};--quiet:${p.quiet};--accent:${p.accent};--accent2:${p.accent2};${tokenName('color.switch-border')}:${p.switchBorder}`;
+export function readingCss() {
+  const prose = 'html[data-job="prose"]';
+  return [
+    `  ${prose}{color-scheme:light dark;${cssVars(READING.light)}}`,
+    `  @media (prefers-color-scheme:dark){${prose}{${cssVars(READING.dark)}}}`,
+    `  ${prose} body{background:var(--bg)}`,
+    `  ${prose} main{max-width:calc(var(${tokenName('size.measure.reading')}) + 2 * var(${tokenName('space.inset-inline')}))}`,
+    `  ${prose} #doc-th,${prose} #doc-th *{line-height:var(${tokenName('line-height.thai')})}`,
+  ].join('\n');
+}
+// The <meta> lines a reading page carries for the browser chrome (W-DISC-10): the colour schemes it supports and a theme colour per scheme.
+export const readingMeta = () => [
+  '<meta name="color-scheme" content="light dark">',
+  `<meta name="theme-color" content="${READING.light.bg}" media="(prefers-color-scheme: light)">`,
+  `<meta name="theme-color" content="${READING.dark.bg}" media="(prefers-color-scheme: dark)">`,
+].join('\n');
+
+// The block as a page carries it: one :root rule, one declaration per line, then the reading theme's rules (they apply only under data-job="prose").
 export function tokensCss() {
-  return ['  :root{', ...Object.entries(TOKENS).map(([path, value]) => `    ${tokenName(path)}:${value};`), '  }'].join('\n');
+  return ['  :root{', ...Object.entries(TOKENS).map(([path, value]) => `    ${tokenName(path)}:${value};`), '  }', readingCss()].join('\n');
 }

@@ -3,12 +3,14 @@
 //    stands in the same value (text never scales by viewport units alone: WCAG SC 1.4.4, failure F94). This holds for the `font-size` property and for the size inside a `font` shorthand;
 //  - every clamp() anywhere in a font-size carries a rem term;
 //  - a var() in a font-size is followed to its custom property (the tokens of scripts/lib/layout-tokens.mjs), and that value is judged; a var() that resolves to nothing is a finding;
-//  - every page carries the viewport meta of the layout formula, with viewport-fit=cover and nothing that blocks the visitor's zoom (user-scalable, maximum-scale).
+//  - every page carries the viewport meta of the layout formula, with viewport-fit=cover and nothing that blocks the visitor's zoom (user-scalable, maximum-scale);
+//  - every page declares its job on <html> (data-job="prose" for a page read top to bottom, "default" for a page to choose from), and a prose page carries the meta lines of the reading theme
+//    (color-scheme, and a theme-color for each scheme).
 // STATED LIMITS: a style block is read as declarations split at `;` `{` `}` outside strings and parentheses (no selector is understood, and a declaration inside any at-rule is read like any other);
 // a font-size set by script at run time, or by a stylesheet this site does not serve, is not seen; the unit of `line-height` and every other property is not judged here.
 import { htmlTokens } from './html-tokens.mjs';
 import { styleBlocksOf, stripCssComments } from './rendered-text.mjs';
-import { VIEWPORT_META } from './layout-tokens.mjs';
+import { VIEWPORT_META, JOBS, READING } from './layout-tokens.mjs';
 
 const ABSOLUTE = /(?:^|[^a-z0-9_-])-?(?:\d+\.?\d*|\.\d+)(px|pt|pc|cm|mm|in|q)(?![a-z0-9_-])/gi;
 const RELATIVE = /(?:^|[^a-z0-9_-])-?(?:\d+\.?\d*|\.\d+)(em|ex|ch|cap|ic|lh|rlh|%)(?![a-z0-9_-])/gi;
@@ -141,5 +143,27 @@ export function pageTypeProblems(html, extraCss = []) {
     if (items.get('viewport-fit') !== 'cover') out.push('the viewport meta lacks viewport-fit=cover, so env(safe-area-inset-*) is always 0');
     for (const blocked of ['user-scalable', 'maximum-scale', 'minimum-scale']) if (items.has(blocked)) out.push(`the viewport meta sets ${blocked}, which can block the visitor's zoom (SC 1.4.4)`);
   }
+  out.push(...pageJobProblems(html));
+  return out;
+}
+
+// The job a page declares for itself (layout-tokens.mjs, THE READING THEME), and what a prose page must carry for the browser chrome (W-DISC-10).
+export function pageJobProblems(html) {
+  const tokens = htmlTokens(html, { scripting: false });
+  const root = tokens.find(t => t.type === 'tag' && !t.closing && t.name === 'html');
+  const job = root?.attrs.get('data-job');
+  if (job === undefined) return ['the <html> element declares no job: data-job="prose" (a page read top to bottom) or data-job="default" (a page of cards, buttons or figures to choose from)'];
+  if (!JOBS.includes(job)) return [`data-job="${job}" is not a job (one of ${JOBS.join(', ')})`];
+  if (job !== 'prose') return [];
+  const out = [];
+  const metas = tokens.filter(t => t.type === 'tag' && !t.closing && t.name === 'meta');
+  const scheme = metas.filter(m => (m.attrs.get('name') ?? '').toLowerCase() === 'color-scheme');
+  if (scheme.length !== 1 || !/^\s*light\s+dark\s*$/i.test(scheme[0].attrs.get('content') ?? '')) out.push('a prose page carries exactly one <meta name="color-scheme" content="light dark">');
+  const themes = metas.filter(m => (m.attrs.get('name') ?? '').toLowerCase() === 'theme-color');
+  for (const [mode, colour] of [['light', READING.light.bg], ['dark', READING.dark.bg]]) {
+    const hit = themes.filter(m => (m.attrs.get('media') ?? '').replace(/\s+/g, '') === `(prefers-color-scheme:${mode})`);
+    if (hit.length !== 1 || (hit[0].attrs.get('content') ?? '').toLowerCase() !== colour) out.push(`a prose page carries exactly one theme-color of ${colour} for (prefers-color-scheme: ${mode}), the ground of its ${mode} scheme`);
+  }
+  if (themes.length !== 2) out.push(`a prose page carries a theme-color for each scheme and no other (found ${themes.length})`);
   return out;
 }

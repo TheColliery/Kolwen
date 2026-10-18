@@ -139,7 +139,7 @@ if (existsSync('web/index.html')) {
   const ld = s.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script\b[^>]*>/);
   if (!ld) note('web/index.html', 'structured-data block missing');
   else { try { JSON.parse(ld[1]); } catch (e) { note('web/index.html', 'ld+json does not parse: ' + e.message); } }
-  if (!/<html lang="en">/.test(s)) note('web/index.html', 'default document language is not English');
+  if (!/<html lang="en"(?: data-job="[a-z]+")?>/.test(s)) note('web/index.html', 'default document language is not English');
   if (!/id="doc-th"[^>]*\shidden/.test(s)) note('web/index.html', 'Thai block is not hidden by default');
   if (/id="doc-en"[^>]*\shidden/.test(s)) note('web/index.html', 'English block is hidden by default');
   if (!/mailto:info@kolwen\.com/.test(s)) note('web/index.html', 'the published contact channel is missing');
@@ -1018,6 +1018,21 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
     if (pages21.length === 0) note('web/', 'has no tracked HTML page, so rule 21 checked nothing');
     const fontCss = tracked.includes('web/fonts/fonts.css') ? [read('web/fonts/fonts.css')] : [];
     for (const f of pages21) for (const why of tl.pageTypeProblems(read(f), fontCss)) note(f, why);
+  }
+}
+
+// ── 22. The reading theme holds its contrast, in both colour schemes ──
+// build-qc.md W-A11Y-05, W-FMT-12 (WCAG 2.2 SC 1.4.3, 1.4.11): every text/ground pair of the reading theme (scripts/lib/layout-tokens.mjs READING_PAIRS, the header and the footer colours
+// included) is computed in the light scheme and in the dark one, each on its own, and a pair under its floor (4.5:1 for text, 3:1 for a graphic or the border of a control) is a finding. The
+// colours of the pages as a browser computes them are measured by the rendered check (scripts/rendered-check.mjs, the `contrast` check). NON-VACUITY: a theme with no pair is a finding.
+{
+  let ct = null;
+  try { ct = await import(pathToFileURL(resolve('scripts/lib/contrast.mjs')).href); }
+  catch (e) { note('scripts/lib/contrast.mjs', 'could not be loaded, so rule 22 could not measure the reading theme (' + (e.code || 'import failed') + ')'); }
+  if (ct) {
+    const rows22 = ct.readingContrast();
+    if (rows22.length === 0) note('scripts/lib/layout-tokens.mjs', 'lists no reading-theme pair, so rule 22 measured nothing');
+    for (const r of rows22.filter(r => !r.ok)) note('scripts/lib/layout-tokens.mjs', `reading theme, ${r.scheme} scheme: ${r.fg} on ${r.bg} (${r.what}) is ${r.ratio === null ? 'not a measurable pair' : r.ratio.toFixed(2) + ':1'}, under the floor of ${r.floor}:1`);
   }
 }
 
