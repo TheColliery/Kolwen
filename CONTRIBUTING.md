@@ -36,6 +36,8 @@ no build step. `package.json` and `package-lock.json` exist only to pin Wrangler
 nothing here needs an `npm install` to run.
 
 ```bash
+node scripts/rendered-check.mjs     # every page in a real headless browser: 320 px reflow, 200% text, CSP, the reading theme (finds Edge, Chrome or Chromium; KOLWEN_BROWSER names one)
+node --test scripts/rendered-check.test.mjs   # that check's own tests, each defect planted in a copy of web/
 node scripts/surface-check.mjs      # the room's own laws: claims, leakage, orthography, contrast, the tracker claim, production noindex
 node scripts/secret-gate.mjs        # the house secret scan over the tracked tree (the hooks also scan what a commit or push adds)
 node --test scripts/secret-scan.test.mjs scripts/secret-gate.test.mjs scripts/legal-state.test.mjs   # the scanner's, the gate's and the legal-state switch's own tests
@@ -44,7 +46,7 @@ node brand/make-brand.mjs           # regenerate every brand asset; must leave g
 node scripts/post-deploy-check.mjs  # compare the live site to what is committed (needs network); --origin <url> checks one host
 ```
 
-The surface check, the brand byte-identity check and the secret gate (with its test files) run in CI on every push and must pass. The post-deploy check runs after a deploy.
+The surface check, the brand byte-identity check and the secret gate (with its test files) run in CI on every push and must pass, and so does the `rendered` job, which runs the rendered check in a headless Chrome on the runner. Locally the rendered check says it was skipped when it finds no browser; in CI it fails instead. The post-deploy check runs after a deploy.
 
 The repository also ships a `pre-commit` and a `pre-push` hook in `.githooks/` that run the secret scan, then the surface check. `pre-commit` scans the working-tree copy of each tracked file, not what is staged, so a key that is staged and then removed from the working copy passes it; `pre-push` scans the added lines, commit messages and tags of every pushed commit, and CI scans the tree, so that key is caught there. They run only in a clone that ran `git config core.hooksPath .githooks`, and `git push --no-verify` bypasses them; GitHub's server-side secret scanning and push protection stay this repository's other wall.
 
@@ -91,6 +93,14 @@ here.
 - **The words of the legal pages and the changelog** are in `TERMS.md`, `PRIVACY.md`, `legal/` and `CHANGELOG.md`. **The words of the home, pricing and not-found pages** are keys in `web-src/i18n/en.json` and `web-src/i18n/th.json` (keyed by page, plus a `shared` group for the header and footer); their structure is the templates in `web-src/pages/`. Edit the source, run `node scripts/legal-pages.mjs --write`, and commit the regenerated files under `web/` with it. Never edit `web/index.html`, `web/pricing.html` or `web/404.html` by hand: CI runs `--check` and names the difference.
 - A value is a whole sentence, never a fragment joined to another. Both language files carry the same keys. The check refuses the rest (a bad language tag, a plain space before the Thai repetition mark ๆ, and more); `scripts/legal-pages.mjs` and `scripts/lib/i18n-catalogue.mjs` are the list of record.
 - **Adding a language** starts with one file, `web-src/i18n/<bcp47>.json`, holding every key (the check names a missing one and a tag the registry would shorten: `th`, not `th-Thai`). A script the site has no font for also needs a folder under `web/fonts/` with the font's licence text and a manifest entry (`web/fonts/fonts.css` and `scripts/font-subset.mjs` say how a font is cut and named). Today that file is checked but no page is generated from it: each template still holds one document per language, English and Thai, so a third language does not appear on the site until the page build is made to render per language. Say so in the change rather than describing the language as added.
+
+---
+
+## Sizes, a page's job, and the rendered check
+
+- **Sizes and spacing** are tokens in `scripts/lib/layout-tokens.mjs`, the one table, emitted into every page's style block (a token at the path `font.size.1` is the custom property `--kw-font-size-1`). Add or change a size there, in `rem`; a page never carries a px font size of its own, and surface-check rule 21 names the line that does. The file's header says which numbers are the house's own and what stays in px.
+- **A new page declares its job** on `<html>`, as `data-job="prose"` (its main content is prose read top to bottom, so it takes the reading theme) or `data-job="default"` (cards, buttons or figures to choose from). A page made from a template in `web-src/pages/` writes the attribute in the template; a page made from Markdown sets `job` in its entry of `PAGES` in `scripts/lib/legal-page-text.mjs`, and the generator refuses an entry without one. Rule 21 checks that every page declares a job, and rule 22 and the rendered check hold the reading theme's contrast in both colour schemes.
+- **The rendered check** is `node scripts/rendered-check.mjs` (`--only reflow,zoom,csp,theme,contrast,lineheight,measure` runs some of it). It needs a Chromium-family browser: it looks for Edge, Chrome or Chromium itself, and `KOLWEN_BROWSER` names the binary if yours is elsewhere. Its header lists what each check measures and its stated limits. SC 1.4.8 is a target of the reading theme, never a claim that it is met.
 
 ---
 

@@ -3,7 +3,7 @@
 // web/changelog.html from the repository's own CHANGELOG.md (every passage shown as written, no hold), and web/index.html, web/pricing.html and web/404.html from their templates
 // (web-src/pages/<home|pricing|notfound>.html) and the language catalogue (web-src/i18n/<bcp47>.json), and checks they are the committed pages: all seven pages are generated and none has a part
 // kept by hand (build-qc.md C-FMT-02). It also owns the SHARED BLOCKS: the header and its CSS, the footer of each language and its CSS, the rules for a reader without script and
-// the page script (eight marker pairs, the link to the font manifest first) are written once in scripts/lib/legal-render.mjs (SYNC_BLOCKS) and come into every page between fixed markers, so one
+// the page script (the marker pairs of SYNC_BLOCKS, the link to the font manifest first and the layout tokens second) are written once in scripts/lib/legal-render.mjs (SYNC_BLOCKS) and come into every page between fixed markers, so one
 // edit reaches all seven pages in one run. It keeps the style-src and script-src hashes of web/_headers in step with the pages' inline <style> and <script> blocks, with the one hash routine
 // surface-check uses (scripts/lib/csp-hashes.mjs), so a footer CSS edit needs no hand-typed hash. And it judges the catalogue and the templates (scripts/lib/i18n-catalogue.mjs,
 // scripts/lib/page-template.mjs): a visible string that is not a catalogue slot, a key present in one language and absent in another, a bad BCP 47 tag, a split sara am, a plain space before the
