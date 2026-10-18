@@ -1,0 +1,141 @@
+# CodeRabbit configuration for Kolwen, the public product face of the TheColliery organization.
+#
+# It is the published-code kind of the organization canon (templates/published-code/.coderabbit.yaml, blob 53debda6)
+# with that kind's hooks block removed: Kolwen ships no agent-platform hooks (.githooks/ holds git gate hooks, which that
+# block does not restate), and with Kolwen's own path_filters and path_instructions added after the canon's blocks.
+#
+# It carries four things:
+#   1. reviews.profile: assertive -- a MEASURED TRIAL against the organization's Chill profile, to be
+#      judged on the next snapshot round. It is not a verdict on the profile, and the organization-level
+#      setting stays Chill until that measurement reads.
+#   2. reviews.path_instructions that restate this org's and this repository's written CONTRACTS. Each block names the
+#      document it restates. There is no tone_instructions key and no taste in any block: an
+#      instruction here may encode a contract or a fact, never a preference.
+#   3. reviews.path_filters for files a reviewer cannot read: the binary fonts and images. A generated text file is
+#      not filtered, because it ships; it carries an instruction that says where its fix lands.
+#   4. knowledge_base: the Learnings posture (owner 2026-10-08). Learnings stay repository-local and wait the
+#      maximum approval delay, so the owner approves or rejects each one in the dashboard before it applies. The
+#      knowledge-base switch itself (data retention) is the organization's dashboard setting and the owner's click;
+#      this file never flips it, so opt_out is not set here (a private repository sets opt_out: true in its own file).
+#      THE OWNER'S LAW ON TEACHING, 2026-10-08, verbatim: ถ้าจะสอน CodeRabbit อย่าสอนให้เข้าพวก เพราะตัวตรวจจับ จะไม่เป็นตัวตรวจจับอีกต่อไป
+#      -- an instruction or a learning encodes a fact or a contract (what a file is, where its fix lands, which
+#      standard binds); it never tells the reviewer to stay quiet on a class, never grants an exception and never
+#      carries our conclusion about a finding. A learning that would lower the number of findings is rejected at
+#      the approval step. A detector taught to agree with its subject is no longer a detector.
+#
+# PRECEDENCE, from the vendor (docs.coderabbit.ai/guides/configuration-overview, "Understanding
+# configuration priority"): "Configuration sources don't merge by default." The repository
+# .coderabbit.yaml (priority 2) outranks Repository settings (4) and Organization settings (5), but NOT
+# the Workspace and Organization global overrides (0 and 1), which "take precedence over all other
+# configuration sources, including repository .coderabbit.yaml files" -- if the organization sets a
+# profile as a global override, the assertive below is silently ignored. Inheritance is opt-in
+# (docs.coderabbit.ai/configuration/configuration-inheritance: "Inheritance is disabled by default. You
+# must explicitly enable it by adding inheritance: true to your configuration file"); without the line
+# below this file would REPLACE the organization's other settings with schema defaults instead of adding
+# to them. With it, an array such as path_instructions keeps this file's items first and appends the
+# parent's items whose path this file does not define (same page, "Merge behavior by type", read 2026-10-18),
+# so the organization's own path instructions still apply beside these. Read the merged result on any pull
+# request with the comment: @coderabbitai configuration
+inheritance: true
+knowledge_base:
+  learnings:
+    scope: local
+    approval_delay: 30
+reviews:
+  profile: assertive
+  # Binary files only: a reviewer cannot read them, and the generated text files they come from are reviewed in their own paths.
+  path_filters:
+    - "!web/fonts/**/*.woff2"
+    - "!**/*.png"
+  path_instructions:
+    # Restates scripts-quality.md section 1 (fail loud) and hooks-safety.md section 6, commandment 2 (zero dependencies).
+    - path: "scripts/**"
+      instructions: |
+        Report a change that breaks any of these:
+        - Node built-in modules only: no npm install, no dependency declared in a manifest.
+        - A user-invoked script exits non-zero when any unit of work fails, and its done-summary line reports the failed count.
+        - A gate script wraps every per-item check, so one bad input produces a FAIL <item>: <reason> line while the remaining checks still run, and never a raw stack trace.
+    # Restates DOC-PATTERN.md: "Data is verbatim from its source, never invented" and "a behaviour claim = the code".
+    - path: "{README,SECURITY,CONTRIBUTING}.md"
+      instructions: |
+        A claim about behavior must match what the code actually does, and any data shown (a version, a model ID, a benchmark figure, a count) must match its authoritative source verbatim: a version is the one in plugin.json, a benchmark figure links to its record instead of being copied, a behavior claim is whatever the code does. Report a claim the code contradicts or a figure that differs from its source.
+    # Restates SKILL-REPO-PATTERN.md: the SHA-pinned workflow set, the concurrency: groups rule, and the persist-credentials sentence added beside them.
+    - path: ".github/workflows/**"
+      instructions: |
+        Report a change that breaks any of these:
+        - Every third-party action is pinned to a full 40-character commit SHA with a version comment, never a bare tag or branch.
+        - Every workflow has a concurrency group. cancel-in-progress is true for CI, lint and CodeQL, and never true for a job that uploads a Release or tag asset.
+        - A checkout that pushes nothing sets persist-credentials: false.
+    # Restates the scanner canon's parity contract (the umbrella's scripts/scanner-parity.mjs): these four files are byte-equal copies of one source room's scanner and gate, and a copy is never edited locally.
+    - path: "scripts/{lib/secret-scan.mjs,secret-scan.test.mjs,secret-gate.mjs,secret-gate.test.mjs}"
+      instructions: |
+        These files are byte-equal copies of the organization's scanner canon, held equal to their source by a parity check; a local edit breaks the parity on purpose. Review them on their merits exactly as any other file and report every finding at its severity. Add to each finding that the fix is made at the canon's source and arrives here by blob id at the next sync, so the author routes it there instead of editing this copy. Never lower a severity, drop a finding or accept a local patch because the file is a copy.
+    # Kolwen's own blocks. Each names the document it restates.
+    # Restates docs/DEPLOY.md (the site is the web/ folder served as it is), the header of scripts/legal-pages.mjs (which pages it renders), scripts/surface-check.mjs (rules 1, 2, 4, 5 and 17) and the web-build rules C-FMT-02 (generated files) and W-A11Y-01 (WCAG 2.2 A and AA).
+    - path: "web/**"
+      instructions: |
+        These files are the static site that a Cloudflare Worker serves as they are: wrangler.jsonc binds the web/ folder and there is no build step (docs/DEPLOY.md). Report a change that breaks any of these:
+        - web/terms.html, web/privacy.html, web/refund.html and web/changelog.html are generated by scripts/legal-pages.mjs from TERMS.md, PRIVACY.md, legal/thai-7day-clause.md, the refund text in scripts/lib/legal-page-text.mjs and CHANGELOG.md. A fix to their wording lands in that source, and the page is re-rendered with node scripts/legal-pages.mjs --write; a hand edit of a generated page is a difference that script names. Name the source file where the fix belongs.
+        - web/index.html, web/pricing.html and web/404.html are hand-kept, but their shared header, footer and page script sit between marker comments and are written once in scripts/lib/legal-render.mjs.
+        - A change to an inline style or script byte moves its content hash in web/_headers. node scripts/legal-pages.mjs --write updates the hashes and surface-check rule 13 checks them.
+        - Every statement holds in English and in Thai alike: English is the default, Thai is switched on the page, and the Thai passage carries every obligation of the English one and no more. No check compares the two languages obligation by obligation (surface-check rule 4 checks Thai orthography, and rule 5 asserts the structure of the two blocks and says in its own comment that it does not compare them claim for claim), so review is the only check: compare them.
+        - A claim states only what runs. The site says the product is in development and not open for use. The Kolwen word mark is filed and pending, never registered, and no page carries the registration symbol. No filing number appears on a page (surface-check rules 1, 2 and 17).
+        - The browser floor is Baseline widely available: a newer feature is used only behind feature detection, with a fallback that keeps the page readable and the language switch working, and with no polyfill bundle and no transpile step.
+        - WCAG 2.2 Level A and AA hold (web-build rule W-A11Y-01).
+    # Restates the comments of web/_headers and surface-check rules 7 and 13.
+    - path: "web/_headers"
+      instructions: |
+        This file is read by Workers and is not itself served as an asset. Its own comments are the contract. Report a change that breaks any of these:
+        - One rule, on /*, carries the Content-Security-Policy, Referrer-Policy and Permissions-Policy. A header set by two matching rules is joined with a comma, so a second rule carrying any of them serves two policies, or one policy twice. Surface-check rule 13 fails on a second rule that carries the Content-Security-Policy; no check before merge fails on a second Referrer-Policy or Permissions-Policy, so review is the only check for those two before merge; after deploy, scripts/post-deploy-check.mjs fails when an HTML page is served the joined value and not the declared one.
+        - The style-src and script-src hashes equal the hashes of the inline blocks the pages carry.
+        - Cloudflare caps a file at 100 rules and 2,000 characters per line, and rule 13 checks both.
+        - Only the content-hashed font files under /fonts/ carry Cache-Control immutable with a one-year max-age. The images and the icon are not content-hashed, so they keep a short max-age and never immutable. The pages keep max-age=0 with must-revalidate.
+        - Strict-Transport-Security and X-Content-Type-Options are set by the Cloudflare zone and not by this file, on purpose; scripts/post-deploy-check.mjs asserts both on the production origin.
+    # Restates the header of web/fonts/fonts.css, scripts/font-subset.mjs and the OFL.txt beside the fonts.
+    - path: "web/fonts/**"
+      instructions: |
+        The font files are subsets of IBM Plex cut to the characters the pages render, under the SIL Open Font License, which reserves the original font name for modified versions: the families are named KW Sans Thai and KW Mono, and the name records of the files carry no reserved name. Each file name carries the first ten hex digits of the sha256 of its bytes. web/fonts/fonts.css is the manifest that names exactly those files, and a re-cut goes through scripts/font-subset.mjs. The font files are binary and filtered out of review, so no diff of them is shown: scripts/font-versions.test.mjs checks each file name against the sha256 of its bytes and that the manifest resolves to files that exist. Report a manifest that names a file that does not exist, a font family named after the reserved name, and any font loaded from outside this site (surface-check rule 13b).
+    # Restates the header of scripts/lib/rendered-text.mjs: the table is generated from the Python standard library and never typed.
+    - path: "scripts/lib/html-entities.json"
+      instructions: |
+        This file is generated by the python command written in the comment above the table loader in scripts/lib/rendered-text.mjs, from html.entities.html5 in the Python standard library (the WHATWG named character reference table). It is never edited by hand: a change to it is a regenerated file, and a wrong entry is fixed by regenerating it.
+    # Restates the testing rules of SKILL-REPO-PATTERN.md (hermetic spawn tests sandbox TEMP and HOME) and the header of the test files here: node:test, an explicit list, a child with a heap cap and a kill timeout.
+    - path: "scripts/**/*.test.mjs"
+      instructions: |
+        Tests use node:test only and run from the explicit file list in .github/workflows/ci.yml; a test file that is not on that list never runs. A test that starts a child process gives it a heap cap, a kill timeout and its own HOME and TEMP, and a test that needs a changed copy of the site works on a copy in a temp folder. A test whose assertion can never fail is a defect: name the assertion that cannot go red.
+    # Restates the header of scripts/surface-check.mjs.
+    - path: "scripts/surface-check.mjs"
+      instructions: |
+        The numbered rules in this file are the list of record that docs/TRUST.md and governance/policies.md point at, so a rule that is added, removed or reworded here changes what those documents say. Each rule polices a published claim; report a rule that cannot fail on the input it names, or whose data can empty it.
+    # Restates the header of scripts/legal-pages.mjs.
+    - path: "scripts/{legal-pages.mjs,lib/legal-*}"
+      instructions: |
+        The four generated pages are a pure function of their sources (TERMS.md, PRIVACY.md, legal/thai-7day-clause.md, CHANGELOG.md), the legal-state record, the hold list in scripts/lib/legal-holds.json and the text in scripts/lib/legal-page-text.mjs. CI runs node scripts/legal-pages.mjs --check, so a change here that alters a page comes with the re-rendered page in the same change.
+    # Restates the header of brand/README.md.
+    - path: "brand/**"
+      instructions: |
+        This folder is the identity kit. brand/make-brand.mjs is the single source of the mark's geometry: every SVG and PNG here except kolwen-wordmark.png, and web/favicon.svg, web/favicon-32.png and web/apple-touch-icon.png, are its output, and CI regenerates them and fails on any byte difference, so a generated file changes only through the script. The PNG files are binary and filtered out of review, so no diff of them is shown; the CI regeneration check is what guards the generated ones. brand/kolwen-wordmark.png is the as-filed image of the trademark application and is legal evidence: it is never edited and never regenerated, and no check compares its bytes. Report a hand edit of a generated SVG, and a statement in brand/README.md that disagrees with the script or whose stated contrast ratio does not recompute from its own hex pair (surface-check rule 6).
+    # Restates py/requirements-build.in (its header) and py/pyproject.toml.
+    - path: "py/**"
+      instructions: |
+        The Python package is a PyPI name reservation at a 0.0.x development version; nothing is released. Report a change that breaks any of these:
+        - py/requirements-build.txt is generated from py/requirements-build.in with the uv pip compile command in that file's header, with hashes. It is never edited by hand, and a change to it comes with a change to the .in file.
+        - hatchling is pinned to the same exact version in py/requirements-build.in and in the build-system requires of py/pyproject.toml. The release build runs with --no-isolation, so a disagreement fails it.
+        - The release job installs with pip install --require-hashes, so every build dependency stays pinned and hashed.
+        - A description, classifier or README line claims nothing the package does not do.
+    # Restates docs/DEPLOY.md, the comments of wrangler.jsonc and the room's own browser and runtime rules.
+    - path: "{wrangler.jsonc,package.json,package-lock.json}"
+      instructions: |
+        wrangler.jsonc pins compatibility_date; it moves only in a deliberate change that says why and reads Cloudflare's compatibility flags for every date crossed, never as a side effect of another change. Wrangler itself is pinned in package.json and package-lock.json, and package.json declares no runtime dependency (docs/DEPLOY.md). Report a floating install, a moved date with no stated reason, and a runtime dependency.
+    # Restates TERMS.md and PRIVACY.md (the head of each), legal/README.md and surface-check rules 10 and 19.
+    - path: "{TERMS.md,PRIVACY.md,legal/**}"
+      instructions: |
+        TERMS.md and PRIVACY.md are published as drafts with legal gaps: not signed and not in force. A clause that is open carries the marker [pending legal review] (Thai: [รอที่ปรึกษากฎหมาย]), and every gap carries one (surface-check rule 10). Report a change that breaks any of these:
+        - A Thai passage carries every obligation its English passage carries, and no more, checked obligation by obligation in both directions.
+        - Nothing is written as settled that the draft marks as counsel's to decide.
+        - legal/legal-state.json holds state only: a schema number, the seller type, and per trigger a value that is null or a calendar date. An identifier, a registration number or a revenue figure never enters this repository (legal/README.md). TERMS.md holds the Thai 7-day clause only while that record says a trigger is met (surface-check rule 19).
+        - TERMS.md, PRIVACY.md and legal/thai-7day-clause.md are the sources of web/terms.html, web/privacy.html and web/refund.html, so a change here comes with those pages re-rendered by node scripts/legal-pages.mjs --write.
+    # Restates the head of CHANGELOG.md and the generator of web/changelog.html.
+    - path: "CHANGELOG.md"
+      instructions: |
+        The format is Keep a Changelog, and the dash in the house style is the unspaced em dash. Nothing has been released: entries sit under Unreleased, and the PyPI entry is a name reservation. web/changelog.html is generated from this file by scripts/legal-pages.mjs. A released entry is never rewritten: a correction is a forward-pointing note in the new entry. While nothing is released, the entries under Unreleased are edited in place. Report a rewritten released entry, a figure the code or a tool output contradicts, and a claim of a release.

@@ -82,7 +82,7 @@ jobs:
       - run: node scripts/surface-check.mjs
       # The one robots.txt comparison rule the post-deploy check applies (it cannot run here: it needs the live site).
       # And the legal-state switch's tests: the Thai 7-day clause is in TERMS.md only while legal/legal-state.json says a trigger is met.
-      - run: node --test scripts/robots-edge.test.mjs scripts/legal-state.test.mjs scripts/legal-pages.test.mjs scripts/address-check.test.mjs scripts/fonts.test.mjs scripts/font-coverage.test.mjs scripts/font-versions.test.mjs scripts/page-weight.test.mjs scripts/html-tokens.test.mjs
+      - run: node --test scripts/robots-edge.test.mjs scripts/legal-state.test.mjs scripts/legal-pages.test.mjs scripts/address-check.test.mjs scripts/fonts.test.mjs scripts/font-coverage.test.mjs scripts/font-versions.test.mjs scripts/page-weight.test.mjs scripts/html-tokens.test.mjs scripts/coderabbit-config.test.mjs
       # The four generated pages (terms, privacy and refund from TERMS.md, PRIVACY.md and the clause file; the changelog from CHANGELOG.md) are the render of their sources, and the home, pricing and 404 pages hold the shared footer: a page edited by hand, or a source edited without a re-render, fails here.
       - run: node scripts/legal-pages.mjs --check
       # The transfer-size budget (web-build rule W-PERF-08): each page's cold-load bytes and requests against twice the HTTP Archive Web Almanac median home page; a FAIL above twice the median unless the page is a named divergence.
