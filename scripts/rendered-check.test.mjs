@@ -770,6 +770,35 @@ test('run through a junction or a symlink the command line still runs: the entry
   assert.equal(imported.stdout + imported.stderr, '');
 });
 
+// Every script that runs itself when started has the same guard, from scripts/lib/entry-guard.mjs: a run through a junction or a symlink does what a direct run does, and an import runs nothing.
+// The scripts run in a bare copy of scripts/ (no web/, no git), where each one ends in its own failure line and a code other than 0: so a silent 0 is the guard's doing and nothing else.
+const SELF_RUNNING = ['rendered-check', 'address-check', 'font-subset', 'page-weight'];
+test('every self-running script of scripts/ does the same through a junction or a symlink as directly, and an import of it runs nothing', t => {
+  const root = mkdtempSync(join(tmpdir(), 'kolwen-test-guards-'));
+  copies.push(root); // the link points at a COPY of scripts/ made here, so removing this folder can never reach the real ones
+  const real = join(root, 'real'), link = join(root, 'link'), work = join(root, 'work');
+  cpSync(join(ROOT, 'scripts'), real, { recursive: true });
+  mkdirSync(work);
+  try { symlinkSync(real, link, 'junction'); } catch { t.skip('this system will not make a symlink or a junction'); return; }
+  const env = { ...process.env, HOME: work, USERPROFILE: work, TEMP: work, TMP: work, TMPDIR: work, CI: 'true', [BROWSER_ENV]: join(tmpdir(), 'no-such-dir', 'no-such-browser') };
+  if (process.platform === 'win32') env[wslLib.WSL_EXE_ENV] = join(tmpdir(), 'no-such-dir', 'wsl.exe');
+  const run = args => spawnSync(process.execPath, ['--max-old-space-size=256', ...args], { encoding: 'utf8', timeout: 60000, env, cwd: work });
+  // the room's scripts that start themselves are exactly this list: a new one is added here, or it is a script that does not start itself
+  const found = readdirSync(join(ROOT, 'scripts')).filter(f => /\.mjs$/.test(f) && !/\.test\.mjs$/.test(f) && /isMainModule\(import\.meta\.url\)|process\.argv\[1\]/.test(readFileSync(join(ROOT, 'scripts', f), 'utf8'))).map(f => f.replace(/\.mjs$/, ''));
+  const lexical = found.filter(n => /resolve\(process\.argv\[1\]\)\s*===|pathToFileURL\(process\.argv\[1\]|import\.meta\.url\s*===/.test(readFileSync(join(ROOT, 'scripts', n + '.mjs'), 'utf8')));
+  assert.deepEqual(lexical, [], 'no script compares its path lexically: a junction or a symlink would make it exit 0 having done nothing');
+  for (const name of SELF_RUNNING) {
+    const direct = run([join(real, name + '.mjs')]), viaLink = run([join(link, name + '.mjs')]);
+    assert.notEqual(direct.stdout + direct.stderr, '', name + ': a direct run in the bare copy says something');
+    assert.notEqual(direct.status, 0, name + ': and does not exit 0');
+    assert.equal(viaLink.status, direct.status, `${name}: the same exit code through the link (not a silent 0): ${viaLink.stdout}${viaLink.stderr}`);
+    assert.equal(viaLink.stdout + viaLink.stderr, direct.stdout + direct.stderr, name + ': the same output through the link');
+    const imported = run(['--input-type=module', '-e', `await import(${JSON.stringify(pathToFileURL(join(link, name + '.mjs')).href)})`]);
+    assert.equal(imported.status, 0, name + ': an import runs nothing: ' + imported.stderr);
+    assert.equal(imported.stdout + imported.stderr, '', name);
+  }
+});
+
 test('scripts/wsl/browser-run.sh: LF only, argv checked, the stable path and never a versioned folder, and its only delete sits behind a guard on a path it made', () => {
   const sh = readFileSync(join(ROOT, 'scripts/wsl/browser-run.sh'), 'utf8');
   const probeSh = readFileSync(join(ROOT, 'scripts/wsl/probe.sh'), 'utf8');

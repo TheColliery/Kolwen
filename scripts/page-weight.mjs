@@ -19,6 +19,7 @@ import { facesOf, inRange } from './lib/font-coverage.mjs';
 import { renderedChars, stripCssComments, styleBlocksOf } from './lib/rendered-text.mjs';
 import { htmlTokens } from './lib/html-tokens.mjs';
 import { htmlPages } from './lib/web-files.mjs';
+import { isMainModule } from './lib/entry-guard.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -214,4 +215,4 @@ function main() {
   console.log(report(rows));
   if (rows.some(r => r.level === 'fail')) process.exitCode = 1;
 }
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
+if (isMainModule(import.meta.url)) main();

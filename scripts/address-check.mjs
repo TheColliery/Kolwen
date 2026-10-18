@@ -135,4 +135,9 @@ async function main() {
   console.log(`${verdicts.length} address(es) checked, ${bad.length} without a route of their own (the zone's catch-all ${catchAllNote(catchAll)}; it never counts)`);
   if (bad.length) process.exitCode = 1;
 }
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch(() => { console.error('FAIL address-check could not finish'); process.exitCode = 1; });
+// This file imports node builtins only (node/runtime.md section 1: a static import of a missing lib would end the run with no FAIL line), so the shared entry guard is loaded here, inside a try.
+// It compares REAL paths, so a run through a junction or a symlink still runs (a lexical compare read false there and exited 0 having done nothing).
+let started = false, guardError = null;
+try { started = (await import('./lib/entry-guard.mjs')).isMainModule(import.meta.url); } catch (e) { guardError = e; }
+if (guardError) { console.error('FAIL address-check could not load scripts/lib/entry-guard.mjs'); process.exitCode = 1; }
+else if (started) main().catch(() => { console.error('FAIL address-check could not finish'); process.exitCode = 1; });

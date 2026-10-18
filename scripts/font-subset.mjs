@@ -20,6 +20,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { glyphSets, hashOf, inRange, FONT_URL } from './lib/font-coverage.mjs';
+import { isMainModule } from './lib/entry-guard.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const WEB = join(ROOT, 'web');
@@ -119,4 +120,4 @@ function main() {
   if (failed) process.exitCode = 1;
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
+if (isMainModule(import.meta.url)) main();
