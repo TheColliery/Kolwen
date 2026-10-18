@@ -4,11 +4,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, cpSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { brotliCompressSync } from 'node:zlib';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { decodeEntities, textOf, cssContentOf, scriptStringsOf, renderedChars } from './lib/rendered-text.mjs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { decodeEntities, textOf, stripCssComments, cssContentOf, scriptStringsOf, renderedChars } from './lib/rendered-text.mjs';
 import { woff2Cmap, woff2Names } from './lib/woff2-cmap.mjs';
 import { htmlPages } from './lib/web-files.mjs';
 import { glyphSets, coverageGaps, facesOf, asksForLayoutFeature, THAI_SHAPING } from './lib/font-coverage.mjs';
@@ -112,6 +113,152 @@ test('the derived set: the pages render these characters, the Thai block among t
 });
 
 const ch = String.fromCodePoint;
+
+// var(): resolved one level. The strings of a custom property the style blocks define as plain string literals are read as if written in the content value.
+test('RED PROOF: content through var() is derived one level: a custom property defined as strings in the style blocks, in the same or another block, and a fallback string', () => {
+  const css = (...blocks) => cssContentOf(blocks.map(b => `<style>${b}</style>`).join(''));
+  const set = (...blocks) => css(...blocks).split(' ').filter(Boolean).sort().join(' '); // only the SET of strings matters to the font coverage, not their order
+  const BS = String.fromCharCode(92);
+  assert.equal(css(':root{--arrow:"' + BS + '2192"} a::after{content:var(--arrow)}'), ch(0x2192), 'the same block');
+  assert.equal(css(':root{--arrow:"' + BS + '2192"}', 'a::after{content:var(--arrow)}'), ch(0x2192), 'another block');
+  assert.equal(css(':root{--q:\'x\' \'y\'} a::after{content:var(--q)}'), 'x y', 'a value of several strings');
+  assert.equal(set('a::after{content:"a" var(--b) "c"} :root{--b:"b"}'), 'a b c', 'literals of the value and the resolved ones together');
+  assert.equal(css('a::after{content:var(--nope, "' + BS + '2192")}'), ch(0x2192), 'a fallback string of an undefined property');
+  assert.equal(set(':root{--arrow:"' + BS + '2192"} a::after{content:var(--arrow, "z")}'), 'z ' + ch(0x2192), 'the fallback is read too (an over-approximation)');
+  assert.equal(css('a::after{content:var(--nope)}'), '', 'an undefined property with no fallback draws nothing');
+  for (const notStrings of ['calc(1px + 2px)', '12px', 'var(--other)', '"a" 12px', 'attr(x)']) assert.equal(css(`:root{--x:${notStrings}; --other:"o"} a::after{content:var(--x)}`), '', 'not followed: ' + notStrings);
+  assert.equal(css(':root{--arrow:"' + BS + '2192"} a{x-content:var(--arrow)} .content{y:var(--arrow)}'), '', 'only a content declaration reads var()');
+  assert.equal(css('/* :root{--arrow:"x"} */ a::after{content:var(--arrow)}'), '', 'a definition inside a comment is no definition');
+  assert.equal(cssContentOf('<script>var s = "<style>:root{--a:\'x\'} b::after{content:var(--a)}</style>";</script>'), '', 'a <style> inside a script string is no style');
+});
+
+// Every definition of a custom property counts: the cascade is not modelled, so a property defined per theme, per language or per direction keeps the strings of ALL its definitions (a font cut errs only by keeping too much).
+test('RED PROOF: a custom property defined twice keeps the strings of every definition, in one block or across blocks, whichever selector holds it', () => {
+  const css = (...blocks) => cssContentOf(blocks.map(b => `<style>${b}</style>`).join(''));
+  const set = (...blocks) => css(...blocks).split(' ').filter(Boolean).sort().join(' ');
+  assert.equal(set(':root{--a:"' + ch(0x2192) + '"} .rtl{--a:"' + ch(0x2190) + '"} p::after{content:var(--a)}'), ch(0x2190) + ' ' + ch(0x2192), 'two selectors, one block');
+  assert.equal(set(':root{--a:"x"}', '.rtl{--a:"y"}', 'p::after{content:var(--a)}'), 'x y', 'three blocks');
+  assert.equal(set(':root{--a:"x"} .b{--a:"y"} .c{--a:"z"} p::after{content:var(--a)}'), 'x y z', 'three definitions');
+  assert.equal(set(':root{--a:"x"} .b{--a:12px} p::after{content:var(--a)}'), 'x', 'a later non-string definition does not take the earlier strings away');
+  assert.equal(set(':root{--a:"x"} .b{--a:12px} .c{--a:"y"} p::after{content:var(--a)}'), 'x y', 'a non-string definition between two string ones');
+});
+
+// Forms of a valid custom property that a browser resolves: `!important` is removed from the value, the function name `var(` is ASCII case-insensitive, and a name may hold a non-ASCII character or a CSS escape (custom property names are case-sensitive).
+test('RED PROOF: var() resolves a definition with !important, a function name in any case, and a custom property name with a non-ASCII character or an escape', () => {
+  const css = b => cssContentOf(`<style>${b}</style>`);
+  const BS = String.fromCharCode(92);
+  assert.equal(css(':root{--a:"' + ch(0x2192) + '" !important} p::after{content:var(--a)}'), ch(0x2192), '!important');
+  assert.equal(css(':root{--a:"x"!IMPORTANT} p::after{content:var(--a)}'), 'x', '!IMPORTANT without a space');
+  assert.equal(css(':root{--a:"x" ! important ;} p::after{content:var(--a)}'), 'x', 'spaces inside !important');
+  assert.equal(css(':root{--a:"x" !important 12px} p::after{content:var(--a)}'), '', '!important in the middle of a value is not a pure string value');
+  assert.equal(css(':root{--a:"' + ch(0x2192) + '"} p::after{content:VAR(--a)}'), ch(0x2192), 'VAR(');
+  assert.equal(css(':root{--a:"x"} p::after{content:Var( --a )}'), 'x', 'Var( with spaces');
+  const name = '--' + ch(0x77e2);
+  assert.equal(css(':root{' + name + ':"' + ch(0x2192) + '"} p::after{content:var(' + name + ')}'), ch(0x2192), 'a non-ASCII name');
+  assert.equal(css(':root{--a' + BS + '62:"x"} p::after{content:var(--ab)}'), 'x', 'an escaped name in the definition');
+  assert.equal(css(':root{--ab:"x"} p::after{content:var(--a' + BS + '62 )}'), 'x', 'an escaped name in the use, its hex escape ended by a space');
+  assert.equal(css(':root{--a' + BS + '62:"x"} p::after{content:var(--a' + BS + '62)}'), 'x', 'the same escaped name on both sides');
+  assert.equal(css(':root{--a:"x"} p::after{content:var(--A)}'), '', 'custom property names are case-sensitive');
+});
+
+// Behaviours of the custom property reader that no other test pins: each of these goes wrong silently (a character the page draws drops out of the derived set, or one it does not draw is added).
+test('RED PROOF: !important is removed only at the end of a value, two different properties are both read, a hex escape takes its ending space, an astral name resolves, and a seventh hex digit is a name character', () => {
+  const css = b => cssContentOf(`<style>${b}</style>`);
+  const set = b => css(b).split(' ').filter(Boolean).sort().join(' ');
+  const BS = String.fromCharCode(92);
+  assert.equal(css(':root{--a:"x" !important "y"} p::after{content:var(--a)}'), '', '!important between two strings is no end of a value: nothing is read');
+  assert.equal(set(':root{--a:"x";--b:"y"} p::after{content:var(--a) var(--b)}'), 'x y', 'two properties in one content value');
+  assert.equal(set(':root{--a:"x";--b:"y"} p::after{content:var(--a)} q::after{content:var(--b)}'), 'x y', 'two properties in two content declarations');
+  assert.equal(css(':root{--a' + BS + '62 c:"x"} p::after{content:var(--abc)}'), 'x', 'the ending space of a hex escape belongs to the escape: --a\\62 c is --abc');
+  const emoji = '--' + String.fromCodePoint(0x1f600);
+  assert.equal(css(':root{' + emoji + ':"x"} p::after{content:var(' + emoji + ')}'), 'x', 'an astral name');
+  assert.equal(css(':root{--' + BS + '000061' + '1:"x"} p::after{content:var(--a1)}'), 'x', 'six hex digits are the escape and a seventh is a name character: --\\0000611 is --a1');
+  assert.equal(set(':root{--a' + BS + '62:"x"} p::after{content:var(--a' + BS + '62,"y")}'), 'x y', 'a fallback after an escaped name');
+  assert.equal(css(':root{--a' + BS + String.fromCharCode(10) + 'b:"x"} p::after{content:var(--a)}'), '', 'a backslash and a line break is no escape: it ends the name');
+  assert.equal(css(':root{--a' + BS + String.fromCharCode(10) + 'b:"x"} p::after{content:var(--ab)}'), '', 'and the rest of the line is no part of any name');
+  assert.equal(css('p::after{content:"x content:' + "'y'" + '"}'), "x content:'y'", 'a content: inside the string of a content value is text, read once with the string');
+});
+
+// CSS comments are removed outside strings; a string that never closes is a bad string, which ends at its line break (CSS Syntax 3), so a `/*` inside it is text and one after the line break is a comment.
+test('RED PROOF: stripCssComments keeps strings whole, removes comments outside them, and ends a bad string at its line break', () => {
+  const BS = String.fromCharCode(92);
+  const LF = String.fromCharCode(10);
+  const Q = String.fromCharCode(34);
+  assert.equal(stripCssComments('a{content:' + Q + '/* x */' + Q + '}'), 'a{content:' + Q + '/* x */' + Q + '}', 'a comment inside a string is text');
+  assert.equal(stripCssComments('/* c */a'), ' a');
+  assert.equal(stripCssComments('a/* never closed'), 'a ', 'a comment that never closes runs to the end');
+  assert.equal(stripCssComments('a' + Q + 'b' + BS + Q + '/* c */' + Q + 'd/* e */f'), 'a' + Q + 'b' + BS + Q + '/* c */' + Q + 'd f', 'an escaped quote does not end the string');
+  assert.equal(stripCssComments("'a" + Q + "/*'/* b */c"), "'a" + Q + "/*' c", 'the other quote inside a string');
+  assert.equal(stripCssComments(Q + 'ab /* not a comment' + LF + 'b/* c */d'), Q + 'ab /* not a comment' + LF + 'b d', 'a bad string ends at its line break: what is inside it is text, what follows is read again');
+  assert.equal(stripCssComments('x' + Q + BS + LF + 'y /* c */' + Q + 'z'), 'x' + Q + BS + LF + 'y /* c */' + Q + 'z', 'a backslash before a line break continues the string');
+  assert.equal(stripCssComments(Q + 'never closed /* c */'), Q + 'never closed /* c */', 'a string cut off by the end of the text keeps what is inside it');
+});
+
+// The reader is linear: no input makes it super-linear. Each adversarial style block is built and read in a CHILD (heap cap, kill timeout, its own HOME and TEMP), so a reader that hangs fails this test and not the run.
+// Before the fix a name of n hex escapes with no colon took 3.4 s at n = 24 and never finished at n = 50,000 (an escape could be read whole or as a shorter escape and a name character: 2^n ways), and n repetitions of
+// an escaped space and `--a` took 5.7 s at n = 20,000 and were killed at n = 40,000 (a name that failed was tried again from every `--` inside it: n^2), and a string of n escaped quotes that never closes took 3.2 s at
+// n = 40,000 in the comment stripper (a string was tried again from every escaped quote inside it: n^2).
+// The test asserts NO time, only that the child finishes: a wall-clock figure on a loaded runner is flaky, a kill timeout is not. So n is chosen for each recorded regression so that the old reader cannot finish inside
+// the kill timeout (a quadratic input at n = 160,000 or 80,000 is 16 or 4 times the work of the sizes above; the old reader was run on exactly these sizes and was killed on every one), while the fixed reader
+// takes milliseconds, far inside it. The test proves a hang, not a speed.
+const CHILD_HOME = mkdtempSync(join(tmpdir(), 'fc-linear-'));
+test.after(() => rmSync(CHILD_HOME, { recursive: true, force: true }));
+const LINEAR_KILL_MS = 10000;
+const CHILD_CODE = `
+import { cssContentOf } from ${JSON.stringify(pathToFileURL(join(ROOT, 'scripts/lib/rendered-text.mjs')).href)};
+const BS = String.fromCharCode(92);
+const [kind, n] = JSON.parse(process.argv[1]);
+const GEN = {
+  'escapes, no colon': () => '<style>:root{--' + (BS + '61').repeat(n) + '}</style>',
+  'escapes inside var( --...)': () => '<style>p::after{content:var( --' + (BS + '61').repeat(n) + ')}</style>',
+  'escaped-space starts': () => '<style>:root{' + ('--a' + BS + ' ').repeat(n) + '}</style>',
+  'one long hex run': () => '<style>:root{--' + BS + 'a'.repeat(n) + '}</style>',
+  'many names, no colon': () => '<style>:root{' + '--a '.repeat(n) + '}</style>',
+  'many definitions': () => '<style>:root{' + '--a:"x";'.repeat(n) + '} p::after{content:var(--a)}</style>',
+  'unterminated strings': () => '<style>:root{' + ('--a:"x' + String.fromCharCode(10)).repeat(n) + '}</style>',
+  'var( and spaces': () => '<style>p::after{content:var(' + ' '.repeat(n) + '}</style>',
+  'a string of escaped quotes that never closes': () => '<style>:root{--a:' + String.fromCharCode(34) + (BS + String.fromCharCode(34)).repeat(n) + '}</style>',
+  'many content declarations': () => '<style>' + ('p::after{content:' + String.fromCharCode(34) + 'x' + String.fromCharCode(34) + '}').repeat(n) + '</style>',
+  'many var( uses': () => '<style>:root{--a:"x"} p::after{content:' + 'var( --a) '.repeat(n) + '}</style>',
+};
+const html = GEN[kind]();
+console.log(JSON.stringify({ len: cssContentOf(html).length }));
+`;
+const readInChild = (kind, n) => {
+  const env = { ...process.env, HOME: CHILD_HOME, USERPROFILE: CHILD_HOME, TEMP: CHILD_HOME, TMP: CHILD_HOME, TMPDIR: CHILD_HOME };
+  const r = spawnSync(process.execPath, ['--max-old-space-size=256', '--input-type=module', '-e', CHILD_CODE, JSON.stringify([kind, n])], { encoding: 'utf8', timeout: LINEAR_KILL_MS, env });
+  if (r.error) return { killed: true, why: `${kind} (n = ${n}) did not finish in ${LINEAR_KILL_MS} ms: ${r.error.code}` };
+  if (r.status !== 0) return { killed: true, why: `${kind} (n = ${n}) exited ${r.status}: ${r.stderr.slice(0, 200)}` };
+  return { killed: false, ...JSON.parse(r.stdout.trim().split('\n').pop()) };
+};
+test('RED PROOF: no adversarial style block makes the custom property reader slower than linear: hex escapes with no colon, repeated escaped spaces and names, and the other shapes that fail late', () => {
+  const inputs = [['escapes, no colon', 50000], ['escapes inside var( --...)', 50000], ['escaped-space starts', 80000], ['one long hex run', 50000], ['many names, no colon', 50000],
+    ['many definitions', 50000], ['unterminated strings', 20000], ['var( and spaces', 50000], ['a string of escaped quotes that never closes', 160000], ['many content declarations', 20000], ['many var( uses', 20000]];
+  const failures = [];
+  for (const [kind, n] of inputs) {
+    const r = readInChild(kind, n);
+    if (r.killed) failures.push(r.why);
+  }
+  assert.deepEqual(failures, []);
+});
+
+// The noscript decision (the font coverage): what a visitor without script is shown must stay covered, so renderedChars reads <noscript> as markup (scripting off) while a visitor with script sees none of it.
+test('RED PROOF: text and content inside <noscript> are derived for the font coverage (a visitor without script draws them), though a visitor with script (the default view) draws none of it', () => {
+  const html = '<p>ok</p><noscript><p>' + ch(0x2030) + '</p><style>b::after{content:"' + ch(0x2122) + '"}</style></noscript>';
+  assert.ok(!textOf(html).includes(ch(0x2030)), 'scripting on: no text from a noscript');
+  assert.ok(textOf(html, { scripting: false }).includes(ch(0x2030)), 'scripting off: its text');
+  assert.equal(cssContentOf(html), '', 'scripting on: its style is not live');
+  assert.equal(cssContentOf(html, { scripting: false }), ch(0x2122), 'scripting off: its style is live');
+  const dir = webCopy(web => {
+    const f = join(web, 'index.html');
+    writeFileSync(f, readFileSync(f, 'utf8').replace('</body>', '<noscript><p>' + ch(0x2030) + '</p></noscript></body>'));
+  });
+  try {
+    assert.ok(renderedChars(join(dir, 'web')).get(0x2030)?.has('web/index.html'), 'the font set keeps a character only a no-script visitor sees');
+    assert.ok(coverageGaps(join(dir, 'web')).some(g => g.startsWith('U+2030 ') && g.includes('web/index.html')), 'and the coverage check judges it');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('character references are decoded as a browser decodes them: a numeric one without its semicolon too, a legacy named one without it (longest name first), and a reference once only', () => {
   assert.equal(decodeEntities('&#255'), ch(0xff));
   assert.equal(decodeEntities('&#xFF'), ch(0xff));
