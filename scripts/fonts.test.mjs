@@ -9,14 +9,14 @@ import { join, dirname, resolve, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { facesOf, inRange } from './lib/font-coverage.mjs';
 import { reEscape } from './lib/re-escape.mjs';
-import { servedFiles } from './lib/web-files.mjs';
+import { htmlPages } from './lib/web-files.mjs';
 import { renderedChars } from './lib/rendered-text.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const WEB = join(ROOT, 'web');
 const read = rel => readFileSync(join(ROOT, rel), 'utf8').replace(/\r\n/g, '\n');
 // Every page of web/, derived (a fixed list stops covering the day a page is added, a /th/ page among them), by the lister the font coverage check uses.
-const PAGES = servedFiles(WEB).filter(f => f.endsWith('.html')).map(f => 'web/' + f);
+const PAGES = htmlPages(WEB).map(f => 'web/' + f);
 
 const manifest = () => facesOf(read('web/fonts/fonts.css'));
 const filesUnder = dir => readdirSync(dir, { withFileTypes: true }).flatMap(e => (e.isDirectory() ? filesUnder(join(dir, e.name)) : [join(dir, e.name)]));
@@ -88,6 +88,18 @@ test('RED PROOF: the Sans-range check sees an out-of-range character written as 
     }
     writeFileSync(f, html);
     assert.deepEqual(sansMisses(dir), [], 'control: the unedited copy has none');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("RED PROOF: a stray quote in an unquoted attribute value (content=Kolwen's) hides nothing after it from the Sans-range check", () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sans-range-'));
+  try {
+    cpSync(WEB, join(dir, 'web'), { recursive: true });
+    const f = join(dir, 'web/index.html');
+    const html = readFileSync(f, 'utf8');
+    writeFileSync(f, html.replace('<link rel="stylesheet"', "<meta name=x content=Kolwen's><link rel=\"stylesheet\"").replace('</body>', '<p>&#x416;</p></body>'));
+    assert.deepEqual(sansMisses(dir), ['U+416 web/index.html']);
+    assert.ok(readFileSync(f, 'utf8').includes("content=Kolwen's"), 'the witness edit landed');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

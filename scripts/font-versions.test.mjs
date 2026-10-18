@@ -87,9 +87,31 @@ test('fontCacheMiss accepts the long immutable value and names what is wrong wit
   assert.match(fontCacheMiss(dup), /with 2 max-age directives, expected exactly one/);
   assert.match(fontCacheMiss('max-age=0, public, max-age=31536000, immutable'), /with 2 max-age directives/);
   assert.match(fontCacheMiss('public, max-age=31536000, max-age=31536000, immutable'), /with 2 max-age directives/, 'even two equal ones');
-  for (const bad of ['31536000junk', '31536000x', '', '-1', '1e9', '0x1E13380']) assert.match(fontCacheMiss(`public, max-age=${bad}, immutable`), /with a malformed max-age/, JSON.stringify(bad));
-  assert.match(fontCacheMiss('public, max-age=31 536 000, immutable'), /max-age of at least 31536000/, 'a piece that is not name=token is no directive at all');
-  assert.match(fontCacheMiss('public, max-age=31536000 immutable'), /max-age of at least 31536000|malformed/, 'a missing comma is not two directives');
+  for (const bad of ['31536000junk', '31536000x', '-1', '1e9', '0x1E13380']) assert.match(fontCacheMiss(`public, max-age=${bad}, immutable`), /with a malformed max-age/, JSON.stringify(bad));
+  // RFC 9111 section 5.2: cache-directive = token [ "=" ( token / quoted-string ) ], so no space around "=", and an argument that is there has at least one character; such a piece is a malformed directive, named
+  for (const piece of ['max-age = 31536000', 'max-age =31536000', 'max-age= 31536000', 'max-age=', 'max-age=31 536 000', 'max-age=31536000 immutable']) {
+    assert.match(fontCacheMiss(`public, ${piece}, immutable`), /with a malformed directive "/, piece);
+  }
+  assert.match(fontCacheMiss('public, max-age=31536000, immutable, no-cache='), /with a malformed directive "no-cache="/);
+  assert.match(fontCacheMiss('public, max-age=31536000, immutable, private='), /with a malformed directive "private="/);
+  assert.match(fontCacheMiss('public, max-age=31536000, immutable, no-store = 1'), /with a malformed directive "no-store = 1"/);
+  assert.match(fontCacheMiss('public, max-age=31536000, immutable, x y'), /with a malformed directive "x y"/);
+  // every character between the commas is kept, a stray quote included, so it can be refused (CodeRabbit 4306008861)
+  assert.match(fontCacheMiss('public, max-age=31536000, immutable"'), /with a malformed directive "immutable""/);
+  assert.match(fontCacheMiss('public, max-age=31536000, "immutable'), /with a malformed directive ""immutable"/);
+  assert.match(fontCacheMiss('public, max-age=31536000, immutable, no-cache="a,b'), /with a malformed directive "no-cache="a"/, 'an unclosed quote does not hide the comma that follows');
+  // public and immutable take no argument (RFC 9111 section 5.2.2.9, RFC 8246): public=1 is not public (CodeRabbit 4306008865)
+  assert.match(fontCacheMiss('public=1, max-age=31536000, immutable'), /without public/);
+  assert.match(fontCacheMiss('public, max-age=31536000, immutable=1'), /without immutable/);
+  assert.match(fontCacheMiss('public, max-age=31536000, immutable=""'), /without immutable/);
+  // a quoted-string may hold a comma and a quoted-pair (RFC 9110 section 5.6.4): a valid field name list is not malformed
+  assert.equal(fontCacheMiss('public, max-age=31536000, immutable, no-cache="a,b"'), null);
+  assert.equal(fontCacheMiss('public, max-age=31536000, immutable, private="a\\"b, c"'), null);
+  assert.equal(fontCacheMiss('public, max-age=31536000, immutable, no-cache="a\\"b"'), null);
+  assert.equal(fontCacheMiss('public, max-age="31536000", immutable'), null);
+  assert.match(fontCacheMiss('public, max-age=31536000, immutable, no-cache="a\\"'), /with a malformed directive/, 'a quote closed by a quoted-pair is not closed');
+  assert.equal(fontCacheMiss('public, max-age=31536000, immutable,'), null, 'a trailing comma is an empty list element, which the list syntax allows');
+  assert.equal(fontCacheMiss('public,, max-age=31536000 , immutable'), null, 'space before a comma and an empty element are fine');
   assert.equal(fontCacheMiss('public, max-age="31536000", immutable'), null, 'RFC 9111 accepts the quoted form of a token argument');
   assert.match(fontCacheMiss('public, max-age="31536000x", immutable'), /with a malformed max-age/);
   // private contradicts public in a shared cache; private="field" only names fields, like no-cache="field"

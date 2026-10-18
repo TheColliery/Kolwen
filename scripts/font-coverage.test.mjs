@@ -10,7 +10,7 @@ import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { decodeEntities, textOf, cssContentOf, scriptStringsOf, renderedChars } from './lib/rendered-text.mjs';
 import { woff2Cmap, woff2Names } from './lib/woff2-cmap.mjs';
-import { servedFiles } from './lib/web-files.mjs';
+import { htmlPages } from './lib/web-files.mjs';
 import { glyphSets, coverageGaps, facesOf, asksForLayoutFeature, THAI_SHAPING } from './lib/font-coverage.mjs';
 import { cutSet, BASELINE } from './font-subset.mjs';
 
@@ -43,6 +43,64 @@ test('CSS string escapes are decoded in ONE pass: an escaped backslash is a back
   for (const bad of ['0', 'd800', 'dfff', 'ffffff', '110000']) assert.equal(content('"' + BS + bad + '"'), String.fromCharCode(0xfffd), bad);
   assert.equal(content('"a' + BS + '\nb"'), 'ab', 'a backslash before a line break continues the string');
   assert.equal(content('"' + BS + 'z' + BS + '-"'), 'z-', 'a backslash before a character that is not a hex digit is that character');
+});
+
+test('CSS content is read as the browser reads it: the property name in any case, as a whole name, outside comments (HTML and CSS) and outside a script, and a string that is broken by a raw line break draws nothing', () => {
+  const ARROW = String.fromCodePoint(0x2192), BS = String.fromCharCode(92);
+  const arrow = BS + '2192';
+  const style = css => cssContentOf(`<style>${css}</style>`);
+  // CodeRabbit and Copilot, PR 48: property names are ASCII case-insensitive
+  assert.equal(style(`a::after{CONTENT:"${arrow}"}`), ARROW);
+  assert.equal(style(`a::after{Content : '${arrow}'}`), ARROW);
+  assert.equal(style(`a::after{cOnTeNt:"${arrow}"}`), ARROW);
+  // T1: text that draws nothing is not read
+  assert.equal(cssContentOf(`<!-- <style>a::after{content:"${arrow}"}</style> -->`), '', 'a commented-out <style> block');
+  assert.equal(cssContentOf(`<!-- x --><style>a::after{content:"q"}</style><!-- <style>b::after{content:"z"}</style> -->`), 'q', 'the live block beside a commented one');
+  assert.equal(cssContentOf(`<script>var s = "<style>a::after{content:'q'}</style>";</script>`), '', 'a <style> inside a script string is script text');
+  assert.equal(style(`/* a::after{content:"${arrow}"} */ b::after{content:"q"}`), 'q', 'content: inside a CSS comment');
+  assert.equal(style(`a::after{content:"q" /* ; content:"${arrow}" */}`), 'q');
+  assert.equal(style(`/* never closed a::after{content:"${arrow}"}`), '', 'a comment that runs to the end of the stylesheet');
+  assert.equal(style('a::after{content:"/* kept */"}'), '/* kept */', 'comment marks inside a string are text');
+  for (const prefixed of ['x-content', '-webkit-content', 'mycontent', 'a_content']) assert.equal(style(`a::after{${prefixed}:"${arrow}"}`), '', prefixed + ' is not content');
+  assert.equal(style(`.content:hover{color:red} #content:focus{color:red}`), '', 'a selector with the word is not a declaration');
+  assert.equal(style('a::after{color:red;content:"q"}'), 'q', 'after a semicolon');
+  assert.equal(style('a::after{content:"a\nb"}'), '', 'a raw line break ends a string as a bad string, and the declaration is dropped');
+  assert.equal(style('a::after{content:"q"; content:\'a\nb\'}'), 'q');
+});
+
+test('an HTML comment ends where the parser ends it: <!--> and <!---> are whole empty comments and --!> closes a comment, so what follows is live in cssContentOf and in textOf', () => {
+  const ARROW = String.fromCodePoint(0x2192), arrow = String.fromCharCode(92) + '2192';
+  const live = `<style>a::after{content:"${arrow}"}</style>`;
+  for (const [what, open] of [['<!-->', '<!-->'], ['<!--->', '<!--->'], ['--!>', '<!-- x --!>'], ['-->', '<!-- x -->'], ['an empty -->', '<!---->']]) {
+    // a real comment AFTER the live part: a pattern that ends a comment only at --> runs on from the opener to it and swallows the live part (without it the opener has no end and the old pattern fails for the wrong reason)
+    assert.equal(cssContentOf(open + live + '<!-- z -->'), ARROW, 'a <style> after ' + what);
+    assert.match(textOf(open + '<p>after</p><!-- z -->'), /after/, 'text after ' + what);
+    assert.doesNotMatch(textOf(open + '<p>after</p><!-- z -->'), /z/, 'and the comment after it is still a comment');
+  }
+  assert.equal(cssContentOf(`<!-- ${live} --!>`), '', 'a <style> inside a comment that --!> closes is still skipped');
+  assert.equal(cssContentOf(`<!-- ${live} -->`), '');
+  assert.doesNotMatch(textOf('<!-- hidden --><p>shown</p>'), /hidden/);
+  assert.doesNotMatch(textOf('<!-- hidden --!><p>shown</p>'), /hidden/);
+  assert.equal(cssContentOf(`<!-- never closed ${live}`), '', 'a comment that is never closed runs to the end');
+});
+
+// WHATWG tokenizer, at the level these checks need: `<!--` opens a comment only in the data state. Inside an attribute value, a raw-text body (script, style) or an RCDATA body (textarea, title) it is plain characters.
+test('RED PROOF: a "<!--" inside an attribute value, a <textarea>, a <title> or a <script> does not hide what follows, in cssContentOf and in textOf', () => {
+  const ARROW = String.fromCodePoint(0x2192), arrow = String.fromCharCode(92) + '2192', THAI = String.fromCodePoint(0x0e01);
+  const live = `<style>a::after{content:"${arrow}"}</style>`;
+  for (const [what, before] of [
+    ['an attribute value', '<a title="<!--">x</a>'], ['a single-quoted attribute value', '<a title=\'<!--\'>x</a>'],
+    ['a textarea', '<textarea><!--</textarea>'], ['a title', '<title><!--</title>'], ['a script string', '<script>var s = "<!--";</script>'],
+    ['a style comment-like text', '<style>/* <!-- */</style>'],
+  ]) {
+    assert.equal(cssContentOf(before + live), ARROW, 'a <style> after ' + what);
+    assert.ok(textOf(before + `<p>${THAI}</p>`).includes(THAI), 'text after ' + what);
+  }
+  assert.ok(!textOf('<script>var s = "<p>' + THAI + '</p>";</script>').includes(THAI), 'markup inside a script string is not page text');
+  assert.ok(!textOf('<style>/* <p>' + THAI + '</p> */</style>').includes(THAI), 'nor inside a style');
+  assert.ok(textOf('<textarea>' + THAI + '</textarea>').includes(THAI), 'but a textarea body is text the page draws');
+  assert.ok(textOf('<textarea><!-- ' + THAI + ' --></textarea>x').includes(THAI), 'a comment-like text in a textarea is text too');
+  assert.ok(textOf('a < b ' + THAI + ' > c').includes(THAI), 'a "<" that starts no tag is text');
 });
 
 test('the derived set: the pages render these characters, the Thai block among them, and every one is a code point at or above U+0020', () => {
@@ -259,7 +317,7 @@ test('the cut files carry the new family name and no "Plex" in the name records 
 });
 
 test('the pages ask for no OpenType layout feature, so the features the cut dropped are unreachable; a page that asks for one is caught', () => {
-  for (const page of servedFiles(WEB).filter(f => f.endsWith('.html'))) assert.ok(!asksForLayoutFeature(readFileSync(join(WEB, page), 'utf8')), page + ' asks for a layout feature');
+  for (const page of htmlPages(WEB)) assert.ok(!asksForLayoutFeature(readFileSync(join(WEB, page), 'utf8')), page + ' asks for a layout feature');
   assert.ok(asksForLayoutFeature('<style>h1{font-variant-numeric:slashed-zero}</style>'));
   assert.ok(asksForLayoutFeature("<p style=\"font-feature-settings:'zero'\">x</p>"));
   assert.ok(!asksForLayoutFeature('<style>h1{font-weight:600}</style>'));

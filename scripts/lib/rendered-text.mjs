@@ -5,7 +5,8 @@
 // Zero dependencies, node builtins only.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { servedFiles } from './web-files.mjs';
+import { htmlPages } from './web-files.mjs';
+import { htmlTokens } from './html-tokens.mjs';
 
 // The WHATWG named character reference table, all 2125 terminated names (and the 106 legacy names a browser also decodes without their `;`), generated into html-entities.json from the Python standard library:
 //   python -I -c "import json,sys,html.entities as e;h=e.html5;n={k[:-1]:v for k,v in h.items() if k.endswith(';')};l=sorted(k for k in h if not k.endswith(';'));assert all(h[k]==h[k+';'] for k in l);print(json.dumps({'python':sys.version.split()[0],'named':n,'legacy':l},ensure_ascii=True,sort_keys=True,indent=0),file=open('scripts/lib/html-entities.json','w',encoding='utf-8',newline='\n'))"
@@ -51,16 +52,26 @@ const cssUnescape = s => s.replace(/\\(?:([0-9a-f]{1,6})(?:\r\n|[ \t\r\n\f])?|(\
 const JS_SIMPLE = { n: '\n', t: '\t', r: '\r', b: '\b', f: '\f', v: '\v', 0: '\0' };
 const jsUnescape = s => s.replace(/\\(?:u\{([0-9a-f]+)\}|u([0-9a-f]{4})|x([0-9a-f]{2})|(.))/gis, (m, a, b, c, d) => (a || b || c ? String.fromCodePoint(parseInt(a || b || c, 16)) : (d in JS_SIMPLE ? JS_SIMPLE[d] : d)));
 
+// The text a page draws, from the one HTML scan (html-tokens.mjs): the text nodes and RCDATA bodies (a textarea, a title), character references decoded. Tags, comments and the bodies of scripts and styles are
+// not text; each is a space, so that two text nodes never fuse.
 export function textOf(html) {
-  const stripped = html.replace(/<(style|script)\b[\s\S]*?<\/\1\b[^>]*>/gi, ' ').replace(/<!--[\s\S]*?-->/g, ' ').replace(/<[^>]*>/g, ' ');
-  return decodeEntities(stripped);
+  return decodeEntities(htmlTokens(html).map(t => (t.type === 'text' ? t.text : ' ')).join(''));
 }
 
+// CSS comments removed outside strings (the `/*` inside a string is text; a comment never closed runs to the end). The one comment stripper of the font checks and of the budget check's @import and url() scans.
+export const stripCssComments = css => css.replace(/("(?:[^"\\\n\r\f]|\\[\s\S])*"|'(?:[^'\\\n\r\f]|\\[\s\S])*')|\/\*[\s\S]*?(?:\*\/|$)/g, (m, str) => str ?? ' ');
+
+// The bodies of the live <style> blocks of an HTML text (none inside a comment, a script, an attribute value or a textarea: the one scan decides). The one style-block reader of the font checks and of the budget check.
+export const styleBlocksOf = html => htmlTokens(html).filter(t => t.type === 'raw' && t.name === 'style').map(t => t.body);
+
+// The `content:` strings of the <style> blocks. Read as a browser reads them: the property name in any case and as a whole name (not `x-content:`, not a selector such as `.content:hover`), nothing from a CSS comment, a commented-out
+// <style> block or a <style> inside a script, and a string broken by a raw line break is a bad string that draws nothing (a backslash before the break continues it).
+// Known limit, deferred: only string literals in the value are read, so a string given through `var(--name)` is not derived (no page does that; the check does not claim it).
 export function cssContentOf(html) {
   const out = [];
-  for (const block of html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\b[^>]*>/gi)) {
-    for (const m of block[1].matchAll(/\bcontent\s*:\s*((?:"(?:[^"\\]|\\[\s\S])*"|'(?:[^'\\]|\\[\s\S])*'|[^;}"'])*)/g)) {
-      for (const lit of m[1].matchAll(/"((?:[^"\\]|\\[\s\S])*)"|'((?:[^'\\]|\\[\s\S])*)'/g)) out.push(cssUnescape(lit[1] ?? lit[2]));
+  for (const block of styleBlocksOf(html)) {
+    for (const m of stripCssComments(block).matchAll(/(?<=^|[{;\s])content\s*:\s*((?:"(?:[^"\\\n\r\f]|\\[\s\S])*"|'(?:[^'\\\n\r\f]|\\[\s\S])*'|[^;}"'])*)/gi)) {
+      for (const lit of m[1].matchAll(/"((?:[^"\\\n\r\f]|\\[\s\S])*)"|'((?:[^'\\\n\r\f]|\\[\s\S])*)'/g)) out.push(cssUnescape(lit[1] ?? lit[2]));
     }
   }
   return out.join(' ');
@@ -68,8 +79,8 @@ export function cssContentOf(html) {
 
 export function scriptStringsOf(html) {
   const out = [];
-  for (const block of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\b[^>]*>/gi)) {
-    for (const lit of block[1].matchAll(/"((?:[^"\\\n]|\\.)*)"|'((?:[^'\\\n]|\\.)*)'|`((?:[^`\\]|\\.)*)`/gs)) out.push(jsUnescape(lit[1] ?? lit[2] ?? lit[3]));
+  for (const body of htmlTokens(html).filter(t => t.type === 'raw' && t.name === 'script').map(t => t.body)) {
+    for (const lit of body.matchAll(/"((?:[^"\\\n]|\\.)*)"|'((?:[^'\\\n]|\\.)*)'|`((?:[^`\\]|\\.)*)`/gs)) out.push(jsUnescape(lit[1] ?? lit[2] ?? lit[3]));
   }
   return out.join(' ');
 }
@@ -78,7 +89,7 @@ export function scriptStringsOf(html) {
 export function renderedChars(webDir) {
   const seen = new Map();
   const note = (text, page) => { for (const ch of text) { const cp = ch.codePointAt(0); if (cp < 0x20) continue; (seen.get(cp) || seen.set(cp, new Set()).get(cp)).add(page); } };
-  const pages = servedFiles(webDir).filter(f => f.endsWith('.html'));
+  const pages = htmlPages(webDir);
   for (const page of pages) {
     const html = readFileSync(join(webDir, page), 'utf8').replace(/\r\n/g, '\n');
     note(textOf(html) + ' ' + cssContentOf(html) + ' ' + scriptStringsOf(html), 'web/' + page);
