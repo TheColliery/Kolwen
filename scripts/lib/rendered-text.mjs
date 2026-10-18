@@ -206,7 +206,7 @@ export function cssContentOf(html, opts) {
   const emitted = new Set(); // a property's strings are read once: only the SET of strings reaches the font coverage
   for (const block of blocks) {
     const head = /(?<=^|[{;\s])content\s*:\s*/gi;
-    for (let m; (m = head.exec(block));) {
+    while (head.exec(block)) {
       const end = valueEnd(block, head.lastIndex);
       const value = block.slice(head.lastIndex, end);
       head.lastIndex = end;

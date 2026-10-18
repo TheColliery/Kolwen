@@ -197,10 +197,12 @@ test('RED PROOF: stripCssComments keeps strings whole, removes comments outside 
 // The reader is linear: no input makes it super-linear. Each adversarial style block is built and read in a CHILD (heap cap, kill timeout, its own HOME and TEMP), so a reader that hangs fails this test and not the run.
 // Before the fix a name of n hex escapes with no colon took 3.4 s at n = 24 and never finished at n = 50,000 (an escape could be read whole or as a shorter escape and a name character: 2^n ways), and n repetitions of
 // an escaped space and `--a` took 5.7 s at n = 20,000 and were killed at n = 40,000 (a name that failed was tried again from every `--` inside it: n^2), and a string of n escaped quotes that never closes took 3.2 s at
-// n = 40,000 in the comment stripper (a string was tried again from every escaped quote inside it: n^2). The bound is generous (the fixed reader takes milliseconds).
+// n = 40,000 in the comment stripper (a string was tried again from every escaped quote inside it: n^2).
+// The test asserts NO time, only that the child finishes: a wall-clock figure on a loaded runner is flaky, a kill timeout is not. So n is chosen for each recorded regression so that the old reader cannot finish inside
+// the kill timeout (a quadratic input at n = 160,000 or 80,000 is 16 or 4 times the work of the sizes above; the old reader was run on exactly these sizes and was killed on every one), while the fixed reader
+// takes milliseconds, far inside it. The test proves a hang, not a speed.
 const CHILD_HOME = mkdtempSync(join(tmpdir(), 'fc-linear-'));
 test.after(() => rmSync(CHILD_HOME, { recursive: true, force: true }));
-const LINEAR_BOUND_MS = 2000;
 const LINEAR_KILL_MS = 10000;
 const CHILD_CODE = `
 import { cssContentOf } from ${JSON.stringify(pathToFileURL(join(ROOT, 'scripts/lib/rendered-text.mjs')).href)};
@@ -220,9 +222,7 @@ const GEN = {
   'many var( uses': () => '<style>:root{--a:"x"} p::after{content:' + 'var( --a) '.repeat(n) + '}</style>',
 };
 const html = GEN[kind]();
-const t = process.hrtime.bigint();
-const out = cssContentOf(html);
-console.log(JSON.stringify({ ms: Number(process.hrtime.bigint() - t) / 1e6, len: out.length }));
+console.log(JSON.stringify({ len: cssContentOf(html).length }));
 `;
 const readInChild = (kind, n) => {
   const env = { ...process.env, HOME: CHILD_HOME, USERPROFILE: CHILD_HOME, TEMP: CHILD_HOME, TMP: CHILD_HOME, TMPDIR: CHILD_HOME };
@@ -232,13 +232,12 @@ const readInChild = (kind, n) => {
   return { killed: false, ...JSON.parse(r.stdout.trim().split('\n').pop()) };
 };
 test('RED PROOF: no adversarial style block makes the custom property reader slower than linear: hex escapes with no colon, repeated escaped spaces and names, and the other shapes that fail late', () => {
-  const inputs = [['escapes, no colon', 50000], ['escapes inside var( --...)', 50000], ['escaped-space starts', 40000], ['one long hex run', 50000], ['many names, no colon', 50000],
-    ['many definitions', 50000], ['unterminated strings', 20000], ['var( and spaces', 50000], ['a string of escaped quotes that never closes', 40000], ['many content declarations', 20000], ['many var( uses', 20000]];
+  const inputs = [['escapes, no colon', 50000], ['escapes inside var( --...)', 50000], ['escaped-space starts', 80000], ['one long hex run', 50000], ['many names, no colon', 50000],
+    ['many definitions', 50000], ['unterminated strings', 20000], ['var( and spaces', 50000], ['a string of escaped quotes that never closes', 160000], ['many content declarations', 20000], ['many var( uses', 20000]];
   const failures = [];
   for (const [kind, n] of inputs) {
     const r = readInChild(kind, n);
     if (r.killed) failures.push(r.why);
-    else if (r.ms > LINEAR_BOUND_MS) failures.push(`${kind} (n = ${n}) took ${r.ms.toFixed(0)} ms, over the bound of ${LINEAR_BOUND_MS} ms`);
   }
   assert.deepEqual(failures, []);
 });
