@@ -57,6 +57,35 @@ test('(a) the three pages are rendered from the templates and the catalogue, and
   for (const [file, html] of Object.entries(pages)) assert.equal(html, read(file), file + ' is the render of its template');
 });
 
+// The visible strings of a page that carry no mark. The walk reads the page as a visitor WITHOUT script does (`scripting: false`): a <noscript> body is markup there, so its text, attributes and styles
+// are walked; with the default (scripting on) a <noscript> body is one raw token and a literal inside it would pass.
+function strayStrings(html, MARK) {
+  const stray = [];
+  let last = null, ld = false;
+  for (const t of htmlTokens(html, { scripting: false })) {
+    if (t.type === 'tag' && !t.closing) {
+      last = t;
+      for (const a of ['aria-label', 'title', 'alt', 'placeholder']) if (t.attrs.has(a) && !t.attrs.get(a).includes(MARK)) stray.push(`${t.name} ${a}="${t.attrs.get(a)}"`);
+      if (t.name === 'meta' && /^(description|og:title|og:description|twitter:title|twitter:description)$/.test(t.attrs.get('name') ?? t.attrs.get('property') ?? '') && !t.attrs.get('content').includes(MARK)) stray.push(`meta ${t.attrs.get('name') ?? t.attrs.get('property')} content`);
+    } else if (t.type === 'text' && t.text.trim() !== '' && !t.text.includes(MARK)) stray.push('text ' + JSON.stringify(t.text.trim().slice(0, 60)));
+    else if (t.type === 'raw' && t.name === 'script' && last && last.attrs.get('type') === 'application/ld+json') {
+      ld = true;
+      for (const m of t.body.matchAll(/"([^"]+)"\s*:\s*"([^"]*)"/g)) if (!/^(@context|@type|url|image|email)$/.test(m[1]) && !m[2].includes(MARK)) stray.push(`ld+json ${m[1]}`);
+    }
+  }
+  return { stray, ld };
+}
+
+test('(b) the stray-string walk reads a <noscript> body as a visitor without script does: a literal in it is found', () => {
+  const MARK = '§';
+  const page = body => `<!DOCTYPE html><html lang="en"><head><title>T${MARK}</title></head><body><p>ok${MARK}</p>${body}</body></html>`;
+  assert.deepEqual(strayString(page('')), []);
+  assert.deepEqual(strayString(page(`<noscript><p>fine${MARK}</p></noscript>`)), []);
+  assert.ok(strayString(page('<noscript><p>Plain words</p></noscript>')).some(s => /Plain words/.test(s)), 'text in a noscript');
+  assert.ok(strayString(page('<noscript><img alt="Plain alt" src="/a.png"></noscript>')).some(s => /Plain alt/.test(s)), 'an attribute in a noscript');
+  function strayString(html) { return strayStrings(html, MARK).stray; }
+});
+
 test('(b) every visible string of the three pages comes from the catalogue: each stretch of text in a value carries a mark, and no visible text or attribute lacks it', () => {
   const MARK = '§';
   // a mark at the end of every stretch of text of a value (the text between its markup tags), so a piece of text the page shows that is not from a value has none
@@ -66,19 +95,7 @@ test('(b) every visible string of the three pages comes from the catalogue: each
     const { pages, problems } = renderSitePages({ templates: TEMPLATES, messages: marked });
     assert.deepEqual(problems, []);
     for (const [file, html] of Object.entries(pages)) {
-      const stray = [];
-      let last = null, ld = false;
-      for (const t of htmlTokens(html)) {
-        if (t.type === 'tag' && !t.closing) {
-          last = t;
-          for (const a of ['aria-label', 'title', 'alt', 'placeholder']) if (t.attrs.has(a) && !t.attrs.get(a).includes(MARK)) stray.push(`${t.name} ${a}="${t.attrs.get(a)}"`);
-          if (t.name === 'meta' && /^(description|og:title|og:description|twitter:title|twitter:description)$/.test(t.attrs.get('name') ?? t.attrs.get('property') ?? '') && !t.attrs.get('content').includes(MARK)) stray.push(`meta ${t.attrs.get('name') ?? t.attrs.get('property')} content`);
-        } else if (t.type === 'text' && t.text.trim() !== '' && !t.text.includes(MARK)) stray.push('text ' + JSON.stringify(t.text.trim().slice(0, 60)));
-        else if (t.type === 'raw' && t.name === 'script' && last && last.attrs.get('type') === 'application/ld+json') {
-          ld = true;
-          for (const m of t.body.matchAll(/"([^"]+)"\s*:\s*"([^"]*)"/g)) if (!/^(@context|@type|url|image|email)$/.test(m[1]) && !m[2].includes(MARK)) stray.push(`ld+json ${m[1]}`);
-        }
-      }
+      const { stray, ld } = strayStrings(html, MARK);
       assert.deepEqual(stray, [], file + ': strings that did not come from the catalogue');
       if (file === 'web/index.html') assert.ok(ld, 'the home page carries its structured data');
       assert.ok(html.includes(MARK), file + ' shows catalogue values');
@@ -187,7 +204,7 @@ test('(d) the lang values the build writes are valid BCP 47: every region of a t
   for (const [group, src] of Object.entries(TEMPLATES)) for (const s of slotsOf(src).filter(x => x.kind === 'lang')) assert.equal(bcp47Problem(s.lang), null, group + ' ' + s.lang);
   assert.ok(templateProblems('{{lang th_TH}}\n<p>{{home.origin}}</p>\n{{/lang}}\n', 'home').some(p => /th_TH/.test(p) && /not a valid/.test(p)));
   const { pages } = renderSitePages({ templates: TEMPLATES, messages: CAT.messages });
-  for (const [file, html] of Object.entries(pages)) for (const t of htmlTokens(html)) if (t.type === 'tag' && t.attrs?.has('lang')) assert.equal(bcp47Problem(t.attrs.get('lang')), null, file + ' lang=' + t.attrs.get('lang'));
+  for (const [file, html] of Object.entries(pages)) for (const t of htmlTokens(html, { scripting: false })) if (t.type === 'tag' && t.attrs?.has('lang')) assert.equal(bcp47Problem(t.attrs.get('lang')), null, file + ' lang=' + t.attrs.get('lang'));
 });
 
 // ── (e) text hygiene (C-I18N-01, -05, -06) ──────────────────────────────────────────────────────────────────────
@@ -391,7 +408,7 @@ test('a {{j:}} slot writes < > & U+2028 and U+2029 as \\u escapes, so a catalogu
   planted.en['home.ld.description'] = nasty;
   const html = renderSitePages({ templates: TEMPLATES, messages: planted }).pages['web/index.html'];
   assert.ok(!html.includes('<p id=inj>'), 'no tag of the value reached the page');
-  const tokens = htmlTokens(html);
+  const tokens = htmlTokens(html, { scripting: false });
   const ld = tokens.find(t => t.type === 'raw' && t.name === 'script' && t.body.includes('"@type"'));
   assert.ok(ld, 'the structured-data block is whole');
   assert.equal(JSON.parse(ld.body).description, nasty, 'and holds the value');
@@ -422,6 +439,11 @@ test('(b) the literal lint reads the value of a button input, the label of an op
     ['an inline event handler', into('<p>', '<p onclick="go()">'), /inline event handler \(onclick\)/],
     ['a JSON-LD @value', ld('{"@type": "X", "@value": "Plain words"}'), /structured data value "Plain words"/],
     ['a JSON-LD @comment', ld('{"@type": "X", "@comment": "Plain words"}'), /structured data value "Plain words"/],
+    // a visitor without script reads the <noscript> body as markup (reviewer F3): the lint reads it so too
+    ['text in a noscript', into('<p>', '<noscript><p>No script here</p></noscript><p>'), /literal text "No script here"/],
+    ['an attribute in a noscript', into('<p>', '<noscript><img alt="No script alt" src="/a.png"></noscript><p>'), /alt holds the literal "No script alt"/],
+    ['a CSS content string in a noscript style', into('<p>', '<noscript><style>a::after{content:"Gone"}</style></noscript><p>'), /CSS content string "Gone" in a <style> block/],
+    ['a meta in a noscript', into('</head>', '<noscript><meta name="description" content="Plain"></noscript></head>'), /content of the meta description holds the literal "Plain"/],
   ];
   for (const [what, src, re] of planted) assert.ok(templateProblems(src, 'home').some(p => re.test(p)), what + ': ' + JSON.stringify(templateProblems(src, 'home')));
   for (const [what, src] of [

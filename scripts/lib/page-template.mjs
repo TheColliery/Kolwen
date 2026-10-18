@@ -95,7 +95,8 @@ export function templateProblems(src, name = 'template') {
   });
   // literals and joins
   let tokens;
-  try { tokens = htmlTokens(masked(src)); } catch (e) { return [...out, `${at}: the HTML could not be read (${e.message.slice(0, 160)})`]; }
+  // `scripting: false`: a visitor without script reads a <noscript> body as markup, so its text, attributes and styles are visible strings too. With the default (scripting on) the body is one raw token the lint never walks.
+  try { tokens = htmlTokens(masked(src), { scripting: false }); } catch (e) { return [...out, `${at}: the HTML could not be read (${e.message.slice(0, 160)})`]; }
   let tag = null;
   const attrProblems = (what, value, kind = 'attribute') => {
     const rest = value.replace(MASKS, '').trim();
