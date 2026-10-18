@@ -1030,7 +1030,12 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
     const pages21 = tracked.filter(f => /^web\/.*\.html$/.test(f));
     if (pages21.length === 0) note('web/', 'has no tracked HTML page, so rule 21 checked nothing');
     const fontCss = tracked.includes('web/fonts/fonts.css') ? [read('web/fonts/fonts.css')] : [];
-    for (const f of pages21) for (const why of tl.pageTypeProblems(read(f), fontCss)) note(f, why);
+    // every page is its own item: a page that cannot be read (a tracked page deleted from the working tree before the deletion is staged) or cannot be checked is one FAIL line naming it, and the
+    // other pages are still checked
+    for (const f of pages21) {
+      try { for (const why of tl.pageTypeProblems(read(f), fontCss)) note(f, why); }
+      catch (e) { note(f, 'rule 21 could not check this page (' + (e.code || e.message || 'error') + ')'); }
+    }
   }
 }
 

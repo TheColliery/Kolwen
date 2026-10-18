@@ -2,7 +2,9 @@
 // built pages are clean, and the tokens do what their comments say. Node builtins only. No browser here: the rendered checks have their own test file.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execSync, spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sizeProblem, fontSizeProblems, pageTypeProblems, declarationsOf } from './lib/type-lint.mjs';
@@ -135,4 +137,30 @@ test('the safe-area gutters are max(our minimum, env(safe-area-inset-*)), so the
   }
   assert.match(TOKENS['space.header-top'], /env\(safe-area-inset-top, 0px\)/);
   assert.match(TOKENS['space.footer-end'], /env\(safe-area-inset-bottom, 0px\)/);
+});
+
+// ── the rule in the gate every push runs ─────────────────────────────────────────────────────────────────────────
+test('surface-check rule 21 checks each page on its own: a page it cannot check is one FAIL line naming it, the other pages are still checked, and nothing is a stack trace', () => {
+  const tracked = execSync('git ls-files', { cwd: ROOT, encoding: 'utf8' }).split('\n').filter(Boolean);
+  const dir = mkdtempSync(join(tmpdir(), 'rule21-'));
+  const home = join(dir, '.sandbox-home');
+  mkdirSync(home, { recursive: true });
+  const env = { ...process.env, HOME: home, USERPROFILE: home, TEMP: home, TMP: home, TMPDIR: home, XDG_CONFIG_HOME: home };
+  const run = (cmd, args) => spawnSync(cmd, args, { cwd: dir, env, encoding: 'utf8', timeout: 120000 });
+  try {
+    for (const f of tracked) { mkdirSync(dirname(join(dir, f)), { recursive: true }); writeFileSync(join(dir, f), readFileSync(join(ROOT, f))); }
+    for (const args of [['init', '-q'], ['add', '-A']]) assert.equal(run('git', args).status, 0, 'git ' + args[0]);
+    const surface = () => run(process.execPath, ['--max-old-space-size=2048', 'scripts/surface-check.mjs']);
+    assert.equal(surface().status, 0, 'the copy of the tree passes before anything is planted');
+    const edit = (f, fn) => { writeFileSync(join(dir, f), fn(readFileSync(join(dir, f), 'utf8'))); run('git', ['add', '-A']); };
+    // the lint throws for every prose page (a page it cannot tokenize), and a px size is planted in the home page
+    edit('scripts/lib/type-lint.mjs', s => s.replace('export function pageTypeProblems(html, extraCss = []) {', 'export function pageTypeProblems(html, extraCss = []) {\n  if (html.includes(\'<html lang="en" data-job="prose">\')) throw new Error(\'planted\');'));
+    edit('web/index.html', s => s.replace('</style>', 'p.kwprobe{font-size:13px}</style>'));
+    const r = surface();
+    const out = r.stdout + r.stderr;
+    assert.equal(r.status, 1, out);
+    for (const p of ['terms', 'privacy', 'refund', 'changelog']) assert.match(out, new RegExp(`web/${p}\\.html: rule 21 could not check this page \\(planted\\)`), p);
+    assert.match(out, /web\/index\.html: .*font-size: 13px is an absolute unit/, 'the home page, after the pages that threw, is still checked');
+    assert.doesNotMatch(out, /\n\s+at /, 'no stack trace');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
