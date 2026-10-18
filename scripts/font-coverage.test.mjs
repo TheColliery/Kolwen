@@ -72,14 +72,35 @@ test('an HTML comment ends where the parser ends it: <!--> and <!---> are whole 
   const ARROW = String.fromCodePoint(0x2192), arrow = String.fromCharCode(92) + '2192';
   const live = `<style>a::after{content:"${arrow}"}</style>`;
   for (const [what, open] of [['<!-->', '<!-->'], ['<!--->', '<!--->'], ['--!>', '<!-- x --!>'], ['-->', '<!-- x -->'], ['an empty -->', '<!---->']]) {
-    assert.equal(cssContentOf(open + live), ARROW, 'a <style> after ' + what);
-    assert.match(textOf(open + '<p>after</p>'), /after/, 'text after ' + what);
+    // a real comment AFTER the live part: a pattern that ends a comment only at --> runs on from the opener to it and swallows the live part (without it the opener has no end and the old pattern fails for the wrong reason)
+    assert.equal(cssContentOf(open + live + '<!-- z -->'), ARROW, 'a <style> after ' + what);
+    assert.match(textOf(open + '<p>after</p><!-- z -->'), /after/, 'text after ' + what);
+    assert.doesNotMatch(textOf(open + '<p>after</p><!-- z -->'), /z/, 'and the comment after it is still a comment');
   }
   assert.equal(cssContentOf(`<!-- ${live} --!>`), '', 'a <style> inside a comment that --!> closes is still skipped');
   assert.equal(cssContentOf(`<!-- ${live} -->`), '');
   assert.doesNotMatch(textOf('<!-- hidden --><p>shown</p>'), /hidden/);
   assert.doesNotMatch(textOf('<!-- hidden --!><p>shown</p>'), /hidden/);
   assert.equal(cssContentOf(`<!-- never closed ${live}`), '', 'a comment that is never closed runs to the end');
+});
+
+// WHATWG tokenizer, at the level these checks need: `<!--` opens a comment only in the data state. Inside an attribute value, a raw-text body (script, style) or an RCDATA body (textarea, title) it is plain characters.
+test('RED PROOF: a "<!--" inside an attribute value, a <textarea>, a <title> or a <script> does not hide what follows, in cssContentOf and in textOf', () => {
+  const ARROW = String.fromCodePoint(0x2192), arrow = String.fromCharCode(92) + '2192', THAI = String.fromCodePoint(0x0e01);
+  const live = `<style>a::after{content:"${arrow}"}</style>`;
+  for (const [what, before] of [
+    ['an attribute value', '<a title="<!--">x</a>'], ['a single-quoted attribute value', '<a title=\'<!--\'>x</a>'],
+    ['a textarea', '<textarea><!--</textarea>'], ['a title', '<title><!--</title>'], ['a script string', '<script>var s = "<!--";</script>'],
+    ['a style comment-like text', '<style>/* <!-- */</style>'],
+  ]) {
+    assert.equal(cssContentOf(before + live), ARROW, 'a <style> after ' + what);
+    assert.ok(textOf(before + `<p>${THAI}</p>`).includes(THAI), 'text after ' + what);
+  }
+  assert.ok(!textOf('<script>var s = "<p>' + THAI + '</p>";</script>').includes(THAI), 'markup inside a script string is not page text');
+  assert.ok(!textOf('<style>/* <p>' + THAI + '</p> */</style>').includes(THAI), 'nor inside a style');
+  assert.ok(textOf('<textarea>' + THAI + '</textarea>').includes(THAI), 'but a textarea body is text the page draws');
+  assert.ok(textOf('<textarea><!-- ' + THAI + ' --></textarea>x').includes(THAI), 'a comment-like text in a textarea is text too');
+  assert.ok(textOf('a < b ' + THAI + ' > c').includes(THAI), 'a "<" that starts no tag is text');
 });
 
 test('the derived set: the pages render these characters, the Thai block among them, and every one is a code point at or above U+0020', () => {

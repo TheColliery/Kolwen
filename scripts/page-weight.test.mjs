@@ -379,9 +379,29 @@ test('RED PROOF: an @import in a <style> inside an HTML comment or a script is n
       + '<!---><style>@import "/c.css";</style>'
       + '<!-- y --!><style>@import "/d.css";</style>'
       + '<!--><img src="/img.png" alt="">'
+      + '<!-- z -->' // a real comment after the live parts: a pattern that ends a comment only at --> runs from an opener to it and swallows them
       + '</head><body>hello</body></html>',
   });
   try { assert.deepEqual(urlsOf(only(checkTree(dir))), ['/a.css', '/b.css', '/c.css', '/d.css', '/img.png', '/index.html']); } finally { gone(dir); }
+});
+
+// CodeRabbit 4306039163 and reviewer P2: markup inside a script or a style body is text, not tags, and a "<!--" there or in an attribute value opens no comment.
+test('RED PROOF: an <img> or a <link> written inside a script string is not an asset, and a "<!--" in a script, an attribute value or a textarea hides no later tag', () => {
+  const dir = tree({
+    's.css': "@font-face{font-family:'S';src:url('/f.woff2');unicode-range:U+0020-007E;}", 'f.woff2': Buffer.alloc(600, 1), 'i.png': Buffer.alloc(300, 2), 'j.png': Buffer.alloc(200, 3), 'k.png': Buffer.alloc(100, 4),
+    'index.html': '<!doctype html><html><head>'
+      + '<script>const markup = \'<img src="/missing.png">\'; const l = \'<link rel="stylesheet" href="/missing.css">\'; var c = "<!--";</script>'
+      + '<style>/* <img src="/missing2.png"> <!-- */ p{margin:0}</style>'
+      + '<link rel="stylesheet" href="/s.css">'
+      + '</head><body hello>'
+      + '<a title="<!--">x</a><img src="/i.png" alt="">'
+      + '<textarea><!--</textarea><img src="/j.png" alt="">'
+      + '<script src="/app.js"></script><img src="/k.png" alt="">'
+      + '<!-- z -->'
+      + '</body></html>',
+    'app.js': 'var a = 1;',
+  });
+  try { assert.deepEqual(urlsOf(only(checkTree(dir))), ['/app.js', '/f.woff2', '/i.png', '/index.html', '/j.png', '/k.png', '/s.css']); } finally { gone(dir); }
 });
 
 test('an unknown flag exits 2, --help prints usage and exits 0, and a tree with no page fails rather than passes', () => {

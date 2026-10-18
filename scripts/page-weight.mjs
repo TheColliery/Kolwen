@@ -16,7 +16,8 @@ import { brotliCompressSync, constants } from 'node:zlib';
 import { join, dirname, resolve, extname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { facesOf, inRange } from './lib/font-coverage.mjs';
-import { renderedChars, stripCssComments, stripHtmlComments, styleBlocksOf } from './lib/rendered-text.mjs';
+import { renderedChars, stripCssComments, styleBlocksOf } from './lib/rendered-text.mjs';
+import { htmlTokens } from './lib/html-tokens.mjs';
 import { htmlPages } from './lib/web-files.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -69,21 +70,6 @@ function cssUrls(text, from) {
   return out;
 }
 
-// The tags of an HTML text with their attributes, tokenised in order as the HTML parser does: a tag ends at the first `>` outside a quoted value, an attribute is a whole name (any run that holds no
-// space, slash, `>` or `=`: `data-src` and `xlink:href` are names of their own, not `src` and `href`) with an optional `=` and a value written double-quoted, single-quoted or unquoted, and when a name
-// repeats the first one wins. Returns [{ name, attrs: Map(lower-case name -> value) }]. HTML comments are removed first.
-const TAG = /<([a-z][a-z0-9-]*)(?=[\s\/>])((?:"[^"]*"|'[^']*'|[^>"'])*)>/gi;
-const ATTR = /[\s\/]*([^\s\/>=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]*)))?/g;
-function tagsOf(html) {
-  const out = [];
-  for (const t of stripHtmlComments(html).matchAll(TAG)) {
-    const attrs = new Map();
-    for (const a of t[2].matchAll(ATTR)) { const name = a[1].toLowerCase(); if (!attrs.has(name)) attrs.set(name, a[2] ?? a[3] ?? a[4] ?? ''); }
-    out.push({ name: t[1].toLowerCase(), attrs });
-  }
-  return out;
-}
-
 // The stylesheets an @import names (the string form or url(), with or without a space before it, and an optional media query), as url paths, and the text without its comments and its @import statements,
 // so that a commented-out import loads nothing and an imported file is not also counted as an image by cssUrls.
 const IMPORT = /@import\s*(?:url\(\s*(["']?)([^"')\s]+)\1\s*\)|(["'])([^"']+)\3)[^;{}]*;?/gi;
@@ -103,7 +89,7 @@ export function assetsOf(webDir, page, cps) {
   // A url named as a stylesheet by any link is a stylesheet, whatever kind it was first met as (a preload hint ahead of the link must not hide it).
   const add = (url, kind) => { if (!found.has(url) || (kind === 'css' && found.get(url) !== 'css')) found.set(url, kind); };
   const styleAttrs = [];
-  for (const { name, attrs } of tagsOf(html)) {
+  for (const { name, attrs } of htmlTokens(html).filter(t => t.type === 'tag' && !t.closing)) { // the one scan: no tag from a script body, a comment or an attribute value
     if (attrs.has('style')) styleAttrs.push(attrs.get('style'));
     if (name === 'link') {
       const rel = (attrs.get('rel') || '').toLowerCase().split(/\s+/), href = attrs.get('href');
