@@ -196,6 +196,68 @@ test('an attribute name inside another name is not read: data-href, data-src and
   try { assert.deepEqual(urlsOf(only(checkTree(dir))), ['/index.html']); } finally { gone(dir); }
 });
 
+// G4: the attributes of a tag are tokenised in order, and an attribute is the one whose WHOLE name is href, src, srcset, rel, as or style.
+test('RED PROOF: an attribute is found by its whole name: href= inside another attribute\'s value, xlink:href, data-src and a duplicate are not it, and a > inside a quoted value does not end the tag', () => {
+  const dir = tree({
+    's.css': "@font-face{font-family:'S';src:url('/f.woff2');unicode-range:U+0020-007E;}", 'f.woff2': Buffer.alloc(600, 1), 'favicon.svg': '<svg xmlns="http://www.w3.org/2000/svg"/>',
+    'i.png': Buffer.alloc(900, 2), 'j.png': Buffer.alloc(700, 3), 'nope.css': 'a{}',
+    'index.html': '<!doctype html><html><head>'
+      + '<link title="see href=/favicon.svg" rel="stylesheet" href="/s.css">'
+      + '<link xlink:href="/nope.css" rel=stylesheet href=/s.css>'
+      + '</head><body>hello'
+      + '<img alt="a > b, src=/nope.css" src="/i.png">'
+      + '<img src="/j.png" data-src="/nope.css" src="/nope.css" alt="">'
+      + '</body></html>',
+  });
+  try {
+    assert.deepEqual(urlsOf(only(checkTree(dir))), ['/f.woff2', '/i.png', '/index.html', '/j.png', '/s.css']);
+  } finally { gone(dir); }
+});
+
+// G1: a url that any link names as a stylesheet is a stylesheet, whatever kind it was first met as.
+test('RED PROOF: a stylesheet hinted by <link rel=preload as=style> before (or without) its stylesheet link is still walked', () => {
+  const files = { 's.css': "@import 'imp.css'; @font-face{font-family:'S';src:url('/f.woff2');unicode-range:U+0020-007E;}", 'imp.css': 'p{margin:0}', 'f.woff2': Buffer.alloc(600, 1), 'x.woff2': Buffer.alloc(300, 2) };
+  const page = links => `<!doctype html><html><head>${links}</head><body>hello</body></html>`;
+  const want = ['/f.woff2', '/imp.css', '/index.html', '/s.css'];
+  for (const [what, links] of [
+    ['preload before the stylesheet link', '<link rel="preload" as="style" href="/s.css"><link rel="stylesheet" href="/s.css">'],
+    ['preload alone, as=style', '<link rel="preload" as="style" href="/s.css">'],
+    ['preload with no as, before the link', '<link rel="preload" href="/s.css"><link rel="stylesheet" href="/s.css">'],
+    ['rel with two tokens', '<link rel="stylesheet preload" href="/s.css">'],
+    ['preload after the link (control)', '<link rel="stylesheet" href="/s.css"><link rel="preload" as="style" href="/s.css">'],
+  ]) {
+    const dir = tree({ ...files, 'index.html': page(links) });
+    try { assert.deepEqual(urlsOf(only(checkTree(dir))), want, what); } finally { gone(dir); }
+  }
+  const dir = tree({ ...files, 'index.html': page('<link rel="preload" as="font" href="/x.woff2" crossorigin>') });
+  try { const r = only(checkTree(dir)); assert.deepEqual(urlsOf(r), ['/index.html', '/x.woff2']); assert.equal(r.parts.find(p => p.url === '/x.woff2').kind, 'other', 'a font hint is a file, not a stylesheet'); } finally { gone(dir); }
+});
+
+// G2 and G3: @import with no space before its string, and comments that hide an @import or a url().
+test('RED PROOF: @import"x.css" with no space is followed, and an @import or url() inside a CSS (or HTML) comment is not', () => {
+  const dir = tree({
+    's.css': '/* @import "gone.css"; */\n@import"a.css";@import\'b.css\'  screen;\n/* body{background:url(gone.png)} */ p{background:url(c.png)}',
+    'a.css': 'i{margin:0}', 'b.css': 'u{margin:0}', 'c.png': Buffer.alloc(300, 1), 'd.png': Buffer.alloc(200, 2),
+    'index.html': '<!doctype html><html><head><link rel="stylesheet" href="/s.css"><style>/* @import "gone2.css"; */ q{background:url(/d.png)}</style></head><body>hello<!-- <img src="/gone3.png"> --></body></html>',
+  });
+  try { assert.deepEqual(urlsOf(only(checkTree(dir))), ['/a.css', '/b.css', '/c.png', '/d.png', '/index.html', '/s.css']); } finally { gone(dir); }
+});
+
+// G5: the 13 months end on the last day of the target month, and a read date is a real date.
+test('RED PROOF: the stale warning starts the day after the 13th month ends, also from a month end, and a date that does not exist is not a date', () => {
+  const day = s => new Date(s + 'T12:00:00Z');
+  const on = (readOn, today) => staleWarning({ ...ALMANAC, readOn }, day(today));
+  assert.equal(on('2026-01-31', '2027-02-28'), '', '13 months after Jan 31 ends on Feb 28');
+  assert.match(on('2026-01-31', '2027-03-01'), /^WARNING: .* read on 2026-01-31, more than 13 months ago/);
+  assert.equal(on('2026-08-31', '2027-09-30'), '');
+  assert.match(on('2026-08-31', '2027-10-01'), /^WARNING: .* more than 13 months ago/);
+  assert.equal(on('2026-10-18', '2027-11-18'), '');
+  assert.match(on('2026-10-18', '2027-11-19'), /^WARNING: /);
+  assert.equal(on('2024-02-29', '2025-03-29'), '', 'a leap day: 13 months later is Mar 29');
+  assert.match(on('2024-02-29', '2025-03-30'), /^WARNING: /);
+  for (const bad of ['2026-02-30', '2026-13-01', '2026-00-10', '2026-1-5', 'soon', '']) assert.match(on(bad, '2026-10-18'), /^WARNING: .* is not a date/, JSON.stringify(bad));
+});
+
 // F2: an @import, in either form, is a stylesheet walked like a linked one: its own @font-face faces and url() count, and a cycle ends.
 test('RED PROOF: an @import (string or url()), nested, in a linked or an inline stylesheet, is a css asset whose own fonts and urls are counted; a cycle ends', () => {
   const dir = tree({

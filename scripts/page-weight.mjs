@@ -62,26 +62,39 @@ const sameOrigin = u => Boolean(u) && !/^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(u)
 const strip = u => u.replace(/[?#].*$/, '');
 const resolveUrl = (u, from) => (u.startsWith('/') ? posix.normalize(u) : posix.normalize(posix.join(posix.dirname(from), u)));
 
+// CSS comments are not read by a browser: an @import or a url() inside one loads nothing.
+const stripCssComments = text => text.replace(/\/\*[\s\S]*?\*\//g, ' ');
+
 // The same-origin urls a stylesheet text names through url(), skipping data: and absolute urls. `from` is the url path of the file that names them.
 function cssUrls(text, from) {
   const out = [];
-  for (const m of text.matchAll(/url\(\s*(["']?)([^"')\s]+)\1\s*\)/gi)) if (sameOrigin(m[2])) out.push(resolveUrl(strip(m[2]), from));
+  for (const m of stripCssComments(text).matchAll(/url\(\s*(["']?)([^"')\s]+)\1\s*\)/gi)) if (sameOrigin(m[2])) out.push(resolveUrl(strip(m[2]), from));
   return out;
 }
 
-// An attribute's value in a tag, written in any of the three HTML forms (double-quoted, single-quoted, unquoted). `data-href` is not `href`.
-const attr = (tag, name) => {
-  const m = new RegExp(`(?<![\\w-])${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'=<>]+))`, 'i').exec(tag);
-  return m ? (m[1] ?? m[2] ?? m[3]) : undefined;
-};
+// The tags of an HTML text with their attributes, tokenised in order as the HTML parser does: a tag ends at the first `>` outside a quoted value, an attribute is a whole name (any run that holds no
+// space, slash, `>` or `=`: `data-src` and `xlink:href` are names of their own, not `src` and `href`) with an optional `=` and a value written double-quoted, single-quoted or unquoted, and when a name
+// repeats the first one wins. Returns [{ name, attrs: Map(lower-case name -> value) }]. HTML comments are removed first.
+const TAG = /<([a-z][a-z0-9-]*)(?=[\s\/>])((?:"[^"]*"|'[^']*'|[^>"'])*)>/gi;
+const ATTR = /[\s\/]*([^\s\/>=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]*)))?/g;
+function tagsOf(html) {
+  const out = [];
+  for (const t of html.replace(/<!--[\s\S]*?-->/g, ' ').matchAll(TAG)) {
+    const attrs = new Map();
+    for (const a of t[2].matchAll(ATTR)) { const name = a[1].toLowerCase(); if (!attrs.has(name)) attrs.set(name, a[2] ?? a[3] ?? a[4] ?? ''); }
+    out.push({ name: t[1].toLowerCase(), attrs });
+  }
+  return out;
+}
 
-// The stylesheets an @import names (the string form or url(), with an optional media query), as url paths, and the text without its @import statements, so that an imported file is
-// not also counted as an image by cssUrls.
-const IMPORT = /@import\s+(?:url\(\s*(["']?)([^"')\s]+)\1\s*\)|(["'])([^"']+)\3)[^;{}]*;?/gi;
+// The stylesheets an @import names (the string form or url(), with or without a space before it, and an optional media query), as url paths, and the text without its comments and its @import statements,
+// so that a commented-out import loads nothing and an imported file is not also counted as an image by cssUrls.
+const IMPORT = /@import\s*(?:url\(\s*(["']?)([^"')\s]+)\1\s*\)|(["'])([^"']+)\3)[^;{}]*;?/gi;
 function importsOf(text, from) {
+  const clean = stripCssComments(text);
   const urls = [];
-  for (const m of text.matchAll(IMPORT)) { const u = m[2] ?? m[4]; if (sameOrigin(u)) urls.push(resolveUrl(strip(u), from)); }
-  return { urls, rest: text.replace(IMPORT, ' ') };
+  for (const m of clean.matchAll(IMPORT)) { const u = m[2] ?? m[4]; if (sameOrigin(u)) urls.push(resolveUrl(strip(u), from)); }
+  return { urls, rest: clean.replace(IMPORT, ' ') };
 }
 
 // The assets one page loads, as a Map url -> kind ('css' | 'font' | 'image' | 'script' | 'icon' | 'other'). Fonts are the faces of the linked stylesheets whose unicode-range covers a
@@ -90,23 +103,25 @@ export function assetsOf(webDir, page, cps) {
   const html = readFileSync(join(webDir, page), 'utf8').replace(/\r\n/g, '\n');
   const pageUrl = '/' + page;
   const found = new Map();
-  const add = (url, kind) => { if (!found.has(url)) found.set(url, kind); };
-  for (const m of html.matchAll(/<link\b[^>]*>/gi)) {
-    const rel = attr(m[0], 'rel') || '', href = attr(m[0], 'href');
-    if (!sameOrigin(href) || !/\b(?:stylesheet|icon|apple-touch-icon|preload|modulepreload)\b/i.test(rel)) continue;
-    add(resolveUrl(strip(href), pageUrl), /stylesheet/i.test(rel) ? 'css' : /icon/i.test(rel) ? 'icon' : 'other');
-  }
-  for (const m of html.matchAll(/<(img|script|source|video|audio|iframe|embed)\b[^>]*>/gi)) {
-    const src = attr(m[0], 'src');
-    if (sameOrigin(src)) add(resolveUrl(strip(src), pageUrl), m[1].toLowerCase() === 'script' ? 'script' : 'image');
-  }
-  for (const m of html.matchAll(/<(?:img|source)\b[^>]*>/gi)) {
-    for (const part of (attr(m[0], 'srcset') || '').split(',')) { const u = part.trim().split(/\s+/)[0]; if (sameOrigin(u)) add(resolveUrl(strip(u), pageUrl), 'image'); }
+  // A url named as a stylesheet by any link is a stylesheet, whatever kind it was first met as (a preload hint ahead of the link must not hide it).
+  const add = (url, kind) => { if (!found.has(url) || (kind === 'css' && found.get(url) !== 'css')) found.set(url, kind); };
+  const styleAttrs = [];
+  for (const { name, attrs } of tagsOf(html)) {
+    if (attrs.has('style')) styleAttrs.push(attrs.get('style'));
+    if (name === 'link') {
+      const rel = (attrs.get('rel') || '').toLowerCase().split(/\s+/), href = attrs.get('href');
+      const hint = rel.includes('preload') || rel.includes('modulepreload');
+      if (!sameOrigin(href) || !(rel.includes('stylesheet') || hint || rel.some(t => t.includes('icon')))) continue;
+      add(resolveUrl(strip(href), pageUrl), rel.includes('stylesheet') || (hint && (attrs.get('as') || '').toLowerCase() === 'style') ? 'css' : rel.some(t => t.includes('icon')) ? 'icon' : 'other');
+    } else if (['img', 'script', 'source', 'video', 'audio', 'iframe', 'embed'].includes(name)) {
+      const src = attrs.get('src');
+      if (sameOrigin(src)) add(resolveUrl(strip(src), pageUrl), name === 'script' ? 'script' : 'image');
+      if (name === 'img' || name === 'source') for (const part of (attrs.get('srcset') || '').split(',')) { const u = part.trim().split(/\s+/)[0]; if (sameOrigin(u)) add(resolveUrl(strip(u), pageUrl), 'image'); }
+    }
   }
   // Stylesheets still to be read: the linked ones, then every @import found, in a list that grows (an import is walked like a linked sheet, and a cycle ends at the first repeat).
   const todo = [...found].filter(([, kind]) => kind === 'css').map(([url]) => url);
-  const queue = url => { if (!found.has(url)) { add(url, 'css'); todo.push(url); } };
-  const styleAttrs = [...html.matchAll(/(?<![\w-])style\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>]+))/gi)].map(m => m[1] ?? m[2] ?? m[3]);
+  const queue = url => { add(url, 'css'); if (!todo.includes(url)) todo.push(url); };
   const inline = importsOf((html.match(/<style\b[\s\S]*?<\/style>/gi) || []).join('\n'), pageUrl);
   inline.urls.forEach(queue);
   for (const u of cssUrls(inline.rest + '\n' + styleAttrs.join('\n'), pageUrl)) add(u, 'image');
@@ -180,9 +195,11 @@ export function checkTree(webDir, opts = {}) {
 export function staleWarning(almanac = ALMANAC, today = new Date()) {
   const how = 're-read the latest edition at https://almanac.httparchive.org/en/<year>/page-weight and update ALMANAC';
   const read = new Date(almanac.readOn + 'T00:00:00Z');
-  if (Number.isNaN(read.getTime())) return `WARNING: the Web Almanac read date "${almanac.readOn}" is not a date; ${how}`;
-  const due = new Date(read);
-  due.setUTCMonth(due.getUTCMonth() + 13);
+  // a read date is a real calendar date: it must survive the round trip (2026-02-30 would otherwise roll into March)
+  if (Number.isNaN(read.getTime()) || read.toISOString().slice(0, 10) !== almanac.readOn) return `WARNING: the Web Almanac read date "${almanac.readOn}" is not a date; ${how}`;
+  // 13 months later is the same day of the month, or the last day of that month when it is shorter (Jan 31 + 13 months is Feb 28, not Mar 3)
+  const [y, m, d] = [read.getUTCFullYear(), read.getUTCMonth(), read.getUTCDate()];
+  const due = new Date(Date.UTC(y, m + 13, Math.min(d, new Date(Date.UTC(y, m + 14, 0)).getUTCDate())));
   return today.toISOString().slice(0, 10) > due.toISOString().slice(0, 10) ? `WARNING: the Web Almanac median was read on ${almanac.readOn}, more than 13 months ago; ${how}` : '';
 }
 
