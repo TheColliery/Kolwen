@@ -208,6 +208,8 @@ that is missing, doubled or out of order, marker pairs that overlap or nest, a s
 buttons, and rule 17 of the surface check refuses a live one, a Paddle script or a checkout URL on any production page; the only
 button it lets stand without being disabled is a language switch, marked `data-lang-set="en"` or `data-lang-set="th"`.
 Every page declares its job on `<html>` (`data-job="prose"` takes the reading theme, `data-job="default"` keeps the default theme), its sizes come from the tokens in `scripts/lib/layout-tokens.mjs`, and the `rendered` job of CI opens each page in a headless browser to check the 320 px reflow, 200% text, the Content-Security-Policy and the reading theme (`CONTRIBUTING.md` says how to run it locally).
+
+The pages are mapped in `web-src/seams.json`: each page belongs to one group, and today there is one, the company site, served by this one Worker (this `web/` and its `web/_headers` are its zone); surface-check rule 20 holds the map against the files (`CONTRIBUTING.md` says how to add a page).
 `node scripts/address-check.mjs` is run by hand, never in CI (CI holds no Cloudflare token): it asks the zone whether every
 `@kolwen.com` address the pages publish has an enabled Email Routing rule.
 

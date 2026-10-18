@@ -1004,11 +1004,24 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
   }
 }
 
+// ── 20. The domain seams: groups, legal pages, CSP per zone, host-only cookies, a catalogue with no host key ──
+// web-src/seams.json maps every served page to one group (today the company site), so a group can move to its own host by a web/_redirects change.
+// The five seams and their stated limits are in scripts/lib/domain-seams.mjs, and scripts/domain-seams.test.mjs plants a defect in each. Nothing is bought and nothing moves: the rule only
+// keeps the site able to. A map that is missing or malformed is one finding and the other four seams are not read, since a page cannot be judged against no map.
+{
+  let ds = null;
+  try { ds = await import(pathToFileURL(resolve('scripts/lib/domain-seams.mjs')).href); }
+  catch (e) { note('scripts/lib/domain-seams.mjs', 'could not be loaded, so rule 20 could not check the domain seams (' + (e.code || 'import failed') + ')'); }
+  if (ds) {
+    try { for (const p of ds.seamProblems(ds.snapshotOf(tracked, read))) note(p.file, p.msg); }
+    catch (e) { note('scripts/lib/domain-seams.mjs', 'rule 20 could not complete (' + String(e.message || e).slice(0, 160) + ')'); }
+  }
+}
+
 // ── 21. The layout tokens hold: rem type, no bare viewport type, the viewport meta of the formula ──
 // build-qc.md W-I18N-10 and W-FMT-11, on every tracked page under web/ (and the font manifest it links): every font-size is rem, or a clamp() that carries a rem term, so the visitor's own
 // text size scales it (SC 1.4.4, failure F94); the viewport meta has width=device-width, initial-scale=1 and viewport-fit=cover and nothing that blocks zoom. The rules and their stated limits
-// are in scripts/lib/type-lint.mjs, and scripts/type-lint.test.mjs plants each defect. NON-VACUITY: no tracked page is a finding. (RULE NUMBER: 21, because rule 20 is the domain seams' on the branch
-// that adds them.)
+// are in scripts/lib/type-lint.mjs, and scripts/type-lint.test.mjs plants each defect. NON-VACUITY: no tracked page is a finding.
 {
   let tl = null;
   try { tl = await import(pathToFileURL(resolve('scripts/lib/type-lint.mjs')).href); }

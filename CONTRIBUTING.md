@@ -80,7 +80,7 @@ here.
 | Path | Purpose |
 |---|---|
 | `web/` | Everything served at kolwen.com. Every path under it is a live URL |
-| `web-src/` | What the home, pricing and not-found pages are generated from: the templates and the language catalogue |
+| `web-src/` | What the home, pricing and not-found pages are generated from (the templates and the language catalogue), and `seams.json`, the map of which group each page belongs to |
 | `brand/` | The identity kit and the generator that is the source of the mark's geometry |
 | `py/` | The PyPI name reservation. No runtime code yet |
 | `docs/` | Operator documentation, starting with how the site deploys |
@@ -101,6 +101,12 @@ here.
 - **Sizes and spacing** are tokens in `scripts/lib/layout-tokens.mjs`, the one table, emitted into every page's style block (a token at the path `font.size.1` is the custom property `--kw-font-size-1`). Add or change a size there, in `rem`; a page never carries a px font size of its own, and surface-check rule 21 names the line that does. The file's header says which numbers are the house's own and what stays in px.
 - **A new page declares its job** on `<html>`, as `data-job="prose"` (its main content is prose read top to bottom, so it takes the reading theme) or `data-job="default"` (cards, buttons or figures to choose from). A page made from a template in `web-src/pages/` writes the attribute in the template; a page made from Markdown sets `job` in its entry of `PAGES` in `scripts/lib/legal-page-text.mjs`, and the generator refuses an entry without one. Rule 21 checks that every page declares a job, and rule 22 and the rendered check hold the reading theme's contrast in both colour schemes.
 - **The rendered check** is `node scripts/rendered-check.mjs` (`--only reflow,zoom,csp,theme,contrast,lineheight,measure` runs some of it). It needs a Chromium-family browser: it looks for Edge, Chrome or Chromium itself, and `KOLWEN_BROWSER` names the binary if yours is elsewhere. Its header lists what each check measures and its stated limits. SC 1.4.8 is a target of the reading theme, never a claim that it is met.
+
+## Adding a page, and moving a group
+
+- Every served page belongs to exactly one group in `web-src/seams.json` (today the company site, whose `pages` list is the seven pages). A new file under `web/` that no group lists, or that two groups list, fails surface-check rule 20 and the message names the file: add its clean URL path to the group's `pages`.
+- Rule 20 also holds what keeps a group able to get a host of its own by a redirect change: every page links the terms and privacy pages at kolwen.com, no other file copies a legal text, each path has exactly one Content-Security-Policy rule (a second zone would be another Worker with its own headers file, never a second rule in `web/_headers`), no cookie carries a `Domain` attribute, and no catalogue key names a host. `scripts/lib/domain-seams.mjs` is the list of record and states what it cannot see.
+- No group has moved, and no group, zone or redirect names a host other than kolwen.com.
 
 ---
 

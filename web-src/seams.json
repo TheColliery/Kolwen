@@ -1,0 +1,49 @@
+{
+  "about": "The domain seams of Kolwen (scripts/lib/domain-seams.mjs reads this file; surface-check rule 20 holds it). A GROUP is a set of pages that can move to its own host later. Today the one group is the company site, which serves every page at kolwen.com, and nothing here is a domain bought or a page moved. A group moves by a web/_redirects change (301 from each of its paths to the new host) and by taking its pages to its own zone, never by rewriting a page. A ZONE is one Worker with one publish root and one headers file, so its Content-Security-Policy is its own rule set: Cloudflare joins the values of two matching rules, so two zones never share a headers file. A group is added to this file by its own unit, when it has something real to serve.",
+  "legal": {
+    "host": "kolwen.com",
+    "terms": "/terms",
+    "privacy": "/privacy",
+    "sources": [
+      "TERMS.md",
+      "PRIVACY.md",
+      "legal/thai-7day-clause.md"
+    ],
+    "renderedAs": [
+      "web/terms.html",
+      "web/privacy.html",
+      "web/refund.html"
+    ],
+    "generatedBy": [
+      "scripts/lib/legal-page-text.mjs",
+      "scripts/lib/legal-holds.json"
+    ]
+  },
+  "zones": {
+    "company": {
+      "root": "web",
+      "headers": "web/_headers",
+      "policy": "strict-hash",
+      "csp": [
+        "/*"
+      ]
+    }
+  },
+  "groups": {
+    "company": {
+      "role": "the company site: home, pricing, legal pages, changelog",
+      "host": "kolwen.com",
+      "state": "live",
+      "zone": "company",
+      "pages": [
+        "/",
+        "/pricing",
+        "/terms",
+        "/privacy",
+        "/refund",
+        "/changelog",
+        "/404"
+      ]
+    }
+  }
+}
