@@ -13,7 +13,14 @@ import { spawn, spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const WSL_EXE_ENV = 'KOLWEN_WSL_EXE'; // the program to start instead of wsl.exe (a test makes it a path that does not exist)
+export const WSL_EXE_ENV = 'KOLWEN_WSL_EXE'; // the program to start instead of wsl.exe: only one NAMED wsl.exe (a test makes it a path that does not exist, or a stand-in), never any other program
+const WSL_NAME = /(^|[\\/])wsl\.exe$/i; // the last path segment is wsl.exe (any case, either separator); a trailing separator, or any other name, is not it
+
+// The program that stands for wsl.exe: { exe } when it is named wsl.exe, otherwise { exe, why } and nothing may start it (KOLWEN_WSL_EXE=msedge.exe would start a person's Edge).
+export function wslExe(env = process.env) {
+  const exe = env[WSL_EXE_ENV] || 'wsl.exe';
+  return WSL_NAME.test(exe) ? { exe } : { exe, why: `${WSL_EXE_ENV} names ${exe}, which is not wsl.exe: this check starts no other program there` };
+}
 export const STABLE_SHELL = '~/tools/chrome-headless-shell-linux64/chrome-headless-shell';
 export const WSL_SCRIPTS = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'wsl');
 
@@ -34,14 +41,17 @@ export function decodeWslText(buf) {
 
 // Run wsl.exe with an argument list (never a shell string). `run` is injectable so a test needs no WSL.
 export function wslRun(args, env = process.env) {
-  const r = spawnSync(env[WSL_EXE_ENV] || 'wsl.exe', args, { timeout: 60000, windowsHide: true });
+  const w = wslExe(env);
+  if (w.why) return { status: null, stdout: Buffer.alloc(0), error: new Error(w.why) };
+  const r = spawnSync(w.exe, args, { timeout: 60000, windowsHide: true });
   return { status: r.status, stdout: r.stdout ?? Buffer.alloc(0), error: r.error ?? null };
 }
 
 // The route: { kind: 'wsl', exe, distro } when the distro exists AND the headless shell is executable at the stable path, otherwise { kind: 'none', why } saying which of the two is missing.
 // `distro` asks for one by name (KOLWEN_BROWSER=wsl:<name>); without it the first distro that is not Docker's is used.
 export function findWslRoute({ env = process.env, run = wslRun, distro = null, scriptsDir = WSL_SCRIPTS } = {}) {
-  const exe = env[WSL_EXE_ENV] || 'wsl.exe';
+  const { exe, why } = wslExe(env);
+  if (why) return { kind: 'refused', why };
   const listed = run(['-l', '-q'], env);
   if (listed.error || listed.status !== 0) return { kind: 'none', why: `WSL is not available here (${exe} ${listed.error ? 'could not be started: ' + (listed.error.code ?? listed.error.message) : 'exited ' + listed.status})` };
   const names = decodeWslText(listed.stdout).split(/\r?\n/).map(s => s.trim()).filter(s => s && !/^docker-desktop/i.test(s));
@@ -56,6 +66,7 @@ export function findWslRoute({ env = process.env, run = wslRun, distro = null, s
 
 // Start the browser script in the distro. Returns { child, output(), exited(), kill() }; output() is what the script and the browser printed so far.
 export function startWslBrowser({ exe, distro, port, lifetimeS, scriptsDir = WSL_SCRIPTS }) {
+  if (!WSL_NAME.test(exe)) throw new Error(`${exe} is not wsl.exe: this check starts no other program there`);
   const script = toWslPath(join(scriptsDir, 'browser-run.sh'));
   if (!script) throw new Error(`the repository is not on a drive the distro can see (${scriptsDir})`);
   const child = spawn(exe, ['-d', distro, '--exec', 'bash', script, String(port), String(lifetimeS)], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });

@@ -18,7 +18,7 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=
 export function makeResponder(webDir, { headers = true } = {}) {
   const root = resolve(webDir);
   const rules = headers && existsSync(join(root, '_headers')) ? parseHeadersFile(readFileSync(join(root, '_headers'), 'utf8')).filter(r => r.pattern === '/*') : [];
-  const extra = Object.fromEntries(rules.flatMap(r => r.headers.map(h => [h.name, h.value])));
+  const extra = Object.fromEntries(rules.flatMap(r => r.headers.map(h => [h.name.toLowerCase(), h.value])));
   return target => {
     let file = null;
     try {

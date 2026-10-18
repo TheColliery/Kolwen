@@ -1,5 +1,5 @@
 // A headless Chromium-family browser, driven over the DevTools protocol, with nothing installed. Two routes, one API:
-//   native: the Chrome that GitHub's ubuntu runner ships (or Chrome or Chromium on a developer's Linux or macOS machine), a child process of this script, on ONE profile (below);
+//   native: the Chrome that GitHub's ubuntu runner ships (or the Chrome, Chromium or Edge a developer's Linux or macOS machine has: MAC and LINUX_NAMES below), a child process of this script, on ONE profile (below);
 //   wsl:    on Windows, the Blink headless shell inside a WSL distro (scripts/lib/wsl-route.mjs, scripts/wsl/browser-run.sh), with a profile of its own in a mktemp folder inside the distro.
 // On Windows this check NEVER starts a Windows browser: findBrowser returns null there, and KOLWEN_BROWSER on Windows is refused unless it names the WSL route (findRoute). Node's own WebSocket
 // (global since Node 22.4) carries the protocol. Zero npm dependencies. The rendered checks (scripts/rendered-check.mjs) use it.
@@ -82,7 +82,7 @@ export function findRoute(env = process.env, platform = process.platform, deps =
     return findWslRoute({ env, run: deps.run, scriptsDir: deps.scriptsDir, distro: want && want.length > 4 ? want.slice(4) : null });
   }
   const binary = findBrowser(env, platform, deps.exists);
-  return binary ? { kind: 'native', binary } : { kind: 'none', why: `no Chrome or Chromium was found (set ${BROWSER_ENV} to a binary)` };
+  return binary ? { kind: 'native', binary } : { kind: 'none', why: `no Chrome, Chromium or Edge was found (set ${BROWSER_ENV} to a binary)` };
 }
 
 const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -227,6 +227,9 @@ export const COMMON_ARGS = ['--no-first-run', '--no-default-browser-check', '--d
 // What a resource failure is worth: the browser resolves no host name, so a resource a page asks for by host name fails with this error. It is a finding (rendered-check.mjs), not a miss.
 export const NAME_NOT_RESOLVED = 'net::ERR_NAME_NOT_RESOLVED';
 
+// The Fetch.fulfillRequest parameters for the responder's answer `out` to a request of this method: the headers always, the body for every method but HEAD (a HEAD answer has none, as over HTTP).
+export const fulfillParams = (requestId, method, out) => ({ requestId, responseCode: out.status, responseHeaders: Object.entries(out.headers).map(([name, value]) => ({ name, value: String(value) })), body: method === 'HEAD' ? '' : out.body.toString('base64') });
+
 // The browser API over one DevTools connection, the same for both routes. `serveVia` is null (pages come from a real server, serveWeb) or an object holding the responder the browser is asked to
 // get its pages from over the channel (the WSL route). `isExited()` says whether the browser process is gone.
 async function drive({ endpoint, profile, label, commandTimeoutMs, isExited, cleanup, channel }) {
@@ -273,7 +276,7 @@ async function drive({ endpoint, profile, label, commandTimeoutMs, isExited, cle
           let out = null;
           try { out = web.responder ? web.responder(p.request.url) : null; } catch { out = null; }
           const done = out
-            ? send('Fetch.fulfillRequest', { requestId: p.requestId, responseCode: out.status, responseHeaders: Object.entries(out.headers).map(([name, value]) => ({ name, value: String(value) })), body: out.body.toString('base64') })
+            ? send('Fetch.fulfillRequest', fulfillParams(p.requestId, p.request.method, out))
             : send('Fetch.failRequest', { requestId: p.requestId, errorReason: 'Failed' });
           done.catch(() => { /* the page went away */ });
         });

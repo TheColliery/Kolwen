@@ -2,7 +2,7 @@
 //   - a 400 px wide element fails the 320 px reflow check (SC 1.4.10);
 //   - a box that clips its text fails the 200% text check (SC 1.4.4), both a box that cuts its own content and a text that sticks out of a clipping parent;
 //   - an inline style whose hash is not in the Content-Security-Policy is reported by the browser.
-// The browser tests need a route to a browser (scripts/lib/browser.mjs findRoute): the Chrome or Chromium found on Linux or macOS, or on Windows the headless shell inside WSL (never a Windows browser).
+// The browser tests need a route to a browser (scripts/lib/browser.mjs findRoute): the Chrome, Chromium or Edge found on Linux or macOS, or on Windows the headless shell inside WSL (never a Windows browser).
 // Locally, with no route, they are SKIPPED and the skip names why; in CI (CI=true) a missing browser FAILS the first test below, so CI never goes green without them.
 // Every child has a bound: the browser has a heap cap and a kill timer (scripts/lib/browser.mjs). Run: node --test scripts/rendered-check.test.mjs
 import test, { before, after } from 'node:test';
@@ -12,7 +12,7 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { findBrowser, findRoute, launchBrowser, BROWSER_ENV, EXIT_NOT_RUN_HERE } from './lib/browser.mjs';
 import * as browserLib from './lib/browser.mjs'; // devToolsEndpoint, profilePath, lockProfile and the rest are used through the namespace
 import * as wslLib from './lib/wsl-route.mjs'; // toWslPath, decodeWslText, findWslRoute
@@ -47,7 +47,7 @@ const run = (webDir, checks, headers = false) => renderedChecks({ webDir, browse
 const where = (failures, file, check) => failures.filter(f => f.page === file && f.check === check);
 
 test('in CI a browser is there: the rendered checks are never skipped there', { skip: CI ? false : 'only meaningful in CI' }, () => {
-  assert.ok(USABLE, `CI has no browser route (${route.why}), so the rendered checks cannot run (set ${BROWSER_ENV} or install a Chrome or Chromium)`);
+  assert.ok(USABLE, `CI has no browser route (${route.why}), so the rendered checks cannot run (set ${BROWSER_ENV} or install Chrome, Chromium or Edge)`);
 });
 
 test('the built pages pass all three checks, in both languages, under their real Content-Security-Policy', { skip: SKIP }, async () => {
@@ -580,12 +580,12 @@ test('on Windows the command line without WSL says "not run here" in one line an
   const env = { ...process.env, HOME: home, USERPROFILE: home, TEMP: home, TMP: home, TMPDIR: home, CI: '' };
   delete env[BROWSER_ENV];
   // WSL made unreachable: the program that would be started is a path that does not exist
-  const noWsl = spawnSync(process.execPath, ['--max-old-space-size=256', script], { encoding: 'utf8', timeout: 60000, env: { ...env, [wslLib.WSL_EXE_ENV]: join(tmpdir(), 'no-such-wsl.exe') } });
+  const noWsl = spawnSync(process.execPath, ['--max-old-space-size=256', script], { encoding: 'utf8', timeout: 60000, env: { ...env, [wslLib.WSL_EXE_ENV]: join(tmpdir(), 'no-such-dir', 'wsl.exe') } });
   assert.equal(noWsl.status, EXIT_NOT_RUN_HERE);
   assert.match(noWsl.stdout, /NOT RUN HERE rendered-check: WSL is not available here .* did not run here\. This is not a pass/);
   assert.equal(noWsl.stdout.trim().split('\n').length, 1, 'one line');
   // an existing Windows program named as the browser: refused, and nothing is started (the program is node itself, so it cannot be mistaken for a browser launch)
-  const refused = spawnSync(process.execPath, ['--max-old-space-size=256', script], { encoding: 'utf8', timeout: 60000, env: { ...env, [BROWSER_ENV]: process.execPath, [wslLib.WSL_EXE_ENV]: join(tmpdir(), 'no-such-wsl.exe') } });
+  const refused = spawnSync(process.execPath, ['--max-old-space-size=256', script], { encoding: 'utf8', timeout: 60000, env: { ...env, [BROWSER_ENV]: process.execPath, [wslLib.WSL_EXE_ENV]: join(tmpdir(), 'no-such-dir', 'wsl.exe') } });
   assert.equal(refused.status, EXIT_NOT_RUN_HERE);
   assert.match(refused.stdout, /NOT RUN HERE rendered-check: KOLWEN_BROWSER names .*, which is not the WSL route: on Windows this check never starts a Windows browser/);
 });
@@ -688,6 +688,86 @@ test('makeResponder: the answer is a function of the URL: pages, clean URLs, a 4
     assert.equal(r.body.toString(), 'not found');
   }
   assert.ok(!has(makeResponder(join(ROOT, 'web'), { headers: false })('/'), 'content-security-policy'), 'with the headers off there are none');
+});
+
+test('makeResponder: header names are lower-case, so a rule of _headers that overlaps a default replaces it and no name is there twice', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'kolwen-test-hdr-'));
+  copies.push(dir);
+  writeFileSync(join(dir, 'index.html'), '<!doctype html><title>x</title>');
+  writeFileSync(join(dir, '_headers'), '/*\n  Content-Type: text/x-test\n  Cache-Control: max-age=5\n  X-Mixed-Case: yes\n');
+  const home = makeResponder(dir, { headers: true })('/');
+  const names = Object.keys(home.headers);
+  assert.deepEqual(names, names.map(n => n.toLowerCase()), 'every name is lower-case');
+  assert.equal(new Set(names).size, names.length, 'no name twice');
+  assert.equal(home.headers['content-type'], 'text/x-test', 'the rule replaces the default');
+  assert.equal(home.headers['cache-control'], 'max-age=5');
+  assert.equal(home.headers['x-mixed-case'], 'yes');
+});
+
+test('the DevTools route answers HEAD with the headers and an empty body, and any other method with the page', () => {
+  const out = { status: 200, headers: { 'content-type': 'text/html' }, body: Buffer.from('<p>page') };
+  const head = browserLib.fulfillParams('r1', 'HEAD', out), get = browserLib.fulfillParams('r1', 'GET', out);
+  assert.equal(head.body, '');
+  assert.equal(Buffer.from(get.body, 'base64').toString(), '<p>page');
+  assert.deepEqual(head.responseHeaders, get.responseHeaders, 'the headers are the same');
+  assert.equal(head.responseCode, 200);
+  assert.equal(head.requestId, 'r1');
+});
+
+test('a HEAD request gets no body and a GET the whole page, on whichever route the browser takes', { skip: SKIP }, async () => {
+  const server = await browser.serve(join(ROOT, 'web'), { headers: false });
+  const page = await browser.newPage();
+  try {
+    await page.goto(server.origin + '/');
+    const seen = await page.evaluate(`(async () => { const h = await fetch('/', { method: 'HEAD' }), g = await fetch('/'); return { head: (await h.text()).length, headStatus: h.status, get: (await g.text()).length }; })()`);
+    assert.equal(seen.headStatus, 200);
+    assert.equal(seen.head, 0, 'HEAD: no body');
+    assert.ok(seen.get > 1000, 'GET: the page');
+  } finally { await page.close(); await server.close(); }
+});
+
+test('KOLWEN_WSL_EXE accepts only a program named wsl.exe: any other program is refused, and nothing is started', () => {
+  const asked = [];
+  const run = args => { asked.push(args); return { status: 1, stdout: Buffer.alloc(0), error: null }; };
+  for (const other of [process.execPath, 'msedge.exe', 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe', '/usr/bin/wsl', 'wsl.exe.bak', 'xwsl.exe', 'C:\\x\\wsl.exe\\']) {
+    const r = wslLib.findWslRoute({ env: { [wslLib.WSL_EXE_ENV]: other }, run });
+    assert.equal(r.kind, 'refused', other);
+    assert.match(r.why, /KOLWEN_WSL_EXE names .*, which is not wsl\.exe: this check starts no other program there$/, other);
+    const direct = wslLib.wslRun(['-l', '-q'], { [wslLib.WSL_EXE_ENV]: other });
+    assert.equal(direct.status, null, 'wslRun starts nothing for ' + other);
+    assert.ok(direct.error, other);
+    assert.throws(() => wslLib.startWslBrowser({ exe: other, distro: 'Ubuntu', port: 1, lifetimeS: 1, scriptsDir: SCRIPTS_ON_C }), /is not wsl\.exe/, other);
+  }
+  assert.deepEqual(asked, [], 'WSL was never asked');
+  // a missing path, or a stand-in, is accepted when it is NAMED wsl.exe (any case, either separator); unset means wsl.exe itself
+  for (const named of [join(tmpdir(), 'no-such-dir', 'wsl.exe'), 'C:\\no\\such\\WSL.EXE', '/no/such/wsl.exe', undefined]) {
+    const r = wslLib.findWslRoute({ env: named ? { [wslLib.WSL_EXE_ENV]: named } : {}, run });
+    assert.equal(r.kind, 'none', String(named));
+    assert.match(r.why, /^WSL is not available here/, String(named));
+  }
+  assert.equal(asked.length, 4, 'the four accepted names each asked WSL once');
+});
+
+test('run through a junction or a symlink the command line still runs: the entry guard compares real paths, and an import runs nothing', t => {
+  const root = mkdtempSync(join(tmpdir(), 'kolwen-test-guard-'));
+  copies.push(root); // the junction points at a COPY of scripts/ made here, so removing this folder can never reach the real ones
+  const real = join(root, 'real');
+  cpSync(join(ROOT, 'scripts'), real, { recursive: true });
+  const link = join(root, 'link');
+  try { symlinkSync(real, link, 'junction'); } catch { t.skip('this system will not make a symlink or a junction'); return; }
+  const home = join(root, 'home');
+  mkdirSync(home);
+  const env = { ...process.env, HOME: home, USERPROFILE: home, TEMP: home, TMP: home, TMPDIR: home, CI: 'true', [BROWSER_ENV]: join(tmpdir(), 'no-such-dir', 'no-such-browser') };
+  if (process.platform === 'win32') env[wslLib.WSL_EXE_ENV] = join(tmpdir(), 'no-such-dir', 'wsl.exe');
+  const args = file => ['--max-old-space-size=256', file];
+  const direct = spawnSync(process.execPath, args(join(real, 'rendered-check.mjs')), { encoding: 'utf8', timeout: 60000, env });
+  const viaLink = spawnSync(process.execPath, args(join(link, 'rendered-check.mjs')), { encoding: 'utf8', timeout: 60000, env });
+  assert.equal(direct.status, 1, 'with no browser CI fails: ' + direct.stderr);
+  assert.equal(viaLink.status, 1, 'the same through the link, not a silent 0: ' + viaLink.stdout + viaLink.stderr);
+  assert.match(viaLink.stderr, /FAIL rendered-check: /);
+  const imported = spawnSync(process.execPath, ['--input-type=module', '-e', `await import(${JSON.stringify(pathToFileURL(join(link, 'rendered-check.mjs')).href)})`], { encoding: 'utf8', timeout: 60000, env });
+  assert.equal(imported.status, 0, 'an import runs nothing: ' + imported.stderr);
+  assert.equal(imported.stdout + imported.stderr, '');
 });
 
 test('scripts/wsl/browser-run.sh: LF only, argv checked, the stable path and never a versioned folder, and its only delete sits behind a guard on a path it made', () => {
