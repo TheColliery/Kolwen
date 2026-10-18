@@ -6,13 +6,14 @@
 // Every child has a bound: the browser has a heap cap and a kill timer (scripts/lib/browser.mjs). Run: node --test scripts/rendered-check.test.mjs
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { findBrowser, launchBrowser, BROWSER_ENV } from './lib/browser.mjs';
-import * as browserLib from './lib/browser.mjs'; // devToolsEndpoint, profilePath, profileInUse are used through the namespace
+import * as browserLib from './lib/browser.mjs'; // devToolsEndpoint, profilePath, lockProfile and the rest are used through the namespace
 import { serveWeb } from './lib/static-server.mjs';
 import { renderedChecks, urlPathOf } from './rendered-check.mjs';
 import * as checkLib from './rendered-check.mjs'; // classifyLogs
@@ -114,9 +115,13 @@ test('a Permissions-Policy message alone does not fail the csp check and is repo
   const web = copyWeb(planted);
   const r = await run(web, ['csp'], true);
   assert.deepEqual(r.failures, [], 'no csp failure for a Permissions-Policy message: ' + JSON.stringify(r.failures));
-  assert.equal(r.notes.length, 14, 'one note per page and language (7 pages x 2): ' + r.notes.length);
-  assert.ok(r.notes.every(n => n.kind === 'permissions-policy' && /Unrecognized feature: 'kolwen-no-such-feature'/.test(n.text)), JSON.stringify(r.notes[0]));
-  assert.ok(r.measured.filter(m => m.check === 'csp').every(m => m.violations === 0 && m.notes === 1));
+  // only the planted name is counted: the runner's Chrome also reports the real _headers features it does not know ('bluetooth', 'web-share'), so a page carries more notes than the planted one
+  const mine = r.notes.filter(n => /Unrecognized feature: 'kolwen-no-such-feature'/.test(n.text));
+  assert.equal(mine.length, 14, 'one note for the planted name per page and language (7 pages x 2): ' + mine.length);
+  assert.ok(mine.every(n => n.kind === 'permissions-policy'), JSON.stringify(mine[0]));
+  const csp = r.measured.filter(m => m.check === 'csp');
+  assert.equal(csp.length, 14, 'a csp measurement for every page and language');
+  assert.ok(csp.every(m => m.violations === 0 && m.notes >= 1), JSON.stringify(csp.find(m => m.violations !== 0 || m.notes < 1)));
   const both = copyWeb(w => { planted(w); editPage(w, 'index.html', h => h.replace('</head>', '<style>body{outline:0}</style></head>')); });
   const hit = where((await run(both, ['csp'], true)).failures, 'index.html', 'csp');
   assert.ok(hit.length >= 1 && /style/i.test(hit[0].detail) && !/Permissions-Policy/.test(hit[0].detail), 'the planted CSP violation still fails, and it is the CSP message: ' + JSON.stringify(hit));
@@ -259,33 +264,50 @@ test('findBrowser: an explicit path wins, a wrong explicit path is never replace
   assert.equal(findBrowser({ PATH: '' }, 'linux'), null);
 });
 
-test('devToolsEndpoint: the file the browser writes is checked before it opens a connection (port 1 to 65535, path /devtools/browser/<id>, a fixed host)', () => {
+// The comments of a source file removed (a // that starts a line or follows white space, so http:// inside a string stays), for the tests that read the code and not the prose.
+const codeOf = f => readFileSync(join(ROOT, f), 'utf8').split(/\r?\n/).map(l => l.replace(/(^|\s)\/\/.*$/, '$1')).join('\n');
+
+test('devToolsEndpoint: the address the browser reports is accepted only as ws://127.0.0.1:<our port>/devtools/browser/<id>, and is rebuilt from our port and that id', () => {
   const devToolsEndpoint = browserLib.devToolsEndpoint;
-  const good = 'ws://127.0.0.1:9222/devtools/browser/0f3a-4B1c-9d';
-  assert.equal(devToolsEndpoint('9222\n/devtools/browser/0f3a-4B1c-9d'), good);
-  assert.equal(devToolsEndpoint('9222\r\n/devtools/browser/0f3a-4B1c-9d'), good);
-  assert.equal(devToolsEndpoint('1\n/devtools/browser/a'), 'ws://127.0.0.1:1/devtools/browser/a');
-  assert.equal(devToolsEndpoint('65535\n/devtools/browser/a'), 'ws://127.0.0.1:65535/devtools/browser/a');
-  for (const unfinished of ['', '9222', '9222\n', '\n/devtools/browser/a']) assert.equal(devToolsEndpoint(unfinished), null, JSON.stringify(unfinished));
-  const path = '/devtools/browser/a';
-  for (const port of ['0', '65536', '99999', '123456', '-1', '12a', '9222.5', ' 9222', '9222 ', '1e3', '9222@evil.example', '0x50', String.fromCharCode(0x0663).repeat(4)]) // the last: four Arabic-Indic digits, which are not the decimal digits 0 to 9
-    assert.throws(() => devToolsEndpoint(port + '\n' + path), /DevToolsActivePort names the port/, JSON.stringify(port));
-  for (const bad of ['/devtools/browser/', '/devtools/browser/../x', '/devtools/page/abc', '/devtools/browser/a/b', '/devtools/browser/a b', '//evil.example/x', 'evil', '@evil.example/devtools/browser/a', '/devtools/browser/a?x=1', '/devtools/browser/a#h', '/DEVTOOLS/browser/a'])
-    assert.throws(() => devToolsEndpoint('9222\n' + bad), /DevToolsActivePort names the path/, JSON.stringify(bad));
-  assert.match(devToolsEndpoint('9222\n/devtools/browser/x'), /^ws:\/\/127\.0\.0\.1:\d+\/devtools\/browser\/[A-Za-z0-9-]+$/);
+  const ok = 'ws://127.0.0.1:9222/devtools/browser/0f3a-4B1c-9d';
+  assert.equal(devToolsEndpoint(ok, 9222), ok);
+  assert.equal(devToolsEndpoint('ws://127.0.0.1:1/devtools/browser/a', 1), 'ws://127.0.0.1:1/devtools/browser/a');
+  assert.equal(devToolsEndpoint('ws://127.0.0.1:65535/devtools/browser/a', 65535), 'ws://127.0.0.1:65535/devtools/browser/a');
+  const bads = ['ws://localhost:9222/devtools/browser/a', 'ws://127.0.0.2:9222/devtools/browser/a', 'ws://evil.example:9222/devtools/browser/a', 'ws://127.0.0.1:9223/devtools/browser/a',
+    'ws://127.0.0.1:92220/devtools/browser/a', 'ws://127.0.0.1/devtools/browser/a', 'wss://127.0.0.1:9222/devtools/browser/a', 'http://127.0.0.1:9222/devtools/browser/a',
+    'ws://127.0.0.1:9222/devtools/page/a', 'ws://127.0.0.1:9222/devtools/browser/', 'ws://127.0.0.1:9222/devtools/browser/a/b', 'ws://127.0.0.1:9222/devtools/browser/a?x=1',
+    'ws://127.0.0.1:9222/devtools/browser/a#h', 'ws://127.0.0.1:9222@evil.example/devtools/browser/a', 'ws://user@127.0.0.1:9222/devtools/browser/a', ' ws://127.0.0.1:9222/devtools/browser/a',
+    'ws://127.0.0.1:9222/devtools/browser/a\n', 'ws://127.0.0.1:9222/DEVTOOLS/browser/a', '', undefined, null, 42, {}];
+  for (const bad of bads) assert.throws(() => devToolsEndpoint(bad, 9222), /the browser answered with the WebSocket address [\s\S]* which is not ws:\/\/127\.0\.0\.1:9222\/devtools\/browser\/<id>$/, JSON.stringify(bad));
 });
 
-// ── the one profile ─────────────────────────────────────────────────────────────────────────────────────────────
-// The browser profile is ONE folder, reused by every run and never deleted by this code: on the owner's Windows box a file-system filter refuses every process but the browser READ, WRITE and DELETE
-// on the files Edge writes, so a profile per run could never be removed and they piled up (81 folders, about 1 GB). Nothing below makes a new profile folder.
-test('profilePath: the same fixed folder on every call; KOLWEN_BROWSER_PROFILE names another; the default is a fixed name in the OS temp folder, never a random one', () => {
-  const profilePath = browserLib.profilePath;
-  const a = profilePath({}), b = profilePath({});
-  assert.equal(a, b);
-  assert.equal(a, join(tmpdir(), 'kolwen-browser-profile'));
-  assert.equal(profilePath({}, join(tmpdir(), 'elsewhere')), join(tmpdir(), 'elsewhere', 'kolwen-browser-profile'));
-  assert.equal(profilePath({ KOLWEN_BROWSER_PROFILE: join(tmpdir(), 'mine') }), join(tmpdir(), 'mine'));
-  assert.equal(profilePath({ KOLWEN_BROWSER_PROFILE: '' }), a, 'an empty value is no value');
+test('freePort: a port of 127.0.0.1 chosen by binding port 0, and free again afterwards', async () => {
+  const p = await browserLib.freePort();
+  assert.ok(Number.isInteger(p) && p >= 1024 && p <= 65535, String(p));
+  const s = createServer();
+  await new Promise((res, rej) => { s.once('error', rej); s.listen(p, '127.0.0.1', res); });
+  await new Promise(r => s.close(r));
+});
+
+test('profilePath: one fixed folder in the user\'s own cache folder, never in a shared temp folder; KOLWEN_BROWSER_PROFILE names another', () => {
+  const { profilePath, profileBase } = browserLib;
+  const home = join(tmpdir(), 'home-of-a-user'); // path strings only: nothing is made
+  const xdg = join(tmpdir(), 'xdg-cache');
+  const lad = join(tmpdir(), 'local-app-data');
+  const under = (base) => resolve(join(base, 'kolwen-browser-profile'));
+  assert.equal(profilePath({ LOCALAPPDATA: lad }, 'win32', home), under(lad), 'Windows: %LOCALAPPDATA%');
+  assert.equal(profilePath({}, 'win32', home), under(join(home, 'AppData', 'Local')), 'Windows without LOCALAPPDATA');
+  assert.equal(profilePath({ XDG_CACHE_HOME: xdg }, 'linux', home), under(xdg), 'POSIX: $XDG_CACHE_HOME');
+  assert.equal(profilePath({ XDG_CACHE_HOME: 'relative/cache' }, 'linux', home), under(join(home, '.cache')), 'a relative XDG_CACHE_HOME is ignored, as the XDG specification says');
+  assert.equal(profilePath({}, 'linux', home), under(join(home, '.cache')), 'POSIX: ~/.cache');
+  assert.equal(profilePath({}, 'darwin', home), under(join(home, '.cache')));
+  assert.equal(profileBase({ TMPDIR: '/tmp', TEMP: 'C:\\Temp', TMP: 'C:\\Temp' }, 'linux', home), join(home, '.cache'), 'the temp variables play no part');
+  // the real default, with the real home: not the OS temp folder, and the same on every call
+  const real = profilePath({});
+  assert.equal(real, profilePath({}));
+  assert.notEqual(resolve(dirname(real)), resolve(tmpdir()), 'not in the shared temp folder');
+  assert.equal(profilePath({ KOLWEN_BROWSER_PROFILE: join(tmpdir(), 'mine') }), resolve(join(tmpdir(), 'mine')));
+  assert.equal(profilePath({ KOLWEN_BROWSER_PROFILE: '' }), real, 'an empty value is no value');
   assert.equal(browserLib.PROFILE_ENV, 'KOLWEN_BROWSER_PROFILE');
 });
 
@@ -298,27 +320,34 @@ test('nothing in the browser code deletes anything: no rm, rmSync, rmdir, unlink
   assert.equal(browserLib.runDir, undefined);
 });
 
-test('profileInUse: only a browser that answers on the port in the profile\'s DevToolsActivePort counts; a leftover file, a bad port and no file do not', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'kolwen-test-inuse-'));
-  copies.push(dir);
-  const { profileInUse } = browserLib;
-  const asked = [];
-  const says = answer => port => { asked.push(port); return answer instanceof Error ? Promise.reject(answer) : Promise.resolve(answer); };
-  assert.equal(await profileInUse(dir, says({ Browser: 'x' })), false, 'no port file');
-  writeFileSync(join(dir, 'DevToolsActivePort'), '9222\n/devtools/browser/abc-1');
-  assert.equal(await profileInUse(dir, says({ Browser: 'Edg/1' })), true, 'a browser answers');
-  assert.deepEqual(asked, [9222], 'it was asked on the number from the file');
-  assert.equal(await profileInUse(dir, says(new Error('ECONNREFUSED'))), false, 'a leftover file of a browser that was killed: nobody answers');
-  assert.equal(await profileInUse(dir, says({ something: 'else' })), false, 'something answers and is not a browser');
-  asked.length = 0;
-  for (const bad of ['0\nx', '65536\nx', 'abc\nx', '9222@evil\nx', '']) {
-    writeFileSync(join(dir, 'DevToolsActivePort'), bad);
-    assert.equal(await profileInUse(dir, says({ Browser: 'x' })), false, JSON.stringify(bad));
-  }
-  assert.deepEqual(asked, [], 'a port that is not 1 to 65535 in decimal is never asked');
+test('lockProfile: a profile is locked once; a second lock fails at once with one line, giving the lock up frees it, and another profile is not in the way', async () => {
+  const a = join(tmpdir(), 'kolwen-lock-test-a'), b = join(tmpdir(), 'kolwen-lock-test-b'); // path strings only: nothing is made, and nothing is read
+  const release = await browserLib.lockProfile(a);
+  const t0 = Date.now();
+  await assert.rejects(browserLib.lockProfile(a), e => {
+    assert.match(e.message, /^the browser profile .*kolwen-lock-test-a is in use by another run$/);
+    assert.ok(!e.message.includes('\n'), 'one line');
+    return true;
+  });
+  assert.ok(Date.now() - t0 < 2000, 'at once, not a hang: ' + (Date.now() - t0) + ' ms');
+  const other = await browserLib.lockProfile(b);
+  await other();
+  await release();
+  const again = await browserLib.lockProfile(a);
+  await again();
 });
 
-const countBrowserFolders = () => readdirSync(tmpdir()).filter(n => n.startsWith('kolwen-browser-')).length;
+test('lockPortOf: the same profile always gives the same port, in 49152 to 65535, and different profiles give different ones', () => {
+  const { lockPortOf } = browserLib;
+  const a = join(tmpdir(), 'kolwen-lock-test-a'), b = join(tmpdir(), 'kolwen-lock-test-b');
+  assert.equal(lockPortOf(a), lockPortOf(a));
+  assert.notEqual(lockPortOf(a), lockPortOf(b));
+  for (const p of [a, b, '/', 'C:\\x', '', 'a'.repeat(500)]) assert.ok(lockPortOf(p) >= 49152 && lockPortOf(p) <= 65535, p.slice(0, 20));
+  assert.equal(lockPortOf('C:\\Users\\A\\x', 'win32'), lockPortOf('c:\\users\\a\\x', 'win32'), 'Windows paths are case-blind');
+  assert.notEqual(lockPortOf('/Home/a', 'linux'), lockPortOf('/home/a', 'linux'), 'POSIX paths are not');
+});
+
+const countBrowserFolders = () => readdirSync(dirname(browserLib.profilePath())).filter(n => n.startsWith('kolwen-browser-')).length; // beside the profile: the user's cache folder
 
 test('two launches use the same profile folder, and the second makes no new kolwen-browser-* folder', { skip: SKIP }, async () => {
   const first = browser.profile;
@@ -370,6 +399,53 @@ test('prepareProfile: it makes and marks a new folder, accepts its own, adopts a
   const file = join(root, 'afile');
   writeFileSync(file, 'x');
   assert.throws(() => prepareProfile(file), /is a folder this check did not make/);
+});
+
+test('prepareProfile refuses a profile path that is a symlink or a junction, and writes nothing through it', t => {
+  const root = mkdtempSync(join(tmpdir(), 'kolwen-test-link-'));
+  copies.push(root);
+  const target = join(root, 'target');
+  mkdirSync(target);
+  const link = join(root, 'link');
+  try { symlinkSync(target, link, 'junction'); } catch { t.skip('this system will not make a symlink or a junction'); return; } // a junction needs no privilege on Windows; on POSIX the type is ignored
+  assert.throws(() => browserLib.prepareProfile(link), /the browser profile .*link is a link \(a symlink or a junction\), so it is not used$/);
+  assert.deepEqual(readdirSync(target), [], 'nothing was written through the link');
+});
+
+test('prepareProfile makes the profile folder with mode 0o700 and the marker with mode 0o600', { skip: process.platform === 'win32' ? 'POSIX mode bits: Windows has none (the runner proves this)' : false }, () => {
+  const root = mkdtempSync(join(tmpdir(), 'kolwen-test-mode-'));
+  copies.push(root);
+  const dir = join(root, 'p');
+  browserLib.prepareProfile(dir);
+  assert.equal(statSync(dir).mode & 0o077, 0, 'no group or other bit on the folder');
+  assert.equal(statSync(dir).mode & 0o700, 0o700);
+  assert.equal(statSync(join(dir, browserLib.MARKER)).mode & 0o077, 0, 'no group or other bit on the marker');
+});
+
+test('writeMarker is an exclusive create: a marker that is already there is never overwritten, and that is not an error', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'kolwen-test-wx-'));
+  copies.push(dir);
+  writeFileSync(join(dir, browserLib.MARKER), 'mine');
+  browserLib.writeMarker(dir);
+  assert.equal(readFileSync(join(dir, browserLib.MARKER), 'utf8'), 'mine');
+  const fresh = mkdtempSync(join(tmpdir(), 'kolwen-test-wx-'));
+  copies.push(fresh);
+  browserLib.writeMarker(fresh);
+  assert.match(readFileSync(join(fresh, browserLib.MARKER), 'utf8'), /^made by scripts\/lib\/browser\.mjs/);
+  assert.throws(() => browserLib.writeMarker(join(fresh, 'no', 'such', 'folder')), /ENOENT/, 'any other error is not swallowed');
+});
+
+test('what CodeQL asked for is in the code: no file is read (so no file data reaches a request), the port is ours, the marker is an exclusive create, the folder is 0o700, and nothing uses the shared temp folder', () => {
+  const code = codeOf('scripts/lib/browser.mjs');
+  assert.doesNotMatch(code, /DevToolsActivePort|readFileSync|readFile\b|createReadStream/, 'the port file is never read');
+  assert.match(code, /\/json\/version/, 'the address comes from the browser\'s own answer');
+  assert.match(code, /--remote-debugging-port=\$\{port\}/, 'the port is the one we chose');
+  assert.doesNotMatch(code, /remote-debugging-port=0/);
+  assert.match(code, /flag: 'wx'/, 'the marker is an exclusive create');
+  assert.match(code, /mode: 0o700/, 'the folder is private');
+  assert.match(code, /lstatSync\(profile/, 'a link is found without following it');
+  assert.doesNotMatch(code, /tmpdir/, 'no shared temp folder');
+  assert.doesNotMatch(code, /existsSync\(profile\)/, 'no check of the profile folder followed by a use of it');
 });
 
 test('launchBrowser refuses a profile folder it did not make before it starts anything, and writes nothing into it', async () => {
