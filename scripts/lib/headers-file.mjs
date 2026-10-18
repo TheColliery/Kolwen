@@ -133,12 +133,13 @@ export function patternMatches(pattern, path) {
   return new RegExp('^' + re + '$').test(path);
 }
 
-// The directives of a Cache-Control value: [{ name (lower case), arg (unquoted; null when there is none), bad }]. The value splits on commas outside quotes; a piece that is not `name` or `name=argument` (an argument
-// is a token or a quoted string) is kept as { name: the piece, bad: true }, so it can never pass for a directive.
+// The directives of a Cache-Control value: [{ name (lower case), arg (unquoted; null when there is none), bad }]. The value splits on commas outside quotes. The grammar of RFC 9111 section 5.2 is
+// `cache-directive = token [ "=" ( token / quoted-string ) ]`: no space around the `=`, and an argument that is there has at least one character (a token is one or more). A piece that is not that
+// is { name: the piece, bad: true }, so it can never pass for a directive.
 function cacheDirectives(value) {
   return (value.match(/(?:"[^"]*"|[^,"])+/g) || []).map(piece => {
-    const m = /^\s*([^\s=,"]+)(?:\s*=\s*(?:"([^"]*)"|([^\s,"]*)))?\s*$/.exec(piece);
-    return m ? { name: m[1].toLowerCase(), arg: m[2] ?? m[3] ?? null } : { name: piece.trim().toLowerCase(), arg: null, bad: true };
+    const m = /^\s*([^\s=,"]+)(?:=(?:"([^"]*)"|([^\s,"]+)))?\s*$/.exec(piece);
+    return m ? { name: m[1].toLowerCase(), arg: m[2] ?? m[3] ?? null } : { name: piece.trim().toLowerCase(), arg: null, bad: true, piece: piece.trim() };
   });
 }
 
@@ -150,13 +151,16 @@ export function fontCacheMiss(value) {
   // (no-cache="field" and private="field" only name fields, and are not read as bare)
   const override = directives.find(d => !d.bad && (d.name === 'no-store' || ((d.name === 'no-cache' || d.name === 'private') && d.arg === null)));
   if (override) return `${served} with ${override.name}, which stops the year-long reuse, expected ${FONT_CACHE_CONTROL}`;
+  // a piece that is no directive at all (`max-age = 1`, `no-cache=`) is named: a cache may drop it, so the header cannot be said to hold what the check wants
+  const bad = directives.find(d => d.bad);
+  if (bad) return `${served} with a malformed directive "${bad.piece}", expected ${FONT_CACHE_CONTROL}`;
   // exactly one max-age (a second may undo the first, and a cache is free to take either), and its whole value is digits (a numeric prefix such as 31536000junk is a malformed directive a cache drops)
   const ages = directives.filter(d => d.name === 'max-age');
   if (ages.length > 1) return `${served} with ${ages.length} max-age directives, expected exactly one (${FONT_CACHE_CONTROL})`;
   if (ages.length === 1 && !/^\d+$/.test(ages[0].arg ?? '')) return `${served} with a malformed max-age ("${ages[0].arg ?? ''}"), expected ${FONT_CACHE_CONTROL}`;
   if (!ages.length || Number(ages[0].arg) < ONE_YEAR) return `${served}, expected max-age of at least ${ONE_YEAR} (${FONT_CACHE_CONTROL})`;
-  if (!directives.some(d => !d.bad && d.name === 'immutable')) return `${served} without immutable, expected ${FONT_CACHE_CONTROL}`;
-  if (!directives.some(d => !d.bad && d.name === 'public')) return `${served} without public, expected ${FONT_CACHE_CONTROL}`;
+  if (!directives.some(d => d.name === 'immutable')) return `${served} without immutable, expected ${FONT_CACHE_CONTROL}`;
+  if (!directives.some(d => d.name === 'public')) return `${served} without public, expected ${FONT_CACHE_CONTROL}`;
   return null;
 }
 

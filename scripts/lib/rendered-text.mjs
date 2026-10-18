@@ -56,11 +56,18 @@ export function textOf(html) {
   return decodeEntities(stripped);
 }
 
+// CSS comments removed outside strings (the `/*` inside a string is text; a comment never closed runs to the end). The one comment stripper of the font checks and of the budget check's @import and url() scans.
+export const stripCssComments = css => css.replace(/("(?:[^"\\\n\r\f]|\\[\s\S])*"|'(?:[^'\\\n\r\f]|\\[\s\S])*')|\/\*[\s\S]*?(?:\*\/|$)/g, (m, str) => str ?? ' ');
+
+// The `content:` strings of the <style> blocks. Read as a browser reads them: the property name in any case and as a whole name (not `x-content:`, not a selector such as `.content:hover`), nothing from a CSS comment, a commented-out
+// <style> block or a <style> inside a script, and a string broken by a raw line break is a bad string that draws nothing (a backslash before the break continues it).
+const STYLE_BLOCK = /<!--[\s\S]*?(?:-->|$)|<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>|<style\b[^>]*>([\s\S]*?)<\/style\b[^>]*>/gi;
 export function cssContentOf(html) {
   const out = [];
-  for (const block of html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\b[^>]*>/gi)) {
-    for (const m of block[1].matchAll(/\bcontent\s*:\s*((?:"(?:[^"\\]|\\[\s\S])*"|'(?:[^'\\]|\\[\s\S])*'|[^;}"'])*)/g)) {
-      for (const lit of m[1].matchAll(/"((?:[^"\\]|\\[\s\S])*)"|'((?:[^'\\]|\\[\s\S])*)'/g)) out.push(cssUnescape(lit[1] ?? lit[2]));
+  for (const block of html.matchAll(STYLE_BLOCK)) {
+    if (block[1] === undefined) continue; // a comment or a script, matched only so that a <style> inside it is not read
+    for (const m of stripCssComments(block[1]).matchAll(/(?<=^|[{;\s])content\s*:\s*((?:"(?:[^"\\\n\r\f]|\\[\s\S])*"|'(?:[^'\\\n\r\f]|\\[\s\S])*'|[^;}"'])*)/gi)) {
+      for (const lit of m[1].matchAll(/"((?:[^"\\\n\r\f]|\\[\s\S])*)"|'((?:[^'\\\n\r\f]|\\[\s\S])*)'/g)) out.push(cssUnescape(lit[1] ?? lit[2]));
     }
   }
   return out.join(' ');

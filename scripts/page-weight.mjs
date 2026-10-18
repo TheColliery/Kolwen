@@ -16,7 +16,7 @@ import { brotliCompressSync, constants } from 'node:zlib';
 import { join, dirname, resolve, extname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { facesOf, inRange } from './lib/font-coverage.mjs';
-import { renderedChars } from './lib/rendered-text.mjs';
+import { renderedChars, stripCssComments } from './lib/rendered-text.mjs';
 import { htmlPages } from './lib/web-files.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -61,9 +61,6 @@ const servedBytes = (file, bytes) => (TEXT.has(extname(file).toLowerCase()) ? co
 const sameOrigin = u => Boolean(u) && !/^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(u);
 const strip = u => u.replace(/[?#].*$/, '');
 const resolveUrl = (u, from) => (u.startsWith('/') ? posix.normalize(u) : posix.normalize(posix.join(posix.dirname(from), u)));
-
-// CSS comments are not read by a browser: an @import or a url() inside one loads nothing.
-const stripCssComments = text => text.replace(/\/\*[\s\S]*?\*\//g, ' ');
 
 // The same-origin urls a stylesheet text names through url(), skipping data: and absolute urls. `from` is the url path of the file that names them.
 function cssUrls(text, from) {

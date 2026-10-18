@@ -45,6 +45,29 @@ test('CSS string escapes are decoded in ONE pass: an escaped backslash is a back
   assert.equal(content('"' + BS + 'z' + BS + '-"'), 'z-', 'a backslash before a character that is not a hex digit is that character');
 });
 
+test('CSS content is read as the browser reads it: the property name in any case, as a whole name, outside comments (HTML and CSS) and outside a script, and a string that is broken by a raw line break draws nothing', () => {
+  const ARROW = String.fromCodePoint(0x2192), BS = String.fromCharCode(92);
+  const arrow = BS + '2192';
+  const style = css => cssContentOf(`<style>${css}</style>`);
+  // CodeRabbit and Copilot, PR 48: property names are ASCII case-insensitive
+  assert.equal(style(`a::after{CONTENT:"${arrow}"}`), ARROW);
+  assert.equal(style(`a::after{Content : '${arrow}'}`), ARROW);
+  assert.equal(style(`a::after{cOnTeNt:"${arrow}"}`), ARROW);
+  // T1: text that draws nothing is not read
+  assert.equal(cssContentOf(`<!-- <style>a::after{content:"${arrow}"}</style> -->`), '', 'a commented-out <style> block');
+  assert.equal(cssContentOf(`<!-- x --><style>a::after{content:"q"}</style><!-- <style>b::after{content:"z"}</style> -->`), 'q', 'the live block beside a commented one');
+  assert.equal(cssContentOf(`<script>var s = "<style>a::after{content:'q'}</style>";</script>`), '', 'a <style> inside a script string is script text');
+  assert.equal(style(`/* a::after{content:"${arrow}"} */ b::after{content:"q"}`), 'q', 'content: inside a CSS comment');
+  assert.equal(style(`a::after{content:"q" /* ; content:"${arrow}" */}`), 'q');
+  assert.equal(style(`/* never closed a::after{content:"${arrow}"}`), '', 'a comment that runs to the end of the stylesheet');
+  assert.equal(style('a::after{content:"/* kept */"}'), '/* kept */', 'comment marks inside a string are text');
+  for (const prefixed of ['x-content', '-webkit-content', 'mycontent', 'a_content']) assert.equal(style(`a::after{${prefixed}:"${arrow}"}`), '', prefixed + ' is not content');
+  assert.equal(style(`.content:hover{color:red} #content:focus{color:red}`), '', 'a selector with the word is not a declaration');
+  assert.equal(style('a::after{color:red;content:"q"}'), 'q', 'after a semicolon');
+  assert.equal(style('a::after{content:"a\nb"}'), '', 'a raw line break ends a string as a bad string, and the declaration is dropped');
+  assert.equal(style('a::after{content:"q"; content:\'a\nb\'}'), 'q');
+});
+
 test('the derived set: the pages render these characters, the Thai block among them, and every one is a code point at or above U+0020', () => {
   const seen = renderedChars(WEB);
   assert.ok(seen.size > 100 && seen.size < 400, 'rendered code points: ' + seen.size);
