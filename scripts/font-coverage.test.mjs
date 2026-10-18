@@ -10,7 +10,7 @@ import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { decodeEntities, textOf, cssContentOf, scriptStringsOf, renderedChars } from './lib/rendered-text.mjs';
 import { woff2Cmap, woff2Names } from './lib/woff2-cmap.mjs';
-import { servedFiles } from './lib/web-files.mjs';
+import { htmlPages } from './lib/web-files.mjs';
 import { glyphSets, coverageGaps, facesOf, asksForLayoutFeature, THAI_SHAPING } from './lib/font-coverage.mjs';
 import { cutSet, BASELINE } from './font-subset.mjs';
 
@@ -259,7 +259,7 @@ test('the cut files carry the new family name and no "Plex" in the name records 
 });
 
 test('the pages ask for no OpenType layout feature, so the features the cut dropped are unreachable; a page that asks for one is caught', () => {
-  for (const page of servedFiles(WEB).filter(f => f.endsWith('.html'))) assert.ok(!asksForLayoutFeature(readFileSync(join(WEB, page), 'utf8')), page + ' asks for a layout feature');
+  for (const page of htmlPages(WEB)) assert.ok(!asksForLayoutFeature(readFileSync(join(WEB, page), 'utf8')), page + ' asks for a layout feature');
   assert.ok(asksForLayoutFeature('<style>h1{font-variant-numeric:slashed-zero}</style>'));
   assert.ok(asksForLayoutFeature("<p style=\"font-feature-settings:'zero'\">x</p>"));
   assert.ok(!asksForLayoutFeature('<style>h1{font-weight:600}</style>'));

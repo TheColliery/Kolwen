@@ -7,8 +7,9 @@ import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
+import { htmlPages } from './lib/web-files.mjs';
 import { fileURLToPath } from 'node:url';
-import { ALMANAC, CEILING_FACTOR, DIVERGENCES, NOT_COUNTED, checkTree, measurePage, metricVerdict, report } from './page-weight.mjs';
+import { ALMANAC, CEILING_FACTOR, DIVERGENCES, NOT_COUNTED, checkTree, measurePage, metricVerdict, report, staleWarning } from './page-weight.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const MEDIAN = ALMANAC.medianBytes, REQS = ALMANAC.medianRequests;
@@ -164,6 +165,117 @@ test('the real site: every page passes below the median, the table names every p
   for (const r of rows) assert.ok(cli.stdout.includes(r.page + ' | ' + r.bytes + ' | ' + r.requests + ' | '), r.page + ' is in the printed table');
   assert.ok(cli.stdout.includes(NOT_COUNTED));
   assert.match(NOT_COUNTED, /Cloudflare Web Analytics beacon/);
+});
+
+// A fixture tree from a map of path -> text or bytes (every folder is made).
+function tree(files) {
+  const dir = mkdtempSync(join(tmpdir(), 'page-weight-t-'));
+  for (const [p, c] of Object.entries(files)) { mkdirSync(dirname(join(dir, p)), { recursive: true }); writeFileSync(join(dir, p), c); }
+  return dir;
+}
+const urlsOf = row => row.parts.map(p => p.url).sort();
+
+// F1: a link, an image, a srcset and an inline style are read in all three HTML attribute forms; one that is skipped would count as zero, not as missing.
+const FORMS = { 'double-quoted': v => `"${v}"`, 'single-quoted': v => `'${v}'`, unquoted: v => v };
+for (const [form, q] of Object.entries(FORMS)) {
+  test(`RED PROOF: href, src, srcset and an inline style url() are counted when written ${form}`, () => {
+    const dir = tree({
+      's.css': 'p{color:red}', 'i.png': Buffer.alloc(900, 1), 'j.png': Buffer.alloc(700, 2), 'k.png': Buffer.alloc(500, 3),
+      'index.html': `<!doctype html><html><head><link rel=${q('stylesheet')} href=${q('/s.css')}></head><body><img src=${q('/i.png')} alt=""><img srcset=${q('/j.png')} alt=""><p style=${q('background:url(/k.png)')}>x</p></body></html>`,
+    });
+    try {
+      const r = only(checkTree(dir));
+      assert.deepEqual(urlsOf(r), ['/i.png', '/index.html', '/j.png', '/k.png', '/s.css']);
+      assert.equal(r.parts.find(p => p.url === '/i.png').bytes, 900);
+    } finally { gone(dir); }
+  });
+}
+
+test('an attribute name inside another name is not read: data-href, data-src and a srcset are not a href or a src', () => {
+  const dir = tree({ 'x.png': Buffer.alloc(100, 1), 'index.html': '<!doctype html><html><body><a data-href="/x.png">a</a><img data-src="/x.png" alt=""></body></html>' });
+  try { assert.deepEqual(urlsOf(only(checkTree(dir))), ['/index.html']); } finally { gone(dir); }
+});
+
+// F2: an @import, in either form, is a stylesheet walked like a linked one: its own @font-face faces and url() count, and a cycle ends.
+test('RED PROOF: an @import (string or url()), nested, in a linked or an inline stylesheet, is a css asset whose own fonts and urls are counted; a cycle ends', () => {
+  const dir = tree({
+    's.css': '@import "b.css";\n@import url(c.css) screen;\n@import url("/d.css");\np{color:red}',
+    'b.css': "@font-face{font-family:'B';src:url('/fonts/b.woff2');unicode-range:U+0020-007E;}",
+    'c.css': "@import 'e.css'; body{background:url(bg.png)}",
+    'd.css': '@import "/s.css";',
+    'e.css': 'i{margin:0}',
+    'inl.css': 'u{margin:0}',
+    'fonts/b.woff2': Buffer.alloc(1000, 4), 'bg.png': Buffer.alloc(300, 5),
+    'index.html': '<!doctype html><html><head><link rel="stylesheet" href="/s.css"><style>@import "/inl.css";</style></head><body>hello</body></html>',
+  });
+  try {
+    const r = only(checkTree(dir));
+    assert.deepEqual(urlsOf(r), ['/b.css', '/bg.png', '/c.css', '/d.css', '/e.css', '/fonts/b.woff2', '/index.html', '/inl.css', '/s.css']);
+    for (const u of ['/b.css', '/c.css', '/d.css', '/e.css', '/inl.css']) assert.equal(r.parts.find(p => p.url === u).kind, 'css', u + ' is a stylesheet, not an image');
+    assert.equal(r.parts.find(p => p.url === '/fonts/b.woff2').kind, 'font');
+  } finally { gone(dir); }
+});
+
+test('an @import of a file that is not in the built tree is a named failure', () => {
+  const dir = tree({ 's.css': '@import "gone.css";', 'index.html': '<!doctype html><html><head><link rel="stylesheet" href="/s.css"></head><body>x</body></html>' });
+  try { assert.throws(() => checkTree(dir), /index\.html: loads \/gone\.css, which is not in the built tree/); } finally { gone(dir); }
+});
+
+// F3: one page lister for the font coverage check and this one.
+test('RED PROOF: a page in a subfolder is measured too, and the lister is the one the font coverage check uses', () => {
+  const dir = tree({ 'index.html': '<!doctype html><html><body>hi</body></html>', 'th/index.html': '<!doctype html><html lang="th"><body><img src="/img/big.png" alt=""></body></html>', 'img/big.png': randomBytes(MEDIAN * 2 + 50_000) });
+  try {
+    const rows = checkTree(dir);
+    assert.deepEqual(rows.map(r => r.page), ['index.html', 'th/index.html']);
+    assert.deepEqual(rows.map(r => r.page), htmlPages(dir));
+    assert.equal(rows[1].level, 'fail');
+    assert.match(report(rows), /th\/index\.html \| \d+ \| 2 \| [\d.]+ \| [\d.]+ \| FAIL/);
+  } finally { gone(dir); }
+  assert.deepEqual(checkTree(join(ROOT, 'web')).map(r => r.page), htmlPages(join(ROOT, 'web')));
+});
+
+// F4: an exception lives only while it is used.
+const FLOOR = 'Every asset is compressed, the fonts are subset, the images are in modern formats at the size shown, and no code is unused.';
+const TRIED = 'Re-encoded the image at lower quality, which lost the detail the page exists to show; dropping it removes the page\'s one function.';
+test('RED PROOF: a named divergence whose page is under the ceiling, whose page is absent, whose metric is under the ceiling, or that names no metric is a FAIL with a message that names it', () => {
+  const small = fixture({});
+  const big = fixture({ imageBytes: MEDIAN * 2 + 50_000 });
+  try {
+    const stale = checkTree(small, { divergences: { 'index.html': { bytes: { floor: FLOOR, tried: TRIED } } } });
+    assert.equal(only(stale).level, 'fail');
+    assert.match(only(stale).notes.join(' '), /index\.html: the named divergence for transfer bytes is stale: the page is at \d+, not above twice the median \(5120000\); remove the entry/);
+    const absent = checkTree(small, { divergences: { 'gone.html': { bytes: { floor: FLOOR, tried: TRIED } } } });
+    assert.deepEqual(absent.map(r => [r.page, r.level]), [['index.html', 'pass'], ['gone.html', 'fail']]);
+    assert.match(absent[1].notes.join(' '), /gone\.html: a named divergence names a page that is not in the built tree; remove the entry/);
+    assert.match(report(absent), /gone\.html \| - \| - \| - \| - \| FAIL/);
+    const half = only(checkTree(big, { divergences: { 'index.html': { bytes: { floor: FLOOR, tried: TRIED }, requests: { floor: FLOOR, tried: TRIED } } } }));
+    assert.equal(half.level, 'fail', 'the bytes entry is used, the requests entry is not');
+    assert.match(half.notes.join(' '), /named divergence for requests is stale: the page is at 2, not above twice the median \(150\)/);
+    assert.ok(half.notes.join(' ').includes('NAMED DIVERGENCE'), 'the used entry still prints');
+    const typo = only(checkTree(big, { divergences: { 'index.html': { bytes: { floor: FLOOR, tried: TRIED }, byte: { floor: FLOOR, tried: TRIED } } } }));
+    assert.equal(typo.level, 'fail');
+    assert.match(typo.notes.join(' '), /index\.html: a named divergence has the key "byte", which is not bytes or requests/);
+    const none = only(checkTree(small, { divergences: { 'index.html': {} } }));
+    assert.equal(none.level, 'fail', 'an entry that names no metric excuses nothing and is not used');
+    assert.equal(only(checkTree(big, { divergences: { 'index.html': { bytes: { floor: FLOOR, tried: TRIED } } } })).level, 'diverged', 'control: a used entry still passes');
+  } finally { gone(small); gone(big); }
+});
+
+// F6: the median is re-read from each new edition, and a reader is told when that is overdue. Frozen dates, never the clock.
+test('RED PROOF: a WARNING (not a failure) names the URL pattern to re-read once the Almanac was read more than 13 months ago; a frozen date drives it', () => {
+  const day = s => new Date(s + 'T12:00:00Z');
+  assert.equal(staleWarning(ALMANAC, day('2026-10-18')), '');
+  assert.equal(staleWarning(ALMANAC, day('2027-11-18')), '', 'exactly 13 months is not yet more than 13');
+  const w = staleWarning(ALMANAC, day('2027-11-19'));
+  assert.match(w, /^WARNING: the Web Almanac median was read on 2026-10-18, more than 13 months ago; re-read the latest edition at https:\/\/almanac\.httparchive\.org\/en\/<year>\/page-weight and update ALMANAC$/);
+  assert.match(staleWarning({ ...ALMANAC, readOn: 'soon' }, day('2026-10-18')), /^WARNING: .* is not a date/);
+  const dir = fixture({});
+  try {
+    const rows = checkTree(dir);
+    assert.ok(!report(rows, ALMANAC, day('2026-10-18')).includes('WARNING'));
+    assert.ok(report(rows, ALMANAC, day('2028-01-01')).split('\n').includes(staleWarning(ALMANAC, day('2028-01-01'))), 'the report prints the warning as a line of its own');
+    assert.equal(only(rows).level, 'pass', 'a stale date changes no verdict');
+  } finally { gone(dir); }
 });
 
 test('an unknown flag exits 2, --help prints usage and exits 0, and a tree with no page fails rather than passes', () => {

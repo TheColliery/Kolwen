@@ -2,7 +2,7 @@
 // The transfer-size budget (web-build rule W-PERF-08): for each built page, the bytes of a cold load (the HTML plus every same-origin asset it loads, each counted as it is
 // served, compressed) and the number of requests, against a ceiling derived from the CURRENT HTTP Archive Web Almanac median home page.
 //
-//   node scripts/page-weight.mjs                 measure every web/*.html and print one row per page; exit 1 when a page fails
+//   node scripts/page-weight.mjs                 measure every page of web/ (subfolders too) and print one row per page; exit 1 when a page fails
 //   node scripts/page-weight.mjs --web <dir>     measure another built tree (the tests use fixtures)
 //   node scripts/page-weight.mjs --help          this text
 //
@@ -11,12 +11,13 @@
 // can shrink no further: every asset compressed, fonts subset, images in modern formats at the size shown, no unused code, and the change records what was tried and why nothing
 // more can be cut without losing a function the page needs. A stated wish is not a floor." A listed page prints its divergence on every run, so it is never silent.
 // Zero dependencies, node builtins only. Report problems at https://github.com/TheColliery/Kolwen/issues
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { brotliCompressSync, constants } from 'node:zlib';
 import { join, dirname, resolve, extname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { facesOf, inRange } from './lib/font-coverage.mjs';
 import { renderedChars } from './lib/rendered-text.mjs';
+import { htmlPages } from './lib/web-files.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -68,6 +69,21 @@ function cssUrls(text, from) {
   return out;
 }
 
+// An attribute's value in a tag, written in any of the three HTML forms (double-quoted, single-quoted, unquoted). `data-href` is not `href`.
+const attr = (tag, name) => {
+  const m = new RegExp(`(?<![\\w-])${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'=<>]+))`, 'i').exec(tag);
+  return m ? (m[1] ?? m[2] ?? m[3]) : undefined;
+};
+
+// The stylesheets an @import names (the string form or url(), with an optional media query), as url paths, and the text without its @import statements, so that an imported file is
+// not also counted as an image by cssUrls.
+const IMPORT = /@import\s+(?:url\(\s*(["']?)([^"')\s]+)\1\s*\)|(["'])([^"']+)\3)[^;{}]*;?/gi;
+function importsOf(text, from) {
+  const urls = [];
+  for (const m of text.matchAll(IMPORT)) { const u = m[2] ?? m[4]; if (sameOrigin(u)) urls.push(resolveUrl(strip(u), from)); }
+  return { urls, rest: text.replace(IMPORT, ' ') };
+}
+
 // The assets one page loads, as a Map url -> kind ('css' | 'font' | 'image' | 'script' | 'icon' | 'other'). Fonts are the faces of the linked stylesheets whose unicode-range covers a
 // character the page renders (an over-approximation: every such face, whatever the cascade would pick). `cps` are the code points the page renders.
 export function assetsOf(webDir, page, cps) {
@@ -76,30 +92,35 @@ export function assetsOf(webDir, page, cps) {
   const found = new Map();
   const add = (url, kind) => { if (!found.has(url)) found.set(url, kind); };
   for (const m of html.matchAll(/<link\b[^>]*>/gi)) {
-    const rel = (/\brel\s*=\s*"([^"]*)"/i.exec(m[0]) || [])[1] || '', href = (/\bhref\s*=\s*"([^"]*)"/i.exec(m[0]) || [])[1];
+    const rel = attr(m[0], 'rel') || '', href = attr(m[0], 'href');
     if (!sameOrigin(href) || !/\b(?:stylesheet|icon|apple-touch-icon|preload|modulepreload)\b/i.test(rel)) continue;
     add(resolveUrl(strip(href), pageUrl), /stylesheet/i.test(rel) ? 'css' : /icon/i.test(rel) ? 'icon' : 'other');
   }
-  for (const m of html.matchAll(/<(img|script|source|video|audio|iframe|embed)\b[^>]*\bsrc\s*=\s*"([^"]*)"[^>]*>/gi)) {
-    if (sameOrigin(m[2])) add(resolveUrl(strip(m[2]), pageUrl), m[1].toLowerCase() === 'script' ? 'script' : 'image');
+  for (const m of html.matchAll(/<(img|script|source|video|audio|iframe|embed)\b[^>]*>/gi)) {
+    const src = attr(m[0], 'src');
+    if (sameOrigin(src)) add(resolveUrl(strip(src), pageUrl), m[1].toLowerCase() === 'script' ? 'script' : 'image');
   }
-  for (const m of html.matchAll(/<(?:img|source)\b[^>]*\bsrcset\s*=\s*"([^"]*)"[^>]*>/gi)) {
-    for (const part of m[1].split(',')) { const u = part.trim().split(/\s+/)[0]; if (sameOrigin(u)) add(resolveUrl(strip(u), pageUrl), 'image'); }
+  for (const m of html.matchAll(/<(?:img|source)\b[^>]*>/gi)) {
+    for (const part of (attr(m[0], 'srcset') || '').split(',')) { const u = part.trim().split(/\s+/)[0]; if (sameOrigin(u)) add(resolveUrl(strip(u), pageUrl), 'image'); }
   }
-  const inline = (html.match(/<style\b[\s\S]*?<\/style>/gi) || []).join('\n') + '\n' + (html.match(/style="[^"]*"/gi) || []).join('\n');
-  for (const u of cssUrls(inline, pageUrl)) add(u, 'image');
-  // Linked stylesheets: their @font-face faces by unicode-range, and any other url() they load.
-  for (const [url, kind] of [...found]) {
-    if (kind !== 'css') continue;
-    const file = join(webDir, url);
+  // Stylesheets still to be read: the linked ones, then every @import found, in a list that grows (an import is walked like a linked sheet, and a cycle ends at the first repeat).
+  const todo = [...found].filter(([, kind]) => kind === 'css').map(([url]) => url);
+  const queue = url => { if (!found.has(url)) { add(url, 'css'); todo.push(url); } };
+  const styleAttrs = [...html.matchAll(/(?<![\w-])style\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>]+))/gi)].map(m => m[1] ?? m[2] ?? m[3]);
+  const inline = importsOf((html.match(/<style\b[\s\S]*?<\/style>/gi) || []).join('\n'), pageUrl);
+  inline.urls.forEach(queue);
+  for (const u of cssUrls(inline.rest + '\n' + styleAttrs.join('\n'), pageUrl)) add(u, 'image');
+  // Each stylesheet: its imports, its @font-face faces by unicode-range, and any other url() it loads.
+  for (let i = 0; i < todo.length; i++) {
+    const url = todo[i], file = join(webDir, url);
     if (!existsSync(file)) continue; // reported by measurePage as a missing asset
-    const text = readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
-    const faceUrls = new Set();
-    for (const f of facesOf(text)) {
+    const sheet = importsOf(readFileSync(file, 'utf8').replace(/\r\n/g, '\n'), url);
+    sheet.urls.forEach(queue);
+    for (const f of facesOf(sheet.rest)) {
       if (f.range && ![...cps].some(cp => inRange(cp, f.range))) continue;
-      for (const u of f.urls) if (sameOrigin(u)) { const r = resolveUrl(strip(u), url); faceUrls.add(r); add(r, 'font'); }
+      for (const u of f.urls) if (sameOrigin(u)) add(resolveUrl(strip(u), url), 'font');
     }
-    for (const u of cssUrls(text.replace(/@font-face\s*\{[^}]*\}/g, ' '), url)) add(u, 'image');
+    for (const u of cssUrls(sheet.rest.replace(/@font-face\s*\{[^}]*\}/g, ' '), url)) add(u, 'image');
   }
   return found;
 }
@@ -131,24 +152,51 @@ export function checkTree(webDir, opts = {}) {
   const divergences = opts.divergences ?? DIVERGENCES, almanac = opts.almanac ?? ALMANAC;
   const rendered = renderedChars(webDir);
   const rows = [];
-  for (const page of readdirSync(webDir).filter(f => f.endsWith('.html')).sort()) {
-    const cps = [...rendered].filter(([, pages]) => pages.has('web/' + page)).map(([cp]) => cp);
+  const pages = htmlPages(webDir);
+  for (const page of pages) {
+    const cps = [...rendered].filter(([, pageSet]) => pageSet.has('web/' + page)).map(([cp]) => cp);
     const m = measurePage(webDir, page, cps);
-    const d = divergences[page] || {};
+    const d = Object.hasOwn(divergences, page) ? divergences[page] : {};
     const b = metricVerdict(m.bytes, almanac.medianBytes, d.bytes, 'transfer bytes'), r = metricVerdict(m.requests, almanac.medianRequests, d.requests, 'requests');
-    const level = [b.level, r.level].includes('fail') ? 'fail' : [b.level, r.level].includes('diverged') ? 'diverged' : [b.level, r.level].includes('note') ? 'note' : 'pass';
-    rows.push({ ...m, ratioBytes: m.bytes / almanac.medianBytes, ratioRequests: m.requests / almanac.medianRequests, level, notes: [b.text, r.text].filter(Boolean) });
+    // An exception lives only while it is used: an entry for a metric that is not over the ceiling, a key that is neither metric, or an entry naming no metric is a FAIL.
+    const stale = [];
+    for (const [key, label, value, median] of [['bytes', 'transfer bytes', m.bytes, almanac.medianBytes], ['requests', 'requests', m.requests, almanac.medianRequests]]) {
+      if (d[key] && value <= median * CEILING_FACTOR) stale.push(`${page}: the named divergence for ${label} is stale: the page is at ${value}, not above twice the median (${median * CEILING_FACTOR}); remove the entry (an exception lives only while it is used)`);
+    }
+    for (const k of Object.keys(d)) if (k !== 'bytes' && k !== 'requests') stale.push(`${page}: a named divergence has the key "${k}", which is not bytes or requests`);
+    if (Object.hasOwn(divergences, page) && Object.keys(d).length === 0) stale.push(`${page}: a named divergence names no metric (bytes or requests)`);
+    const levels = [b.level, r.level];
+    const level = stale.length || levels.includes('fail') ? 'fail' : levels.includes('diverged') ? 'diverged' : levels.includes('note') ? 'note' : 'pass';
+    rows.push({ ...m, ratioBytes: m.bytes / almanac.medianBytes, ratioRequests: m.requests / almanac.medianRequests, level, notes: [b.text, r.text, ...stale].filter(Boolean) });
+  }
+  for (const key of Object.keys(divergences)) {
+    if (!pages.includes(key)) rows.push({ page: key, bytes: null, requests: null, parts: [], ratioBytes: null, ratioRequests: null, level: 'fail', notes: [`${key}: a named divergence names a page that is not in the built tree; remove the entry (an exception lives only while it is used)`] });
   }
   return rows;
 }
 
+// A WARNING (never a failure) once the Almanac median was read more than 13 months ago: the row wants the median re-read from each new edition, and a new edition comes out about once a year.
+// Compared by calendar day, so exactly 13 months later is not yet over. `today` is a parameter so a test can freeze it.
+export function staleWarning(almanac = ALMANAC, today = new Date()) {
+  const how = 're-read the latest edition at https://almanac.httparchive.org/en/<year>/page-weight and update ALMANAC';
+  const read = new Date(almanac.readOn + 'T00:00:00Z');
+  if (Number.isNaN(read.getTime())) return `WARNING: the Web Almanac read date "${almanac.readOn}" is not a date; ${how}`;
+  const due = new Date(read);
+  due.setUTCMonth(due.getUTCMonth() + 13);
+  return today.toISOString().slice(0, 10) > due.toISOString().slice(0, 10) ? `WARNING: the Web Almanac median was read on ${almanac.readOn}, more than 13 months ago; ${how}` : '';
+}
+
 const WORD = { pass: 'PASS', note: 'PASS (above the median)', diverged: 'PASS (named divergence)', fail: 'FAIL' };
-export function report(rows, almanac = ALMANAC) {
+export function report(rows, almanac = ALMANAC, today = new Date()) {
   const out = [];
   out.push(`Median home page (mobile), ${almanac.edition}, read ${almanac.readOn}: ${almanac.medianBytes} bytes, ${almanac.medianRequests} requests; ceiling ${CEILING_FACTOR}x = ${almanac.medianBytes * CEILING_FACTOR} bytes, ${almanac.medianRequests * CEILING_FACTOR} requests. Source: ${almanac.url}`);
+  const stale = staleWarning(almanac, today);
+  if (stale) out.push(stale);
   out.push(`Bytes are cold-load transfer bytes: text brotli-compressed at quality ${BROTLI_QUALITY}, fonts and images as their bytes.`);
   out.push('page | bytes | requests | x median bytes | x median requests | verdict');
-  for (const r of rows) out.push(`${r.page} | ${r.bytes} | ${r.requests} | ${r.ratioBytes.toFixed(4)} | ${r.ratioRequests.toFixed(4)} | ${WORD[r.level]}`);
+  // a divergence naming a page that is not in the tree has nothing measured: its cells read "-"
+  const cell = (v, f = x => x) => (v === null ? '-' : f(v));
+  for (const r of rows) out.push(`${r.page} | ${cell(r.bytes)} | ${cell(r.requests)} | ${cell(r.ratioBytes, x => x.toFixed(4))} | ${cell(r.ratioRequests, x => x.toFixed(4))} | ${WORD[r.level]}`);
   for (const r of rows) for (const n of r.notes) out.push(`${r.page}: ${n}`);
   out.push(NOT_COUNTED);
   return out.join('\n');
@@ -156,13 +204,13 @@ export function report(rows, almanac = ALMANAC) {
 
 function main() {
   const args = process.argv.slice(2);
-  if (args.includes('-h') || args.includes('--help')) { console.log('usage: node scripts/page-weight.mjs [--web <dir>]   (measures every *.html of the built tree against the Web Almanac median; exit 1 on a FAIL)'); return; }
+  if (args.includes('-h') || args.includes('--help')) { console.log('usage: node scripts/page-weight.mjs [--web <dir>]   (measures every page of the built tree, subfolders too against the Web Almanac median; exit 1 on a FAIL)'); return; }
   const unknown = args.filter((a, i) => a !== '--web' && args[i - 1] !== '--web');
   if (unknown.length) { console.error('unknown argument: ' + unknown.join(' ')); process.exitCode = 2; return; }
   const web = args.includes('--web') ? resolve(args[args.indexOf('--web') + 1] || '') : join(ROOT, 'web');
   let rows;
   try { rows = checkTree(web); } catch (e) { console.error('FAIL ' + e.message); process.exitCode = 1; return; }
-  if (rows.length === 0) { console.error('FAIL no *.html page found in ' + web + ': an empty check is not a pass'); process.exitCode = 1; return; }
+  if (rows.length === 0) { console.error('FAIL no page found in ' + web + ': an empty check is not a pass'); process.exitCode = 1; return; }
   console.log(report(rows));
   if (rows.some(r => r.level === 'fail')) process.exitCode = 1;
 }

@@ -5,7 +5,7 @@
 // Zero dependencies, node builtins only.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { servedFiles } from './web-files.mjs';
+import { htmlPages } from './web-files.mjs';
 
 // The WHATWG named character reference table, all 2125 terminated names (and the 106 legacy names a browser also decodes without their `;`), generated into html-entities.json from the Python standard library:
 //   python -I -c "import json,sys,html.entities as e;h=e.html5;n={k[:-1]:v for k,v in h.items() if k.endswith(';')};l=sorted(k for k in h if not k.endswith(';'));assert all(h[k]==h[k+';'] for k in l);print(json.dumps({'python':sys.version.split()[0],'named':n,'legacy':l},ensure_ascii=True,sort_keys=True,indent=0),file=open('scripts/lib/html-entities.json','w',encoding='utf-8',newline='\n'))"
@@ -78,7 +78,7 @@ export function scriptStringsOf(html) {
 export function renderedChars(webDir) {
   const seen = new Map();
   const note = (text, page) => { for (const ch of text) { const cp = ch.codePointAt(0); if (cp < 0x20) continue; (seen.get(cp) || seen.set(cp, new Set()).get(cp)).add(page); } };
-  const pages = servedFiles(webDir).filter(f => f.endsWith('.html'));
+  const pages = htmlPages(webDir);
   for (const page of pages) {
     const html = readFileSync(join(webDir, page), 'utf8').replace(/\r\n/g, '\n');
     note(textOf(html) + ' ' + cssContentOf(html) + ' ' + scriptStringsOf(html), 'web/' + page);
