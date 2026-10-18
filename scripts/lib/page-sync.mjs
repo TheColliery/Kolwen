@@ -1,14 +1,15 @@
-// The build-time sync of the shared blocks into the hand-kept pages (web/index.html, web/pricing.html, web/404.html), and of the style-src and script-src hashes of
-// web/_headers. scripts/legal-pages.mjs is the only caller: `--write` replaces what sits between each block's markers, `--check` compares it.
+// The check of the shared blocks in the site pages (web/index.html, web/pricing.html, web/404.html, which are rendered from their templates), and the style-src and script-src hashes of
+// web/_headers. scripts/legal-pages.mjs is the only caller: `--check` reads each block of a page against its render, to name the block that drifted (the whole page is compared there too), and
+// `--write` plans the hashes of the pages it writes.
 //
 // A BLOCK is { name, begin, end, label, shared, render }, the shape of SYNC_BLOCKS in scripts/lib/legal-render.mjs (the one place the marker
 // names are written). A block's text is the begin marker, a line break, the render and a line break, the end marker: inner(render) is what sits
-// between the two markers, so the markers stay where the page keeps them and nothing else about the page is the sync's business.
+// between the two markers.
 //
-// All text here is LF. The caller splits a page's line endings off with eolOf and puts them back, so a CRLF checkout stays CRLF.
+// All text here is LF.
 //
 // Stated limits: a marker is found by its exact text, so a marker copied inside another block's contents would be read as that block's own;
-// the sync does not parse HTML or CSS, and it refuses (never guesses) a page whose markers are missing, doubled, out of the order SYNC_BLOCKS gives, or in pairs that overlap or nest.
+// the reader does not parse HTML or CSS, and it names (never guesses) a page whose markers are missing, doubled, out of the order SYNC_BLOCKS gives, or in pairs that overlap or nest.
 import { inlineStyles, inlineScripts, cspHash } from './csp-hashes.mjs';
 import { parseHeadersFile, declarations } from './headers-file.mjs';
 
@@ -16,15 +17,6 @@ const count = (text, s) => text.split(s).length - 1;
 
 // What sits between a block's markers for a given render: an empty render leaves one line break.
 export const inner = rendered => '\n' + (rendered ? rendered + '\n' : '');
-
-// The line endings of a page: its text as LF, and whether to put CRLF back. A page with both kinds is refused by the caller (mixed).
-export function eolOf(raw) {
-  const text = raw.replace(/\r\n/g, '\n');
-  const crlf = raw.includes('\r\n');
-  const mixed = crlf && /(^|[^\r])\n/.test(raw);
-  return { text, crlf, mixed };
-}
-export const withEol = (text, crlf) => (crlf ? text.replace(/\n/g, '\r\n') : text);
 
 // Where a block sits in a page's text: { from, to } (the text between the markers) and { start, stop } (the whole fenced block, markers
 // included), or { problem }.
@@ -77,22 +69,6 @@ export function inspect(text, blocks) {
     const have = text.slice(r.at.from, r.at.to), want = inner(r.block.render());
     return { block: r.block, have, want, same: have === want };
   });
-}
-
-// The page with every block's contents replaced by its render. Every pair is located on the original text first; the replacements then run from
-// the end of the page backward, so none of them moves a position another one still needs. Writes nothing, and returns the problems instead of a
-// page when any marker is wrong: { text, problems: [{ block, problem }], changed: [label of each block whose contents moved, in page order] }.
-export function sync(text, blocks) {
-  const all = locateAll(text, blocks);
-  const problems = all.filter(r => r.problem).map(r => ({ block: r.block, problem: r.problem }));
-  if (problems.length) return { text, problems, changed: [] };
-  const changed = [];
-  let out = text;
-  for (const r of [...all].sort((a, b) => b.at.from - a.at.from)) {
-    const want = inner(r.block.render());
-    if (text.slice(r.at.from, r.at.to) !== want) { changed.unshift(r.block.label); out = out.slice(0, r.at.from) + want + out.slice(r.at.to); }
-  }
-  return { text: out, problems, changed };
 }
 
 // ── the style-src hashes of web/_headers ────────────────────────────────────────────────────────────

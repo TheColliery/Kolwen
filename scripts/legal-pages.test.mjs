@@ -216,7 +216,8 @@ test('the same inputs give the same pages', () => {
 });
 
 // ── the CLI, against a throwaway copy of the tree ──────────────────────────────────────────────
-const FILES = ['scripts/legal-pages.mjs', 'scripts/lib/legal-render.mjs', 'scripts/lib/legal-page-text.mjs', 'scripts/lib/legal-state.mjs', 'scripts/lib/legal-holds.json', 'TERMS.md', 'PRIVACY.md', 'legal/thai-7day-clause.md', 'legal/legal-state.json', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/pricing.html', 'CHANGELOG.md', 'web/changelog.html', 'web/index.html', 'web/404.html', 'web/_headers', 'scripts/lib/headers-file.mjs', 'scripts/lib/page-sync.mjs', 'scripts/lib/csp-hashes.mjs'];
+const FILES = ['scripts/legal-pages.mjs', 'scripts/lib/legal-render.mjs', 'scripts/lib/legal-page-text.mjs', 'scripts/lib/legal-state.mjs', 'scripts/lib/legal-holds.json', 'TERMS.md', 'PRIVACY.md', 'legal/thai-7day-clause.md', 'legal/legal-state.json', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/pricing.html', 'CHANGELOG.md', 'web/changelog.html', 'web/index.html', 'web/404.html', 'web/_headers', 'scripts/lib/headers-file.mjs', 'scripts/lib/page-sync.mjs', 'scripts/lib/csp-hashes.mjs',
+  'scripts/lib/i18n-catalogue.mjs', 'scripts/lib/page-template.mjs', 'scripts/lib/html-tokens.mjs', 'web-src/i18n/en.json', 'web-src/i18n/th.json', 'web-src/pages/home.html', 'web-src/pages/pricing.html', 'web-src/pages/notfound.html'];
 function copyTree() {
   const dir = mkdtempSync(join(tmpdir(), 'legal-pages-'));
   for (const f of FILES) { mkdirSync(dirname(join(dir, f)), { recursive: true }); writeFileSync(join(dir, f), readFileSync(join(ROOT, f))); }
@@ -230,7 +231,7 @@ const edit = (dir, f, fn) => writeFileSync(join(dir, f), fn(readFileSync(join(di
 
 test('--check passes on the committed pages', () => {
   const dir = copyTree();
-  try { const r = check(dir); assert.equal(r.status, 0, r.stdout + r.stderr); assert.match(r.stdout, /4 pages match/); } finally { rmSync(dir, { recursive: true, force: true }); }
+  try { const r = check(dir); assert.equal(r.status, 0, r.stdout + r.stderr); assert.match(r.stdout, /7 pages match/); } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('--check fails, naming the page, when one word of a statement in a source changes; --write puts it right', () => {
@@ -399,8 +400,6 @@ const LABEL = { fonts: 'font manifest link', hcss: 'header css', css: 'footer cs
 const lf = s => s.replace(/\r\n/g, '\n');
 const snap = (dir, files) => Object.fromEntries(files.map(f => [f, readFileSync(join(dir, f))]));
 const sameBytes = (a, b) => Object.keys(a).every(f => Buffer.compare(a[f], b[f]) === 0);
-// The page text with every fenced block's contents cut out: what --write must leave alone.
-const outside = text => { let t = text; for (const m of Object.values(MARK)) { const i = t.indexOf(m.begin), j = t.indexOf(m.end); if (i >= 0 && j > i) t = t.slice(0, i + m.begin.length) + t.slice(j); } return t; };
 // The comments of _headers talk about style-src too, so the directive is read from the one indented policy line.
 const styleSrcLine = text => /^[ \t]+Content-Security-Policy:[^\r\n]*/m.exec(text)[0].split(';').map(d => d.trim()).find(d => d.split(/\s+/)[0] === 'style-src');
 const sortedStyleSrc = text => styleSrcLine(text).split(/\s+/).filter(t => t.startsWith("'sha256-")).sort();
@@ -458,26 +457,28 @@ test('an edited footer on a hand-kept page fails --check, naming page and block,
     } finally { rmSync(dir, { recursive: true, force: true }); }
   }
 });
-test('a marker that is missing fails --check and --write loudly, and --write writes nothing', () => {
+// The three site pages are generated whole (web-src/pages + the language catalogue), so a damaged marker is not a thing --write must refuse to guess about: --check names the block, and --write generates the page again,
+// marker included, and changes nothing else.
+test('a marker that is missing from a site page fails --check naming the block, and --write generates the page again with the marker back', () => {
   for (const [f, k, edge] of [['web/index.html', 'header', 'begin'], ['web/404.html', 'en', 'end'], ['web/pricing.html', 'th', 'begin'], ['web/index.html', 'css', 'end'], ['web/404.html', 'css', 'begin']]) {
     const dir = copyTree();
     try {
+      const orig = snap(dir, WATCHED);
       const marker = MARK[k][edge];
       edit(dir, f, x => { assert.ok(x.includes(marker), f + ' holds ' + marker); return x.replace(marker, ''); });
-      const before = snap(dir, WATCHED);
       const r = check(dir);
       assert.equal(r.status, 1, f + k + edge + '\n' + r.stdout + r.stderr);
       assert.match(r.stdout, new RegExp('FAIL ' + reEscape(f) + ' ' + LABEL[k] + ': .*missing'), f + k + edge);
+      assert.match(r.stdout, new RegExp('FAIL ' + reEscape(f) + ' differs from the render of its sources'), 'and the whole page is named too');
       const w = check(dir, '--write');
-      assert.equal(w.status, 1, f + k + edge + '\n' + w.stdout + w.stderr);
-      assert.match(w.stdout + w.stderr, /missing/);
-      assert.match(w.stdout + w.stderr, /nothing was written/);
-      assert.ok(sameBytes(before, snap(dir, WATCHED)), 'no page and not _headers changed');
+      assert.equal(w.status, 0, f + k + edge + '\n' + w.stdout + w.stderr);
+      assert.ok(sameBytes(orig, snap(dir, WATCHED)), 'every watched page and _headers are back to the bytes they had');
+      assert.equal(check(dir).status, 0);
     } finally { rmSync(dir, { recursive: true, force: true }); }
   }
 });
 
-test('a marker that is doubled, or out of order, fails --check and --write loudly, and --write writes nothing', () => {
+test('a marker that is doubled, or out of order, in a site page fails --check naming the block, and --write generates the page again', () => {
   for (const [what, f, k, fn, re] of [
     ['doubled begin', 'web/index.html', 'en', (x, m) => x.replace(m.begin, m.begin + '\n' + m.begin), /doubled/],
     ['doubled end', 'web/404.html', 'header', (x, m) => x.replace(m.end, m.end + '\n' + m.end), /doubled/],
@@ -486,37 +487,35 @@ test('a marker that is doubled, or out of order, fails --check and --write loudl
   ]) {
     const dir = copyTree();
     try {
+      const orig = snap(dir, WATCHED);
       edit(dir, f, x => { assert.ok(x.includes(MARK[k].begin) && x.includes(MARK[k].end), f); return fn(x, MARK[k]); });
-      const before = snap(dir, WATCHED);
       const r = check(dir);
       assert.equal(r.status, 1, what + '\n' + r.stdout + r.stderr);
       assert.match(r.stdout, new RegExp('FAIL ' + reEscape(f) + ' ' + LABEL[k] + ': .*'), what);
       assert.match(r.stdout, re, what);
       const w = check(dir, '--write');
-      assert.equal(w.status, 1, what + '\n' + w.stdout + w.stderr);
-      assert.match(w.stdout + w.stderr, re);
-      assert.match(w.stdout + w.stderr, /nothing was written/);
-      assert.ok(sameBytes(before, snap(dir, WATCHED)), what + ': nothing changed');
+      assert.equal(w.status, 0, what + '\n' + w.stdout + w.stderr);
+      assert.ok(sameBytes(orig, snap(dir, WATCHED)), what + ': the pages are back to the bytes they had');
+      assert.equal(check(dir).status, 0);
     } finally { rmSync(dir, { recursive: true, force: true }); }
   }
 });
 
-test('--write leaves every byte outside the markers as it found it, in a CRLF page and in an LF page', () => {
+test('a hand edit of a site page, in a CRLF page or an LF page, is undone by --write: the page is generated again, as LF, whole', () => {
   for (const eol of ['crlf', 'lf']) {
     for (const f of HAND) {
       const dir = copyTree();
       try {
+        const orig = readFileSync(join(dir, f));
         const [from, to] = FOOTER_ANCHOR[f];
         edit(dir, f, x => { const y = lf(x).replace(from, to).replace('<main>', '<main><!-- keep-me-7f3a -->'); return eol === 'crlf' ? y.replace(/\n/g, '\r\n') : y; });
-        const mid = readFileSync(join(dir, f), 'utf8');
-        assert.ok(mid.includes('keep-me-7f3a'));
+        assert.ok(readFileSync(join(dir, f), 'utf8').includes('keep-me-7f3a'));
+        const c = check(dir);
+        assert.equal(c.status, 1, c.stdout + c.stderr);
+        assert.ok(c.stdout.includes(`FAIL ${f} differs from the render of its sources`), f + ' ' + eol);
         const w = check(dir, '--write');
         assert.equal(w.status, 0, w.stdout + w.stderr);
-        const after = readFileSync(join(dir, f), 'utf8');
-        assert.equal(outside(after), outside(mid), f + ' ' + eol + ': the bytes outside the markers are equal');
-        assert.ok(after.includes('keep-me-7f3a'));
-        if (eol === 'crlf') assert.ok(!/[\r\n]/.test(after.replace(/\r\n/g, '')), f + ': every line break of a CRLF page is still CRLF'); else assert.ok(!after.includes('\r'), f + ': an LF page gains no carriage return');
-        assert.ok(!after.includes(to), f + ': the edited footer was put right');
+        assert.equal(Buffer.compare(readFileSync(join(dir, f)), orig), 0, f + ' ' + eol + ': back to the generated bytes, LF only');
       } finally { rmSync(dir, { recursive: true, force: true }); }
     }
   }
@@ -601,20 +600,19 @@ const CROSS = [
   ['order: the header pair above the footer rules in the style block', 'web/404.html', 'header', (x, M) => { const c = pairText(x, M.css), h = pairText(x, M.header); return x.replace(c, '@@C@@').replace(h, c).replace('@@C@@', h); }, /expected document order/],
 ];
 for (const [what, f, k, fn, re] of CROSS) {
-  test(`${what} fails --check and --write loudly, and --write writes nothing`, () => {
+  test(`${what} fails --check naming the block, and --write generates the page again`, () => {
     const dir = copyTree();
     try {
+      const orig = snap(dir, WATCHED);
       edit(dir, f, x => { const y = fn(x, MARK); assert.notEqual(y, x, 'the edit changed the page'); return y; });
-      const before = snap(dir, WATCHED);
       const r = check(dir);
       assert.equal(r.status, 1, what + '\n' + r.stdout + r.stderr);
       assert.match(r.stdout, new RegExp('FAIL ' + reEscape(f) + ' ' + reEscape(LABEL[k]) + ': .*'), what);
       assert.match(r.stdout, re, what);
       const w = check(dir, '--write');
-      assert.equal(w.status, 1, what + '\n' + w.stdout + w.stderr);
-      assert.match(w.stdout + w.stderr, re, what);
-      assert.match(w.stdout + w.stderr, /nothing was written/);
-      assert.ok(sameBytes(before, snap(dir, WATCHED)), what + ': nothing changed');
+      assert.equal(w.status, 0, what + '\n' + w.stdout + w.stderr);
+      assert.ok(sameBytes(orig, snap(dir, WATCHED)), what + ': back to the generated bytes');
+      assert.equal(check(dir).status, 0);
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 }
@@ -871,6 +869,24 @@ test('Contact lists info, support, abuse and appeals beside the security.txt, in
 });
 
 // ── rule 17 lets stand only the switch buttons the shared header and footer render ───────────────────────────────────────────────
+// Rule 4 refuses the invisible characters. The one it lets through is the no-break space the Thai typography row puts before the repetition mark (build-qc.md W-I18N-12), and only there.
+test('surface-check rule 4 lets a no-break space stand before the Thai repetition mark and refuses it anywhere else', () => {
+  const dir = surfaceCopy();
+  try {
+    const NB = String.fromCharCode(0xa0), MAIYAMOK = String.fromCharCode(0xe46);
+    const page = readFileSync(join(dir, 'web/pricing.html'), 'utf8');
+    assert.ok(page.includes(NB + MAIYAMOK), 'the pricing page has a no-break space before the repetition mark');
+    const base = surface(dir);
+    assert.equal(base.status, 0, 'and the committed tree passes: ' + base.stdout + base.stderr);
+    for (const [what, text] of [['between two English words', page.replace('Coming soon', 'Coming' + NB + 'soon')], ['after the repetition mark', page.replace(NB + MAIYAMOK + ' ', NB + MAIYAMOK + NB)]]) {
+      writeFileSync(join(dir, 'web/pricing.html'), text);
+      const r = surface(dir);
+      assert.equal(r.status, 1, what + ': ' + r.stdout + r.stderr);
+      assert.match(r.stdout + r.stderr, /web\/pricing\.html: invisible character U\+A0/, what);
+    }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('surface-check rule 17 allows a live button only when it is exactly a switch button the lib renders and sits inside the shared header or footer block', () => {
   const dir = surfaceCopy();
   try {

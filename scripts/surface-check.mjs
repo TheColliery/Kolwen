@@ -96,8 +96,10 @@ for (const f of tracked.filter(SCANNABLE)) {
 for (const f of tracked.filter(PUBLISHED)) {
   const s = read(f);
   if (/ํา/.test(s)) note(f, 'decomposed SARA AM (U+0E4D U+0E32) — must be U+0E33');
+  // One U+00A0 is not an invisible character: the no-break space the Thai typography row puts before the repetition mark U+0E46 (build-qc.md W-I18N-12, kept by the catalogue lint). Every other one is.
+  const withoutMaiyamokSpace = s.split(String.fromCharCode(0xa0, 0xe46)).join(String.fromCharCode(0xe46));
   for (const cp of [0x200B, 0x200C, 0x200D, 0x00A0, 0xFEFF]) {
-    if (s.includes(String.fromCodePoint(cp))) note(f, `invisible character U+${cp.toString(16).toUpperCase()}`);
+    if (withoutMaiyamokSpace.includes(String.fromCodePoint(cp))) note(f, `invisible character U+${cp.toString(16).toUpperCase()}`);
   }
   if (s.includes('…')) note(f, 'U+2026 ellipsis — use three ASCII dots');
 }

@@ -19,6 +19,9 @@
 // frame are Thai. The hold list is matched by anchor, so two passages that open with the same eight words are held together.
 import { MARK_EN, MARK_TH, PAGES, BANNER, PENDING, THAI_OWED, TEXT_TWINS, PENDING_LINES, REFUND_ROWS } from './legal-page-text.mjs';
 import { activeSince } from './legal-state.mjs';
+import { t, html as tHtml, escText, escAttr } from './i18n-catalogue.mjs';
+import { renderTemplate } from './page-template.mjs';
+export { escText, escAttr };
 
 export const SOURCES = { terms: 'TERMS.md', privacy: 'PRIVACY.md', clause: 'legal/thai-7day-clause.md', changelog: 'CHANGELOG.md' };
 export const HOLD_REASON = 'awaits counsel';
@@ -106,10 +109,7 @@ export function holdProblems(holds, perFile) {
 }
 
 // ── 3. Inline Markdown → HTML, and the plain text it must equal ──────────────────────────────────
-// Escaping, never stripping: one function for text and one for attribute values, each covering & < > " and '.
-const ENT = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-export const escText = s => s.replace(/[&<>"']/g, c => ENT[c]);
-export const escAttr = s => s.replace(/[&<>"']/g, c => ENT[c]);
+// Escaping, never stripping: one function for text and one for attribute values, each covering & < > " and ' (written once in i18n-catalogue.mjs, which the catalogue values go through too).
 const SLOT = String.fromCharCode(0xE000); // private-use delimiter for a code span parked while emphasis is read
 
 export function inline(md) {
@@ -246,62 +246,52 @@ export const FOOTER_CSS = [
 // The Kolwen mark, on one line (the blocks carry no indentation). The fill is CSS (HEADER_CSS), so a light page can give it its darker on-light colour.
 export const markSvg = (size, cls) => `<svg class="${cls}" viewBox="0 0 100 100" width="${size}" height="${size}" aria-hidden="true"><rect x="8.5" y="9.1" width="64.3" height="25"/><rect x="17.85" y="46.25" width="64.3" height="19.66"/><rect x="27.2" y="75.46" width="64.3" height="15.45"/></svg>`;
 
-const FOOTER = {
-  en: { label: 'Footer', note: '© 2026 Kolwen · trademark application pending', groups: [
-    ['Kolwen', [['/', 'Home']]],
-    ['Product', [['/pricing', 'Pricing'], ['/changelog', 'Changelog']]],
-    ['Legal', [['/terms', 'Terms'], ['/privacy', 'Privacy'], ['/refund', 'Refunds']]],
-    ['Code', [['https://github.com/TheColliery/Kolwen', 'GitHub'], ['https://huggingface.co/kolwen', 'Hugging Face'], ['https://www.npmjs.com/package/kolwen', 'npm'], ['/llms.txt', 'llms.txt']]],
-    ['Contact', [['mailto:info@kolwen.com', 'Email'], ['mailto:support@kolwen.com', 'Support'], ['mailto:abuse@kolwen.com', 'Report abuse'], ['mailto:appeals@kolwen.com', 'Appeals'], ['https://kolwen.com/.well-known/security.txt', 'Security']]]] },
-  th: { label: 'ส่วนท้ายเว็บ', note: '© 2026 Kolwen · เครื่องหมายการค้าอยู่ระหว่างการจดทะเบียน', groups: [
-    ['Kolwen', [['/', 'หน้าแรก']]],
-    ['สินค้า', [['/pricing', 'ราคา'], ['/changelog', 'บันทึกการเปลี่ยนแปลง']]],
-    ['กฎหมาย', [['/terms', 'ข้อกำหนด'], ['/privacy', 'ความเป็นส่วนตัว'], ['/refund', 'การคืนเงิน']]],
-    ['โค้ด', [['https://github.com/TheColliery/Kolwen', 'GitHub'], ['https://huggingface.co/kolwen', 'Hugging Face'], ['https://www.npmjs.com/package/kolwen', 'npm'], ['/llms.txt', 'llms.txt']]],
-    ['ติดต่อ', [['mailto:info@kolwen.com', 'อีเมล'], ['mailto:support@kolwen.com', 'ขอความช่วยเหลือ'], ['mailto:abuse@kolwen.com', 'แจ้งการละเมิด'], ['mailto:appeals@kolwen.com', 'ยื่นอุทธรณ์'], ['https://kolwen.com/.well-known/security.txt', 'ความปลอดภัย']]]] },
-};
+// The footer: five groups of links. The addresses are the code's (a link target is not translated); every word the footer shows is a catalogue key of the shared group (web-src/i18n/<tag>.json), read through t().
+const FOOTER_GROUPS = [
+  [null, [['/', 'home']]],
+  ['group-product', [['/pricing', 'pricing'], ['/changelog', 'changelog']]],
+  ['group-legal', [['/terms', 'terms'], ['/privacy', 'privacy'], ['/refund', 'refund']]],
+  ['group-code', [['https://github.com/TheColliery/Kolwen', 'github'], ['https://huggingface.co/kolwen', 'huggingface'], ['https://www.npmjs.com/package/kolwen', 'npm'], ['/llms.txt', 'llms']]],
+  ['group-contact', [['mailto:info@kolwen.com', 'email'], ['mailto:support@kolwen.com', 'support'], ['mailto:abuse@kolwen.com', 'abuse'], ['mailto:appeals@kolwen.com', 'appeals'], ['https://kolwen.com/.well-known/security.txt', 'security']]],
+];
+const NAMES = new Set(['github', 'huggingface', 'npm', 'llms']); // product names, in the shared.names group; every other link label is in shared.footer
 // A render parameter for the commercial registration number and the DBD mark: { en: 'text', th: 'text' }, or null. It prints NOTHING until it is set (no
 // placeholder text, no empty element), and is set only after the registration and the lawyer's issue are in.
 export const REGISTRATION = null;
 export const siteFooterHtml = (lang, registration = REGISTRATION) => {
-  const f = FOOTER[lang];
   const reg = registration && registration[lang] ? `<p class="fine freg">${escText(registration[lang])}</p>` : '';
-  return [`<footer class="site-footer" lang="${lang}">`, '<div class="fwrap">', `<p class="fbrand">${markSvg(24, 'fglyph')}Kolwen</p>`,
-    `<nav class="fgroups" aria-label="${escAttr(f.label)}">`,
-    ...f.groups.map(([h, links]) => `<div class="fgroup"><p class="fh">${escText(h)}</p>${links.map(([u, t]) => `<a href="${escAttr(u)}">${escText(t)}</a>`).join('')}</div>`),
-    '</nav>', '<div class="fbar">', `<p class="fine">${escText(f.note)}</p>`, reg, switchHtml(lang), '</div>', '</div>', '</footer>'].filter(Boolean).join('\n');
+  const label = key => tHtml(lang, NAMES.has(key) ? 'shared.names.' + key : 'shared.footer.' + key);
+  return [`<footer class="site-footer" lang="${lang}">`, '<div class="fwrap">', `<p class="fbrand">${markSvg(24, 'fglyph')}${tHtml(lang, 'shared.brand')}</p>`,
+    `<nav class="fgroups" aria-label="${escAttr(t(lang, 'shared.footer.label'))}">`,
+    ...FOOTER_GROUPS.map(([head, links]) => `<div class="fgroup"><p class="fh">${head ? label(head) : tHtml(lang, 'shared.brand')}</p>${links.map(([u, key]) => `<a href="${escAttr(u)}">${label(key)}</a>`).join('')}</div>`),
+    '</nav>', '<div class="fbar">', `<p class="fine">${tHtml(lang, 'shared.footer.note')}</p>`, reg, switchHtml(lang), '</div>', '</div>', '</footer>'].filter(Boolean).join('\n');
 };
 
-const HEADER = {
-  en: { label: 'Main', home: 'Kolwen home', pricing: 'Pricing', lang: 'Language' },
-  th: { label: 'เมนูหลัก', home: 'หน้าแรกของ Kolwen', pricing: 'ราคา', lang: 'ภาษา' },
-};
 // The TH/EN switch. Both buttons carry data-lang-set, which the page script reads; the script keeps aria-pressed on every switch of the page.
 // Each language is named in its own language. The two buttons are the ONLY live buttons the site's pages may carry (surface-check rule 17 compares a button with SWITCH_BUTTONS byte for byte
 // and requires it to sit inside the shared header or footer block), so the strings are written once, here.
-export const SWITCH_BUTTONS = [
-  '<button type="button" data-lang-set="en" lang="en" aria-pressed="true">English</button>',
-  '<button type="button" data-lang-set="th" lang="th" aria-pressed="false">ไทย</button>',
+// The two names are the shared.switch keys, the same in every language (the catalogue check holds them equal), so a button reads the same in both documents.
+const switchButtons = () => [
+  `<button type="button" data-lang-set="en" lang="en" aria-pressed="true">${tHtml('en', 'shared.switch.en')}</button>`,
+  `<button type="button" data-lang-set="th" lang="th" aria-pressed="false">${tHtml('en', 'shared.switch.th')}</button>`,
 ];
-const switchHtml = lang => `<div class="lswitch" role="group" aria-label="${escAttr(HEADER[lang].lang)}">${SWITCH_BUTTONS.join('')}</div>`;
+export const SWITCH_BUTTONS = switchButtons();
+const switchHtml = lang => `<div class="lswitch" role="group" aria-label="${escAttr(t(lang, 'shared.header.language'))}">${switchButtons().join('')}</div>`;
 // The header: the Kolwen mark linking to /, Pricing, the switch. No Dashboard and no Sign in until the service exists, and no link to a page that does not.
 export const siteHeaderHtml = () => ['<header class="site-header">', ...['en', 'th'].map(lang => {
-  const h = HEADER[lang];
-  return [`<nav lang="${lang}" aria-label="${escAttr(h.label)}">`, `<a class="hmark" href="/" aria-label="${escAttr(h.home)}">${markSvg(26, 'hglyph')}<span>Kolwen</span></a>`,
-    `<a href="/pricing">${escText(h.pricing)}</a>`, switchHtml(lang), '</nav>'].join('\n');
+  return [`<nav lang="${lang}" aria-label="${escAttr(t(lang, 'shared.header.label'))}">`, `<a class="hmark" href="/" aria-label="${escAttr(t(lang, 'shared.header.home'))}">${markSvg(26, 'hglyph')}<span>${tHtml(lang, 'shared.brand')}</span></a>`,
+    `<a href="/pricing">${tHtml(lang, 'shared.header.pricing')}</a>`, switchHtml(lang), '</nav>'].join('\n');
 }), '</header>'].join('\n');
 
 // What is true only of pages that store the language choice (not of the 404 page), so it is not in the shared block. The fonts are the site's own files and need no mention here.
-export const pageNoteHtml = lang => lang === 'en'
-  ? '<p class="fine">This page: your language choice is stored locally in your browser</p>'
-  : '<p class="fine">หน้านี้: ภาษาที่เลือกถูกเก็บไว้ในเบราว์เซอร์ของคุณ</p>';
+export const pageNoteHtml = lang => `<p class="fine">${tHtml(lang, 'shared.page.note')}</p>`;
 // The footer blocks a page holds, in document order.
 export const footersOf = html => html.match(/<footer class="site-footer"[^>]*>[\s\S]*?<\/footer>/g) || [];
 
 // ── 5a. The blocks the build-time sync owns, and the markers around them (the one place the marker names are written) ──
-// `node scripts/legal-pages.mjs --write` replaces, in each hand-kept page (index, pricing, 404), exactly the text between each pair of markers with the render
-// below, and the four generated pages are rendered with the same markers, so one edit to the header, the footer or the page script reaches all seven pages in one run.
-// A marker pair is a fixed comment: an HTML comment in the body, a CSS comment in a style block, a JS comment in the script. scripts/lib/page-sync.mjs reads and writes them.
+// Every one of the seven pages is generated and carries each block between its markers: the four legal pages from `shell()` below, and home, pricing and the 404 page from their templates
+// (`{{block:name}}`, section 5c). So one edit to the header, the footer or the page script reaches all seven pages in one `node scripts/legal-pages.mjs --write`, and `--check` names the block
+// that drifted. A marker pair is a fixed comment: an HTML comment in the body, a CSS comment in a style block, a JS comment in the script. scripts/lib/page-sync.mjs reads them.
 // The one stylesheet that names every typeface: web/fonts/fonts.css, same-origin, so a page fetches its fonts from the site itself and from no one else.
 export const FONT_LINK = '<link rel="stylesheet" href="/fonts/fonts.css">';
 const htmlPair = name => ({ name, begin: `<!-- ${name}:begin -->`, end: `<!-- ${name}:end -->` });
@@ -325,8 +315,8 @@ const BLOCK = Object.fromEntries(SYNC_BLOCKS.map(b => [b.name, b]));
 export const fenced = name => `${BLOCK[name].begin}\n${BLOCK[name].render() ? BLOCK[name].render() + '\n' : ''}${BLOCK[name].end}`;
 
 // ── 5b. The page shell (the site's own: fonts, colours, the language toggle and its noscript rule) ──
-// One style block serves the four generated pages (terms, privacy, refund, changelog) AND web/pricing.html, so the five share one CSP hash (surface-check rule 13). The pricing page
-// is edited by hand; `legal-pages.mjs --check` fails if its style block is not byte-for-byte this one.
+// One style block serves the four generated pages (terms, privacy, refund, changelog) AND web/pricing.html, so the five share one CSP hash (surface-check rule 13). The pricing template
+// takes it whole as {{raw:style}}; `legal-pages.mjs --check` fails if the page's style block is not byte-for-byte this one.
 export const STYLE = `
   :root{--bg:#0f0d0b;--bg2:#15130f;--card:#1a1714;--line:rgba(255,255,255,.08);--txt:#ece4d9;--txt2:#a89a8c;--quiet:#a2968a;--accent:#e8833a;--accent2:#ffbb7a}
   *{box-sizing:border-box;margin:0}
@@ -495,6 +485,26 @@ function docHtml(lang, title, body, draft = true, note = '') {
     </div>
 
 ${pageNoteHtml(lang)}`;
+}
+
+// ── 5c. The three site pages, from their templates and the language catalogue ──────────────────────────────────
+// Home, pricing and the 404 page are templates (web-src/pages/<group>.html) whose slots are filled from web-src/i18n/<tag>.json, and the shared blocks come in whole as {{block:name}}, so the
+// seven pages are all generated and none has a part that is kept by hand (build-qc.md C-FMT-02). The group is the top-level key of the catalogue that the page reads (with `shared`): a page that
+// moves to another domain keeps its strings.
+export const SITE_PAGES = [
+  { group: 'home', template: 'web-src/pages/home.html', file: 'web/index.html' },
+  { group: 'pricing', template: 'web-src/pages/pricing.html', file: 'web/pricing.html' },
+  { group: 'notfound', template: 'web-src/pages/notfound.html', file: 'web/404.html' },
+];
+// templates: { group: source }, messages: { lang: { key: value } }. Returns { pages: { 'web/index.html': html, ... }, problems: [line] }.
+export function renderSitePages({ templates, messages }) {
+  const pages = {}, problems = [];
+  const blocks = Object.fromEntries(SYNC_BLOCKS.map(b => [b.name, () => fenced(b.name)]));
+  for (const p of SITE_PAGES) {
+    if (typeof templates[p.group] !== 'string') { problems.push(`${p.template} is missing`); continue; }
+    try { pages[p.file] = renderTemplate(templates[p.group], { messages, blocks, raw: { style: STYLE } }); } catch (e) { problems.push(`${p.template}: ${e.message}`); }
+  }
+  return { pages, problems };
 }
 
 // ── 6. The four pages ──────────────────────────────────────────────────────────────────────────

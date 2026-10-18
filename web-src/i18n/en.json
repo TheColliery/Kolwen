@@ -1,0 +1,184 @@
+{
+  "home": {
+    "mark": {
+      "reading": "โคลเวน"
+    },
+    "hero": {
+      "title": "A {#hl}verifiable{/hl} AI assistant—every answer ships with its sources and a confidence level.",
+      "sub": "Answers that can’t be verified are flagged, never hidden."
+    },
+    "origin": "Made in Thailand · {#th}สร้างในประเทศไทย{/th}",
+    "disclosure": "In development · not yet available—this is Kolwen’s official page until it launches.",
+    "channels": {
+      "title": "Official channels",
+      "email": "info@kolwen.com"
+    },
+    "warn": "{#b}Beware of impersonators:{/b} Kolwen has no official accounts other than the channels on this page. We will never message you asking for personal details, a one-time code, or money.",
+    "meta": {
+      "title": "Kolwen—verifiable AI, made in Thailand · in development",
+      "description": "Kolwen (โคลเวน) — a verifiable AI assistant made in Thailand. In development, not yet available. Answers ship with sources and a confidence level.",
+      "og-description": "In development, not yet available. Every answer will ship with its sources and a confidence level; answers that cannot be verified are flagged, never hidden."
+    },
+    "ld": {
+      "description": "A verifiable AI assistant made in Thailand. Every answer ships with its sources and a confidence level - answers that cannot be verified are flagged, never hidden."
+    }
+  },
+  "pricing": {
+    "title": "Plans",
+    "intro": "How Kolwen plans will be priced. Nothing here can be bought yet.",
+    "plans": {
+      "title": "Plans",
+      "names": "The plans are named Lite, Standard, Premium and Exclusive.",
+      "billing": "Billing: Monthly, or Yearly (pay for ten months, get twelve)."
+    },
+    "billing": {
+      "label": "Billing",
+      "monthly": "Monthly",
+      "yearly": "Yearly"
+    },
+    "plan": {
+      "lite": "Lite",
+      "standard": "Standard",
+      "premium": "Premium",
+      "exclusive": "Exclusive"
+    },
+    "status": {
+      "later": "Opens later",
+      "first": "Opens first"
+    },
+    "lite": {
+      "price-monthly": "$8 {#small}a month{/small}",
+      "price-yearly": "$80 {#small}a year{/small}",
+      "quota": "0.4x the token quota of Standard",
+      "usage": "A usage view that will show how much of each usage window you have used, in percent",
+      "price-lock": "Your price stays the same while your subscription stays live",
+      "cancel": "Cancel anytime",
+      "export": "Export your data"
+    },
+    "soon": "Coming soon",
+    "standard": {
+      "price-monthly": "$20 {#small}a month{/small}",
+      "price-yearly": "$200 {#small}a year{/small}",
+      "includes": "Everything in Lite, plus:",
+      "quota": "1x the token quota of Standard (the base)"
+    },
+    "premium": {
+      "price-monthly": "$100 {#small}a month{/small}",
+      "price-yearly": "$1,000 {#small}a year{/small}",
+      "includes": "Everything in Standard, plus:",
+      "quota": "5x the token quota of Standard"
+    },
+    "exclusive": {
+      "price-monthly": "$200 {#small}a month{/small}",
+      "price-yearly": "$2,000 {#small}a year{/small}",
+      "includes": "Everything in Premium, plus:",
+      "quota": "10x the token quota of Standard"
+    },
+    "yearly": {
+      "explain": "Yearly costs ten times the monthly price, so two months are not charged. Lite: $80 a year, where two months at $8 is $16 and twelve months at $8 is $96. Standard: $200 a year, where two months at $20 is $40 and twelve months is $240. Premium: $1,000 a year, where two months at $100 is $200 and twelve months is $1,200. Exclusive: $2,000 a year, where two months at $200 is $400 and twelve months is $2,400. US prices, before tax.",
+      "howto": "To get the yearly price, choose yearly billing for the plan. [pending legal review] The start and end dates of this yearly price and the other conditions of the offer are not set yet."
+    },
+    "soon-note": "Every plan: Coming soon. No quota amount is shown yet.",
+    "tax-note": "US prices are before tax. Outside the US the price shown is the total, tax included. A live subscription keeps its price.",
+    "compare": {
+      "title": "Compare plans",
+      "caption": "Compare plans",
+      "feature": "Feature",
+      "quota-row": "Usage: token quota against Standard",
+      "percent-row": "Usage: shown in percent of each window",
+      "export-row": "Data: export your data",
+      "billing-row": "Billing: monthly and yearly"
+    },
+    "multiple": {
+      "lite": "0.4x",
+      "standard": "1x",
+      "premium": "5x",
+      "exclusive": "10x"
+    },
+    "yes": "Yes",
+    "faq": {
+      "title": "Questions",
+      "usage-q": "How does usage work?",
+      "usage-a": "Each plan has a token quota, shown against Standard. A usage view will show how much of each usage window you have used, in percent. No quota amount is shown yet.",
+      "limit-q": "What happens at the limit?",
+      "limit-a": "This has not been decided yet.",
+      "refund-q": "Can I get a refund?",
+      "refund-a": "See the {#refund}refund page{/refund}. Refund terms are a draft.",
+      "tax-q": "What about taxes and regional prices?",
+      "tax-a": "Outside the US the price shown is the total, tax included. In the US prices are shown before tax. Regional prices follow."
+    },
+    "buy": {
+      "title": "Ways to buy",
+      "shapes": "Three product shapes. None can be bought yet.",
+      "draft": "These purchase terms are a draft and are pending legal review.",
+      "subscription": "{#strong}Subscription.{/strong} Monthly or yearly, renewing until you cancel. It starts at once on your consent. [pending legal review] The refund rule for a subscription is waiting for review.",
+      "key": "{#strong}Time key.{/strong} Prepaid, bought once, for 7, 30, 90 or 365 days. A key gives exactly what a subscriber of the same plan has for the same number of days.",
+      "key-time": "A key adds time to your account, up to 36 months.",
+      "key-refund": "An unredeemed key is refundable in full within 14 days of purchase, and expires 12 months after purchase. [pending legal review]",
+      "key-limits": "2 keys per order, and 4 per account per sale window or per rolling 30 days.",
+      "key-bind": "A key is non-transferable and binds to your account when you activate it. [pending legal review]",
+      "credits": "{#strong}Usage credits.{/strong} Prepaid units of Kolwen’s own metered service. They are used only at Kolwen and cannot be moved to anyone else or cashed out. Unused credits are refundable at the price you paid, within 14 days. [pending legal review] Whether credits expire has not been decided yet."
+    },
+    "setting": {
+      "title": "How prices are set",
+      "formula": "{#code}price(country, tier) = tier_ratio × 0.358% × mean monthly wage{/code}, rounded.",
+      "axis": "Plans differ on one capacity axis: token quota. Against Standard, Lite carries 0.4x, Standard 1x, Premium 5x and Exclusive 10x. No quota amount is shown yet.",
+      "tax": "Outside the US, the price shown is the total, tax included. In the US, prices are shown before tax.",
+      "keeps": "A live subscription keeps its price.",
+      "regional": "Regional prices follow."
+    },
+    "meta": {
+      "title": "Plans — Kolwen",
+      "description": "Kolwen plans and US prices. Nothing can be bought yet: every buy button is disabled until the plans open."
+    }
+  },
+  "notfound": {
+    "title": "This page does not exist.",
+    "body": "Nothing is hidden here and nothing was moved — the address simply has no page behind it.",
+    "home": "Go to the Kolwen home page",
+    "meta": {
+      "title": "Not found — Kolwen"
+    }
+  },
+  "shared": {
+    "brand": "Kolwen",
+    "header": {
+      "label": "Main",
+      "home": "Kolwen home",
+      "pricing": "Pricing",
+      "language": "Language"
+    },
+    "switch": {
+      "en": "English",
+      "th": "ไทย"
+    },
+    "footer": {
+      "label": "Footer",
+      "note": "© 2026 Kolwen · trademark application pending",
+      "home": "Home",
+      "group-product": "Product",
+      "pricing": "Pricing",
+      "changelog": "Changelog",
+      "group-legal": "Legal",
+      "terms": "Terms",
+      "privacy": "Privacy",
+      "refund": "Refunds",
+      "group-code": "Code",
+      "group-contact": "Contact",
+      "email": "Email",
+      "support": "Support",
+      "abuse": "Report abuse",
+      "appeals": "Appeals",
+      "security": "Security"
+    },
+    "names": {
+      "github": "GitHub",
+      "huggingface": "Hugging Face",
+      "npm": "npm",
+      "llms": "llms.txt"
+    },
+    "page": {
+      "note": "This page: your language choice is stored locally in your browser"
+    }
+  }
+}
