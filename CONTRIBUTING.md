@@ -78,10 +78,19 @@ here.
 | Path | Purpose |
 |---|---|
 | `web/` | Everything served at kolwen.com. Every path under it is a live URL |
+| `web-src/` | What the home, pricing and not-found pages are generated from: the templates and the language catalogue |
 | `brand/` | The identity kit and the generator that is the source of the mark's geometry |
 | `py/` | The PyPI name reservation. No runtime code yet |
 | `docs/` | Operator documentation, starting with how the site deploys |
 | `scripts/` | Zero-dependency checks that run in CI |
+
+---
+
+## Changing site text, and adding a language
+
+- **The words of the legal pages and the changelog** are in `TERMS.md`, `PRIVACY.md`, `legal/` and `CHANGELOG.md`. **The words of the home, pricing and not-found pages** are keys in `web-src/i18n/en.json` and `web-src/i18n/th.json` (keyed by page, plus a `shared` group for the header and footer); their structure is the templates in `web-src/pages/`. Edit the source, run `node scripts/legal-pages.mjs --write`, and commit the regenerated files under `web/` with it. Never edit `web/index.html`, `web/pricing.html` or `web/404.html` by hand: CI runs `--check` and names the difference.
+- A value is a whole sentence, never a fragment joined to another. Both language files carry the same keys. The check refuses the rest (a bad language tag, a plain space before the Thai repetition mark ๆ, and more); `scripts/legal-pages.mjs` and `scripts/lib/i18n-catalogue.mjs` are the list of record.
+- **Adding a language** starts with one file, `web-src/i18n/<bcp47>.json`, holding every key (the check names a missing one and a tag the registry would shorten: `th`, not `th-Thai`). A script the site has no font for also needs a folder under `web/fonts/` with the font's licence text and a manifest entry (`web/fonts/fonts.css` and `scripts/font-subset.mjs` say how a font is cut and named). Today that file is checked but no page is generated from it: each template still holds one document per language, English and Thai, so a third language does not appear on the site until the page build is made to render per language. Say so in the change rather than describing the language as added.
 
 ---
 
