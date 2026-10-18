@@ -133,16 +133,30 @@ export function patternMatches(pattern, path) {
   return new RegExp('^' + re + '$').test(path);
 }
 
-// null when a served Cache-Control value is a long immutable one (public, a max-age of at least a year, immutable), else the reason it is not.
+// The directives of a Cache-Control value: [{ name (lower case), arg (unquoted; null when there is none), bad }]. The value splits on commas outside quotes; a piece that is not `name` or `name=argument` (an argument
+// is a token or a quoted string) is kept as { name: the piece, bad: true }, so it can never pass for a directive.
+function cacheDirectives(value) {
+  return (value.match(/(?:"[^"]*"|[^,"])+/g) || []).map(piece => {
+    const m = /^\s*([^\s=,"]+)(?:\s*=\s*(?:"([^"]*)"|([^\s,"]*)))?\s*$/.exec(piece);
+    return m ? { name: m[1].toLowerCase(), arg: m[2] ?? m[3] ?? null } : { name: piece.trim().toLowerCase(), arg: null, bad: true };
+  });
+}
+
+// null when a served Cache-Control value is a long immutable one (public, exactly one max-age whose whole value is a year or more, immutable), else the reason it is not.
 export function fontCacheMiss(value) {
   if (value == null) return 'is served with no Cache-Control, expected ' + FONT_CACHE_CONTROL;
-  // a directive that overrides the year: no-store keeps the file out of the cache, a bare no-cache makes every use ask the origin again (no-cache="field" only strips those fields, and is not read as bare)
-  const override = /(?:^|[\s,])(no-store|no-cache)(?=$|[\s,])/i.exec(value);
-  if (override) return `is served Cache-Control "${value}" with ${override[1].toLowerCase()}, which stops the year-long reuse, expected ${FONT_CACHE_CONTROL}`;
-  const age = /(?:^|[\s,])max-age=(\d+)/i.exec(value);
-  if (!age || Number(age[1]) < ONE_YEAR) return `is served Cache-Control "${value}", expected max-age of at least ${ONE_YEAR} (${FONT_CACHE_CONTROL})`;
-  if (!/(?:^|[\s,])immutable(?:$|[\s,])/i.test(value)) return `is served Cache-Control "${value}" without immutable, expected ${FONT_CACHE_CONTROL}`;
-  if (!/(?:^|[\s,])public(?:$|[\s,])/i.test(value)) return `is served Cache-Control "${value}" without public, expected ${FONT_CACHE_CONTROL}`;
+  const served = `is served Cache-Control "${value}"`, directives = cacheDirectives(value);
+  // a directive that overrides the year: no-store keeps the file out of the cache, a bare no-cache makes every use ask the origin again, a bare private forbids a shared cache the public the check requires
+  // (no-cache="field" and private="field" only name fields, and are not read as bare)
+  const override = directives.find(d => !d.bad && (d.name === 'no-store' || ((d.name === 'no-cache' || d.name === 'private') && d.arg === null)));
+  if (override) return `${served} with ${override.name}, which stops the year-long reuse, expected ${FONT_CACHE_CONTROL}`;
+  // exactly one max-age (a second may undo the first, and a cache is free to take either), and its whole value is digits (a numeric prefix such as 31536000junk is a malformed directive a cache drops)
+  const ages = directives.filter(d => d.name === 'max-age');
+  if (ages.length > 1) return `${served} with ${ages.length} max-age directives, expected exactly one (${FONT_CACHE_CONTROL})`;
+  if (ages.length === 1 && !/^\d+$/.test(ages[0].arg ?? '')) return `${served} with a malformed max-age ("${ages[0].arg ?? ''}"), expected ${FONT_CACHE_CONTROL}`;
+  if (!ages.length || Number(ages[0].arg) < ONE_YEAR) return `${served}, expected max-age of at least ${ONE_YEAR} (${FONT_CACHE_CONTROL})`;
+  if (!directives.some(d => !d.bad && d.name === 'immutable')) return `${served} without immutable, expected ${FONT_CACHE_CONTROL}`;
+  if (!directives.some(d => !d.bad && d.name === 'public')) return `${served} without public, expected ${FONT_CACHE_CONTROL}`;
   return null;
 }
 

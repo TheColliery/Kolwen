@@ -30,6 +30,21 @@ test('the rendered text of a page: text nodes, character references, CSS content
   assert.throws(() => decodeEntities('&bogus;'), /unknown character reference &bogus;/);
 });
 
+test('CSS string escapes are decoded in ONE pass: an escaped backslash is a backslash and what follows it is plain text, a hex escape ends at one space, a bad code point is U+FFFD, a backslash-newline is nothing', () => {
+  const content = css => cssContentOf(`<style>a::after{content:${css}}</style>`);
+  const BS = String.fromCharCode(92);
+  assert.equal(content('"' + BS + BS + '00ff"'), BS + '00ff', 'CSS \\\\00ff draws a backslash and 00ff, not U+00FF');
+  assert.equal(content('"' + BS + BS + BS + '00ff"'), BS + String.fromCodePoint(0xff), 'an escaped backslash, then a real hex escape');
+  assert.equal(content('"a' + BS + BS + 'b"'), 'a' + BS + 'b');
+  assert.equal(content('"' + BS + BS + ' ' + BS + '2192 x"'), BS + ' ' + String.fromCodePoint(0x2192) + 'x');
+  assert.equal(content('"' + BS + '2192"'), String.fromCodePoint(0x2192));
+  assert.equal(content('"' + BS + '22 x"'), '"x', 'an escaped quote, the one space after the hex ends it');
+  assert.equal(content('"' + BS + 'A' + BS + 'a"'), '\n\n', 'A and a are hex digits: two escapes of U+000A');
+  for (const bad of ['0', 'd800', 'dfff', 'ffffff', '110000']) assert.equal(content('"' + BS + bad + '"'), String.fromCharCode(0xfffd), bad);
+  assert.equal(content('"a' + BS + '\nb"'), 'ab', 'a backslash before a line break continues the string');
+  assert.equal(content('"' + BS + 'z' + BS + '-"'), 'z-', 'a backslash before a character that is not a hex digit is that character');
+});
+
 test('the derived set: the pages render these characters, the Thai block among them, and every one is a code point at or above U+0020', () => {
   const seen = renderedChars(WEB);
   assert.ok(seen.size > 100 && seen.size < 400, 'rendered code points: ' + seen.size);

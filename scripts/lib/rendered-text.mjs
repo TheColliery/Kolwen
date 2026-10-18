@@ -40,8 +40,13 @@ export function decodeEntities(s) {
   });
 }
 
-// CSS string escapes: a backslash and 1 to 6 hex digits (and one space that ends them), or a backslash and any other character.
-const cssUnescape = s => s.replace(/\\([0-9a-f]{1,6})[ \t\n]?/gi, (m, h) => String.fromCodePoint(parseInt(h, 16))).replace(/\\(.)/gs, '$1');
+// CSS string escapes, decoded in ONE pass (two passes read the backslash of `\\00ff`, an escaped backslash, as the start of a hex escape): a backslash and 1 to 6 hex digits (and one space that ends them), where 0, a surrogate
+// and a value above U+10FFFF are U+FFFD; a backslash and a line break, which continues the string and draws nothing; or a backslash and any other character, which is that character.
+const cssUnescape = s => s.replace(/\\(?:([0-9a-f]{1,6})(?:\r\n|[ \t\r\n\f])?|(\r\n|[\s\S]))/gi, (m, h, c) => {
+  if (h === undefined) return /^[\r\n\f]/.test(c) ? '' : c;
+  const n = parseInt(h, 16);
+  return n === 0 || n > 0x10ffff || (n >= 0xd800 && n <= 0xdfff) ? String.fromCharCode(0xfffd) : String.fromCodePoint(n);
+});
 // JS string escapes: \n \t \r \b \f \v \0, \xHH, \uHHHH, \u{H+}, and a backslash before any other character.
 const JS_SIMPLE = { n: '\n', t: '\t', r: '\r', b: '\b', f: '\f', v: '\v', 0: '\0' };
 const jsUnescape = s => s.replace(/\\(?:u\{([0-9a-f]+)\}|u([0-9a-f]{4})|x([0-9a-f]{2})|(.))/gis, (m, a, b, c, d) => (a || b || c ? String.fromCodePoint(parseInt(a || b || c, 16)) : (d in JS_SIMPLE ? JS_SIMPLE[d] : d)));
@@ -54,8 +59,8 @@ export function textOf(html) {
 export function cssContentOf(html) {
   const out = [];
   for (const block of html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\b[^>]*>/gi)) {
-    for (const m of block[1].matchAll(/\bcontent\s*:\s*((?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|[^;}"'])*)/g)) {
-      for (const lit of m[1].matchAll(/"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'/g)) out.push(cssUnescape(lit[1] ?? lit[2]));
+    for (const m of block[1].matchAll(/\bcontent\s*:\s*((?:"(?:[^"\\]|\\[\s\S])*"|'(?:[^'\\]|\\[\s\S])*'|[^;}"'])*)/g)) {
+      for (const lit of m[1].matchAll(/"((?:[^"\\]|\\[\s\S])*)"|'((?:[^'\\]|\\[\s\S])*)'/g)) out.push(cssUnescape(lit[1] ?? lit[2]));
     }
   }
   return out.join(' ');

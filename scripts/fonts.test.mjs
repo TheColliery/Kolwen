@@ -3,13 +3,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { readFileSync, readdirSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { facesOf, inRange } from './lib/font-coverage.mjs';
 import { reEscape } from './lib/re-escape.mjs';
 import { servedFiles } from './lib/web-files.mjs';
+import { renderedChars } from './lib/rendered-text.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const WEB = join(ROOT, 'web');
@@ -59,16 +60,35 @@ test('no font file is left out of the manifest, and every font folder carries th
   assert.deepEqual(onDisk.map(rel).filter(p => !p.endsWith('.woff2') && !p.endsWith('OFL.txt')), ['web/fonts/fonts.css'], 'nothing else sits under web/fonts');
 });
 
+// Every character a page of `root` draws that no declared Sans range holds (coverageGaps hands such a character to this check). The characters are the derived set of the font checks (entities, CSS content and script strings included), not a second extractor.
+const sansMisses = root => {
+  const sans = facesOf(readFileSync(join(root, 'web/fonts/fonts.css'), 'utf8')).filter(f => f.family === 'KW Sans Thai').map(f => f.range).join(', ');
+  const out = [];
+  for (const [cp, pages] of renderedChars(join(root, 'web'))) if (cp > 0x20 && !inRange(cp, sans)) out.push('U+' + cp.toString(16).toUpperCase() + ' ' + [...pages].join(','));
+  return out;
+};
+
 test('every character the pages show in the sans family is inside a declared Sans range, so no page falls back for a letter the files carry', () => {
-  const sans = manifest().filter(f => f.family === 'KW Sans Thai').map(f => f.range).join(', ');
-  const ENT = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
-  const missing = new Map();
-  for (const p of PAGES) {
-    let t = read(p).replace(/<(style|script)\b[\s\S]*?<\/\1\b[^>]*>/gi, ' ').replace(/<!--[\s\S]*?-->/g, ' ').replace(/<[^>]*>/g, ' ');
-    t = t.replace(/&#x([0-9a-f]+);/gi, (m, h) => String.fromCodePoint(parseInt(h, 16))).replace(/&#(\d+);/g, (m, d) => String.fromCodePoint(+d)).replace(/&(\w+);/g, (m, n) => ENT[n] || m);
-    for (const ch of t) { const cp = ch.codePointAt(0); if (cp > 0x20 && !inRange(cp, sans)) missing.set(cp, (missing.get(cp) || new Set()).add(p)); }
-  }
-  assert.deepEqual([...missing].map(([cp, pages]) => 'U+' + cp.toString(16).toUpperCase() + ' ' + [...pages].join(',')), []);
+  assert.deepEqual(sansMisses(ROOT), []);
+});
+
+test('RED PROOF: the Sans-range check sees an out-of-range character written as an entity, as CSS generated content, and as a script string, not only as plain text', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sans-range-'));
+  try {
+    cpSync(WEB, join(dir, 'web'), { recursive: true });
+    const f = join(dir, 'web/pricing.html');
+    const html = readFileSync(f, 'utf8');
+    for (const [what, edit] of [
+      ['an entity', h => h.replace('</body>', '<p>&rarr;</p></body>')],
+      ['CSS generated content', h => h.replace('</style>', 'p::after{content:"\\2192"}</style>')],
+      ['a script string', h => h.replace('</body>', '<script>var a = "\\u2192";</script></body>')],
+    ]) {
+      writeFileSync(f, edit(html));
+      assert.deepEqual(sansMisses(dir), ['U+2192 web/pricing.html'], what);
+    }
+    writeFileSync(f, html);
+    assert.deepEqual(sansMisses(dir), [], 'control: the unedited copy has none');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('the list of deployed files is recursive: a font under web/fonts is listed, _headers and _redirects are not, and the order is the code-unit order', async () => {
