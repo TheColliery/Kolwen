@@ -19,7 +19,7 @@
 // frame are Thai. The hold list is matched by anchor, so two passages that open with the same eight words are held together.
 import { MARK_EN, MARK_TH, PAGES, BANNER, PENDING, THAI_OWED, TEXT_TWINS, PENDING_LINES, REFUND_ROWS } from './legal-page-text.mjs';
 import { activeSince } from './legal-state.mjs';
-import { t, html as tHtml, escText, escAttr } from './i18n-catalogue.mjs';
+import { t, html as tHtml, escText, escAttr, withCatalogue } from './i18n-catalogue.mjs';
 import { renderTemplate } from './page-template.mjs';
 export { escText, escAttr };
 
@@ -499,14 +499,18 @@ export const SITE_PAGES = [
   { group: 'notfound', template: 'web-src/pages/notfound.html', file: 'web/404.html' },
 ];
 // templates: { group: source }, messages: { lang: { key: value } }. Returns { pages: { 'web/index.html': html, ... }, problems: [line] }.
+// The shared blocks (the header, the footers, the page script's strings) read their strings through t(), which reads the module's loaded catalogue; withCatalogue puts the caller's `messages` in place
+// for the whole render, so a slot of a template and a string of a shared block never come from two catalogues.
 export function renderSitePages({ templates, messages }) {
-  const pages = {}, problems = [];
-  const blocks = Object.fromEntries(SYNC_BLOCKS.map(b => [b.name, () => fenced(b.name)]));
-  for (const p of SITE_PAGES) {
-    if (typeof templates[p.group] !== 'string') { problems.push(`${p.template} is missing`); continue; }
-    try { pages[p.file] = renderTemplate(templates[p.group], { messages, blocks, raw: { style: STYLE, script: pageScriptHtml() } }); } catch (e) { problems.push(`${p.template}: ${e.message}`); }
-  }
-  return { pages, problems };
+  return withCatalogue(messages, () => {
+    const pages = {}, problems = [];
+    const blocks = Object.fromEntries(SYNC_BLOCKS.map(b => [b.name, () => fenced(b.name)]));
+    for (const p of SITE_PAGES) {
+      if (typeof templates[p.group] !== 'string') { problems.push(`${p.template} is missing`); continue; }
+      try { pages[p.file] = renderTemplate(templates[p.group], { messages, blocks, raw: { style: STYLE, script: pageScriptHtml() } }); } catch (e) { problems.push(`${p.template}: ${e.message}`); }
+    }
+    return { pages, problems };
+  });
 }
 
 // ── 6. The four pages ──────────────────────────────────────────────────────────────────────────

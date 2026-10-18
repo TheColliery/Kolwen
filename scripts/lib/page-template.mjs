@@ -5,6 +5,8 @@
 //   {{home.hero.title}}     the value of a catalogue key, as HTML text (its markup becomes tags)
 //   {{=home.title}}         the value as an attribute value: plain text, escaped, no markup allowed
 //   {{j:home.ld.text}}      the value as the inside of a JSON string (structured data), no markup allowed
+//   Each kind has its one place, and the lint refuses the others: {{key}} in a text node; {{=key}} in an attribute value; {{j:key}} in a JSON string of an application/ld+json block, and nowhere else (a JSON
+//   string ends an attribute at its first quote, and an attribute escape writes entities into JSON that no script decodes); {{block:}} and {{raw:}} as whole lines of markup.
 //   {{block:site-header}}   a shared block of legal-render.mjs, between its markers (SYNC_BLOCKS)
 //   {{raw:style}}           a named piece of code the build owns (the shared stylesheet of the pricing page)
 //   {{lang th}} ... {{/lang}}  two directive lines (each alone on its line, the whole line is removed): the slots between them are read from that language's catalogue. Outside a region the
@@ -12,18 +14,21 @@
 //
 // WHAT IT CHECKS (templateProblems), on the template with each slot masked and the rest read by the site's one HTML scan (html-tokens.mjs):
 //   - no visible literal: a text node (the title and an SVG title included); an attribute a visitor sees or hears (`title` `alt` `placeholder`, `aria-label` `aria-description` `aria-roledescription`
-//     `aria-valuetext` `aria-placeholder`, the `value` of a button input, the `label` of an option, optgroup or track); the content of a description, an application-name or a social meta; a CSS `content`
+//     `aria-valuetext` `aria-placeholder`, the `value` of a button input or a text field (every input but hidden, checkbox, radio, range, color, file and image, whose value is data), the `label` of an option,
+//     optgroup or track); the content of a description, an application-name or a social meta; a CSS `content`
 //     string in a <style> block or a style attribute; or a string of the structured data that is not a slot (a URL, an email address and the JSON-LD keywords @context @type @id @vocab @base @language
 //     are data, not words; an @value or @comment is a word);
-//   - no script: a template holds no executable <script> element and no inline event handler, so nothing a script writes into the page can be a string outside the catalogue; the page script comes in
-//     whole as {{raw:script}};
+//   - no script: a template holds no executable <script> element, no inline event handler and no javascript: URL (href, src, action, formaction, xlink:href), so nothing a script writes into the page can
+//     be a string outside the catalogue; the page script comes in whole as {{raw:script}};
+//   - each slot in its place (above), and no slot in an attribute name, a <style> block or a data block that is not structured data;
 //   - no join: two slots in one text node or one attribute, or a slot beside literal text, are joined fragments (a language that orders its words otherwise cannot be translated);
 //   - the slot syntax is exact, the language regions are balanced and each language is a valid BCP 47 tag.
 // And usageProblems reads the templates against the catalogue: a slot whose key is missing in a language, a page that reads another page's group, a slot that would show an empty value, and a
 // key that nothing reads (a dead string is a lie about what the page says).
 // Limits, stated: the lint reads the template, not the shared blocks of legal-render.mjs (their strings come from the catalogue through t() and a test marks every value to prove it); it reads no custom
 // attribute (a data-* attribute is data the shared page script reads, `data-lang-set`, and is no text a visitor sees); it does not read the text a script writes into the page at run time, which is why a
-// template holds no script; and the text of an <svg> or <math> element is read as any other text.
+// template holds no script; it reads a javascript: URL written in the template, not one a catalogue value would make through an {{=key}} slot in an href (the site's CSP, with no 'unsafe-inline', blocks it
+// at run time, and no catalogue value holds a URL); it reads `<td abbr>` (assistive only) and the text of a comment as nothing; and the text of an <svg> or <math> element is read as any other text.
 import { htmlTokens } from './html-tokens.mjs';
 import { cssContentOf } from './rendered-text.mjs';
 import { bcp47Problem, DEFAULT_LANG, valueHtml, valuePlain, valueJson, escAttr } from './i18n-catalogue.mjs';
@@ -34,12 +39,21 @@ const SLOT = new RegExp(`\\{\\{(?:(=|j:)(${KEY})|(block:|raw:)(${NAME})|(${KEY})
 const LANG_OPEN = /^\{\{lang ([^\s{}]+)\}\}$/;
 const LANG_CLOSE = /^\{\{\/lang\}\}$/;
 // Private-use characters stand in for a masked slot while the template is read as HTML (built from code points: the source holds no invisible text).
-const TEXT_MASK = String.fromCharCode(0xe001), ATTR_MASK = String.fromCharCode(0xe002), CODE_MASK = String.fromCharCode(0xe003);
-const MASKS = new RegExp('[' + TEXT_MASK + '-' + CODE_MASK + ']', 'g');
+// One mask per slot kind, so the lint can tell where each kind stands (a JSON string is escaped for JSON, not for an attribute or a text node).
+const TEXT_MASK = String.fromCharCode(0xe001), ATTR_MASK = String.fromCharCode(0xe002), CODE_MASK = String.fromCharCode(0xe003), JSON_MASK = String.fromCharCode(0xe004);
+const MASKS = new RegExp('[' + TEXT_MASK + '-' + JSON_MASK + ']', 'g');
+const HAS_MASK = new RegExp('[' + TEXT_MASK + '-' + JSON_MASK + ']');
+const HAS_VALUE_MASK = new RegExp('[' + TEXT_MASK + ATTR_MASK + JSON_MASK + ']'); // a slot that writes a catalogue value (a block or raw slot writes code the build owns)
 // The attributes whose value a visitor sees or hears: the accessible name and description, the tooltip, the alternative text, the placeholder, the role description and the value text of a widget.
 const VISIBLE_ATTRS = ['aria-label', 'aria-description', 'aria-roledescription', 'aria-valuetext', 'aria-placeholder', 'title', 'alt', 'placeholder'];
 const META_TEXT = new Set(['description', 'application-name', 'apple-mobile-web-app-title', 'og:title', 'og:description', 'og:site_name', 'og:image:alt', 'twitter:title', 'twitter:description', 'twitter:image:alt']);
 const BUTTON_INPUTS = /^(?:button|submit|reset)$/i; // an <input> of these types shows its `value` as the button's label
+// Every other <input> shows its `value` too (a text field, an email field, a type no browser knows reads as text), except these, whose value is submitted data or unused and is drawn nowhere.
+const DATA_INPUTS = /^(?:hidden|checkbox|radio|range|color|file|image)$/i;
+const JS_URL_ATTRS = new Set(['href', 'src', 'action', 'formaction', 'xlink:href']);
+// A URL parser drops leading control characters and spaces and every tab and line break before it reads the scheme.
+const isJsUrl = v => /^javascript:/i.test(v.replace(/[\t\n\r]/g, '').replace(/^[\x00-\x20]+/, ''));
+const scriptType = tag => (tag.attrs.get('type') ?? '').trim().toLowerCase(); // a MIME type is case-insensitive and the attribute is read without its surrounding spaces
 const LABELLED = new Set(['option', 'optgroup', 'track']); // elements whose `label` attribute is shown
 const ENDORSED_KEYS = new Set(['@context', '@type', '@id', '@vocab', '@base', '@language']); // JSON-LD keys whose value is data, not words (`@value` and `@comment` are words)
 
@@ -66,7 +80,7 @@ export function slotsOf(src) {
 function masked(src) {
   const keep = [];
   for (const line of src.split('\n')) if (!LANG_OPEN.test(line) && !LANG_CLOSE.test(line)) keep.push(line);
-  return keep.join('\n').replace(SLOT, (...a) => { const m = [a[0], ...a.slice(1, 6)]; const k = kindOf(m); return k === 'text' ? TEXT_MASK : k === 'attr' || k === 'json' ? ATTR_MASK : CODE_MASK; });
+  return keep.join('\n').replace(SLOT, (...a) => { const m = [a[0], ...a.slice(1, 6)]; const k = kindOf(m); return k === 'text' ? TEXT_MASK : k === 'attr' ? ATTR_MASK : k === 'json' ? JSON_MASK : CODE_MASK; });
 }
 
 export function templateProblems(src, name = 'template') {
@@ -103,7 +117,6 @@ export function templateProblems(src, name = 'template') {
     const n = (value.match(MASKS) || []).length;
     if (rest !== '') out.push(`${at}: ${kind} ${what} holds the literal ${JSON.stringify(rest)}; a visible string is a catalogue slot`);
     else if (n >= 2) out.push(`${at}: ${kind} ${what} joins ${n} catalogue keys in one attribute; each catalogue string is a whole sentence`);
-    else if (value.includes(TEXT_MASK)) out.push(`${at}: ${kind} ${what} reads a text slot; an attribute reads {{=key}}`);
   };
   // Text drawn by CSS (a `content` string) is a visible string that no slot can reach, so a template carries none.
   const cssProblems = (where, css) => {
@@ -114,29 +127,50 @@ export function templateProblems(src, name = 'template') {
     if (t.type === 'tag' && !t.closing) {
       tag = t;
       for (const a of VISIBLE_ATTRS) if (t.attrs.has(a) && t.attrs.get(a) !== '') attrProblems(a, t.attrs.get(a));
-      if (t.name === 'input' && BUTTON_INPUTS.test(t.attrs.get('type') ?? '') && (t.attrs.get('value') ?? '') !== '') attrProblems('value of the button input', t.attrs.get('value'));
+      if (t.name === 'input' && (t.attrs.get('value') ?? '') !== '') {
+        const type = t.attrs.get('type') ?? '';
+        if (BUTTON_INPUTS.test(type)) attrProblems('value of the button input', t.attrs.get('value'));
+        else if (!DATA_INPUTS.test(type)) attrProblems('value of the text field', t.attrs.get('value'));
+      }
+      // Each slot kind stands in its own place: a text slot or a JSON slot in an attribute (a JSON string ends the attribute at its first quote), a slot in an attribute NAME, and a javascript: URL.
+      for (const [k, v] of t.attrs) {
+        if (HAS_MASK.test(k)) out.push(`${at}: the ${t.name} element has an attribute name that holds a slot; a slot fills a value`);
+        if (v.includes(JSON_MASK)) out.push(`${at}: attribute ${k} reads a {{j:key}} slot; an attribute reads {{=key}}`);
+        else if (v.includes(TEXT_MASK)) out.push(`${at}: attribute ${k} reads a text slot; an attribute reads {{=key}}`);
+        if (JS_URL_ATTRS.has(k) && isJsUrl(v)) out.push(`${at}: attribute ${k} is a javascript: URL; a template holds no script`);
+      }
       if (LABELLED.has(t.name) && (t.attrs.get('label') ?? '') !== '') attrProblems(`label of the ${t.name}`, t.attrs.get('label'));
       const meta = t.name === 'meta' ? (t.attrs.get('name') ?? t.attrs.get('property') ?? '') : '';
       if (META_TEXT.has(meta) && t.attrs.has('content')) attrProblems(`content of the meta ${meta}`, t.attrs.get('content'));
       if (t.attrs.has('style')) cssProblems('a style attribute', `a{${t.attrs.get('style')}}`);
       for (const k of t.attrs.keys()) if (/^on[a-z]+$/.test(k)) out.push(`${at}: the ${t.name} element has an inline event handler (${k}); a template holds no script`);
       // A template holds no executable script: the page script is the shared block, taken whole as {{raw:script}}, so nothing a script writes into the page can be a string outside the catalogue.
-      if (t.name === 'script' && !/^(?:application\/(?:ld\+)?json|importmap|speculationrules)$/i.test(t.attrs.get('type') ?? '')) out.push(`${at}: a <script> element in a template is executable script; the page script is the shared block {{raw:script}}`);
+      if (t.name === 'script' && !/^(?:application\/(?:ld\+)?json|importmap|speculationrules)$/.test(scriptType(t))) out.push(`${at}: a <script> element in a template is executable script; the page script is the shared block {{raw:script}}`);
     } else if (t.type === 'raw' && t.name === 'style') {
       cssProblems('a <style> block', t.body);
+      if (HAS_VALUE_MASK.test(t.body)) out.push(`${at}: a <style> block holds a catalogue slot; only structured data takes one (the value would be written into the stylesheet)`);
     } else if (t.type === 'text') {
       const rest = t.text.replace(MASKS, '').trim();
       const n = (t.text.match(new RegExp(TEXT_MASK, 'g')) || []).length;
       if (rest !== '') out.push(`${at}: literal text ${JSON.stringify(rest.slice(0, 60))} in a text node; a visible string is a catalogue slot`);
       else if (n >= 2) out.push(`${at}: a text node joins ${n} catalogue keys in one text; each catalogue string is a whole sentence`);
-    } else if (t.type === 'raw' && t.name === 'script' && tag?.attrs.get('type') === 'application/ld+json') {
+      if (t.text.includes(JSON_MASK)) out.push(`${at}: a text node reads a {{j:key}} slot; a text node reads {{key}}`);
+    } else if (t.type === 'raw' && t.name === 'script' && scriptType(tag) === 'application/ld+json') {
       let owner = '';
       for (const m of t.body.matchAll(/"((?:[^"\\]|\\.)*)"(\s*:)?/g)) {
         if (m[2]) { owner = m[1]; continue; }
         const v = m[1];
-        const data = v === ATTR_MASK || /^(?:https?:\/\/|mailto:)\S+$/.test(v) || /^[^\s@]+@[^\s@]+$/.test(v) || ENDORSED_KEYS.has(owner);
+        // a JSON string takes {{j:key}} and nothing else: an attribute escape writes &quot; and &#39; into it, which no script decodes, and a text slot writes markup
+        const wrong = v.includes(ATTR_MASK) ? 'an attribute' : v.includes(TEXT_MASK) ? 'a text' : v.includes(CODE_MASK) ? 'a block or raw' : null;
+        if (wrong) { out.push(`${at}: structured data reads ${wrong} slot; a JSON string reads {{j:key}}`); continue; }
+        const joined = (v.match(new RegExp(JSON_MASK, 'g')) || []).length;
+        if (joined >= 2 && v.replace(MASKS, '').trim() === '') { out.push(`${at}: a structured data string joins ${joined} catalogue keys; each catalogue string is a whole sentence`); continue; }
+        const data = v === JSON_MASK || /^(?:https?:\/\/|mailto:)\S+$/.test(v) || /^[^\s@]+@[^\s@]+$/.test(v) || ENDORSED_KEYS.has(owner);
         if (!data) out.push(`${at}: structured data value ${JSON.stringify(v.replace(MASKS, '').trim() || v)} is a literal; a visible string is a {{j:key}} slot`);
       }
+    } else if (t.type === 'raw' && t.name === 'script') {
+      // a data block that is not structured data (importmap, speculationrules, application/json) is no place for a slot; an executable script is already refused above
+      if (HAS_VALUE_MASK.test(t.body) && /^(?:application\/json|importmap|speculationrules)$/.test(scriptType(tag))) out.push(`${at}: a <script type="${scriptType(tag)}"> block holds a catalogue slot; only structured data takes one`);
     }
   }
   return out;

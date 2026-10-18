@@ -912,6 +912,40 @@ test('surface-check rule 4 refuses every other space separator and default-ignor
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('surface-check rule 4 also refuses U+2800, U+2028 and U+2029, and an invisible character or a no-break space written as a character reference in a page, whichever form it takes', () => {
+  const dir = surfaceCopy();
+  try {
+    const page = readFileSync(join(dir, 'web/pricing.html'), 'utf8');
+    const put = text => writeFileSync(join(dir, 'web/pricing.html'), text);
+    for (const [name, cp] of [['braille pattern blank', 0x2800], ['line separator', 0x2028], ['paragraph separator', 0x2029]]) {
+      put(page.replace('Coming soon', 'Coming' + String.fromCharCode(cp) + 'soon'));
+      const r = surface(dir);
+      assert.equal(r.status, 1, name + ': ' + r.stdout + r.stderr);
+      assert.match(r.stdout + r.stderr, new RegExp('web/pricing\\.html: invisible character U\\+' + cp.toString(16).toUpperCase() + '\\b'), name);
+    }
+    for (const [ref, cp] of [['&#8239;', 0x202f], ['&#x200B;', 0x200b], ['&shy;', 0xad], ['&zwj;', 0x200d], ['&ZeroWidthSpace;', 0x200b], ['&#x2800;', 0x2800]]) {
+      put(page.replace('Coming soon', 'Coming' + ref + 'soon'));
+      const r = surface(dir);
+      assert.equal(r.status, 1, ref + ': ' + r.stdout + r.stderr);
+      assert.match(r.stdout + r.stderr, new RegExp('web/pricing\\.html: invisible character U\\+' + cp.toString(16).toUpperCase() + ' \\(written as a character reference\\)'), ref);
+    }
+    for (const ref of ['&NonBreakingSpace;', '&nbsp;']) {
+      put(page.replace('Coming soon', 'Coming' + ref + 'soon'));
+      const r = surface(dir);
+      assert.equal(r.status, 1, ref + ': ' + r.stdout + r.stderr);
+      assert.match(r.stdout + r.stderr, /web\/pricing\.html: invisible character U\+A0 written as an entity/, ref);
+      assert.doesNotMatch(r.stdout + r.stderr, /invisible character U\+A0 \(written as a character reference\)/, ref + ' is named once');
+    }
+    // an ordinary entity is no finding, and a reference rule 4 cannot read is named, never skipped
+    put(page.replace('Coming soon', 'Coming &amp; going &lt;soon&gt;'));
+    assert.equal(surface(dir).status, 0, 'ordinary character references pass');
+    put(page.replace('Coming soon', 'Coming &bogusref; soon'));
+    const bogus = surface(dir);
+    assert.equal(bogus.status, 1, 'an unknown reference is a finding: ' + bogus.stdout + bogus.stderr);
+    assert.match(bogus.stdout + bogus.stderr, /web\/pricing\.html: has a character reference rule 4 cannot read/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('surface-check rule 17 allows a live button only when it is exactly a switch button the lib renders and sits inside the shared header or footer block', () => {
   const dir = surfaceCopy();
   try {

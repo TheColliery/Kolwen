@@ -85,13 +85,16 @@ function valueProblems(value) {
   return out;
 }
 // The markup of a value, for the parity check between languages. `th` is left out: it marks a Thai phrase inside a sentence of another language (SC 3.1.2), so only the sentences that quote Thai carry it.
-// True when a space separator or a default-ignorable character other than the no-break space U+00A0 stands right before the Thai repetition mark (a plain space, U+202F, U+2007, U+2060, U+00AD ...).
+// True when a space or an invisible character other than the no-break space U+00A0 stands right before the Thai repetition mark (a plain space, U+202F, U+2007, U+2060, U+00AD ...). The class is the one
+// surface-check rule 4 uses (a space separator, a line or paragraph separator, a default-ignorable code point, and the braille pattern blank U+2800, which draws nothing but is none of those).
 // "No space at all" is not judged: whether the mark may follow its word with nothing between is the row's call, not this lint's.
 const NBSP = String.fromCharCode(0xa0);
+const BRAILLE_BLANK = String.fromCharCode(0x2800);
+const invisibleChar = ch => ch === BRAILLE_BLANK || /[\p{Zs}\p{Zl}\p{Zp}\p{Default_Ignorable_Code_Point}]/u.test(ch);
 function spaceBeforeMaiyamok(v) {
   for (let i = v.indexOf(MAIYAMOK); i >= 0; i = v.indexOf(MAIYAMOK, i + 1)) {
     const prev = v[i - 1];
-    if (prev !== undefined && prev !== NBSP && /[\p{Zs}\p{Default_Ignorable_Code_Point}]/u.test(prev)) return true;
+    if (prev !== undefined && prev !== NBSP && invisibleChar(prev)) return true;
   }
   return false;
 }

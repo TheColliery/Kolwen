@@ -96,18 +96,31 @@ for (const f of tracked.filter(SCANNABLE)) {
 for (const f of tracked.filter(PUBLISHED)) {
   const s = read(f);
   if (/ํา/.test(s)) note(f, 'decomposed SARA AM (U+0E4D U+0E32) — must be U+0E33');
-  // An invisible character is any space separator (Unicode category Zs: U+00A0, U+202F, U+2007, U+3000 ...) or default-ignorable code point (U+200B to U+200D, U+2060, U+00AD, U+180E, U+FEFF ...) except the
-  // plain space. Two are allowed: the one no-break space U+00A0 the Thai typography row puts before the repetition mark U+0E46 (build-qc.md W-I18N-12, kept by the catalogue lint), and the emoji
-  // presentation selectors U+FE0E and U+FE0F, which the published text carries after a symbol (the warning sign in PRIVACY.md and brand/README.md). Every other one is a finding, named once per file.
-  const withoutMaiyamokSpace = s.split(String.fromCharCode(0xa0, 0xe46)).join(String.fromCharCode(0xe46));
+  // An invisible character is any space separator (Unicode category Zs: U+00A0, U+202F, U+2007, U+3000 ...), line or paragraph separator (Zl, Zp: U+2028, U+2029), default-ignorable code point
+  // (U+200B to U+200D, U+2060, U+00AD, U+180E, U+FEFF ...) or the braille pattern blank U+2800 (a symbol that draws nothing) except the plain space. Two are allowed: the one no-break space U+00A0 the Thai
+  // typography row puts before the repetition mark U+0E46 (build-qc.md W-I18N-12, kept by the catalogue lint), and the emoji presentation selectors U+FE0E and U+FE0F, which the published text carries
+  // after a symbol (the warning sign in PRIVACY.md and brand/README.md). Every other one is a finding, named once per file. In a page the character references are decoded first, so `&#8239;`, `&shy;` or
+  // `&ZeroWidthSpace;` is found as the character it makes; the no-break space written as a reference has its own finding below.
+  // THE NEXT LANGUAGE: the refused set includes characters some scripts need (U+3000 in Japanese typography, U+200E and U+200F in Arabic and Hebrew, U+200C in Persian and Hindi). A catalogue that takes
+  // such a language names its exception HERE, by file and by code point, in the same unit as the language (build-qc.md C-I18N-03); until then each is refused.
+  const NBSP_MARK = String.fromCharCode(0xa0, 0xe46), MARK = String.fromCharCode(0xe46), BRAILLE_BLANK = 0x2800;
   const named = new Set();
-  for (const ch of withoutMaiyamokSpace) {
-    const cp = ch.codePointAt(0);
-    if (cp === 0x20 || cp === 0xfe0e || cp === 0xfe0f || named.has(cp) || !/[\p{Zs}\p{Default_Ignorable_Code_Point}]/u.test(ch)) continue;
-    named.add(cp);
-    note(f, `invisible character U+${cp.toString(16).toUpperCase()}`);
+  const scan = (text, how) => {
+    for (const ch of text.split(NBSP_MARK).join(MARK)) {
+      const cp = ch.codePointAt(0);
+      if (cp === 0x20 || cp === 0xfe0e || cp === 0xfe0f || (how && cp === 0xa0) || named.has(cp) || !(cp === BRAILLE_BLANK || /[\p{Zs}\p{Zl}\p{Zp}\p{Default_Ignorable_Code_Point}]/u.test(ch))) continue;
+      named.add(cp);
+      note(f, `invisible character U+${cp.toString(16).toUpperCase()}${how}`);
+    }
+  };
+  scan(s, '');
+  if (f.endsWith('.html')) {
+    let decoded = null;
+    try { decoded = (await import(pathToFileURL(resolve('scripts/lib/rendered-text.mjs')).href)).decodeEntities(s); }
+    catch (e) { note(f, `has a character reference rule 4 cannot read (${String(e.message).slice(0, 100)}), so its invisible characters are not all checked`); }
+    if (decoded !== null && decoded !== s) scan(decoded, ' (written as a character reference)');
+    if (/&nbsp;|&NonBreakingSpace;|&#0*160;|&#x0*a0;/i.test(s)) note(f, 'invisible character U+A0 written as an entity (&nbsp;); a page uses a no-break space only before the Thai repetition mark, as the character');
   }
-  if (f.endsWith('.html') && /&nbsp;|&#0*160;|&#x0*a0;/i.test(s)) note(f, 'invisible character U+A0 written as an entity (&nbsp;); a page uses a no-break space only before the Thai repetition mark, as the character');
   if (s.includes('…')) note(f, 'U+2026 ellipsis — use three ASCII dots');
 }
 

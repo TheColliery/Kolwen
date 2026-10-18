@@ -447,7 +447,7 @@ test('(b) the literal lint reads the value of a button input, the label of an op
   ];
   for (const [what, src, re] of planted) assert.ok(templateProblems(src, 'home').some(p => re.test(p)), what + ': ' + JSON.stringify(templateProblems(src, 'home')));
   for (const [what, src] of [
-    ['an input that is not a button', into('<p>', '<input type="text" value="x"><input type="checkbox" value="m"><p>')],
+    ['an input whose value is data (a text field now has its own test: round 2, G1)', into('<p>', '<input type="checkbox" value="m"><input type="hidden" value="x"><p>')],
     ['slots in the new channels', into('<p>', '<input type="submit" value="{{=home.origin}}"><div aria-roledescription="{{=home.origin}}" aria-valuetext="{{=home.origin}}"></div><p>')],
     ['a slot in an option label and an app-name meta', into('</head>', '<meta name="application-name" content="{{=home.meta.description}}"><select><option label="{{=home.origin}}"></option></select></head>')],
     ['CSS without a content string', into('</head>', '<style>a::after{content:""} .x{display:flex;justify-content:center;content:center}</style></head>')],
@@ -467,4 +467,91 @@ test('(g) any space separator or invisible character other than the no-break spa
     assert.ok(catalogueProblems(bad).some(p => /pricing\.soon/.test(p) && /before the Thai repetition mark/.test(p)), 'U+' + cp.toString(16));
   }
   assert.deepEqual(catalogueProblems(edited('th', o => { o.pricing.soon = 'เร็ว' + AFTER_MATH + ' นี้'; })), [], 'the mark joined to its word');
+});
+
+// ── round 2: the pages are rendered from the catalogue the caller supplies (CodeRabbit 4306966428) ──────────────────
+test('(b) the shared blocks (the header, the footers, the page note) are rendered from the catalogue the caller supplies, not from the loaded one', () => {
+  const o = structuredClone(CAT.messages);
+  o.en['shared.header.pricing'] = 'Prices, supplied';
+  o.th['shared.header.pricing'] = 'ราคา ที่ส่งมา';
+  o.en['shared.footer.note'] = 'A footer note, supplied.';
+  const { pages, problems } = renderSitePages({ templates: TEMPLATES, messages: o });
+  assert.deepEqual(problems, []);
+  for (const [file, html] of Object.entries(pages)) {
+    assert.ok(html.includes('<a href="/pricing">Prices, supplied</a>') && html.includes('<a href="/pricing">ราคา ที่ส่งมา</a>'), file + ': the header reads the supplied values');
+    assert.ok(html.includes('A footer note, supplied.'), file + ': the footer reads the supplied value');
+    const header = html.split('<header class="site-header">')[1].split('</header>')[0];
+    assert.ok(!header.includes('>Pricing</a>'), file + ': no value of the loaded catalogue is left in the header');
+  }
+  // the supplied catalogue is in force for that call only
+  const again = renderSitePages({ templates: TEMPLATES, messages: CAT.messages });
+  for (const [file, html] of Object.entries(again.pages)) assert.equal(html, read(file), file + ' is the committed page again');
+});
+
+// ── round 2: each slot kind has its own place (CodeRabbit 4306966429) ───────────────────────────────────────────────
+test('(b) a {{j:}} slot is read only inside structured data, and an attribute or a text slot is refused there; a text slot is refused in an attribute', () => {
+  const base = '<!DOCTYPE html>\n<html lang="en"><head><title>{{home.meta.title}}</title></head><body>\n';
+  const ok = base + '<p>{{home.origin}}</p>\n</body></html>\n';
+  assert.deepEqual(templateProblems(ok, 'home'), []);
+  const into = (where, text) => ok.replace(where, text);
+  const ld = body => into('</head>', `<script type="application/ld+json">${body}</script></head>`);
+  const planted = [
+    ['a json slot in a visible attribute', into('<p>', '<p title="{{j:home.origin}}">'), /attribute title reads a \{\{j:key\}\} slot; an attribute reads \{\{=key\}\}/],
+    ['a json slot in an href', into('<p>', '<a href="{{j:home.origin}}">{{home.origin}}</a><p>'), /attribute href reads a \{\{j:key\}\} slot/],
+    ['a json slot in a data attribute', into('<p>', '<p data-x="{{j:home.origin}}">'), /attribute data-x reads a \{\{j:key\}\} slot/],
+    ['a json slot in a meta content', into('</head>', '<meta name="description" content="{{j:home.meta.description}}"></head>'), /attribute content reads a \{\{j:key\}\} slot/],
+    ['a text slot in an href', into('<p>', '<a href="{{home.origin}}">{{home.origin}}</a><p>'), /attribute href reads a text slot; an attribute reads \{\{=key\}\}/],
+    ['a slot in an attribute name', into('<p>', '<p {{=home.origin}}="x">'), /attribute name that holds a slot/],
+    ['a json slot in a text node', into('<p>{{home.origin}}</p>', '<p>{{j:home.origin}}</p>'), /a text node reads a \{\{j:key\}\} slot; a text node reads \{\{key\}\}/],
+    ['a json slot in a style block', into('</head>', '<style>a{margin:{{j:home.origin}}}</style></head>'), /a <style> block holds a catalogue slot; only structured data takes one/],
+    ['an attribute slot in a style block', into('</head>', '<style>a{margin:{{=home.origin}}}</style></head>'), /a <style> block holds a catalogue slot/],
+    ['a json slot in a non-ld data block', into('</head>', '<script type="application/json">{"a": "{{j:home.origin}}"}</script></head>'), /<script type="application\/json"> block holds a catalogue slot; only structured data takes one/],
+    ['an attribute slot in structured data', ld('{"@type": "Organization", "name": "{{=shared.brand}}"}'), /structured data reads an attribute slot; a JSON string reads \{\{j:key\}\}/],
+    ['a text slot in structured data', ld('{"@type": "Organization", "name": "{{shared.brand}}"}'), /structured data reads a text slot; a JSON string reads \{\{j:key\}\}/],
+    ['a block slot in structured data', ld('{"@type": "Organization", "name": "{{block:site-header}}"}'), /structured data reads a block or raw slot/],
+  ];
+  for (const [what, src, re] of planted) assert.ok(templateProblems(src, 'home').some(p => re.test(p)), what + ': ' + JSON.stringify(templateProblems(src, 'home')));
+  for (const [what, src] of [
+    ['a json slot in structured data', ld('{"@type": "Organization", "name": "{{j:shared.brand}}", "description": "{{j:home.ld.description}}"}')],
+    ['an attribute slot in a visible and in a plain attribute', into('<p>', '<p title="{{=home.origin}}" data-x="{{=home.origin}}">')],
+    ['a text slot in a text node', ok],
+    ['a block slot in a style block (the shared stylesheet pieces the real templates use)', into('</head>', '<style>\n{{block:site-header-css}}\n</style></head>')],
+  ]) assert.deepEqual(templateProblems(src, 'home'), [], what);
+});
+
+// ── round 2: the channels the reviewer named (G1) ───────────────────────────────────────────────────────────────────
+test('(b) the literal lint reads the value of a text field, an ld+json block whatever the case of its type, and a javascript: URL', () => {
+  const base = '<!DOCTYPE html>\n<html lang="en"><head><title>{{home.meta.title}}</title></head><body>\n<p>{{home.origin}}</p>\n</body></html>\n';
+  const into = (where, text) => base.replace(where, text);
+  const TAB = String.fromCharCode(9), NL = String.fromCharCode(10);
+  const planted = [
+    ['a text field with a type', into('<p>', '<input type="text" value="Literal shown"><p>'), /value of the text field holds the literal "Literal shown"/],
+    ['a text field with no type', into('<p>', '<input value="Literal shown"><p>'), /value of the text field holds the literal "Literal shown"/],
+    ['an email field in capitals', into('<p>', '<input type="EMAIL" value="a@b.c"><p>'), /value of the text field holds the literal "a@b\.c"/],
+    ['a field of a type no browser knows (it is a text field)', into('<p>', '<input type="nonsense" value="Literal shown"><p>'), /value of the text field holds the literal/],
+    ['an ld+json block with a capitalised type', into('</head>', '<script type="Application/LD+JSON">{"description": "Literal words"}</script></head>'), /structured data value "Literal words" is a literal/],
+    ['an ld+json block with spaces around its type', into('</head>', '<script type=" application/ld+json ">{"description": "Literal words"}</script></head>'), /structured data value "Literal words" is a literal/],
+    ['a javascript: href', into('<p>', '<a href="javascript:go()">{{home.origin}}</a><p>'), /attribute href is a javascript: URL; a template holds no script/],
+    ['a javascript: href in capitals', into('<p>', '<a href="JavaScript:go()">{{home.origin}}</a><p>'), /javascript: URL/],
+    ['a javascript: href with a tab and a leading space', into('<p>', '<a href=" java' + TAB + 'script:go()">{{home.origin}}</a><p>'), /javascript: URL/],
+    ['a javascript: href with a line break', into('<p>', '<a href="java' + NL + 'script:go()">{{home.origin}}</a><p>'), /javascript: URL/],
+    ['a javascript: form action', into('<p>', '<form action="javascript:go()"></form><p>'), /attribute action is a javascript: URL/],
+    ['a javascript: formaction', into('<p>', '<button formaction="javascript:go()">{{home.origin}}</button><p>'), /attribute formaction is a javascript: URL/],
+    ['a javascript: src', into('<p>', '<iframe src="javascript:go()"></iframe><p>'), /attribute src is a javascript: URL/],
+  ];
+  for (const [what, src, re] of planted) assert.ok(templateProblems(src, 'home').some(p => re.test(p)), what + ': ' + JSON.stringify(templateProblems(src, 'home')));
+  for (const [what, src] of [
+    ['inputs whose value is data, not shown', into('<p>', '<input type="hidden" value="x"><input type="checkbox" value="m"><input type="radio" value="r"><input type="range" value="3"><input type="file" value="f"><input type="color" value="#000000"><p>')],
+    ['a button element value', into('<p>', '<button value="go">{{home.origin}}</button><p>')],
+    ['an empty text field and a slot', into('<p>', '<input type="text" value=""><input type="text" value="{{=home.origin}}"><p>')],
+    ['ordinary links', into('<p>', '<a href="/pricing">{{home.origin}}</a><a href="https://kolwen.com/">{{home.origin}}</a><a href="#javascript:x">{{home.origin}}</a><a href="mailto:info@kolwen.com">{{home.origin}}</a><p>')],
+  ]) assert.deepEqual(templateProblems(src, 'home'), [], what);
+});
+
+// ── round 2: the Thai rule reads U+2800, U+2028 and U+2029 too (G2a) ─────────────────────────────────────────────────
+test('(g) U+2800, U+2028 and U+2029 before the Thai repetition mark fail too', () => {
+  for (const cp of [0x2800, 0x2028, 0x2029]) {
+    const bad = edited('th', o => { o.pricing.soon = 'เร็ว' + String.fromCharCode(cp) + AFTER_MATH + ' นี้'; });
+    assert.ok(catalogueProblems(bad).some(p => /pricing\.soon/.test(p) && /before the Thai repetition mark/.test(p)), 'U+' + cp.toString(16));
+  }
 });
