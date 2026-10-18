@@ -19,10 +19,14 @@
 //    12 words, are not found; a link target inside the Markdown source of a paragraph is dropped before the comparison. The dictionary is ICU's, so a count near the limit can differ
 //    between ICU versions.
 //  - Cookies: the check reads the text of shipped files (a headers file, a page's markup and inline scripts, Worker code). It finds a Set-Cookie header, a quoted `Set-Cookie`, a meta
-//    set-cookie, any `.cookie` or `['cookie']` write (however the document is named), `Object.assign(document, { cookie })`, the Cookie Store `set`, a cookie library's `set` or
-//    `serialize`, and a `; Domain=` attribute or `domain:` option. It does not see a cookie written through a name built at run time (`document['coo' + 'kie']`), `Reflect.set` or
-//    `Object.defineProperty` on the document, `cookieStore['set']`, an inline handler attribute other than a `.cookie` write, or a script a page loads from another origin
-//    (rule 13 names every origin a script may come from).
+//    set-cookie, any `.cookie` or `['cookie']` write (however the document is named, and with a comment between the property and the operator), a destructuring target (`[document.cookie] = a`,
+//    `({ k: d.cookie } = o)`) and a for-of or for-in target, `Object.assign(document, { cookie })`, the Cookie Store `set`, a cookie library's `set` or `serialize`, and a `; Domain=`
+//    attribute or `domain:` option. It does not see a cookie written through a name built at run time (`document['coo' + 'kie']`), `Reflect.set` or `Object.defineProperty` on the
+//    document, `cookieStore['set']`, an inline handler attribute other than a `.cookie` write, or a script a page loads from another origin (rule 13 names every origin a script may come
+//    from). What a regular expression cannot see in a destructuring or loop target, all unseen: a target followed by an item that holds `=` or `;`
+//    (`[document.cookie, z = 1] = a`, `[document.cookie, [y = 1]] = a`), a target wrapped in parentheses (`[(document.cookie)] = a`, `for ((document.cookie) of l)`), and a
+//    cookie reached by a `with` statement or a computed key. A destructuring DEFAULT that only reads the cookie (`const { a = document.cookie } = o`) is reported as a write: it has
+//    the same shape, and the check fails loud, never quiet. A match inside a string or a comment is reported too (it reads text, not syntax).
 //  - Links: a page is judged by its links in the markup, not by where a browser would send the visitor.
 import { htmlTokens } from './html-tokens.mjs';
 import { parseHeadersFile, declarations, patternMatches, parsePolicy } from './headers-file.mjs';
@@ -195,8 +199,35 @@ export function cspZoneProblems(seams, zoneName, headersText, paths) {
 
 // SEAM 4. Nothing shipped sets a cookie (today none is set), and no cookie carries a Domain attribute.
 const CODE_FILE = /\.(?:m?js|cjs|ts|tsx)$/i;
-// A write to a `.cookie` property or a ['cookie'] member of anything (the document under another name too), and the Object.assign form.
-const DOC_COOKIE_WRITE = /(?:\.\s*cookie|\[\s*['"`]cookie['"`]\s*\])\s*(?:\*\*|<<|>>>?|&&|\|\||\?\?|[+\-*/%|&^])?=(?![=>])/;
+// A write to a `.cookie` property or a ['cookie'] member of anything (the document under another name too), and the Object.assign form. Three shapes of target:
+//  1. the property, then (space and comments) an assignment operator: `document.cookie = x`, `d['cookie'] ??= x`, `document.cookie /* c */ = x`;
+//  2. a destructuring target: the property, optional later items, one or more closing `]` or `}`, then `=`: `[document.cookie] = a`, `({ k: d.cookie, j } = o)`, `[[document.cookie]] = a`;
+//  3. a for-of or for-in target: `for (document.cookie of list)`, `for await (d['cookie'] in o)`.
+//  4. an update operator: `document.cookie++`, `d['cookie']--` (a postfix operator on the same line, as the grammar demands) and `++document.cookie`, `-- /* c */ a.b.cookie`.
+// The property may be spelled with an escape (`document.cookie`, `document['c\x6fokie']`). The pieces are built from strings and code points: this file holds no escape of its own that a tool could turn
+// into a character, and no line terminator inside a regular expression.
+const LINE_END = String.fromCharCode(10, 13, 0x2028, 0x2029); // what ends a // comment: JavaScript's line terminators, not only LF
+// A block comment holds no `*/`, so a run of comments can be cut only one way. (A lazy `[\s\S]*?` could swallow several comments as one, and a failed match then tried every cut: exponential on
+// `for (document.cookie /* c */ /* c */ ...` with no `of`; found by the timing test of PR #56.)
+const BLOCK_COMMENT = '\\/\\*(?:[^*]|\\*(?!\\/))*\\*\\/';
+const GAP = '(?:\\s|' + BLOCK_COMMENT + '|\\/\\/[^' + LINE_END + ']*[' + LINE_END + '])*'; // white space and comments
+const GAP_SAME_LINE = '(?:[ \\t]|\\/\\*(?:[^*' + LINE_END + ']|\\*(?!\\/))*\\*\\/)*'; // no line break: JavaScript allows none before a postfix ++ or --
+// One letter of a word as itself or as an escape: \uXXXX and \u{X...} in an identifier, and \xXX too in a string.
+const spell = (word, inString) => [...word].map(c => {
+  const h = c.charCodeAt(0).toString(16).replace(/[a-f]/g, m => '[' + m + m.toUpperCase() + ']');
+  return '(?:' + c + '|\\\\u00' + h + '|\\\\u\\{0*' + h + '\\}' + (inString ? '|\\\\x' + h : '') + ')';
+}).join('');
+const COOKIE_PROP = '(?:\\.\\s*' + spell('cookie', false) + '(?![\\w$])|\\[\\s*[\'"`]' + spell('cookie', true) + '[\'"`]\\s*\\])';
+const ASSIGN_OP = /(?:\*\*|<<|>>>?|&&|\|\||\?\?|[+\-*/%|&^])?=(?![=>])/.source;
+const UPDATE_OP = '(?:\\+\\+|--)';
+const DOC_COOKIE_WRITE = new RegExp([
+  COOKIE_PROP + GAP + ASSIGN_OP,
+  COOKIE_PROP + GAP + '(?:,[^\\]}=;]*)?[\\]}](?:' + GAP + '[\\]}])*' + GAP + ASSIGN_OP,
+  // never two gaps side by side (the comments between them could be split in as many ways as there are comments): the closing delimiters, each with its own gap, are one optional group
+  '\\bfor\\s*(?:await\\s*)?\\(\\s*[^;()]*?' + COOKIE_PROP + GAP + '(?:(?:,[^\\]}=;()]*)?(?:[\\]}]' + GAP + ')+)?(?:of|in)\\b',
+  COOKIE_PROP + GAP_SAME_LINE + UPDATE_OP,
+  UPDATE_OP + GAP + '[\\w$.]*?' + COOKIE_PROP,
+].join('|'));
 const ASSIGN_COOKIE = /\bObject\s*\.\s*assign\s*\(\s*document\s*,[^)]*\bcookie\b/;
 const COOKIE_CALLS = /\b(?:cookieStore\s*\.\s*set|cookies\s*\.\s*set|setCookie|serialize(?:Cookie)?)\s*\(/;
 const DOMAIN_ATTR = /;\s*domain\s*=/i;

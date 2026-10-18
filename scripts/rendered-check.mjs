@@ -29,7 +29,7 @@
 // CI (CI=true) a missing browser FAILS (exit 1): a silent skip in CI is the one outcome this script refuses.
 // Exit codes: 0 passed, 1 findings (or no browser in CI), 2 a bad argument, 3 not run here.
 // Usage: node scripts/rendered-check.mjs [--web <dir>] [--only reflow,zoom,csp,theme,contrast,lineheight,measure] [--no-headers]
-import { realpathSync } from 'node:fs';
+import { isMainModule } from './lib/entry-guard.mjs'; // by real path: a run through a junction or a symlink still runs
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { htmlPages } from './lib/web-files.mjs';
@@ -385,7 +385,4 @@ async function main() {
   } finally { await browser.close(); }
 }
 
-// The entry guard compares REAL paths on both sides: Node gives import.meta.url the real path while argv[1] keeps the path as typed, so a lexical compare reads false through a junction or a symlink and the script exits 0 having done nothing.
-// An argv that does not resolve (an import, or a path that is not this file) reads false: it runs nothing.
-const isMain = () => { try { return !!process.argv[1] && realpathSync.native(process.argv[1]) === realpathSync.native(fileURLToPath(import.meta.url)); } catch { return false; } };
-if (isMain()) main().catch(e => { console.error('FAIL rendered-check: ' + (e && e.message ? e.message : e)); process.exitCode = 1; });
+if (isMainModule(import.meta.url)) main().catch(e => { console.error('FAIL rendered-check: ' + (e && e.message ? e.message : e)); process.exitCode = 1; });

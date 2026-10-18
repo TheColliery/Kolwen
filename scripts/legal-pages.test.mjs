@@ -899,12 +899,31 @@ test('surface-check rule 4 refuses every other space separator and default-ignor
       assert.equal(r.status, 1, name + ': ' + r.stdout + r.stderr);
       assert.match(r.stdout + r.stderr, new RegExp('web/pricing\\.html: invisible character U\\+' + cp.toString(16).toUpperCase() + '\\b'), name);
     }
-    for (const entity of ['&nbsp;', '&#160;', '&#xA0;']) {
-      writeFileSync(join(dir, 'web/pricing.html'), page.replace('Coming soon', 'Coming' + entity + 'soon'));
+    // with and without the closing semicolon: the HTML decoder reads `&nbsp` and a numeric reference whose digits end at a non-digit as the same no-break space (CodeRabbit 4307106778)
+    for (const entity of ['&nbsp;', '&#160;', '&#xA0;', '&nbsp', '&#160', '&#xA0', '&#0160', '&#x00a0', '&#X0A0', '&NonBreakingSpace;', '&nbspx']) {
+      writeFileSync(join(dir, 'web/pricing.html'), page.replace('Coming soon', 'Coming' + entity + ' soon'));
       const r = surface(dir);
       assert.equal(r.status, 1, entity + ': ' + r.stdout + r.stderr);
       assert.match(r.stdout + r.stderr, /web\/pricing\.html: invisible character U\+A0 written as an entity/, entity);
     }
+    // a reference that only STARTS with those digits is another character, not a no-break space (U+0640, U+0A01, U+3E80): no finding from this rule
+    for (const other of ['&#1600;', '&#xA01;', '&#16000;', '&NBSP;', '&NBSP', '&Nbsp;', '&NonbreakingSpace;', '&nonbreakingspace;']) { // HTML names are case-sensitive: `&NBSP;` is no reference at all (CodeRabbit 4309062069, the reviewer's L-3)
+      writeFileSync(join(dir, 'web/pricing.html'), page.replace('Coming soon', 'Coming' + other + ' soon'));
+      const r = surface(dir);
+      assert.doesNotMatch(r.stdout + r.stderr, /written as an entity \(&nbsp;\)/, other + ': ' + r.stdout + r.stderr);
+    }
+    // Where the reference stands decides whether a browser reads it: in an attribute value a legacy name (no semicolon) followed by a letter, a digit or `=` is NOT decoded (a query string such as
+    // ?a=1&nbspx=2 is a URL), while a numeric reference and a name with its semicolon are; a comment and the body of a script or a style are not decoded at all; in text and in a title the legacy name is.
+    const inA = value => page.replace('Coming soon', 'Coming soon<a href="/x' + value + '">y</a>');
+    const inTitle = value => page.replace('Coming soon', 'Coming soon<span title="' + value + '">y</span>');
+    const caught = [['a text node, legacy name then a letter', page.replace('Coming soon', 'Coming&nbspx soon')], ['a text node, legacy name then =', page.replace('Coming soon', 'Coming&nbsp=2 soon')],
+      ['an attribute, numeric without a semicolon then a letter', inTitle('a&#160b')], ['an attribute, name with its semicolon', inTitle('a&nbsp;b')], ['an attribute, legacy name then a space', inTitle('a&nbsp b')], ['an attribute, legacy name at the end of the value', inTitle('a&nbsp')],
+      ['an attribute, legacy name then a plain character that is no letter', inA('?a=1&nbsp-2')], ['an attribute, hex without a semicolon then a letter', inTitle('a&#xA0g')]];
+    const clean = [['an attribute, legacy name then a letter (a query string)', inA('?a=1&nbspx=2')], ['an attribute, legacy name then =', inA('?a=1&nbsp=2')], ['an attribute, legacy name then a digit', inTitle('a&nbsp1')],
+      ['a comment', page.replace('Coming soon', 'Coming soon<!-- &nbsp; &#160 &nbsp -->')], ['the body of a script', page.replace('Coming soon', 'Coming soon<script>var s = "&nbsp; &#160";</script>')],
+      ['the body of a style', page.replace('Coming soon', 'Coming soon<style>a::after{content:"&nbsp"}</style>')]];
+    for (const [what, text] of caught) { writeFileSync(join(dir, 'web/pricing.html'), text); const r = surface(dir); assert.match(r.stdout + r.stderr, /written as an entity \(&nbsp;\)/, what + ': ' + r.stdout + r.stderr); }
+    for (const [what, text] of clean) { writeFileSync(join(dir, 'web/pricing.html'), text); const r = surface(dir); assert.doesNotMatch(r.stdout + r.stderr, /written as an entity \(&nbsp;\)/, what + ': ' + r.stdout + r.stderr); }
     for (const [what, text] of [['an emoji presentation selector after a symbol', page.replace('Coming soon', 'Coming' + String.fromCharCode(0x26a0, 0xfe0f) + 'soon')], ['a plain space', page.replace('Coming soon', 'Coming  soon')]]) {
       writeFileSync(join(dir, 'web/pricing.html'), text);
       const r = surface(dir);
