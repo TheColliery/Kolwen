@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname, resolve, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { facesOf, inRange } from './lib/font-coverage.mjs';
+import { reEscape } from './lib/re-escape.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const WEB = join(ROOT, 'web');
@@ -118,7 +119,7 @@ test('surface-check admits the font files by name and nothing else: a font outsi
     track(dir);
     const d = surface(dir);
     assert.equal(d.status, 1, d.stdout + d.stderr);
-    assert.match(d.stdout + d.stderr, new RegExp('web' + MONO_500().replace(/[.]/g, '\\.') + ': is declared a shipped asset but is missing from the publish root'));
+    assert.match(d.stdout + d.stderr, new RegExp(reEscape('web' + MONO_500()) + ': is declared a shipped asset but is missing from the publish root'));
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -203,8 +204,10 @@ test('surface-check rule 13 judges the font manifest: self in style-src, font-sr
 test('no font-family in the manifest, a page or the page stylesheet source names the reserved font name "Plex"', () => {
   const sources = [['web/fonts/fonts.css', read('web/fonts/fonts.css')], ['scripts/lib/legal-render.mjs', read('scripts/lib/legal-render.mjs')], ...PAGES.map(p => [p, css(read(p))])];
   for (const [name, text] of sources) {
-    for (const m of text.matchAll(/font-family\s*:\s*([^;}]*)/gi)) assert.ok(!/plex/i.test(m[1]), `${name}: font-family names the reserved name: ${m[1]}`);
-    for (const m of text.matchAll(/\bfont\s*:\s*([^;}]*)/gi)) assert.ok(!/plex/i.test(m[1]), `${name}: font shorthand names the reserved name: ${m[1]}`);
+    // a source that yields no declaration (a <style> tag that gained an attribute, say) would pass unread, so each must be seen to hold at least one
+    let scanned = 0;
+    for (const m of text.matchAll(/font-family\s*:\s*([^;}]*)/gi)) { scanned++; assert.ok(!/plex/i.test(m[1]), `${name}: font-family names the reserved name: ${m[1]}`); }
+    for (const m of text.matchAll(/\bfont\s*:\s*([^;}]*)/gi)) { scanned++; assert.ok(!/plex/i.test(m[1]), `${name}: font shorthand names the reserved name: ${m[1]}`); }
+    assert.ok(scanned > 0, `${name}: no font-family or font shorthand was found, so nothing was checked`);
   }
-  assert.ok(sources.length >= 9);
 });

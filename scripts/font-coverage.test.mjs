@@ -3,12 +3,14 @@
 // Node builtins only. A test that needs a changed copy of the site works on a copy in a temp folder; the real tree is never written.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, readdirSync, cpSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, cpSync } from 'node:fs';
+import { brotliCompressSync } from 'node:zlib';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { decodeEntities, textOf, cssContentOf, scriptStringsOf, renderedChars } from './lib/rendered-text.mjs';
 import { woff2Cmap, woff2Names } from './lib/woff2-cmap.mjs';
+import { servedFiles } from './lib/web-files.mjs';
 import { glyphSets, coverageGaps, facesOf, asksForLayoutFeature, THAI_SHAPING } from './lib/font-coverage.mjs';
 import { cutSet, BASELINE } from './font-subset.mjs';
 
@@ -33,7 +35,69 @@ test('the derived set: the pages render these characters, the Thai block among t
   assert.ok(seen.size > 100 && seen.size < 400, 'rendered code points: ' + seen.size);
   assert.ok(seen.has(0x20) && seen.has(cp('K')) && seen.has(0x0e01), 'space, a Latin letter and a Thai letter');
   assert.ok([...seen.keys()].every(c => c >= 0x20));
-  for (const pages of seen.values()) assert.ok([...pages].every(p => /^web\/[a-z0-9-]+\.html$/.test(p)));
+  for (const pages of seen.values()) assert.ok([...pages].every(p => /^web\/(?:[a-z0-9-]+\/)*[a-z0-9-]+\.html$/.test(p)));
+});
+
+const ch = String.fromCodePoint;
+test('character references are decoded as a browser decodes them: a numeric one without its semicolon too, a legacy named one without it (longest name first), and a reference once only', () => {
+  assert.equal(decodeEntities('&#255'), ch(0xff));
+  assert.equal(decodeEntities('&#xFF'), ch(0xff));
+  assert.equal(decodeEntities('&#XfF!'), ch(0xff) + '!');
+  assert.equal(decodeEntities('&#8240 x'), ch(0x2030) + ' x', 'the digits end at the first non-digit');
+  assert.equal(decodeEntities('&copy 2026'), ch(0xa9) + ' 2026');
+  assert.equal(decodeEntities('&copy;'), ch(0xa9));
+  assert.equal(decodeEntities('&notice'), ch(0xac) + 'ice', 'a legacy name is decoded inside a longer run of letters, as a browser does in text');
+  assert.equal(decodeEntities('&notin'), ch(0xac) + 'in', 'the longest legacy prefix wins, the rest stays');
+  assert.throws(() => decodeEntities('&notin;'), /unknown character reference &notin;/);
+  assert.equal(decodeEntities('&amp'), '&');
+  assert.equal(decodeEntities('&ampx'), '&x');
+  assert.equal(decodeEntities('R&D and AT&T and &#x and &# and &'), 'R&D and AT&T and &#x and &# and &', 'an ampersand that starts no reference is plain text');
+  assert.equal(decodeEntities('&#38;copy; &amp;#65;'), '&copy; &#65;', 'a decoded ampersand never starts a second decoding');
+  assert.throws(() => decodeEntities('&bogus;'), /unknown character reference &bogus;/);
+});
+
+test('RED PROOF: a numeric character reference without its semicolon, rendered by a page, is judged like the character it draws', () => {
+  const dir = webCopy(web => {
+    const f = join(web, 'terms.html');
+    writeFileSync(f, readFileSync(f, 'utf8').replace('</body>', '<p>&#8240 x</p></body>'));
+  });
+  try {
+    const gaps = coverageGaps(join(dir, 'web'));
+    assert.ok(gaps.some(g => g.startsWith('U+2030 ') && g.includes('web/terms.html')), gaps.join(' | '));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('RED PROOF: a page in a subfolder of web/ is read too, and a character only it renders that the cut lacks fails the check naming that page', () => {
+  const dir = webCopy(web => {
+    mkdirSync(join(web, 'th'));
+    writeFileSync(join(web, 'th', 'index.html'), '<!doctype html><html lang="th"><head><title>x</title></head><body><p>' + ch(0x2030) + '</p></body></html>');
+  });
+  try {
+    const gaps = coverageGaps(join(dir, 'web'));
+    assert.ok(gaps.some(g => g.startsWith('U+2030 ') && g.includes('rendered by web/th/index.html')), gaps.join(' | '));
+    assert.ok(renderedChars(join(dir, 'web')).get(0x2030).has('web/th/index.html'));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// A one-table WOFF2 file holding a cmap with one format-12 subtable (Windows, Unicode full repertoire), built by hand so a test can set the start glyph of a group, which the real fonts never put at 0.
+const base128 = n => { const out = [n & 0x7f]; for (n = Math.floor(n / 128); n > 0; n = Math.floor(n / 128)) out.unshift((n & 0x7f) | 0x80); return Buffer.from(out); };
+function cmap12Font(groups) {
+  const sub = Buffer.alloc(16 + groups.length * 12);
+  sub.writeUInt16BE(12, 0); sub.writeUInt32BE(sub.length, 4); sub.writeUInt32BE(groups.length, 12);
+  groups.forEach(([b, e, g], i) => { sub.writeUInt32BE(b, 16 + i * 12); sub.writeUInt32BE(e, 20 + i * 12); sub.writeUInt32BE(g, 24 + i * 12); });
+  const table = Buffer.concat([Buffer.from([0, 0, 0, 1, 0, 3, 0, 10, 0, 0, 0, 12]), sub]);
+  const body = brotliCompressSync(table);
+  const head = Buffer.alloc(48);
+  head.write('wOF2', 0, 'latin1'); head.writeUInt16BE(1, 12); head.writeUInt32BE(body.length, 20);
+  return Buffer.concat([head, Buffer.from([0]), base128(table.length), body]);
+}
+const mapped = (...groups) => [...woff2Cmap(cmap12Font(groups))].sort((a, b) => a - b);
+
+test('cmap format 12: a group maps each character to its start glyph plus its offset in the group, so a start glyph of 0 leaves only the first character on .notdef (OpenType cmap, format 12)', () => {
+  assert.deepEqual(mapped([0x41, 0x42, 5]), [0x41, 0x42], 'control: a group at glyph 5 maps both characters');
+  assert.deepEqual(mapped([0x4b, 0x4c, 0]), [0x4c], 'K lands on glyph 0, L on glyph 1');
+  assert.deepEqual(mapped([0, 1, 0]), [1], 'U+0000 lands on glyph 0, U+0001 on glyph 1');
+  assert.deepEqual(mapped([0x4b, 0x4b, 0], [0x50, 0x52, 7]), [0x50, 0x51, 0x52], 'a group that is all .notdef adds nothing');
 });
 
 test('the WOFF2 reader: a font file names glyphs for the characters it carries and for no other, and a file that is not WOFF2 is refused', () => {
@@ -96,13 +160,18 @@ test('RED PROOF: a Latin-range character the cut dropped (the per mille sign), a
 test('the check judges the file, not the manifest: a manifest range widened over a character the file lacks fails', () => {
   const dir = webCopy(web => {
     const f = join(web, 'fonts/fonts.css');
-    writeFileSync(f, readFileSync(f, 'utf8').replace(/(font-family: 'KW Mono';[^}]*unicode-range: )/, '$1U+00FF, '));
+    // U+0416 is outside every declared range (the manifest already covers U+00FF), so only the edit below brings it under a face's duty
+    const before = readFileSync(f, 'utf8');
+    const after = before.replace(/(font-family: 'KW Mono';[^}]*unicode-range: )/, '$1U+0416, ');
+    assert.notEqual(after, before, 'the KW Mono range was widened');
+    writeFileSync(f, after);
     const idx = join(web, 'index.html');
-    writeFileSync(idx, readFileSync(idx, 'utf8').replace('</body>', '<p>\u00ff</p></body>'));
+    writeFileSync(idx, readFileSync(idx, 'utf8').replace('</body>', '<p>\u0416</p></body>'));
   });
   try {
     const gaps = coverageGaps(join(dir, 'web'));
-    assert.ok(gaps.length > 0 && gaps.every(g => g.startsWith('U+00FF ')), gaps.join(' | '));
+    assert.ok(gaps.length > 0 && gaps.every(g => g.startsWith('U+0416 ') && /KW Mono/.test(g)), gaps.join(' | '));
+    assert.ok(!gaps.some(g => /KW Sans Thai/.test(g)), 'only the widened face is judged');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -122,7 +191,7 @@ test('the cut files carry the new family name and no "Plex" in the name records 
 });
 
 test('the pages ask for no OpenType layout feature, so the features the cut dropped are unreachable; a page that asks for one is caught', () => {
-  for (const page of readdirSync(WEB).filter(f => f.endsWith('.html'))) assert.ok(!asksForLayoutFeature(readFileSync(join(WEB, page), 'utf8')), page + ' asks for a layout feature');
+  for (const page of servedFiles(WEB).filter(f => f.endsWith('.html'))) assert.ok(!asksForLayoutFeature(readFileSync(join(WEB, page), 'utf8')), page + ' asks for a layout feature');
   assert.ok(asksForLayoutFeature('<style>h1{font-variant-numeric:slashed-zero}</style>'));
   assert.ok(asksForLayoutFeature("<p style=\"font-feature-settings:'zero'\">x</p>"));
   assert.ok(!asksForLayoutFeature('<style>h1{font-weight:600}</style>'));

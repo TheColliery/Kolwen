@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fontNameProblems, facesOf, hashOf, FONT_URL } from './lib/font-coverage.mjs';
+import { reEscape } from './lib/re-escape.mjs';
 import { parseHeadersFile, patternMatches, FONT_CACHE_CONTROL, fontCacheMiss, firstFontUrl, fontCacheMisses, declarations } from './lib/headers-file.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -29,7 +30,7 @@ test('a stale name fails: changed bytes under the old name, a name that resolves
   const urls = manifestUrls();
   const flipped = withCopy(web => { const f = join(web, urls[0]); const b = readFileSync(f); b[b.length - 1] ^= 1; writeFileSync(f, b); }, fontNameProblems);
   assert.equal(flipped.length, 1, flipped.join(' | '));
-  assert.match(flipped[0], new RegExp('^' + urls[0].replace(/[.]/g, '\\.') + ': the name says [0-9a-f]{10} but the bytes hash to [0-9a-f]{10}'));
+  assert.match(flipped[0], new RegExp('^' + reEscape(urls[0]) + ': the name says [0-9a-f]{10} but the bytes hash to [0-9a-f]{10}'));
   const gone = withCopy(web => renameSync(join(web, urls[1]), join(web, urls[1].replace(/\.[0-9a-f]{10}\.woff2$/, '.0000000000.woff2'))), fontNameProblems);
   assert.deepEqual(gone, [`${urls[1]}: named by fonts.css but the file does not exist`]);
   const plain = withCopy(web => {

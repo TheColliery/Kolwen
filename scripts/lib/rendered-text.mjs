@@ -3,16 +3,29 @@
 // inline CSS, and the string literals of its inline scripts (an over-approximation: a literal that is never written to the page only adds characters). Not drawn in the
 // page's typefaces, so left out: attribute text (alt, title, aria-label: the browser or the screen reader draws or speaks it), and the page's own URLs.
 // Zero dependencies, node builtins only.
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { servedFiles } from './web-files.mjs';
 
-const NAMED = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: String.fromCharCode(0xa0) };
+// The named references a browser decodes even without their semicolon (WHATWG HTML, "Named character references": the 106 names listed without a trailing `;`): the 96 Latin-1 names in code point order from U+00A0, then the ten upper-case and ASCII ones.
+const LATIN1 = 'nbsp iexcl cent pound curren yen brvbar sect uml copy ordf laquo not shy reg macr deg plusmn sup2 sup3 acute micro para middot cedil sup1 ordm raquo frac14 frac12 frac34 iquest Agrave Aacute Acirc Atilde Auml Aring AElig Ccedil Egrave Eacute Ecirc Euml Igrave Iacute Icirc Iuml ETH Ntilde Ograve Oacute Ocirc Otilde Ouml times Oslash Ugrave Uacute Ucirc Uuml Yacute THORN szlig agrave aacute acirc atilde auml aring aelig ccedil egrave eacute ecirc euml igrave iacute icirc iuml eth ntilde ograve oacute ocirc otilde ouml divide oslash ugrave uacute ucirc uuml yacute thorn yuml'.split(' ');
+const LEGACY = new Map([...LATIN1.map((n, i) => [n, String.fromCharCode(0xa0 + i)]), ['amp', '&'], ['lt', '<'], ['gt', '>'], ['quot', '"'], ['AMP', '&'], ['LT', '<'], ['GT', '>'], ['QUOT', '"'], ['COPY', String.fromCharCode(0xa9)], ['REG', String.fromCharCode(0xae)]]);
+const LONGEST_LEGACY = Math.max(...[...LEGACY.keys()].map(n => n.length));
 
-// A character reference we cannot decode throws: a silent miss would leave a rendered character out of the derived set.
+// Decodes as a browser does in text, in ONE pass (a decoded `&` never starts a second reference): a numeric reference with or without its `;`; `&name;` for the legacy names and `apos`; a legacy name without its `;`, the longest
+// that is a prefix of the run of letters (`&notice` is the not sign and "ice"). An `&name;` we do not know throws, even when a legacy name is its prefix (`&notin;` is one character, not the not sign and "in;"):
+// a silent miss would leave a rendered character out of the derived set. Any other `&` is plain text.
 export function decodeEntities(s) {
-  return s.replace(/&#x([0-9a-f]+);/gi, (m, h) => String.fromCodePoint(parseInt(h, 16)))
-    .replace(/&#(\d+);/g, (m, d) => String.fromCodePoint(Number(d)))
-    .replace(/&([a-z][a-z0-9]*);/gi, (m, n) => { if (!(n in NAMED)) throw new Error('rendered-text: unknown character reference ' + m); return NAMED[n]; });
+  return s.replace(/&(?:#x([0-9a-f]+)|#([0-9]+)|([a-z][a-z0-9]*))(;?)/gi, (m, hex, dec, name, semi) => {
+    if (hex || dec) return String.fromCodePoint(hex ? parseInt(hex, 16) : Number(dec));
+    if (semi) {
+      if (name === 'apos') return "'";
+      if (LEGACY.has(name)) return LEGACY.get(name);
+      throw new Error('rendered-text: unknown character reference ' + m);
+    }
+    for (let n = Math.min(name.length, LONGEST_LEGACY); n > 0; n--) if (LEGACY.has(name.slice(0, n))) return LEGACY.get(name.slice(0, n)) + name.slice(n);
+    return m;
+  });
 }
 
 // CSS string escapes: a backslash and 1 to 6 hex digits (and one space that ends them), or a backslash and any other character.
@@ -48,7 +61,7 @@ export function scriptStringsOf(html) {
 export function renderedChars(webDir) {
   const seen = new Map();
   const note = (text, page) => { for (const ch of text) { const cp = ch.codePointAt(0); if (cp < 0x20) continue; (seen.get(cp) || seen.set(cp, new Set()).get(cp)).add(page); } };
-  const pages = readdirSync(webDir).filter(f => f.endsWith('.html')).sort();
+  const pages = servedFiles(webDir).filter(f => f.endsWith('.html'));
   for (const page of pages) {
     const html = readFileSync(join(webDir, page), 'utf8').replace(/\r\n/g, '\n');
     note(textOf(html) + ' ' + cssContentOf(html) + ' ' + scriptStringsOf(html), 'web/' + page);

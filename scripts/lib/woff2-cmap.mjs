@@ -65,8 +65,8 @@ export function woff2Cmap(buf) {
       const groups = t.readUInt32BE(off + 12);
       for (let g = 0; g < groups; g++) {
         const b = t.readUInt32BE(off + 16 + g * 12), e = t.readUInt32BE(off + 20 + g * 12), gid = t.readUInt32BE(off + 24 + g * 12);
-        if (gid === 0 && b === 0) continue;
-        for (let c = b; c <= e; c++) out.add(c);
+        // each character maps to gid + (c - b), so a group that starts at glyph 0 leaves only its first character on .notdef
+        for (let c = b; c <= e; c++) if (gid + (c - b) !== 0) out.add(c);
       }
     }
   }
