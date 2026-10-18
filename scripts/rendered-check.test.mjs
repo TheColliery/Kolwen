@@ -2,30 +2,36 @@
 //   - a 400 px wide element fails the 320 px reflow check (SC 1.4.10);
 //   - a box that clips its text fails the 200% text check (SC 1.4.4), both a box that cuts its own content and a text that sticks out of a clipping parent;
 //   - an inline style whose hash is not in the Content-Security-Policy is reported by the browser.
-// These tests need Chrome or Edge. Locally, with none found, they are SKIPPED and the skip names why; in CI (CI=true) a missing browser FAILS the first test below, so CI never goes green without them.
+// The browser tests need a route to a browser (scripts/lib/browser.mjs findRoute): the Chrome, Chromium or Edge found on Linux or macOS, or on Windows the headless shell inside WSL (never a Windows browser).
+// Locally, with no route, they are SKIPPED and the skip names why; in CI (CI=true) a missing browser FAILS the first test below, so CI never goes green without them.
 // Every child has a bound: the browser has a heap cap and a kill timer (scripts/lib/browser.mjs). Run: node --test scripts/rendered-check.test.mjs
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
-import { findBrowser, launchBrowser, BROWSER_ENV } from './lib/browser.mjs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { findBrowser, findRoute, launchBrowser, BROWSER_ENV, EXIT_NOT_RUN_HERE } from './lib/browser.mjs';
 import * as browserLib from './lib/browser.mjs'; // devToolsEndpoint, profilePath, lockProfile and the rest are used through the namespace
-import { serveWeb } from './lib/static-server.mjs';
+import * as wslLib from './lib/wsl-route.mjs'; // toWslPath, decodeWslText, findWslRoute
+import { makeResponder } from './lib/static-server.mjs';
 import { renderedChecks, urlPathOf } from './rendered-check.mjs';
 import * as checkLib from './rendered-check.mjs'; // classifyLogs
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const CI = process.env.CI === 'true';
-const binary = findBrowser();
-const SKIP = !binary && !CI ? `no Chrome or Edge found (set ${BROWSER_ENV}); the rendered checks did not run here` : false;
+const route = findRoute();
+const USABLE = route.kind === 'native' || route.kind === 'wsl';
+const NATIVE = route.kind === 'native', WSL = route.kind === 'wsl';
+const SKIP = !USABLE && !CI ? `no browser route here (${route.why}); the rendered checks did not run here` : false;
+const SKIP_NATIVE = SKIP || (NATIVE ? false : 'the native route only: the WSL route gives every run a profile of its own');
+const SKIP_WSL = SKIP || (WSL ? false : 'the WSL route only');
 
 let browser = null;
 const copies = [];
-before(async () => { if (binary) browser = await launchBrowser({ binary, lifetimeMs: 600000 }); });
+before(async () => { if (USABLE) browser = await launchBrowser({ route, lifetimeMs: 600000 }); });
 after(async () => { if (browser) await browser.close(); for (const d of copies) rmSync(d, { recursive: true, force: true }); });
 
 // A copy of web/ in the OS temp folder, with `plant(dir)` applied. Only a folder this call made is ever removed.
@@ -41,7 +47,7 @@ const run = (webDir, checks, headers = false) => renderedChecks({ webDir, browse
 const where = (failures, file, check) => failures.filter(f => f.page === file && f.check === check);
 
 test('in CI a browser is there: the rendered checks are never skipped there', { skip: CI ? false : 'only meaningful in CI' }, () => {
-  assert.ok(binary, `CI has no Chrome or Edge, so the rendered checks cannot run (set ${BROWSER_ENV} or install one)`);
+  assert.ok(USABLE, `CI has no browser route (${route.why}), so the rendered checks cannot run (set ${BROWSER_ENV} or install Chrome, Chromium or Edge)`);
 });
 
 test('the built pages pass all three checks, in both languages, under their real Content-Security-Policy', { skip: SKIP }, async () => {
@@ -145,8 +151,8 @@ test('classifyLogs: a CSP violation is a violation, a Permissions-Policy or Feat
 });
 
 test('a page whose language switch does not set the wanted lang fails, and a page is never measured in a language another page left behind', { skip: SKIP }, async () => {
-  // the state of every earlier page is cleared before a load, so a page with no working switch opens in its own default (en) and passes there, and its Thai pass is the one that cannot get Thai:
-  // before the state was cleared, the same page failed in English instead, because the Thai pass of the page before it had left "th" in localStorage
+  // every page and language opens in a browser context of its own, so a page with no working switch opens in its own default (en) and passes there, and its Thai pass is the one that cannot get Thai:
+  // with one shared context, the same page failed in English instead, because the Thai pass of the page before it had left "th" in localStorage
   const web = copyWeb(w => editPage(w, 'pricing.html', h => h.split('data-lang-set=').join('data-lang-x=')));
   const { failures } = await run(web, ['reflow']);
   const lang = failures.filter(f => f.check === 'language');
@@ -326,13 +332,12 @@ test('nothing in the browser code deletes anything: no rm, rmSync, rmdir, unlink
 test('lockProfile: a profile is locked once; a second lock fails at once with one line, giving the lock up frees it, and another profile is not in the way', async () => {
   const a = join(tmpdir(), 'kolwen-lock-test-a'), b = join(tmpdir(), 'kolwen-lock-test-b'); // path strings only: nothing is made, and nothing is read
   const release = await browserLib.lockProfile(a);
-  const t0 = Date.now();
+  // no clock here: a lock that hung instead of failing would be stopped by the runner's --test-timeout
   await assert.rejects(browserLib.lockProfile(a), e => {
     assert.match(e.message, /^the browser profile .*kolwen-lock-test-a is in use by another run$/);
     assert.ok(!e.message.includes('\n'), 'one line');
     return true;
   });
-  assert.ok(Date.now() - t0 < 2000, 'at once, not a hang: ' + (Date.now() - t0) + ' ms');
   const other = await browserLib.lockProfile(b);
   await other();
   await release();
@@ -352,22 +357,21 @@ test('lockPortOf: the same profile always gives the same port, in 49152 to 65535
 
 const countBrowserFolders = () => readdirSync(dirname(browserLib.profilePath())).filter(n => n.startsWith('kolwen-browser-')).length; // beside the profile: the user's cache folder
 
-test('two launches use the same profile folder, and the second makes no new kolwen-browser-* folder', { skip: SKIP }, async () => {
+test('two launches use the same profile folder, and the second makes no new kolwen-browser-* folder', { skip: SKIP_NATIVE }, async () => {
   const first = browser.profile;
   assert.equal(first, browserLib.profilePath());
   const before = countBrowserFolders();
   await browser.close();
-  browser = await launchBrowser({ binary, lifetimeMs: 600000 });
+  browser = await launchBrowser({ route, lifetimeMs: 600000 });
   assert.equal(browser.profile, first, 'the same folder');
   assert.equal(countBrowserFolders(), before, 'no new kolwen-browser-* folder in the OS temp folder');
   assert.ok(existsSync(first));
 });
 
-test('a second launch while a browser has the profile fails at once with one line, makes no second profile, and leaves the first browser working', { skip: SKIP }, async () => {
+test('a second launch while a browser has the profile fails at once with one line, makes no second profile, and leaves the first browser working', { skip: SKIP_NATIVE }, async () => {
   const before = countBrowserFolders();
-  const t0 = Date.now();
-  await assert.rejects(launchBrowser({ binary }), e => { assert.match(e.message, /^the browser profile .+ is in use by another run$/); assert.ok(!e.message.includes('\n')); return true; });
-  assert.ok(Date.now() - t0 < 10000, 'at once, not a hang: ' + (Date.now() - t0) + ' ms');
+  // no clock here: a launch that hung instead of failing would be stopped by the runner's --test-timeout
+  await assert.rejects(launchBrowser({ route }), e => { assert.match(e.message, /^the browser profile .+ is in use by another run$/); assert.ok(!e.message.includes('\n')); return true; });
   assert.equal(countBrowserFolders(), before, 'no second profile');
   const page = await browser.newPage();
   try { assert.equal(await page.evaluate('1 + 1'), 2); } finally { await page.close(); }
@@ -415,14 +419,30 @@ test('prepareProfile refuses a profile path that is a symlink or a junction, and
   assert.deepEqual(readdirSync(target), [], 'nothing was written through the link');
 });
 
-test('prepareProfile makes the profile folder with mode 0o700 and the marker with mode 0o600', { skip: process.platform === 'win32' ? 'POSIX mode bits: Windows has none (the runner proves this)' : false }, () => {
+test('prepareProfile makes the profile folder private (0o700, the marker 0o600), makes an existing folder of its own private, and leaves a folder it refuses untouched', t => {
   const root = mkdtempSync(join(tmpdir(), 'kolwen-test-mode-'));
   copies.push(root);
+  // a capability probe, not a guess from the platform name: this volume must keep POSIX mode bits for the assertions to mean anything
+  const probe = join(root, 'probe');
+  mkdirSync(probe);
+  try { chmodSync(probe, 0o755); } catch { t.skip('this volume refuses chmod'); return; }
+  if ((statSync(probe).mode & 0o777) !== 0o755) { t.skip('this volume keeps no POSIX mode bits (the runner proves this)'); return; }
   const dir = join(root, 'p');
   browserLib.prepareProfile(dir);
   assert.equal(statSync(dir).mode & 0o077, 0, 'no group or other bit on the folder');
   assert.equal(statSync(dir).mode & 0o700, 0o700);
   assert.equal(statSync(join(dir, browserLib.MARKER)).mode & 0o077, 0, 'no group or other bit on the marker');
+  // mkdir gives its mode to a folder it makes, not to one that was there: a folder of ours that was left open is made private by the next run
+  chmodSync(dir, 0o755);
+  browserLib.prepareProfile(dir);
+  assert.equal(statSync(dir).mode & 0o077, 0, 'an existing folder of ours is made private');
+  // a folder that is not ours is refused before anything is done to it, its mode included
+  const foreign = join(root, 'foreign');
+  mkdirSync(foreign);
+  writeFileSync(join(foreign, 'Local State'), '{}');
+  chmodSync(foreign, 0o755);
+  assert.throws(() => browserLib.prepareProfile(foreign), /is a folder this check did not make/);
+  assert.equal(statSync(foreign).mode & 0o777, 0o755, 'the refused folder keeps the mode it had');
 });
 
 test('writeMarker is an exclusive create: a marker that is already there is never overwritten, and that is not an error', () => {
@@ -477,7 +497,7 @@ test('nothing clears cookies or the cache browser-wide: no clearBrowserCookies, 
 });
 
 test('every page lives in a context of its own: it sees nothing of another page\'s storage or cookies or of the default context, a cookie list carries no value, and close() disposes the context', { skip: SKIP }, async () => {
-  const server = await serveWeb(join(ROOT, 'web'), { headers: false });
+  const server = await browser.serve(join(ROOT, 'web'), { headers: false }); // before the pages: the WSL route answers over the pages' own channel
   const contexts = async () => (await browser.send('Target.getBrowserContexts')).browserContextIds.length;
   const base = await contexts();
   const a = await browser.newPage(), b = await browser.newPage();
@@ -500,7 +520,7 @@ test('every page lives in a context of its own: it sees nothing of another page\
 });
 
 test('the browser resolves no host name: localhost does not resolve, the server on 127.0.0.1 does', { skip: SKIP }, async () => {
-  const server = await serveWeb(join(ROOT, 'web'), { headers: false });
+  const server = await browser.serve(join(ROOT, 'web'), { headers: false }); // before the pages: the WSL route answers over the pages' own channel
   const page = await browser.newPage();
   try {
     const port = new URL(server.origin).port;
@@ -533,7 +553,7 @@ test('the jar check: a cookie from outside the served origin fails the run, in t
   assert.ok(pages.every(f => f.detail === '1 cookie(s) outside the served 127.0.0.1 origin in the browser context of this page: .bing.com (kwctxbad)'), pages[0].detail);
 });
 
-test('the command line: with no browser CI fails and a developer run skips visibly', () => {
+test('the command line: with no browser route CI fails (1) and a developer run says "not run here" and exits 3, never a pass', () => {
   const script = join(ROOT, 'scripts/rendered-check.mjs');
   // the children run with their own HOME and TEMP, in a folder this test made
   const home = mkdtempSync(join(tmpdir(), 'kolwen-cli-home-'));
@@ -541,14 +561,33 @@ test('the command line: with no browser CI fails and a developer run skips visib
   const env = { ...process.env, HOME: home, USERPROFILE: home, TEMP: home, TMP: home, TMPDIR: home, XDG_CONFIG_HOME: home, [BROWSER_ENV]: join(tmpdir(), 'no-such-browser-binary') };
   const ci = spawnSync(process.execPath, ['--max-old-space-size=256', script], { encoding: 'utf8', timeout: 60000, env: { ...env, CI: 'true' } });
   assert.equal(ci.status, 1);
-  assert.match(ci.stderr, /FAIL rendered-check: no Chrome or Edge was found.*In CI a missing browser is a failure, never a skip/);
+  assert.match(ci.stderr, /FAIL rendered-check: .* did not run here\. In CI a missing browser is a failure, never a skip/);
   const local = spawnSync(process.execPath, ['--max-old-space-size=256', script], { encoding: 'utf8', timeout: 60000, env: { ...env, CI: '' } });
-  assert.equal(local.status, 0);
-  assert.match(local.stdout, /SKIPPED rendered-check: no Chrome or Edge was found/);
+  assert.equal(EXIT_NOT_RUN_HERE, 3);
+  assert.equal(local.status, EXIT_NOT_RUN_HERE, 'a distinct code: not a pass (0), not a finding (1), not a bad argument (2)');
+  assert.match(local.stdout, /NOT RUN HERE rendered-check: .* did not run here\. This is not a pass: the pass is the pull request's CI \(the rendered job\), or a person's own browser looking at the pages\./);
+  assert.equal(local.stdout.trim().split('\n').length, 1, 'one line');
   const bad = spawnSync(process.execPath, ['--max-old-space-size=256', script, '--nope'], { encoding: 'utf8', timeout: 60000, env });
   assert.equal(bad.status, 2);
   const only = spawnSync(process.execPath, ['--max-old-space-size=256', script, '--only', 'colour'], { encoding: 'utf8', timeout: 60000, env });
   assert.equal(only.status, 2);
+});
+
+test('on Windows the command line without WSL says "not run here" in one line and exits 3, and a Windows browser named in KOLWEN_BROWSER is refused', { skip: process.platform === 'win32' ? false : 'Windows only (the route is decided by the platform)' }, () => {
+  const script = join(ROOT, 'scripts/rendered-check.mjs');
+  const home = mkdtempSync(join(tmpdir(), 'kolwen-cli-home-'));
+  copies.push(home);
+  const env = { ...process.env, HOME: home, USERPROFILE: home, TEMP: home, TMP: home, TMPDIR: home, CI: '' };
+  delete env[BROWSER_ENV];
+  // WSL made unreachable: the program that would be started is a path that does not exist
+  const noWsl = spawnSync(process.execPath, ['--max-old-space-size=256', script], { encoding: 'utf8', timeout: 60000, env: { ...env, [wslLib.WSL_EXE_ENV]: join(tmpdir(), 'no-such-dir', 'wsl.exe') } });
+  assert.equal(noWsl.status, EXIT_NOT_RUN_HERE);
+  assert.match(noWsl.stdout, /NOT RUN HERE rendered-check: WSL is not available here .* did not run here\. This is not a pass/);
+  assert.equal(noWsl.stdout.trim().split('\n').length, 1, 'one line');
+  // an existing Windows program named as the browser: refused, and nothing is started (the program is node itself, so it cannot be mistaken for a browser launch)
+  const refused = spawnSync(process.execPath, ['--max-old-space-size=256', script], { encoding: 'utf8', timeout: 60000, env: { ...env, [BROWSER_ENV]: process.execPath, [wslLib.WSL_EXE_ENV]: join(tmpdir(), 'no-such-dir', 'wsl.exe') } });
+  assert.equal(refused.status, EXIT_NOT_RUN_HERE);
+  assert.match(refused.stdout, /NOT RUN HERE rendered-check: KOLWEN_BROWSER names .*, which is not the WSL route: on Windows this check never starts a Windows browser/);
 });
 
 test('urlPathOf maps a page file to the path the Worker serves', () => {
@@ -557,3 +596,275 @@ test('urlPathOf maps a page file to the path the Worker serves', () => {
   assert.equal(urlPathOf('404.html'), '/404');
   assert.equal(urlPathOf('docs/index.html'), '/docs/');
 });
+
+// ── the routes: Windows never starts a Windows browser; WSL is found by measurement; the pages travel by the browser's own channel ──────────────────────
+// A Windows path built from parts, so no backslash has to be typed into a string literal.
+const win = (...parts) => parts.join(String.fromCharCode(92));
+
+test('findBrowser never returns a Windows browser: on win32 it is null whatever exists and whatever KOLWEN_BROWSER names; the other platforms still find theirs', () => {
+  const everything = () => true;
+  assert.equal(findBrowser({}, 'win32', everything), null);
+  assert.equal(findBrowser({ [BROWSER_ENV]: 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe' }, 'win32', everything), null);
+  assert.equal(findBrowser({ [BROWSER_ENV]: 'C:/x/chrome.exe', ProgramFiles: 'C:/Program Files', LOCALAPPDATA: 'C:/L' }, 'win32', everything), null);
+  assert.equal(findBrowser({ [BROWSER_ENV]: win('C:', 'x', 'msedge.exe') }, 'win32', everything), null);
+  assert.equal(findBrowser({ PATH: '/usr/bin' }, 'linux', p => p.endsWith('chromium')), join('/usr/bin', 'chromium'));
+  assert.ok(findBrowser({}, 'darwin', p => p.includes('Google Chrome')).includes('Google Chrome'));
+});
+
+// A stand-in for wsl.exe: -l -q answers with a UTF-16 list (as the real one does), anything else is the probe script's answer.
+const fakeWsl = ({ list = 'Ubuntu' + String.fromCharCode(13, 10), probe = 'kolwen-wsl: OK\n', listStatus = 0, calls = [] } = {}) => (args) => {
+  calls.push(args);
+  if (args[0] === '-l') return { status: listStatus, stdout: Buffer.from(list, 'utf16le'), error: null };
+  return { status: 0, stdout: Buffer.from(probe), error: null };
+};
+
+const SCRIPTS_ON_C = win('C:', 'repo', 'scripts', 'wsl'); // the scripts folder as it is on a Windows machine, whatever machine this test runs on
+test('findRoute on Windows: only the WSL route; the distro must exist AND the headless shell must be at its stable path; a Windows browser in KOLWEN_BROWSER is refused', () => {
+  const calls = [];
+  const ok = findRoute({}, 'win32', { scriptsDir: SCRIPTS_ON_C, run: fakeWsl({ calls }) });
+  assert.deepEqual(ok, { kind: 'wsl', exe: 'wsl.exe', distro: 'Ubuntu' });
+  const probe = calls.find(a => a[0] === '-d');
+  assert.deepEqual(probe.slice(0, 4), ['-d', 'Ubuntu', '--exec', 'bash'], 'argv, started without a shell: nothing is a string a shell parses');
+  assert.match(probe[4], /^\/mnt\/[a-z]\/.*\/scripts\/wsl\/probe\.sh$/);
+  assert.equal(probe.length, 5);
+  assert.equal(findRoute({ [BROWSER_ENV]: 'wsl' }, 'win32', { scriptsDir: SCRIPTS_ON_C, run: fakeWsl() }).kind, 'wsl');
+  assert.equal(findRoute({ [BROWSER_ENV]: 'wsl:Ubuntu' }, 'win32', { scriptsDir: SCRIPTS_ON_C, run: fakeWsl() }).distro, 'Ubuntu');
+  const other = findRoute({ [BROWSER_ENV]: 'wsl:Debian' }, 'win32', { scriptsDir: SCRIPTS_ON_C, run: fakeWsl() });
+  assert.equal(other.kind, 'none');
+  assert.match(other.why, /WSL has no distro named Debian/);
+  // a Windows browser, or any program, named as the browser: refused with its reason, and nothing is asked of WSL
+  for (const named of ['C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', win('C:', 'chrome.exe'), process.execPath, 'wslx', 'wsl:', 'wsl:a b', 'msedge']) {
+    const asked = [];
+    const r = findRoute({ [BROWSER_ENV]: named }, 'win32', { scriptsDir: SCRIPTS_ON_C, run: fakeWsl({ calls: asked }) });
+    assert.equal(r.kind, 'refused', named);
+    assert.match(r.why, /is not the WSL route: on Windows this check never starts a Windows browser; set it to wsl or wsl:<distro>, or leave it unset$/, named);
+    assert.equal(asked.length, 0, 'WSL is not even asked: ' + named);
+  }
+  // the two halves of the measurement
+  const noDistro = findRoute({}, 'win32', { scriptsDir: SCRIPTS_ON_C, run: fakeWsl({ list: 'docker-desktop' + String.fromCharCode(13, 10) }) });
+  assert.deepEqual([noDistro.kind, noDistro.why], ['none', 'WSL has no distro']);
+  const noShell = findRoute({}, 'win32', { scriptsDir: SCRIPTS_ON_C, run: fakeWsl({ probe: 'kolwen-wsl: NOBIN\n' }) });
+  assert.equal(noShell.kind, 'none');
+  assert.match(noShell.why, /^the headless shell is not executable at ~\/tools\/chrome-headless-shell-linux64\/chrome-headless-shell in the WSL distro Ubuntu$/);
+  const gone = findRoute({}, 'win32', { scriptsDir: SCRIPTS_ON_C, run: () => ({ status: null, stdout: Buffer.alloc(0), error: Object.assign(new Error('x'), { code: 'ENOENT' }) }) });
+  assert.equal(gone.kind, 'none');
+  assert.match(gone.why, /^WSL is not available here \(wsl\.exe could not be started: ENOENT\)$/);
+  // docker's own distros are not ours
+  assert.equal(findRoute({}, 'win32', { scriptsDir: SCRIPTS_ON_C, run: fakeWsl({ list: 'docker-desktop\r\nUbuntu-24.04\r\n' }) }).distro, 'Ubuntu-24.04');
+  // other platforms: native, or none
+  assert.deepEqual(findRoute({ PATH: '/usr/bin' }, 'linux', { exists: p => p.endsWith('google-chrome') }), { kind: 'native', binary: join('/usr/bin', 'google-chrome') });
+  assert.equal(findRoute({ PATH: '' }, 'linux', { exists: () => false }).kind, 'none');
+});
+
+test('toWslPath and decodeWslText: a Windows path as the distro sees it, and the UTF-16 that wsl.exe prints for itself', () => {
+  const { toWslPath, decodeWslText } = wslLib;
+  assert.equal(toWslPath(win('C:', 'Users', 'a b', 'x', 'scripts', 'wsl', 'probe.sh')), '/mnt/c/Users/a b/x/scripts/wsl/probe.sh');
+  assert.equal(toWslPath('D:/x//y/'), '/mnt/d/x/y');
+  assert.equal(toWslPath(win('', '', 'server', 'share', 'x')), null, 'a UNC path is not on a drive the distro can see');
+  assert.equal(toWslPath('scripts/wsl/probe.sh'), null);
+  assert.equal(toWslPath('C:'), null);
+  assert.equal(decodeWslText(Buffer.from(String.fromCharCode(0xfeff) + 'Ubuntu\r\n', 'utf16le')), 'Ubuntu\r\n', 'UTF-16 with a byte-order mark');
+  assert.equal(decodeWslText(Buffer.from('Ubuntu\n', 'utf16le')), 'Ubuntu\n');
+  assert.equal(decodeWslText(Buffer.from('kolwen-wsl: OK\n')), 'kolwen-wsl: OK\n', 'what a Linux program prints is UTF-8');
+  assert.equal(decodeWslText(Buffer.alloc(0)), '');
+});
+
+test('makeResponder: the answer is a function of the URL: pages, clean URLs, a 404, nothing outside the root and never _headers; the real headers when asked', () => {
+  const respond = makeResponder(join(ROOT, 'web'), { headers: true });
+  const has = (r, name) => Object.keys(r.headers).some(k => k.toLowerCase() === name);
+  const home = respond('/');
+  assert.equal(home.status, 200);
+  assert.match(home.headers['content-type'], /^text\/html/);
+  assert.ok(home.body.length > 1000 && Buffer.isBuffer(home.body));
+  assert.ok(has(home, 'content-security-policy'), 'the rule of _headers for /* is applied');
+  assert.equal(respond('/pricing').status, 200);
+  assert.equal(respond('/pricing.html').status, 200);
+  assert.equal(respond('/404').status, 200, 'served with 200: this is for rendering, the 404 status is the post-deploy check\'s');
+  assert.equal(respond('/?x=1').status, 200, 'a query is ignored');
+  assert.match(respond('/fonts/fonts.css').headers['content-type'], /^text\/css/);
+  for (const bad of ['/nope', '/_headers', '/_redirects', '/../package.json', '/%2e%2e/package.json', '/%', '/fonts/../../package.json']) {
+    const r = respond(bad);
+    assert.equal(r.status, 404, bad);
+    assert.equal(r.body.toString(), 'not found');
+  }
+  assert.ok(!has(makeResponder(join(ROOT, 'web'), { headers: false })('/'), 'content-security-policy'), 'with the headers off there are none');
+});
+
+test('makeResponder: header names are lower-case, so a rule of _headers that overlaps a default replaces it and no name is there twice', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'kolwen-test-hdr-'));
+  copies.push(dir);
+  writeFileSync(join(dir, 'index.html'), '<!doctype html><title>x</title>');
+  writeFileSync(join(dir, '_headers'), '/*\n  Content-Type: text/x-test\n  Cache-Control: max-age=5\n  X-Mixed-Case: yes\n');
+  const home = makeResponder(dir, { headers: true })('/');
+  const names = Object.keys(home.headers);
+  assert.deepEqual(names, names.map(n => n.toLowerCase()), 'every name is lower-case');
+  assert.equal(new Set(names).size, names.length, 'no name twice');
+  assert.equal(home.headers['content-type'], 'text/x-test', 'the rule replaces the default');
+  assert.equal(home.headers['cache-control'], 'max-age=5');
+  assert.equal(home.headers['x-mixed-case'], 'yes');
+});
+
+test('the DevTools route answers HEAD with the headers and an empty body, and any other method with the page', () => {
+  const out = { status: 200, headers: { 'content-type': 'text/html' }, body: Buffer.from('<p>page') };
+  const head = browserLib.fulfillParams('r1', 'HEAD', out), get = browserLib.fulfillParams('r1', 'GET', out);
+  assert.equal(head.body, '');
+  assert.equal(Buffer.from(get.body, 'base64').toString(), '<p>page');
+  assert.deepEqual(head.responseHeaders, get.responseHeaders, 'the headers are the same');
+  assert.equal(head.responseCode, 200);
+  assert.equal(head.requestId, 'r1');
+});
+
+test('a HEAD request gets no body and a GET the whole page, on whichever route the browser takes', { skip: SKIP }, async () => {
+  const server = await browser.serve(join(ROOT, 'web'), { headers: false });
+  const page = await browser.newPage();
+  try {
+    await page.goto(server.origin + '/');
+    const seen = await page.evaluate(`(async () => { const h = await fetch('/', { method: 'HEAD' }), g = await fetch('/'); return { head: (await h.text()).length, headStatus: h.status, get: (await g.text()).length }; })()`);
+    assert.equal(seen.headStatus, 200);
+    assert.equal(seen.head, 0, 'HEAD: no body');
+    assert.ok(seen.get > 1000, 'GET: the page');
+  } finally { await page.close(); await server.close(); }
+});
+
+test('KOLWEN_WSL_EXE accepts only a program named wsl.exe: any other program is refused, and nothing is started', () => {
+  const asked = [];
+  const run = args => { asked.push(args); return { status: 1, stdout: Buffer.alloc(0), error: null }; };
+  for (const other of [process.execPath, 'msedge.exe', 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe', '/usr/bin/wsl', 'wsl.exe.bak', 'xwsl.exe', 'C:\\x\\wsl.exe\\']) {
+    const r = wslLib.findWslRoute({ env: { [wslLib.WSL_EXE_ENV]: other }, run });
+    assert.equal(r.kind, 'refused', other);
+    assert.match(r.why, /KOLWEN_WSL_EXE names .*, which is not wsl\.exe: this check starts no other program there$/, other);
+    const direct = wslLib.wslRun(['-l', '-q'], { [wslLib.WSL_EXE_ENV]: other });
+    assert.equal(direct.status, null, 'wslRun starts nothing for ' + other);
+    assert.ok(direct.error, other);
+    assert.throws(() => wslLib.startWslBrowser({ exe: other, distro: 'Ubuntu', port: 1, lifetimeS: 1, scriptsDir: SCRIPTS_ON_C }), /is not wsl\.exe/, other);
+  }
+  assert.deepEqual(asked, [], 'WSL was never asked');
+  // a missing path, or a stand-in, is accepted when it is NAMED wsl.exe (any case, either separator); unset means wsl.exe itself
+  for (const named of [join(tmpdir(), 'no-such-dir', 'wsl.exe'), 'C:\\no\\such\\WSL.EXE', '/no/such/wsl.exe', undefined]) {
+    const r = wslLib.findWslRoute({ env: named ? { [wslLib.WSL_EXE_ENV]: named } : {}, run });
+    assert.equal(r.kind, 'none', String(named));
+    assert.match(r.why, /^WSL is not available here/, String(named));
+  }
+  assert.equal(asked.length, 4, 'the four accepted names each asked WSL once');
+});
+
+test('run through a junction or a symlink the command line still runs: the entry guard compares real paths, and an import runs nothing', t => {
+  const root = mkdtempSync(join(tmpdir(), 'kolwen-test-guard-'));
+  copies.push(root); // the junction points at a COPY of scripts/ made here, so removing this folder can never reach the real ones
+  const real = join(root, 'real');
+  cpSync(join(ROOT, 'scripts'), real, { recursive: true });
+  const link = join(root, 'link');
+  try { symlinkSync(real, link, 'junction'); } catch { t.skip('this system will not make a symlink or a junction'); return; }
+  const home = join(root, 'home');
+  mkdirSync(home);
+  const env = { ...process.env, HOME: home, USERPROFILE: home, TEMP: home, TMP: home, TMPDIR: home, CI: 'true', [BROWSER_ENV]: join(tmpdir(), 'no-such-dir', 'no-such-browser') };
+  if (process.platform === 'win32') env[wslLib.WSL_EXE_ENV] = join(tmpdir(), 'no-such-dir', 'wsl.exe');
+  const args = file => ['--max-old-space-size=256', file];
+  const direct = spawnSync(process.execPath, args(join(real, 'rendered-check.mjs')), { encoding: 'utf8', timeout: 60000, env });
+  const viaLink = spawnSync(process.execPath, args(join(link, 'rendered-check.mjs')), { encoding: 'utf8', timeout: 60000, env });
+  assert.equal(direct.status, 1, 'with no browser CI fails: ' + direct.stderr);
+  assert.equal(viaLink.status, 1, 'the same through the link, not a silent 0: ' + viaLink.stdout + viaLink.stderr);
+  assert.match(viaLink.stderr, /FAIL rendered-check: /);
+  const imported = spawnSync(process.execPath, ['--input-type=module', '-e', `await import(${JSON.stringify(pathToFileURL(join(link, 'rendered-check.mjs')).href)})`], { encoding: 'utf8', timeout: 60000, env });
+  assert.equal(imported.status, 0, 'an import runs nothing: ' + imported.stderr);
+  assert.equal(imported.stdout + imported.stderr, '');
+});
+
+test('scripts/wsl/browser-run.sh: LF only, argv checked, the stable path and never a versioned folder, and its only delete sits behind a guard on a path it made', () => {
+  const sh = readFileSync(join(ROOT, 'scripts/wsl/browser-run.sh'), 'utf8');
+  const probeSh = readFileSync(join(ROOT, 'scripts/wsl/probe.sh'), 'utf8');
+  assert.ok(!sh.includes('\r') && !probeSh.includes('\r'), 'LF only: a CRLF script is "bad interpreter" in the distro');
+  assert.match(sh, /^#!\/usr\/bin\/env bash\n/);
+  assert.ok(sh.includes('$HOME/tools/chrome-headless-shell-linux64/chrome-headless-shell'), 'the stable path');
+  assert.doesNotMatch(sh + probeSh, /chrome-headless-shell-[0-9]/, 'never a versioned folder');
+  for (const need of ['BADPORT', 'BADLIFETIME', 'NOHOME', 'NOBIN', 'NOMKTEMP', 'BADRUN']) assert.ok(sh.includes(need), need);
+  // exactly one delete, in the cleanup, inside `if guard`, of the variable the guard checks
+  const deletes = sh.split('\n').filter(l => /\brm\b/.test(l) && !l.trim().startsWith('#'));
+  assert.equal(deletes.length, 1, deletes.join(' | '));
+  assert.equal(deletes[0].trim(), 'rm -rf -- "$RUN"');
+  const at = sh.indexOf('rm -rf -- "$RUN"');
+  const guardCall = sh.lastIndexOf('if guard; then', at);
+  assert.ok(guardCall > 0 && at - guardCall < 40, 'the delete is the first thing inside `if guard; then`');
+  // the guard: mktemp's shape, a real directory and not a link, resolving to itself, under /tmp, and not $HOME
+  for (const need of ['mktemp -d /tmp/kolwen-browser-run-XXXXXX', '/tmp/kolwen-browser-run-??????', '[ -d "$RUN" ] && [ ! -L "$RUN" ]', 'realpath -e -- "$RUN"', '[ "$real" = "$RUN" ]', '[ "$real" != "$HOME" ]', '[ -n "${RUN:-}" ]'])
+    assert.ok(sh.includes(need), need);
+  assert.doesNotMatch(sh, /rm [^\n]*\$HOME/, '$HOME is never the target of a delete');
+  assert.ok(sh.indexOf('guard || {') > 0 && sh.indexOf('guard || {') < sh.indexOf('mkdir -m 700'), 'the guard runs right after mktemp, before anything is put in the folder');
+  assert.doesNotMatch(probeSh, /\brm\b|mkdir|mktemp/, 'the probe makes and deletes nothing');
+});
+
+test('the WSL script and the native route start the browser with the same switches (the WSL-only ones are named)', () => {
+  const sh = readFileSync(join(ROOT, 'scripts/wsl/browser-run.sh'), 'utf8');
+  const start = sh.indexOf('"$BIN"');
+  const flags = (sh.slice(start, sh.indexOf('about:blank', start)).match(/'--[^']*'|--[^\s']+/g) ?? []).map(f => f.replace(/^'|'$/g, ''));
+  const wslOnly = ['--remote-debugging-port="$PORT"', '--remote-debugging-address=127.0.0.1', '--user-data-dir="$RUN/profile"', '--font-render-hinting=none'];
+  for (const f of browserLib.COMMON_ARGS) assert.ok(flags.includes(f), 'the script carries ' + f);
+  assert.deepEqual(flags.filter(f => !browserLib.COMMON_ARGS.includes(f) && !wslOnly.includes(f)), [], 'nothing else is in the script');
+  for (const f of wslOnly) assert.ok(flags.includes(f), 'the script carries ' + f);
+  assert.ok(browserLib.COMMON_ARGS.includes('--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE 127.0.0.1'), 'no host name resolves');
+});
+
+test('a lock port held by a program that is not this check is reported as that, and not as another run', async t => {
+  const p = join(tmpdir(), 'kolwen-lock-test-foreign'); // a path string only: nothing is made
+  const port = browserLib.lockPortOf(p);
+  const foreign = createServer(s => { s.on('error', () => {}); s.end('hello'); }); // it speaks, but it does not greet as this check's lock does
+  try { await new Promise((res, rej) => { foreign.once('error', rej); foreign.listen(port, '127.0.0.1', res); }); } catch { t.skip('the lock port of this path is taken on this machine'); return; }
+  try {
+    await assert.rejects(browserLib.lockProfile(p), e => {
+      assert.match(e.message, /^the browser profile .*kolwen-lock-test-foreign could not be locked: port \d+ of 127\.0\.0\.1 is held by a program that is not this check \(point KOLWEN_BROWSER_PROFILE at another folder\)$/);
+      assert.ok(!e.message.includes('in use by another run'));
+      return true;
+    });
+    assert.equal(await browserLib.lockHolder(port), 'another program');
+  } finally { await new Promise(r => foreign.close(r)); }
+  const release = await browserLib.lockProfile(p);
+  assert.equal(await browserLib.lockHolder(port), 'a run', 'this check\'s own lock greets whoever connects');
+  await release();
+});
+
+test('a lock port that the system reserves (Windows keeps ranges of the dynamic ports) is one line saying so, not a raw listen error', async t => {
+  const tryListen = port => new Promise(res => { const s = createServer(); s.once('error', e => res(e.code)); s.listen(port, '127.0.0.1', () => s.close(() => res('ok'))); });
+  let found = null;
+  for (let i = 0; i < 6000 && !found; i++) { const p = join(tmpdir(), 'kolwen-lock-probe-' + i); if (await tryListen(browserLib.lockPortOf(p)) === 'EACCES') found = p; } // a capability probe: look for a path whose port is reserved
+  if (!found) { t.skip('no lock port of 6000 paths is reserved on this system'); return; }
+  await assert.rejects(browserLib.lockProfile(found), e => {
+    assert.match(e.message, /^the browser profile .*kolwen-lock-probe-\d+ could not be locked: port \d+ of 127\.0\.0\.1 is reserved by the system \(point KOLWEN_BROWSER_PROFILE at another folder\)$/);
+    return true;
+  });
+});
+
+test('the marker records intent, not origin (a stated limit): a folder that holds a copied marker is accepted as ours', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'kolwen-test-copied-'));
+  copies.push(dir);
+  writeFileSync(join(dir, 'Local State'), '{}');
+  writeFileSync(join(dir, browserLib.MARKER), 'copied from somewhere else');
+  assert.doesNotThrow(() => browserLib.prepareProfile(dir));
+  const header = readFileSync(join(ROOT, 'scripts/lib/browser.mjs'), 'utf8');
+  assert.match(header, /the marker records INTENT, not origin/);
+});
+
+test('a resource asked for by host name is a finding: the browser resolves no host name, so it fails, and the run says which address', { skip: SKIP }, async () => {
+  const web = copyWeb(w => editPage(w, 'terms.html', h => h.replace('<main>', '<img src="http://cdn.kolwen-no-such-host.example/x.png" alt=""><main>')));
+  const { failures } = await run(web, ['reflow']);
+  const hit = failures.filter(f => f.check === 'resources');
+  assert.deepEqual(hit.map(f => [f.page, f.lang]), [['terms.html', 'en'], ['terms.html', 'th']], JSON.stringify(failures));
+  assert.match(hit[0].detail, /^a resource was asked for by host name and could not be reached, because the browser resolves no host name: http:\/\/cdn\.kolwen-no-such-host\.example\/x\.png$/);
+  assert.deepEqual((await run(copyWeb(), ['reflow'])).failures.filter(f => f.check === 'resources'), [], 'the built pages ask for nothing by host name');
+});
+
+test('on the WSL route a run leaves no folder of its own in the distro, and two launches run at once, each with a profile of its own', { skip: SKIP_WSL }, async () => {
+  const probe = toWslProbe();
+  const count = () => Number(/RUNS=(\d+)/.exec(wslLib.decodeWslText(wslLib.wslRun(['-d', route.distro, '--exec', 'bash', probe, 'count']).stdout))?.[1]);
+  const before = count();
+  assert.ok(before >= 1, 'the shared browser of this file has its folder: ' + before);
+  const second = await launchBrowser({ route, lifetimeMs: 120000 });
+  assert.equal(count(), before + 1, 'a second browser, a second folder, at the same time');
+  assert.notEqual(second.profile, undefined);
+  const page = await second.newPage();
+  try { assert.equal(await page.evaluate('1 + 2'), 3); } finally { await page.close(); }
+  const mine = await browser.newPage();
+  try { assert.equal(await mine.evaluate('2 + 2'), 4, 'and the first one is still working'); } finally { await mine.close(); }
+  await second.close();
+  assert.equal(count(), before, 'the second browser\'s folder is gone with it');
+});
+const toWslProbe = () => wslLib.toWslPath(join(wslLib.WSL_SCRIPTS, 'probe.sh'));

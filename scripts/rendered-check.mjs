@@ -19,15 +19,21 @@
 //              column width in em of the Thai font size, and the characters per line, so a measure is taken from the rendered column and never borrowed from the Latin number.
 // And for every page, the other way: a page that declares data-job="default" does not carry the reading theme's color-scheme, so the theme has not leaked into it (that the default pages
 // render as they did is shown by comparing their screenshots, not by this check).
-// The pages are served by scripts/lib/static-server.mjs and driven by scripts/lib/browser.mjs (DevTools protocol over Node's own WebSocket; no dependency).
+// And for every page, a resource asked for by host name: the browser resolves no host name (browser.mjs), so such a resource fails with net::ERR_NAME_NOT_RESOLVED, and that is a finding (check name:
+// resources), never a silent miss.
+// The pages are answered by scripts/lib/static-server.mjs (over HTTP, or over the DevTools channel for a browser that cannot reach a server on this machine) and driven by scripts/lib/browser.mjs
+// (DevTools protocol over Node's own WebSocket; no dependency).
 //
-// With no browser found, CI (CI=true) FAILS; anywhere else the run says it was skipped and exits 0. A silent skip in CI is the one outcome this script refuses.
+// WHERE IT RUNS. On Linux and macOS: the Chrome, Chromium or Edge found on the machine (scripts/lib/browser.mjs MAC and LINUX_NAMES; Edge is started with msImplicitSignin off, so it signs no account in). On Windows: the Blink headless shell INSIDE WSL (scripts/lib/wsl-route.mjs), never a Windows browser. With no route
+// on this machine the run says so in one line and exits 3, "not run here": never a pass, and the pass is the pull request's CI (the rendered job) or a person's own browser looking at the pages. In
+// CI (CI=true) a missing browser FAILS (exit 1): a silent skip in CI is the one outcome this script refuses.
+// Exit codes: 0 passed, 1 findings (or no browser in CI), 2 a bad argument, 3 not run here.
 // Usage: node scripts/rendered-check.mjs [--web <dir>] [--only reflow,zoom,csp,theme,contrast,lineheight,measure] [--no-headers]
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { htmlPages } from './lib/web-files.mjs';
-import { findBrowser, launchBrowser, foreignCookies, BROWSER_ENV } from './lib/browser.mjs';
-import { serveWeb } from './lib/static-server.mjs';
+import { findRoute, launchBrowser, foreignCookies, EXIT_NOT_RUN_HERE, NAME_NOT_RESOLVED } from './lib/browser.mjs';
 import { READING } from './lib/layout-tokens.mjs';
 import { parseColor } from './lib/contrast.mjs';
 
@@ -219,8 +225,18 @@ const jarDetail = (list, where) => {
 };
 
 export async function renderedChecks({ webDir, browser, checks = ALL_CHECKS, headers = true }) {
-  const failures = [], measured = [], notes = [], languageFailed = new Set();
-  const server = await serveWeb(webDir, { headers });
+  const failures = [], measured = [], notes = [], languageFailed = new Set(), resourceSeen = new Set();
+  const server = await browser.serve(webDir, { headers }); // a real server on 127.0.0.1, or the DevTools channel, whichever the browser can reach
+  // A resource asked for by host name fails (the browser resolves none): one finding per page, language and address.
+  const takeResourceFailures = (p, tag) => {
+    for (const rf of p.resourceFailures.splice(0)) {
+      if (rf.errorText !== NAME_NOT_RESOLVED) continue;
+      const key = `${tag.page} ${tag.lang} ${rf.url}`;
+      if (resourceSeen.has(key)) continue;
+      resourceSeen.add(key);
+      failures.push({ ...tag, check: 'resources', detail: `a resource was asked for by host name and could not be reached, because the browser resolves no host name: ${rf.url.slice(0, 160)}` });
+    }
+  };
   // Every page and language is measured in a browser context of its own (see browser.mjs): off the record, so it sees nothing of the profile's default context and leaves nothing in it. Before
   // the context is disposed its jar is read: any cookie from outside the served origin is a failure, names and domains only.
   let page = null, pageTag = null;
@@ -229,6 +245,7 @@ export async function renderedChecks({ webDir, browser, checks = ALL_CHECKS, hea
     const done = page;
     page = null;
     try {
+      takeResourceFailures(done, pageTag);
       const bad = foreignCookies(await done.cookies());
       if (bad.length) failures.push({ ...pageTag, check: 'cookies', detail: jarDetail(bad, 'the browser context of this page') });
     } finally { await done.close(); }
@@ -252,6 +269,7 @@ export async function renderedChecks({ webDir, browser, checks = ALL_CHECKS, hea
             languageFailed.add(file + ' ' + lang);
             failures.push({ ...tag, check: 'language', detail: `the language switch did not set lang="${lang}" (the page reports lang="${got}"), so the measurements of this page in ${lang} would be those of another language` });
           }
+          takeResourceFailures(page, tag);
         };
         if (checks.includes('reflow')) {
           await open(320);
@@ -335,7 +353,7 @@ export async function renderedChecks({ webDir, browser, checks = ALL_CHECKS, hea
 async function main() {
   const args = process.argv.slice(2);
   const take = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
-  if (args.includes('-h') || args.includes('--help')) { console.log('usage: node scripts/rendered-check.mjs [--web <dir>] [--only ' + ALL_CHECKS.join(',') + '] [--no-headers]\n  renders every page of web/ in headless Chrome or Edge, in both languages: 320 px reflow, 200% text, no CSP violation, and the reading theme (ground, contrast per colour scheme, line heights, line length). KOLWEN_BROWSER names the binary.'); return; }
+  if (args.includes('-h') || args.includes('--help')) { console.log('usage: node scripts/rendered-check.mjs [--web <dir>] [--only ' + ALL_CHECKS.join(',') + '] [--no-headers]\n  renders every page of web/ in a headless Chromium-family browser (on Windows the one inside WSL), in both languages: 320 px reflow, 200% text, no CSP violation, and the reading theme (ground, contrast per colour scheme, line heights, line length). KOLWEN_BROWSER names the binary.'); return; }
   const known = new Set(['--web', '--only', '--no-headers', '-h', '--help']);
   const bad = args.find((a, i) => a.startsWith('-') && !known.has(a));
   if (bad) { console.error('unknown argument ' + bad); process.exitCode = 2; return; }
@@ -344,13 +362,16 @@ async function main() {
   const only = take('--only');
   const checks = only ? only.split(',') : ALL_CHECKS;
   if (checks.some(c => !ALL_CHECKS.includes(c))) { console.error('--only takes ' + ALL_CHECKS.join(', ')); process.exitCode = 2; return; }
-  const binary = findBrowser();
-  if (!binary) {
-    const msg = `no Chrome or Edge was found (set ${BROWSER_ENV} to a binary), so the rendered checks (${checks.join(', ')}) did not run`;
-    if (process.env.CI === 'true') { console.error('FAIL rendered-check: ' + msg + '. In CI a missing browser is a failure, never a skip.'); process.exitCode = 1; } else console.log('SKIPPED rendered-check: ' + msg + '.');
+  const route = findRoute();
+  if (route.kind !== 'native' && route.kind !== 'wsl') {
+    const msg = `${route.why}, so the rendered checks (${checks.join(', ')}) did not run here`;
+    if (process.env.CI === 'true') { console.error('FAIL rendered-check: ' + msg + '. In CI a missing browser is a failure, never a skip.'); process.exitCode = 1; } else {
+      console.log(`NOT RUN HERE rendered-check: ${msg}. This is not a pass: the pass is the pull request's CI (the rendered job), or a person's own browser looking at the pages.`);
+      process.exitCode = EXIT_NOT_RUN_HERE;
+    }
     return;
   }
-  const browser = await launchBrowser({ binary });
+  const browser = await launchBrowser({ route });
   try {
     const { failures, measured, notes } = await renderedChecks({ webDir, browser, checks, headers: !args.includes('--no-headers') });
     for (const f of failures) console.log(`FAIL ${f.page} [${f.lang}] ${f.check}: ${f.detail}`);
@@ -360,8 +381,11 @@ async function main() {
     }
     const pages = new Set(measured.map(m => m.page)).size;
     if (failures.length) { console.error(`rendered-check FAILED: ${failures.length} finding(s) over ${pages} page(s)`); process.exitCode = 1; return; }
-    console.log(`rendered-check passed: ${pages} page(s) x 2 languages, ${checks.join(' + ')} (${measured.length} measurements) in ${binary}`);
+    console.log(`rendered-check passed: ${pages} page(s) x 2 languages, ${checks.join(' + ')} (${measured.length} measurements) in ${browser.label}`);
   } finally { await browser.close(); }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main().catch(e => { console.error('FAIL rendered-check: ' + (e && e.message ? e.message : e)); process.exitCode = 1; });
+// The entry guard compares REAL paths on both sides: Node gives import.meta.url the real path while argv[1] keeps the path as typed, so a lexical compare reads false through a junction or a symlink and the script exits 0 having done nothing.
+// An argv that does not resolve (an import, or a path that is not this file) reads false: it runs nothing.
+const isMain = () => { try { return !!process.argv[1] && realpathSync.native(process.argv[1]) === realpathSync.native(fileURLToPath(import.meta.url)); } catch { return false; } };
+if (isMain()) main().catch(e => { console.error('FAIL rendered-check: ' + (e && e.message ? e.message : e)); process.exitCode = 1; });

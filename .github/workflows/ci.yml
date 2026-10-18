@@ -91,7 +91,7 @@ jobs:
   rendered:
     name: rendered (320 px reflow, 200% text, CSP, reading theme)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 15 # 174 s over 1 run (the first run on a runner, 2026-10-18: 17 s for the check, 152 s for its tests); a thin sample, resize from more runs
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
