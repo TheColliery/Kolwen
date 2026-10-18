@@ -222,10 +222,12 @@ export async function renderedChecks({ webDir, browser, checks = ALL_CHECKS, hea
         const open = async width => {
           page.logs.length = 0;
           await page.setViewport(width, 800);
+          // The browser profile is the same one on every run and its storage outlives a page: the cookies, the storage of this origin and the cache are cleared over the protocol before every load.
+          await page.clearState(server.origin);
           await page.goto(server.origin + path);
           // The page script remembers the language in localStorage (one key), and every page shares this server's origin: so the language is chosen by pressing its switch on every load, never assumed.
           const got = await page.evaluate(`(() => { const b = document.querySelector('[data-lang-set="${lang}"]'); if (b) b.click(); return document.documentElement.lang; })()`);
-          // a page whose switch is missing, or does not set the language, would be measured in whatever language the last page left in localStorage: say so, once
+          // a page whose switch is missing, or does not set the language, would be measured in the language it opens in, not the one asked for: say so, once
           if (got !== lang && !languageFailed.has(file + ' ' + lang)) {
             languageFailed.add(file + ' ' + lang);
             failures.push({ ...tag, check: 'language', detail: `the language switch did not set lang="${lang}" (the page reports lang="${got}"), so the measurements of this page in ${lang} would be those of another language` });

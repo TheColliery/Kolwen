@@ -6,13 +6,14 @@
 // Every child has a bound: the browser has a heap cap and a kill timer (scripts/lib/browser.mjs). Run: node --test scripts/rendered-check.test.mjs
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { findBrowser, launchBrowser, BROWSER_ENV } from './lib/browser.mjs';
-import * as browserLib from './lib/browser.mjs'; // devToolsEndpoint, removeProfile, runDir are used through the namespace
+import * as browserLib from './lib/browser.mjs'; // devToolsEndpoint, profilePath, profileInUse are used through the namespace
+import { serveWeb } from './lib/static-server.mjs';
 import { renderedChecks, urlPathOf } from './rendered-check.mjs';
 import * as checkLib from './rendered-check.mjs'; // classifyLogs
 
@@ -138,13 +139,14 @@ test('classifyLogs: a CSP violation is a violation, a Permissions-Policy or Feat
   assert.deepEqual(classifyLogs([]), { violations: [], notes: [] });
 });
 
-test('a page whose language switch does not set the wanted lang fails, instead of being measured in the language the last page left behind', { skip: SKIP }, async () => {
-  // pricing comes after a page whose Thai pass left "th" in localStorage; with no working switch its English pass would be measured in Thai and the run would say 2 languages
+test('a page whose language switch does not set the wanted lang fails, and a page is never measured in a language another page left behind', { skip: SKIP }, async () => {
+  // the state of every earlier page is cleared before a load, so a page with no working switch opens in its own default (en) and passes there, and its Thai pass is the one that cannot get Thai:
+  // before the state was cleared, the same page failed in English instead, because the Thai pass of the page before it had left "th" in localStorage
   const web = copyWeb(w => editPage(w, 'pricing.html', h => h.split('data-lang-set=').join('data-lang-x=')));
   const { failures } = await run(web, ['reflow']);
   const lang = failures.filter(f => f.check === 'language');
-  assert.deepEqual(lang.map(f => [f.page, f.lang]), [['pricing.html', 'en']], JSON.stringify(failures));
-  assert.match(lang[0].detail, /the language switch did not set lang="en" \(the page reports lang="th"\)/);
+  assert.deepEqual(lang.map(f => [f.page, f.lang]), [['pricing.html', 'th']], JSON.stringify(failures));
+  assert.match(lang[0].detail, /the language switch did not set lang="th" \(the page reports lang="en"\)/);
   assert.deepEqual((await run(copyWeb(), ['reflow'])).failures, [], 'with its switch the same page is measured in both languages, with no failure');
 });
 
@@ -273,49 +275,84 @@ test('devToolsEndpoint: the file the browser writes is checked before it opens a
   assert.match(devToolsEndpoint('9222\n/devtools/browser/x'), /^ws:\/\/127\.0\.0\.1:\d+\/devtools\/browser\/[A-Za-z0-9-]+$/);
 });
 
-test('removeProfile deletes a profile inside the run folder and nothing else; a refusal by the OS is one line naming the path, never silence', () => {
-  const root = mkdtempSync(join(tmpdir(), 'kolwen-test-run-'));
-  copies.push(root);
-  const profile = join(root, 'profile-a');
-  mkdirSync(join(profile, 'Default'), { recursive: true });
-  writeFileSync(join(profile, 'Default', 'Preferences'), '{}');
-  assert.equal(browserLib.removeProfile(profile, root), null);
-  assert.equal(existsSync(profile), false, 'the profile is gone');
-  assert.equal(browserLib.removeProfile(profile, root), null, 'a profile that is already gone is not a problem');
-  // the run folder itself, a folder beside it and a folder above it are refused and left alone
-  const beside = mkdtempSync(join(tmpdir(), 'kolwen-test-beside-'));
-  copies.push(beside);
-  writeFileSync(join(beside, 'keep.txt'), 'x');
-  for (const target of [root, beside, tmpdir()]) {
-    assert.match(browserLib.removeProfile(target, root), /did not delete .*: it is not inside the folder this run made/, target);
-    assert.ok(existsSync(target), target + ' is still there');
-  }
-  assert.ok(existsSync(join(beside, 'keep.txt')));
-  // the OS refuses: one line, the path in it
-  const stuck = join(root, 'profile-b');
-  mkdirSync(stuck);
-  const eperm = () => { throw Object.assign(new Error('operation not permitted'), { code: 'EPERM' }); };
-  const line = browserLib.removeProfile(stuck, root, eperm);
-  assert.match(line, /could not delete the browser profile .*profile-b \(EPERM\); it is a throwaway headless-browser profile, safe to delete by hand/);
-  assert.ok(!line.includes('\n'), 'one line');
-  assert.ok(existsSync(stuck), 'and the folder is left as it was');
+// ── the one profile ─────────────────────────────────────────────────────────────────────────────────────────────
+// The browser profile is ONE folder, reused by every run and never deleted by this code: on the owner's Windows box a file-system filter refuses every process but the browser READ, WRITE and DELETE
+// on the files Edge writes, so a profile per run could never be removed and they piled up (81 folders, about 1 GB). Nothing below makes a new profile folder.
+test('profilePath: the same fixed folder on every call; KOLWEN_BROWSER_PROFILE names another; the default is a fixed name in the OS temp folder, never a random one', () => {
+  const profilePath = browserLib.profilePath;
+  const a = profilePath({}), b = profilePath({});
+  assert.equal(a, b);
+  assert.equal(a, join(tmpdir(), 'kolwen-browser-profile'));
+  assert.equal(profilePath({}, join(tmpdir(), 'elsewhere')), join(tmpdir(), 'elsewhere', 'kolwen-browser-profile'));
+  assert.equal(profilePath({ KOLWEN_BROWSER_PROFILE: join(tmpdir(), 'mine') }), join(tmpdir(), 'mine'));
+  assert.equal(profilePath({ KOLWEN_BROWSER_PROFILE: '' }), a, 'an empty value is no value');
+  assert.equal(browserLib.PROFILE_ENV, 'KOLWEN_BROWSER_PROFILE');
 });
 
-test('a browser run leaves no profile behind, or names the one it could not delete', { skip: SKIP }, async () => {
-  const said = [];
-  const orig = console.error;
-  const root = browserLib.runDir(); // the shared browser of this file already made it, and holds a profile in it
-  const before = new Set(readdirSync(root));
-  console.error = (...a) => { said.push(a.join(' ')); };
+test('nothing in the browser code deletes anything: no rm, rmSync, rmdir, unlink or removeProfile, in code and not only in comments', () => {
+  const code = f => readFileSync(join(ROOT, f), 'utf8').split(/\r?\n/).map(l => l.replace(/\/\/.*$/, '')).join('\n');
+  for (const f of ['scripts/lib/browser.mjs', 'scripts/rendered-check.mjs', 'scripts/lib/static-server.mjs']) {
+    assert.doesNotMatch(code(f), /\b(rm|rmSync|rmdir|rmdirSync|unlink|unlinkSync|removeProfile|runDir|mkdtempSync)\b/, f);
+  }
+  assert.equal(browserLib.removeProfile, undefined);
+  assert.equal(browserLib.runDir, undefined);
+});
+
+test('profileInUse: only a browser that answers on the port in the profile\'s DevToolsActivePort counts; a leftover file, a bad port and no file do not', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'kolwen-test-inuse-'));
+  copies.push(dir);
+  const { profileInUse } = browserLib;
+  const asked = [];
+  const says = answer => port => { asked.push(port); return answer instanceof Error ? Promise.reject(answer) : Promise.resolve(answer); };
+  assert.equal(await profileInUse(dir, says({ Browser: 'x' })), false, 'no port file');
+  writeFileSync(join(dir, 'DevToolsActivePort'), '9222\n/devtools/browser/abc-1');
+  assert.equal(await profileInUse(dir, says({ Browser: 'Edg/1' })), true, 'a browser answers');
+  assert.deepEqual(asked, [9222], 'it was asked on the number from the file');
+  assert.equal(await profileInUse(dir, says(new Error('ECONNREFUSED'))), false, 'a leftover file of a browser that was killed: nobody answers');
+  assert.equal(await profileInUse(dir, says({ something: 'else' })), false, 'something answers and is not a browser');
+  asked.length = 0;
+  for (const bad of ['0\nx', '65536\nx', 'abc\nx', '9222@evil\nx', '']) {
+    writeFileSync(join(dir, 'DevToolsActivePort'), bad);
+    assert.equal(await profileInUse(dir, says({ Browser: 'x' })), false, JSON.stringify(bad));
+  }
+  assert.deepEqual(asked, [], 'a port that is not 1 to 65535 in decimal is never asked');
+});
+
+const countBrowserFolders = () => readdirSync(tmpdir()).filter(n => n.startsWith('kolwen-browser-')).length;
+
+test('two launches use the same profile folder, and the second makes no new kolwen-browser-* folder', { skip: SKIP }, async () => {
+  const first = browser.profile;
+  assert.equal(first, browserLib.profilePath());
+  const before = countBrowserFolders();
+  await browser.close();
+  browser = await launchBrowser({ binary, lifetimeMs: 600000 });
+  assert.equal(browser.profile, first, 'the same folder');
+  assert.equal(countBrowserFolders(), before, 'no new kolwen-browser-* folder in the OS temp folder');
+  assert.ok(existsSync(first));
+});
+
+test('a second launch while a browser has the profile fails at once with one line, makes no second profile, and leaves the first browser working', { skip: SKIP }, async () => {
+  const before = countBrowserFolders();
+  const t0 = Date.now();
+  await assert.rejects(launchBrowser({ binary }), e => { assert.match(e.message, /^the browser profile .+ is in use by another run$/); assert.ok(!e.message.includes('\n')); return true; });
+  assert.ok(Date.now() - t0 < 10000, 'at once, not a hang: ' + (Date.now() - t0) + ' ms');
+  assert.equal(countBrowserFolders(), before, 'no second profile');
+  const page = await browser.newPage();
+  try { assert.equal(await page.evaluate('1 + 1'), 2); } finally { await page.close(); }
+});
+
+test('clearState: a language the last page left in localStorage is gone on the next load, so a page is measured in the language it opens in', { skip: SKIP }, async () => {
+  const server = await serveWeb(join(ROOT, 'web'), { headers: false });
+  const page = await browser.newPage();
   try {
-    const b = await launchBrowser({ binary, lifetimeMs: 60000 });
-    const p = await b.newPage();
-    await p.close();
-    await b.close();
-  } finally { console.error = orig; }
-  const left = readdirSync(root).filter(n => !before.has(n)).map(n => join(root, n));
-  for (const dir of left) assert.ok(said.some(s => s.includes(dir)), `a profile left behind is named on stderr: ${dir} / said: ${said.join(' | ')}`);
-  if (left.length === 0) assert.deepEqual(said, [], 'and when it was deleted nothing was said');
+    await page.goto(server.origin + '/pricing');
+    await page.evaluate('document.querySelector(\'[data-lang-set="th"]\').click()');
+    await page.goto(server.origin + '/terms');
+    assert.equal(await page.evaluate('document.documentElement.lang'), 'th', 'precondition: the remembered language carries to the next page');
+    await page.clearState(server.origin);
+    await page.goto(server.origin + '/terms');
+    assert.equal(await page.evaluate('document.documentElement.lang'), 'en', 'cleared');
+  } finally { await page.close(); await server.close(); }
 });
 
 test('the command line: with no browser CI fails and a developer run skips visibly', () => {
