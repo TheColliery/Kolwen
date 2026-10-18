@@ -217,7 +217,7 @@ test('the same inputs give the same pages', () => {
 
 // ── the CLI, against a throwaway copy of the tree ──────────────────────────────────────────────
 const FILES = ['scripts/legal-pages.mjs', 'scripts/lib/legal-render.mjs', 'scripts/lib/legal-page-text.mjs', 'scripts/lib/legal-state.mjs', 'scripts/lib/legal-holds.json', 'TERMS.md', 'PRIVACY.md', 'legal/thai-7day-clause.md', 'legal/legal-state.json', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/pricing.html', 'CHANGELOG.md', 'web/changelog.html', 'web/index.html', 'web/404.html', 'web/_headers', 'scripts/lib/headers-file.mjs', 'scripts/lib/page-sync.mjs', 'scripts/lib/csp-hashes.mjs',
-  'scripts/lib/i18n-catalogue.mjs', 'scripts/lib/page-template.mjs', 'scripts/lib/html-tokens.mjs', 'web-src/i18n/en.json', 'web-src/i18n/th.json', 'web-src/pages/home.html', 'web-src/pages/pricing.html', 'web-src/pages/notfound.html'];
+  'scripts/lib/i18n-catalogue.mjs', 'scripts/lib/page-template.mjs', 'scripts/lib/html-tokens.mjs', 'scripts/lib/rendered-text.mjs', 'scripts/lib/web-files.mjs', 'scripts/lib/html-entities.json', 'web-src/i18n/en.json', 'web-src/i18n/th.json', 'web-src/pages/home.html', 'web-src/pages/pricing.html', 'web-src/pages/notfound.html'];
 function copyTree() {
   const dir = mkdtempSync(join(tmpdir(), 'legal-pages-'));
   for (const f of FILES) { mkdirSync(dirname(join(dir, f)), { recursive: true }); writeFileSync(join(dir, f), readFileSync(join(ROOT, f))); }
@@ -300,7 +300,7 @@ test('every generated page holds the shared footer, English then Thai, byte for 
   for (const [file, html] of Object.entries(pages)) assert.deepEqual(footersOf(html), [siteFooterHtml('en'), siteFooterHtml('th')], file);
 });
 
-test('the hand-kept pages hold the same two footer blocks and carry the footer rules in a style block', () => {
+test('the three template pages hold the same two footer blocks and carry the footer rules in a style block', () => {
   for (const file of ['web/index.html', 'web/pricing.html', 'web/404.html']) {
     const html = read(file);
     assert.deepEqual(footersOf(html), [siteFooterHtml('en'), siteFooterHtml('th')], file);
@@ -342,7 +342,7 @@ test('a [text](https://...) link is a link and anything else stays text', () => 
   assert.equal(plain('see [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)'), 'see Keep a Changelog');
 });
 
-test('--check fails, naming the page and the language, when the footer of a hand-kept page drifts', () => {
+test('--check fails, naming the page and the language, when the footer of a template page drifts', () => {
   for (const [file, from, to, re] of [
     ['web/index.html', '<a href="/terms">Terms</a>', '<a href="/terms">Terms </a>', /FAIL web\/index\.html en footer differs from the shared footer, line \d+/],
     ['web/pricing.html', '<a href="/privacy">ความเป็นส่วนตัว</a>', '<a href="/privacy">ความเป็นส่วนตัว </a>', /FAIL web\/pricing\.html th footer differs from the shared footer/],
@@ -358,7 +358,7 @@ test('--check fails, naming the page and the language, when the footer of a hand
   }
 });
 
-test('--check fails when a hand-kept page loses its footer or its footer rules', () => {
+test('--check fails when a template page loses its footer or its footer rules', () => {
   for (const [file, fn, re] of [
     ['web/index.html', x => x.replace(/<footer class="site-footer"[^>]*>[\s\S]*?<\/footer>/, ''), /FAIL web\/index\.html en footer differs from the shared footer, line \d+/],
     ['web/404.html', x => x.replace(FOOTER_CSS, ''), /FAIL web\/404\.html footer css differs from the shared footer rules, line \d+/],
@@ -391,9 +391,9 @@ test('the CLI child runs with HOME, USERPROFILE and the temp variables inside th
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-// ── the build-time sync: --write puts the shared blocks into the hand-kept pages, between fixed markers ──────────
-const HAND = ['web/index.html', 'web/pricing.html', 'web/404.html'];
-const WATCHED = [...HAND, 'web/_headers', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html'];
+// ── the shared blocks: --write generates the three template pages with them between fixed markers, and --check names the block that drifted ──────────
+const TEMPLATE_PAGES = ['web/index.html', 'web/pricing.html', 'web/404.html'];
+const WATCHED = [...TEMPLATE_PAGES, 'web/_headers', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html'];
 const mk = (name, css) => (css ? { name, begin: `/* ${name}:begin */`, end: `/* ${name}:end */` } : { name, begin: `<!-- ${name}:begin -->`, end: `<!-- ${name}:end -->` });
 const MARK = { fonts: mk('site-fonts'), hcss: mk('site-header-css', true), css: mk('site-footer-css', true), ncss: mk('site-noscript-css', true), header: mk('site-header'), en: mk('site-footer:en'), th: mk('site-footer:th'), script: mk('site-script', true) };
 const LABEL = { fonts: 'font manifest link', hcss: 'header css', css: 'footer css', ncss: 'noscript css', header: 'header', en: 'en footer', th: 'th footer', script: 'page script' };
@@ -432,7 +432,7 @@ test('the sync markers are named once, in the lib, and are the ones the pages ca
 
 test('every one of the seven pages carries every marker pair exactly once, and the header pair holds the header', () => {
   const pages = { ...renderPages(inputs()).pages };
-  for (const f of HAND) pages[f] = read(f);
+  for (const f of TEMPLATE_PAGES) pages[f] = read(f);
   assert.equal(Object.keys(pages).length, 7);
   for (const [f, html] of Object.entries(pages)) {
     for (const k of Object.keys(MARK)) assert.equal(count(html, MARK[k].begin) + count(html, MARK[k].end), 2, f + ' ' + k);
@@ -440,8 +440,8 @@ test('every one of the seven pages carries every marker pair exactly once, and t
   }
 });
 
-test('an edited footer on a hand-kept page fails --check, naming page and block, and --write restores it to the bytes it had', () => {
-  for (const f of HAND) {
+test('an edited footer on a template page fails --check, naming page and block, and --write restores it to the bytes it had', () => {
+  for (const f of TEMPLATE_PAGES) {
     const dir = copyTree();
     try {
       const before = snap(dir, WATCHED);
@@ -452,7 +452,7 @@ test('an edited footer on a hand-kept page fails --check, naming page and block,
       assert.match(r.stdout, new RegExp('FAIL ' + reEscape(f) + ' (en|th) footer differs from the shared footer, line \\d+'));
       const w = check(dir, '--write');
       assert.equal(w.status, 0, w.stdout + w.stderr);
-      for (const g of WATCHED) { const now = readFileSync(join(dir, g)); if (HAND.includes(g) || g === 'web/_headers') assert.equal(Buffer.compare(before[g], now), 0, g + ' is byte for byte what it was'); else assert.equal(lf(now.toString('utf8')), lf(before[g].toString('utf8')), g + ' is the same text'); }
+      for (const g of WATCHED) { const now = readFileSync(join(dir, g)); if (TEMPLATE_PAGES.includes(g) || g === 'web/_headers') assert.equal(Buffer.compare(before[g], now), 0, g + ' is byte for byte what it was'); else assert.equal(lf(now.toString('utf8')), lf(before[g].toString('utf8')), g + ' is the same text'); }
       assert.equal(check(dir).status, 0);
     } finally { rmSync(dir, { recursive: true, force: true }); }
   }
@@ -503,7 +503,7 @@ test('a marker that is doubled, or out of order, in a site page fails --check na
 
 test('a hand edit of a site page, in a CRLF page or an LF page, is undone by --write: the page is generated again, as LF, whole', () => {
   for (const eol of ['crlf', 'lf']) {
-    for (const f of HAND) {
+    for (const f of TEMPLATE_PAGES) {
       const dir = copyTree();
       try {
         const orig = readFileSync(join(dir, f));
@@ -521,13 +521,13 @@ test('a hand edit of a site page, in a CRLF page or an LF page, is undone by --w
   }
 });
 
-test('--write on the committed tree changes no hand-kept page and not _headers', () => {
+test('--write on the committed tree changes no template page and not _headers', () => {
   const dir = copyTree();
   try {
-    const before = snap(dir, [...HAND, 'web/_headers']);
+    const before = snap(dir, [...TEMPLATE_PAGES, 'web/_headers']);
     const w = check(dir, '--write');
     assert.equal(w.status, 0, w.stdout + w.stderr);
-    assert.ok(sameBytes(before, snap(dir, [...HAND, 'web/_headers'])));
+    assert.ok(sameBytes(before, snap(dir, [...TEMPLATE_PAGES, 'web/_headers'])));
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -535,7 +535,7 @@ test('a hand edit of a footer rule makes --check fail on the page and on the has
   const { inlineStyles, cspHash } = await import(new URL('./lib/csp-hashes.mjs', import.meta.url));
   const dir = copyTree();
   try {
-    const before = snap(dir, [...HAND, 'web/_headers']);
+    const before = snap(dir, [...TEMPLATE_PAGES, 'web/_headers']);
     edit(dir, 'web/index.html', x => { assert.ok(x.includes('.site-footer{display:block;margin-top:72px'), 'anchor'); return x.replace('.site-footer{display:block;margin-top:72px', '.site-footer{display:block;margin-top:73px'); });
     const r = check(dir);
     assert.equal(r.status, 1, r.stdout + r.stderr);
@@ -543,7 +543,7 @@ test('a hand edit of a footer rule makes --check fail on the page and on the has
     assert.match(r.stdout, /FAIL web\/_headers style-src does not admit sha256-[A-Za-z0-9+/=]+ \(the <style> block of web\/index\.html\)/);
     assert.match(r.stdout, /FAIL web\/_headers style-src admits sha256-[A-Za-z0-9+/=]+, which no <style> block/);
     assert.equal(check(dir, '--write').status, 0);
-    assert.ok(sameBytes(before, snap(dir, [...HAND, 'web/_headers'])), 'page and _headers are back to their bytes');
+    assert.ok(sameBytes(before, snap(dir, [...TEMPLATE_PAGES, 'web/_headers'])), 'page and _headers are back to their bytes');
     assert.equal(check(dir).status, 0);
     assert.deepEqual(inlineStyles(lf(readFileSync(join(dir, 'web/index.html'), 'utf8'))).map(cspHash).every(h => readFileSync(join(dir, 'web/_headers'), 'utf8').includes(h)), true);
   } finally { rmSync(dir, { recursive: true, force: true }); }
@@ -558,11 +558,11 @@ test('an edited footer rule in the lib is carried to all seven pages by one --wr
     edit(dir, 'scripts/lib/legal-render.mjs', x => { assert.ok(x.includes(rule), 'anchor'); return x.replace(rule, '.site-footer a:hover{text-decoration-thickness:3px}'); });
     const r = check(dir);
     assert.equal(r.status, 1, r.stdout + r.stderr);
-    for (const f of HAND) assert.match(r.stdout, new RegExp('FAIL ' + reEscape(f) + ' footer css differs'), f);
+    for (const f of TEMPLATE_PAGES) assert.match(r.stdout, new RegExp('FAIL ' + reEscape(f) + ' footer css differs'), f);
     const w = check(dir, '--write');
     assert.equal(w.status, 0, w.stdout + w.stderr);
     assert.match(w.stdout, /wrote web\/_headers/);
-    for (const f of [...HAND, 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html']) assert.ok(readFileSync(join(dir, f), 'utf8').includes('text-decoration-thickness:3px'), f);
+    for (const f of [...TEMPLATE_PAGES, 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html']) assert.ok(readFileSync(join(dir, f), 'utf8').includes('text-decoration-thickness:3px'), f);
     const headers = readFileSync(join(dir, 'web/_headers'), 'utf8');
     const want = new Set(['web/index.html', 'web/pricing.html', 'web/404.html', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html'].flatMap(f => inlineStyles(readFileSync(join(dir, f), 'utf8')).map(cspHash)));
     assert.deepEqual(sortedStyleSrc(headers), [...want].sort(), 'style-src admits exactly the hashes of the seven pages');
@@ -741,8 +741,8 @@ test('surface-check rule 13 judges style-src-elem and script-src-elem, the direc
 });
 
 // ── the header, the footer as a zone of its own, the grid, the switch ──────────────────────────────────────────────────────────
-// All seven pages as text: the four generated (rendered now) and the three hand-kept (read from disk).
-const sevenPages = () => { const pages = { ...renderPages(inputs()).pages }; for (const f of HAND) pages[f] = read(f); return pages; };
+// All seven pages as text: the four rendered from their Markdown sources and the three template pages (the committed files, read from disk).
+const sevenPages = () => { const pages = { ...renderPages(inputs()).pages }; for (const f of TEMPLATE_PAGES) pages[f] = read(f); return pages; };
 const mainOf = html => html.slice(html.indexOf('<main'), html.indexOf('</main>') + 7);
 
 test('the header is on every page with its three items, one per language, and no language bar is left anywhere', () => {
@@ -883,6 +883,31 @@ test('surface-check rule 4 lets a no-break space stand before the Thai repetitio
       const r = surface(dir);
       assert.equal(r.status, 1, what + ': ' + r.stdout + r.stderr);
       assert.match(r.stdout + r.stderr, /web\/pricing\.html: invisible character U\+A0/, what);
+    }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// Rule 4 reads the Unicode classes, not a list: every space separator (Zs) and every default-ignorable code point except the plain space, the one no-break space before ๆ, and the emoji presentation selectors.
+test('surface-check rule 4 refuses every other space separator and default-ignorable character, and a no-break space written as an entity, and lets the emoji selectors and the plain space stand', () => {
+  const dir = surfaceCopy();
+  try {
+    const page = readFileSync(join(dir, 'web/pricing.html'), 'utf8');
+    for (const [name, cp] of [['narrow no-break space', 0x202f], ['figure space', 0x2007], ['thin space', 0x2009], ['ideographic space', 0x3000], ['word joiner', 0x2060], ['soft hyphen', 0xad], ['Mongolian vowel separator', 0x180e], ['zero width space', 0x200b], ['byte order mark', 0xfeff], ['zero width non-joiner', 0x200c]]) {
+      writeFileSync(join(dir, 'web/pricing.html'), page.replace('Coming soon', 'Coming' + String.fromCharCode(cp) + 'soon'));
+      const r = surface(dir);
+      assert.equal(r.status, 1, name + ': ' + r.stdout + r.stderr);
+      assert.match(r.stdout + r.stderr, new RegExp('web/pricing\\.html: invisible character U\\+' + cp.toString(16).toUpperCase() + '\\b'), name);
+    }
+    for (const entity of ['&nbsp;', '&#160;', '&#xA0;']) {
+      writeFileSync(join(dir, 'web/pricing.html'), page.replace('Coming soon', 'Coming' + entity + 'soon'));
+      const r = surface(dir);
+      assert.equal(r.status, 1, entity + ': ' + r.stdout + r.stderr);
+      assert.match(r.stdout + r.stderr, /web\/pricing\.html: invisible character U\+A0 written as an entity/, entity);
+    }
+    for (const [what, text] of [['an emoji presentation selector after a symbol', page.replace('Coming soon', 'Coming' + String.fromCharCode(0x26a0, 0xfe0f) + 'soon')], ['a plain space', page.replace('Coming soon', 'Coming  soon')]]) {
+      writeFileSync(join(dir, 'web/pricing.html'), text);
+      const r = surface(dir);
+      assert.equal(r.status, 0, what + ': ' + r.stdout + r.stderr);
     }
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

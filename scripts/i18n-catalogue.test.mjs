@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { htmlTokens } from './lib/html-tokens.mjs';
-import { catalogueProblems, bcp47Problem, flatten, loadCatalogue, parseValue, withCatalogue, usedKeys, MARKUP } from './lib/i18n-catalogue.mjs';
+import { catalogueProblems, bcp47Problem, loadCatalogue, parseValue, valueJson, withCatalogue, usedKeys, MARKUP } from './lib/i18n-catalogue.mjs';
 import { templateProblems, usageProblems, renderTemplate, slotsOf } from './lib/page-template.mjs';
 import { renderSitePages, SITE_PAGES, SYNC_BLOCKS, pageNoteHtml, siteFooterHtml, siteHeaderHtml } from './lib/legal-render.mjs';
 
@@ -26,8 +26,8 @@ const withFile = (name, text) => ({ ...files(), [name]: enc(text) });
 const edited = (lang, fn) => { const o = JSON.parse(files()[lang + '.json'].toString('utf8')); fn(o); return { ...files(), [lang + '.json']: enc(JSON.stringify(o, null, 2) + '\n') }; };
 
 // ── the catalogue: shape, and the answer to "is every page string in it" ─────────────────────────────────────────
-test('the catalogue is one file per language, en and th, whose top-level keys are the page names and one shared group', () => {
-  assert.deepEqual(Object.keys(files()), ['en.json', 'th.json']);
+test('the catalogue is one file per language, en and th at least (a third is checked and renders no page), whose top-level keys are the page names and one shared group', () => {
+  for (const f of ['en.json', 'th.json']) assert.ok(Object.keys(files()).includes(f), f + ' is present');
   for (const [name, b] of Object.entries(files())) {
     const top = Object.keys(JSON.parse(b.toString('utf8'))).sort();
     assert.deepEqual(top, ['home', 'notfound', 'pricing', 'shared'], name + ': keyed by page (home, pricing, notfound) plus shared, never by domain');
@@ -112,8 +112,8 @@ test('(b) a template that holds a literal visible string fails: a text node, a v
     ['a literal in structured data', ok.replace('</head>', '<script type="application/ld+json">{"@type": "Organization", "description": "A plain sentence."}</script></head>'), /structured data value "A plain sentence\."/],
   ];
   for (const [what, src, re] of bad) assert.ok(templateProblems(src, 'home').some(p => re.test(p)), what + ': ' + JSON.stringify(templateProblems(src, 'home')));
-  const fine = ok.replace('</head>', '<script type="application/ld+json">{"@type": "Organization", "name": "{{j:shared.brand}}", "url": "https://kolwen.com", "email": "info@kolwen.com", "sameAs": ["https://github.com/x"]}</script><style>.a{content:"x"}</style></head>');
-  assert.deepEqual(templateProblems(fine, 'home'), [], 'urls, an email, a type, css and script bodies are not visible strings');
+  const fine = ok.replace('</head>', '<script type="application/ld+json">{"@type": "Organization", "name": "{{j:shared.brand}}", "url": "https://kolwen.com", "email": "info@kolwen.com", "sameAs": ["https://github.com/x"]}</script><style>.a{color:red}</style></head>');
+  assert.deepEqual(templateProblems(fine, 'home'), [], 'urls, an email, a type and a style block with no content string are not visible strings');
 });
 
 // ── (c) key parity, both directions (C-I18N-17) ─────────────────────────────────────────────────────────────────
@@ -282,7 +282,7 @@ test('the render is a pure function of the templates, the catalogue and the shar
 
 // ── the CLI, against a throwaway copy of the tree ────────────────────────────────────────────────────────────────
 const TREE = ['scripts/legal-pages.mjs', 'scripts/lib/legal-render.mjs', 'scripts/lib/legal-page-text.mjs', 'scripts/lib/legal-state.mjs', 'scripts/lib/legal-holds.json', 'scripts/lib/headers-file.mjs', 'scripts/lib/page-sync.mjs', 'scripts/lib/csp-hashes.mjs',
-  'scripts/lib/i18n-catalogue.mjs', 'scripts/lib/page-template.mjs', 'scripts/lib/html-tokens.mjs', 'TERMS.md', 'PRIVACY.md', 'legal/thai-7day-clause.md', 'legal/legal-state.json', 'CHANGELOG.md', 'web/_headers',
+  'scripts/lib/i18n-catalogue.mjs', 'scripts/lib/page-template.mjs', 'scripts/lib/html-tokens.mjs', 'scripts/lib/rendered-text.mjs', 'scripts/lib/web-files.mjs', 'scripts/lib/html-entities.json', 'TERMS.md', 'PRIVACY.md', 'legal/thai-7day-clause.md', 'legal/legal-state.json', 'CHANGELOG.md', 'web/_headers',
   'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html', 'web/index.html', 'web/pricing.html', 'web/404.html', 'web-src/i18n/en.json', 'web-src/i18n/th.json', ...SITE_PAGES.map(p => p.template)];
 function copyTree() {
   const dir = mkdtempSync(join(tmpdir(), 'i18n-catalogue-'));
@@ -314,7 +314,6 @@ test('the CLI: --check passes on the committed tree; a hand edit of a generated 
 test('the CLI: a catalogue value that changes makes --check fail on the page it reaches, and --write carries it to the page and to the CSP hashes when a style moved', () => {
   const dir = copyTree();
   try {
-    edit(dir, 'web-src/i18n/en.json', s => s.replace('"Comparison"', '"Comparison"')); // no such value: the copy stays as it is
     edit(dir, 'web-src/i18n/en.json', s => s.replace('Nothing here can be bought yet.', 'Nothing here can be bought today.'));
     const r = run(dir);
     assert.equal(r.status, 1, r.stdout + r.stderr);
@@ -345,4 +344,105 @@ test('the CLI: a catalogue or template problem fails --check and stops --write b
       assert.equal(readFileSync(join(dir, 'web/404.html'), 'utf8'), before, what + ': nothing written');
     } finally { rmSync(dir, { recursive: true, force: true }); }
   }
+});
+
+test('the CLI: a third language file is checked and renders no page', () => {
+  const dir = copyTree();
+  try {
+    const before = readdirSync(join(dir, 'web')).sort();
+    writeFileSync(join(dir, 'web-src/i18n/fr.json'), readFileSync(join(dir, 'web-src/i18n/en.json')));
+    const c = run(dir);
+    assert.equal(c.status, 0, c.stdout + c.stderr);
+    assert.match(c.stdout, /en\.json, fr\.json, th\.json/, 'the file is read with the others');
+    assert.equal(run(dir, '--write').status, 0);
+    assert.deepEqual(readdirSync(join(dir, 'web')).sort(), before, 'and no page appears for it');
+    writeFileSync(join(dir, 'web-src/i18n/fr.json'), '{"home": {}}');
+    const bad = run(dir);
+    assert.equal(bad.status, 1, 'a third file is held to the same checks (here: its keys are missing)');
+    assert.match(bad.stdout, /fr\.json: key .* is missing/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('the CLI: a catalogue the code cannot read is reported as the catalogue, never as a module that could not be loaded or a stack trace', () => {
+  for (const [what, fn, re] of [
+    ['a key the shared blocks need, missing from both languages', dir => { for (const l of ['en', 'th']) edit(dir, `web-src/i18n/${l}.json`, s => { const o = JSON.parse(s); delete o.shared.footer.note; return JSON.stringify(o, null, 2); }); }, /FAIL the legal pages could not be rendered: .*shared\.footer\.note/],
+    ['an en.json that is not JSON', dir => writeFileSync(join(dir, 'web-src/i18n/en.json'), '{'), /FAIL catalogue en\.json: is not valid JSON/],
+  ]) {
+    const dir = copyTree();
+    try {
+      fn(dir);
+      const c = run(dir);
+      assert.equal(c.status, 1, what + '\n' + c.stdout + c.stderr);
+      assert.match(c.stdout + c.stderr, re, what);
+      assert.doesNotMatch(c.stdout + c.stderr, /could not be loaded|\n\s+at /, what + ': no wrong file blamed, no stack trace');
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }
+});
+
+// ── the JSON slot cannot leave its block (reviewer F1, CodeRabbit 4306866360) ────────────────────────────────────
+test('a {{j:}} slot writes < > & U+2028 and U+2029 as \\u escapes, so a catalogue value cannot close the structured-data block, and the text decodes to the same', () => {
+  const BS = String.fromCharCode(92), LS = String.fromCharCode(0x2028), PS = String.fromCharCode(0x2029);
+  const nasty = 'a</script><p id=inj>x</p><script>b & c ' + LS + PS + ' "q" ' + BS + ' end';
+  const j = valueJson(nasty);
+  for (const raw of ['<', '>', '&', LS, PS]) assert.ok(!j.includes(raw), JSON.stringify(raw) + ' is written as an escape');
+  for (const hex of ['003c', '003e', '0026', '2028', '2029']) assert.ok(j.includes(BS + 'u' + hex), hex);
+  assert.equal(JSON.parse('"' + j + '"'), nasty, 'and it decodes to the same text');
+  const planted = structuredClone(CAT.messages);
+  planted.en['home.ld.description'] = nasty;
+  const html = renderSitePages({ templates: TEMPLATES, messages: planted }).pages['web/index.html'];
+  assert.ok(!html.includes('<p id=inj>'), 'no tag of the value reached the page');
+  const tokens = htmlTokens(html);
+  const ld = tokens.find(t => t.type === 'raw' && t.name === 'script' && t.body.includes('"@type"'));
+  assert.ok(ld, 'the structured-data block is whole');
+  assert.equal(JSON.parse(ld.body).description, nasty, 'and holds the value');
+  assert.equal(tokens.filter(t => t.type === 'tag' && t.name === 'script' && !t.closing).length, 2, 'two script elements: the data and the page script');
+});
+
+// ── the literal lint reads every channel a visitor sees or hears (reviewer F2) ───────────────────────────────────
+test('(b) the literal lint reads the value of a button input, the label of an option or track, the ARIA role description, value text and placeholder, the app-name metas, a CSS content string, an inline script or handler, and a JSON-LD @value', () => {
+  const base = '<!DOCTYPE html>\n<html lang="en"><head><title>{{home.meta.title}}</title></head><body>\n<p>{{home.origin}}</p>\n</body></html>\n';
+  assert.deepEqual(templateProblems(base, 'home'), []);
+  const into = (where, text) => base.replace(where, text);
+  const ld = text => into('</head>', `<script type="application/ld+json">${text}</script></head>`);
+  const planted = [
+    ['the value of a submit input', into('<p>', '<input type="submit" value="Send"><p>'), /value of the button input holds the literal "Send"/],
+    ['the value of a reset input', into('<p>', '<input type=reset value="Clear"><p>'), /value of the button input holds the literal "Clear"/],
+    ['the label of an option', into('<p>', '<select><option label="Choose">{{home.origin}}</option></select><p>'), /label of the option holds the literal "Choose"/],
+    ['the label of a track', into('<p>', '<video><track label="Subtitles"></video><p>'), /label of the track holds the literal "Subtitles"/],
+    ['aria-roledescription', into('<p>', '<div aria-roledescription="slider"></div><p>'), /aria-roledescription holds the literal "slider"/],
+    ['aria-valuetext', into('<p>', '<div aria-valuetext="half"></div><p>'), /aria-valuetext holds the literal "half"/],
+    ['aria-placeholder', into('<p>', '<div aria-placeholder="type here"></div><p>'), /aria-placeholder holds the literal "type here"/],
+    ['the application-name meta', into('</head>', '<meta name="application-name" content="Kolwen app"></head>'), /content of the meta application-name holds the literal "Kolwen app"/],
+    ['the apple app title meta', into('</head>', '<meta name="apple-mobile-web-app-title" content="Kolwen"></head>'), /content of the meta apple-mobile-web-app-title holds the literal "Kolwen"/],
+    ['a CSS content string in a style block', into('</head>', '<style>a::after{content:"Hello"}</style></head>'), /CSS content string "Hello" in a <style> block/],
+    ['a CSS content string in a style attribute', into('<p>', '<p style=\'content:"Hi"\'>'), /CSS content string "Hi" in a style attribute/],
+    ['an inline script', into('</head>', '<script>document.title = "x";</script></head>'), /<script> element in a template is executable script/],
+    ['an external script', into('</head>', '<script src="/a.js"></script></head>'), /<script> element in a template is executable script/],
+    ['a module script', into('</head>', '<script type="module">1</script></head>'), /<script> element in a template is executable script/],
+    ['an inline event handler', into('<p>', '<p onclick="go()">'), /inline event handler \(onclick\)/],
+    ['a JSON-LD @value', ld('{"@type": "X", "@value": "Plain words"}'), /structured data value "Plain words"/],
+    ['a JSON-LD @comment', ld('{"@type": "X", "@comment": "Plain words"}'), /structured data value "Plain words"/],
+  ];
+  for (const [what, src, re] of planted) assert.ok(templateProblems(src, 'home').some(p => re.test(p)), what + ': ' + JSON.stringify(templateProblems(src, 'home')));
+  for (const [what, src] of [
+    ['an input that is not a button', into('<p>', '<input type="text" value="x"><input type="checkbox" value="m"><p>')],
+    ['slots in the new channels', into('<p>', '<input type="submit" value="{{=home.origin}}"><div aria-roledescription="{{=home.origin}}" aria-valuetext="{{=home.origin}}"></div><p>')],
+    ['a slot in an option label and an app-name meta', into('</head>', '<meta name="application-name" content="{{=home.meta.description}}"><select><option label="{{=home.origin}}"></option></select></head>')],
+    ['CSS without a content string', into('</head>', '<style>a::after{content:""} .x{display:flex;justify-content:center;content:center}</style></head>')],
+    ['structured data with the JSON-LD keywords and slots', ld('{"@context": "https://schema.org", "@type": "Organization", "@id": "https://kolwen.com/#o", "name": "{{j:shared.brand}}"}')],
+    ['a non-executable script', into('</head>', '<script type="importmap">{}</script></head>')],
+  ]) assert.deepEqual(templateProblems(src, 'home'), [], what);
+  // the three real templates hold no script of their own: the page script comes in whole
+  for (const [group, src] of Object.entries(TEMPLATES)) {
+    assert.ok(src.includes('{{raw:script}}') && !src.includes('{{block:site-script}}'), group + ' takes the page script whole');
+    assert.ok(!/<script(?![^>]*ld\+json)/i.test(src), group + ' has no other script element');
+  }
+});
+
+test('(g) any space separator or invisible character other than the no-break space before the Thai repetition mark fails; no space at all is not judged', () => {
+  for (const cp of [0x20, 0x202f, 0x2007, 0x2009, 0x3000, 0xad, 0x2060, 0x200b]) {
+    const bad = edited('th', o => { o.pricing.soon = 'เร็ว' + String.fromCharCode(cp) + AFTER_MATH + ' นี้'; });
+    assert.ok(catalogueProblems(bad).some(p => /pricing\.soon/.test(p) && /before the Thai repetition mark/.test(p)), 'U+' + cp.toString(16));
+  }
+  assert.deepEqual(catalogueProblems(edited('th', o => { o.pricing.soon = 'เร็ว' + AFTER_MATH + ' นี้'; })), [], 'the mark joined to its word');
 });

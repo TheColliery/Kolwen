@@ -85,6 +85,16 @@ function valueProblems(value) {
   return out;
 }
 // The markup of a value, for the parity check between languages. `th` is left out: it marks a Thai phrase inside a sentence of another language (SC 3.1.2), so only the sentences that quote Thai carry it.
+// True when a space separator or a default-ignorable character other than the no-break space U+00A0 stands right before the Thai repetition mark (a plain space, U+202F, U+2007, U+2060, U+00AD ...).
+// "No space at all" is not judged: whether the mark may follow its word with nothing between is the row's call, not this lint's.
+const NBSP = String.fromCharCode(0xa0);
+function spaceBeforeMaiyamok(v) {
+  for (let i = v.indexOf(MAIYAMOK); i >= 0; i = v.indexOf(MAIYAMOK, i + 1)) {
+    const prev = v[i - 1];
+    if (prev !== undefined && prev !== NBSP && /[\p{Zs}\p{Default_Ignorable_Code_Point}]/u.test(prev)) return true;
+  }
+  return false;
+}
 const markupOf = value => parseValue(value).filter(t => t.kind !== 'text' && t.name !== 'th').map(t => (t.kind === 'open' ? '#' : '/') + t.name).join(' ');
 // The value as the HTML a text slot shows: text escaped, markup as its tags.
 export function valueHtml(value) {
@@ -95,6 +105,12 @@ export function valuePlain(value) {
   const tokens = parseValue(value);
   if (tokens.some(t => t.kind !== 'text')) throw new Error(`a value with markup cannot go in an attribute or a data string: ${JSON.stringify(value.slice(0, 60))}`);
   return tokens.map(t => t.text).join('');
+}
+// The value as the inside of a JSON string in a <script> block. JSON.stringify leaves `<` alone, and a `</script>` in a value would end the block and put the rest on the page as markup, so `<`, `>` and `&` are
+// written as \u escapes (the text decodes to the same), and so are U+2028 and U+2029, which a script engine of the older kind reads as line ends. The backslash is built from its code point.
+const JSON_UNSAFE = new RegExp('[<>&' + String.fromCharCode(0x2028, 0x2029) + ']', 'g');
+export function valueJson(value) {
+  return JSON.stringify(valuePlain(value)).slice(1, -1).replace(JSON_UNSAFE, c => String.fromCharCode(92) + 'u' + c.charCodeAt(0).toString(16).padStart(4, '0'));
 }
 
 // ── the files ───────────────────────────────────────────────────────────────────────────────────
@@ -172,7 +188,7 @@ export function catalogueProblems(files) {
       if (v.includes(BOM)) problems.push(`${at} holds U+FEFF, a byte order mark inside text`);
       if (/[\u0000-\u001f\u007f-\u009f]/.test(v)) problems.push(`${at} holds a control character`);
       if (v !== '' && (/^\s/.test(v) || /\s$/.test(v))) problems.push(`${at} has leading or trailing whitespace`);
-      if (v.includes(' ' + MAIYAMOK)) problems.push(`${at} has a plain space before the Thai repetition mark (W-I18N-12: use a no-break space)`);
+      if (spaceBeforeMaiyamok(v)) problems.push(`${at} has a space or an invisible character other than U+00A0 before the Thai repetition mark (W-I18N-12: use a no-break space)`);
       for (const p of valueProblems(v)) problems.push(`${at} ${p}`);
     }
     parsed[tag] = leaves;

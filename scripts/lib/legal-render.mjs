@@ -275,7 +275,9 @@ const switchButtons = () => [
   `<button type="button" data-lang-set="en" lang="en" aria-pressed="true">${tHtml('en', 'shared.switch.en')}</button>`,
   `<button type="button" data-lang-set="th" lang="th" aria-pressed="false">${tHtml('en', 'shared.switch.th')}</button>`,
 ];
-export const SWITCH_BUTTONS = switchButtons();
+// Read once for surface-check rule 17. An unreadable catalogue must not stop this module from loading, or the build would blame this file ("could not be loaded") and never reach the catalogue check that
+// names the real problem: the list is then empty (rule 17 refuses every live button) and the same error is thrown again, where it is reported, when a page asks for the buttons.
+export const SWITCH_BUTTONS = (() => { try { return switchButtons(); } catch { return []; } })();
 const switchHtml = lang => `<div class="lswitch" role="group" aria-label="${escAttr(t(lang, 'shared.header.language'))}">${switchButtons().join('')}</div>`;
 // The header: the Kolwen mark linking to /, Pricing, the switch. No Dashboard and no Sign in until the service exists, and no link to a page that does not.
 export const siteHeaderHtml = () => ['<header class="site-header">', ...['en', 'th'].map(lang => {
@@ -313,6 +315,8 @@ export const SYNC_BLOCKS = [
 const BLOCK = Object.fromEntries(SYNC_BLOCKS.map(b => [b.name, b]));
 // A block as a page carries it: begin marker, the render, end marker, with the end marker at the start of its line.
 export const fenced = name => `${BLOCK[name].begin}\n${BLOCK[name].render() ? BLOCK[name].render() + '\n' : ''}${BLOCK[name].end}`;
+// The page script as the page carries it: the one inline <script> element, holding the fenced block. The legal pages' shell and the three templates ({{raw:script}}) take it from here.
+export const pageScriptHtml = () => `<script>\n${fenced('site-script')}\n</script>`;
 
 // ── 5b. The page shell (the site's own: fonts, colours, the language toggle and its noscript rule) ──
 // One style block serves the four generated pages (terms, privacy, refund, changelog) AND web/pricing.html, so the five share one CSP hash (surface-check rule 13). The pricing template
@@ -465,9 +469,7 @@ ${th}
 </main>
 ${fenced('site-footer:en')}
 ${fenced('site-footer:th')}
-<script>
-${fenced('site-script')}
-</script>
+${pageScriptHtml()}
 </body>
 </html>
 `;
@@ -502,7 +504,7 @@ export function renderSitePages({ templates, messages }) {
   const blocks = Object.fromEntries(SYNC_BLOCKS.map(b => [b.name, () => fenced(b.name)]));
   for (const p of SITE_PAGES) {
     if (typeof templates[p.group] !== 'string') { problems.push(`${p.template} is missing`); continue; }
-    try { pages[p.file] = renderTemplate(templates[p.group], { messages, blocks, raw: { style: STYLE } }); } catch (e) { problems.push(`${p.template}: ${e.message}`); }
+    try { pages[p.file] = renderTemplate(templates[p.group], { messages, blocks, raw: { style: STYLE, script: pageScriptHtml() } }); } catch (e) { problems.push(`${p.template}: ${e.message}`); }
   }
   return { pages, problems };
 }

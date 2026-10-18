@@ -11,16 +11,22 @@
 //                           default language (en) applies, which is the head of the page today (the page is one URL with both documents inside it).
 //
 // WHAT IT CHECKS (templateProblems), on the template with each slot masked and the rest read by the site's one HTML scan (html-tokens.mjs):
-//   - no visible literal: a text node, `title` `alt` `aria-label` `placeholder` attribute, the content of a description or social meta, or a string of the structured data that is not a slot
-//     (a URL, an email address and the schema.org types are data, not words);
+//   - no visible literal: a text node (the title and an SVG title included); an attribute a visitor sees or hears (`title` `alt` `placeholder`, `aria-label` `aria-description` `aria-roledescription`
+//     `aria-valuetext` `aria-placeholder`, the `value` of a button input, the `label` of an option, optgroup or track); the content of a description, an application-name or a social meta; a CSS `content`
+//     string in a <style> block or a style attribute; or a string of the structured data that is not a slot (a URL, an email address and the JSON-LD keywords @context @type @id @vocab @base @language
+//     are data, not words; an @value or @comment is a word);
+//   - no script: a template holds no executable <script> element and no inline event handler, so nothing a script writes into the page can be a string outside the catalogue; the page script comes in
+//     whole as {{raw:script}};
 //   - no join: two slots in one text node or one attribute, or a slot beside literal text, are joined fragments (a language that orders its words otherwise cannot be translated);
 //   - the slot syntax is exact, the language regions are balanced and each language is a valid BCP 47 tag.
 // And usageProblems reads the templates against the catalogue: a slot whose key is missing in a language, a page that reads another page's group, a slot that would show an empty value, and a
 // key that nothing reads (a dead string is a lie about what the page says).
-// Limits, stated: the lint reads the template, not the shared blocks of legal-render.mjs (their strings come from the catalogue through t() and a test marks every value to prove it); it does not
-// read the text a script writes into the page at run time (the page script writes none).
+// Limits, stated: the lint reads the template, not the shared blocks of legal-render.mjs (their strings come from the catalogue through t() and a test marks every value to prove it); it reads no custom
+// attribute (a data-* attribute is data the shared page script reads, `data-lang-set`, and is no text a visitor sees); it does not read the text a script writes into the page at run time, which is why a
+// template holds no script; and the text of an <svg> or <math> element is read as any other text.
 import { htmlTokens } from './html-tokens.mjs';
-import { bcp47Problem, DEFAULT_LANG, valueHtml, valuePlain, escAttr } from './i18n-catalogue.mjs';
+import { cssContentOf } from './rendered-text.mjs';
+import { bcp47Problem, DEFAULT_LANG, valueHtml, valuePlain, valueJson, escAttr } from './i18n-catalogue.mjs';
 
 const KEY = '[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)*';
 const NAME = '[a-z][a-z0-9:-]*';
@@ -30,8 +36,12 @@ const LANG_CLOSE = /^\{\{\/lang\}\}$/;
 // Private-use characters stand in for a masked slot while the template is read as HTML (built from code points: the source holds no invisible text).
 const TEXT_MASK = String.fromCharCode(0xe001), ATTR_MASK = String.fromCharCode(0xe002), CODE_MASK = String.fromCharCode(0xe003);
 const MASKS = new RegExp('[' + TEXT_MASK + '-' + CODE_MASK + ']', 'g');
-const VISIBLE_ATTRS = ['aria-label', 'aria-description', 'title', 'alt', 'placeholder'];
-const META_TEXT = new Set(['description', 'og:title', 'og:description', 'og:site_name', 'og:image:alt', 'twitter:title', 'twitter:description', 'twitter:image:alt']);
+// The attributes whose value a visitor sees or hears: the accessible name and description, the tooltip, the alternative text, the placeholder, the role description and the value text of a widget.
+const VISIBLE_ATTRS = ['aria-label', 'aria-description', 'aria-roledescription', 'aria-valuetext', 'aria-placeholder', 'title', 'alt', 'placeholder'];
+const META_TEXT = new Set(['description', 'application-name', 'apple-mobile-web-app-title', 'og:title', 'og:description', 'og:site_name', 'og:image:alt', 'twitter:title', 'twitter:description', 'twitter:image:alt']);
+const BUTTON_INPUTS = /^(?:button|submit|reset)$/i; // an <input> of these types shows its `value` as the button's label
+const LABELLED = new Set(['option', 'optgroup', 'track']); // elements whose `label` attribute is shown
+const ENDORSED_KEYS = new Set(['@context', '@type', '@id', '@vocab', '@base', '@language']); // JSON-LD keys whose value is data, not words (`@value` and `@comment` are words)
 
 const kindOf = m => (m[1] === '=' ? 'attr' : m[1] === 'j:' ? 'json' : m[3] === 'block:' ? 'block' : m[3] === 'raw:' ? 'raw' : 'text');
 
@@ -94,12 +104,25 @@ export function templateProblems(src, name = 'template') {
     else if (n >= 2) out.push(`${at}: ${kind} ${what} joins ${n} catalogue keys in one attribute; each catalogue string is a whole sentence`);
     else if (value.includes(TEXT_MASK)) out.push(`${at}: ${kind} ${what} reads a text slot; an attribute reads {{=key}}`);
   };
+  // Text drawn by CSS (a `content` string) is a visible string that no slot can reach, so a template carries none.
+  const cssProblems = (where, css) => {
+    const shown = cssContentOf(`<style>${css}</style>`).replace(MASKS, '').trim();
+    if (shown !== '') out.push(`${at}: a CSS content string ${JSON.stringify(shown.slice(0, 60))} in ${where} is text a visitor sees; a visible string is a catalogue slot`);
+  };
   for (const t of tokens) {
     if (t.type === 'tag' && !t.closing) {
       tag = t;
       for (const a of VISIBLE_ATTRS) if (t.attrs.has(a) && t.attrs.get(a) !== '') attrProblems(a, t.attrs.get(a));
+      if (t.name === 'input' && BUTTON_INPUTS.test(t.attrs.get('type') ?? '') && (t.attrs.get('value') ?? '') !== '') attrProblems('value of the button input', t.attrs.get('value'));
+      if (LABELLED.has(t.name) && (t.attrs.get('label') ?? '') !== '') attrProblems(`label of the ${t.name}`, t.attrs.get('label'));
       const meta = t.name === 'meta' ? (t.attrs.get('name') ?? t.attrs.get('property') ?? '') : '';
       if (META_TEXT.has(meta) && t.attrs.has('content')) attrProblems(`content of the meta ${meta}`, t.attrs.get('content'));
+      if (t.attrs.has('style')) cssProblems('a style attribute', `a{${t.attrs.get('style')}}`);
+      for (const k of t.attrs.keys()) if (/^on[a-z]+$/.test(k)) out.push(`${at}: the ${t.name} element has an inline event handler (${k}); a template holds no script`);
+      // A template holds no executable script: the page script is the shared block, taken whole as {{raw:script}}, so nothing a script writes into the page can be a string outside the catalogue.
+      if (t.name === 'script' && !/^(?:application\/(?:ld\+)?json|importmap|speculationrules)$/i.test(t.attrs.get('type') ?? '')) out.push(`${at}: a <script> element in a template is executable script; the page script is the shared block {{raw:script}}`);
+    } else if (t.type === 'raw' && t.name === 'style') {
+      cssProblems('a <style> block', t.body);
     } else if (t.type === 'text') {
       const rest = t.text.replace(MASKS, '').trim();
       const n = (t.text.match(new RegExp(TEXT_MASK, 'g')) || []).length;
@@ -110,7 +133,7 @@ export function templateProblems(src, name = 'template') {
       for (const m of t.body.matchAll(/"((?:[^"\\]|\\.)*)"(\s*:)?/g)) {
         if (m[2]) { owner = m[1]; continue; }
         const v = m[1];
-        const data = v === ATTR_MASK || /^(?:https?:\/\/|mailto:)\S+$/.test(v) || /^[^\s@]+@[^\s@]+$/.test(v) || /^@/.test(owner);
+        const data = v === ATTR_MASK || /^(?:https?:\/\/|mailto:)\S+$/.test(v) || /^[^\s@]+@[^\s@]+$/.test(v) || ENDORSED_KEYS.has(owner);
         if (!data) out.push(`${at}: structured data value ${JSON.stringify(v.replace(MASKS, '').trim() || v)} is a literal; a visible string is a {{j:key}} slot`);
       }
     }
@@ -161,7 +184,7 @@ export function renderTemplate(src, { messages, blocks, raw }) {
       const key = m[2] ?? m[5];
       if (kind === 'text') return valueHtml(msg(key, lang));
       if (kind === 'attr') return escAttr(valuePlain(msg(key, lang)));
-      return JSON.stringify(valuePlain(msg(key, lang))).slice(1, -1);
+      return valueJson(msg(key, lang));
     });
     if (/\{\{/.test(text)) throw new Error(`line ${i + 1}: a slot that is not valid is left in the page`);
     lines.push(text);

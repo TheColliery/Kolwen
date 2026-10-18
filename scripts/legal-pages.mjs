@@ -73,7 +73,10 @@ async function main() {
     };
   } catch (e) { console.error('FAIL a source could not be read: ' + (e.code || e.message)); process.exitCode = 1; return; }
 
-  const legal = lib.renderPages(inputs);
+  // The legal pages read the shared blocks, which read the catalogue: a key the catalogue lacks throws here. That is a problem to report, with the catalogue check below beside it, never a stack trace.
+  let legal;
+  try { legal = lib.renderPages(inputs); }
+  catch (e) { legal = { pages: {}, report: [], problems: [`the legal pages could not be rendered: ${e.message}`] }; }
   const report = legal.report;
   const fails = legal.problems.map(p => 'FAIL ' + p);
 
@@ -148,7 +151,10 @@ async function main() {
   // compared above); a marker that is missing, doubled or out of order is named, never worked around.
   for (const f of SITE_FILES) {
     if (!existsSync(resolve(ROOT, f))) { fails.push(`FAIL ${f} is missing, so its shared blocks could not be compared`); continue; }
-    for (const r of sync.inspect(read(f), lib.SYNC_BLOCKS)) {
+    let inspected;
+    try { inspected = sync.inspect(read(f), lib.SYNC_BLOCKS); }
+    catch (e) { fails.push(`FAIL ${f}: its shared blocks could not be compared (${e.message})`); continue; }
+    for (const r of inspected) {
       if (r.problem) { fails.push(`FAIL ${f} ${r.block.label}: ${r.problem} (restore the marker, then run node scripts/legal-pages.mjs --write)`); continue; }
       const d = r.same ? null : firstDifference(r.want, r.have);
       if (d) fails.push(`FAIL ${f} ${r.block.label} differs from the shared ${r.block.shared}, ${d} (the block is written in scripts/lib/legal-render.mjs; run node scripts/legal-pages.mjs --write)`);

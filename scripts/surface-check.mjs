@@ -96,11 +96,18 @@ for (const f of tracked.filter(SCANNABLE)) {
 for (const f of tracked.filter(PUBLISHED)) {
   const s = read(f);
   if (/ํา/.test(s)) note(f, 'decomposed SARA AM (U+0E4D U+0E32) — must be U+0E33');
-  // One U+00A0 is not an invisible character: the no-break space the Thai typography row puts before the repetition mark U+0E46 (build-qc.md W-I18N-12, kept by the catalogue lint). Every other one is.
+  // An invisible character is any space separator (Unicode category Zs: U+00A0, U+202F, U+2007, U+3000 ...) or default-ignorable code point (U+200B to U+200D, U+2060, U+00AD, U+180E, U+FEFF ...) except the
+  // plain space. Two are allowed: the one no-break space U+00A0 the Thai typography row puts before the repetition mark U+0E46 (build-qc.md W-I18N-12, kept by the catalogue lint), and the emoji
+  // presentation selectors U+FE0E and U+FE0F, which the published text carries after a symbol (the warning sign in PRIVACY.md and brand/README.md). Every other one is a finding, named once per file.
   const withoutMaiyamokSpace = s.split(String.fromCharCode(0xa0, 0xe46)).join(String.fromCharCode(0xe46));
-  for (const cp of [0x200B, 0x200C, 0x200D, 0x00A0, 0xFEFF]) {
-    if (withoutMaiyamokSpace.includes(String.fromCodePoint(cp))) note(f, `invisible character U+${cp.toString(16).toUpperCase()}`);
+  const named = new Set();
+  for (const ch of withoutMaiyamokSpace) {
+    const cp = ch.codePointAt(0);
+    if (cp === 0x20 || cp === 0xfe0e || cp === 0xfe0f || named.has(cp) || !/[\p{Zs}\p{Default_Ignorable_Code_Point}]/u.test(ch)) continue;
+    named.add(cp);
+    note(f, `invisible character U+${cp.toString(16).toUpperCase()}`);
   }
+  if (f.endsWith('.html') && /&nbsp;|&#0*160;|&#x0*a0;/i.test(s)) note(f, 'invisible character U+A0 written as an entity (&nbsp;); a page uses a no-break space only before the Thai repetition mark, as the character');
   if (s.includes('…')) note(f, 'U+2026 ellipsis — use three ASCII dots');
 }
 
