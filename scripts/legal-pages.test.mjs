@@ -415,6 +415,16 @@ test('reEscape turns any text into a regex that matches exactly that text, backs
   assert.ok(!new RegExp('^' + reEscape('a\\.c') + '$').test('a.c'), 'a backslash before a dot is two characters');
 });
 
+test('reEscape output is a valid pattern under the u and v flags too, for every printable ASCII character (a hyphen outside a class needs no escape, and "\\-" is a SyntaxError there)', () => {
+  for (const flags of ['', 'u', 'v']) {
+    for (let code = 0x20; code < 0x7f; code++) {
+      const c = String.fromCharCode(code);
+      assert.ok(new RegExp('^' + reEscape(c) + '$', flags).test(c), `U+${code.toString(16)} with flags "${flags}"`);
+      assert.ok(new RegExp('^' + reEscape('a' + c + 'b') + '$', flags).test('a' + c + 'b'), `a${c}b with flags "${flags}"`);
+    }
+  }
+});
+
 test('the sync markers are named once, in the lib, and are the ones the pages carry', () => {
   assert.deepEqual(lib.SYNC_BLOCKS.map(b => [b.name, b.begin, b.end]), [MARK.fonts, MARK.hcss, MARK.css, MARK.ncss, MARK.header, MARK.en, MARK.th, MARK.script].map(m => [m.name, m.begin, m.end]), 'the array order is the one expected document order');
   const cli = read('scripts/legal-pages.mjs');

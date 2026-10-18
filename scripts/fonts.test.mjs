@@ -9,11 +9,13 @@ import { join, dirname, resolve, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { facesOf, inRange } from './lib/font-coverage.mjs';
 import { reEscape } from './lib/re-escape.mjs';
+import { servedFiles } from './lib/web-files.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const WEB = join(ROOT, 'web');
 const read = rel => readFileSync(join(ROOT, rel), 'utf8').replace(/\r\n/g, '\n');
-const PAGES = ['index', 'pricing', '404', 'terms', 'privacy', 'refund', 'changelog'].map(n => `web/${n}.html`);
+// Every page of web/, derived (a fixed list stops covering the day a page is added, a /th/ page among them), by the lister the font coverage check uses.
+const PAGES = servedFiles(WEB).filter(f => f.endsWith('.html')).map(f => 'web/' + f);
 
 const manifest = () => facesOf(read('web/fonts/fonts.css'));
 const filesUnder = dir => readdirSync(dir, { withFileTypes: true }).flatMap(e => (e.isDirectory() ? filesUnder(join(dir, e.name)) : [join(dir, e.name)]));

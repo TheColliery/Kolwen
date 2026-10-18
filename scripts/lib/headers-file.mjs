@@ -136,6 +136,9 @@ export function patternMatches(pattern, path) {
 // null when a served Cache-Control value is a long immutable one (public, a max-age of at least a year, immutable), else the reason it is not.
 export function fontCacheMiss(value) {
   if (value == null) return 'is served with no Cache-Control, expected ' + FONT_CACHE_CONTROL;
+  // a directive that overrides the year: no-store keeps the file out of the cache, a bare no-cache makes every use ask the origin again (no-cache="field" only strips those fields, and is not read as bare)
+  const override = /(?:^|[\s,])(no-store|no-cache)(?=$|[\s,])/i.exec(value);
+  if (override) return `is served Cache-Control "${value}" with ${override[1].toLowerCase()}, which stops the year-long reuse, expected ${FONT_CACHE_CONTROL}`;
   const age = /(?:^|[\s,])max-age=(\d+)/i.exec(value);
   if (!age || Number(age[1]) < ONE_YEAR) return `is served Cache-Control "${value}", expected max-age of at least ${ONE_YEAR} (${FONT_CACHE_CONTROL})`;
   if (!/(?:^|[\s,])immutable(?:$|[\s,])/i.test(value)) return `is served Cache-Control "${value}" without immutable, expected ${FONT_CACHE_CONTROL}`;

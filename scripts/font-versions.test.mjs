@@ -76,6 +76,12 @@ test('fontCacheMiss accepts the long immutable value and names what is wrong wit
   assert.match(fontCacheMiss('public, max-age=86400'), /max-age of at least 31536000/);
   assert.match(fontCacheMiss('public, max-age=31536000'), /without immutable/);
   assert.match(fontCacheMiss('max-age=31536000, immutable'), /without public/);
+  // a directive that overrides the year: no-store keeps the file out of the cache, no-cache makes every use ask the origin again
+  assert.match(fontCacheMiss('public, max-age=31536000, immutable, no-store'), /with no-store/);
+  assert.match(fontCacheMiss('public, max-age=31536000, immutable, no-cache'), /with no-cache/);
+  assert.match(fontCacheMiss('No-Store, public, max-age=31536000, immutable'), /with no-store/);
+  assert.equal(fontCacheMiss('public, max-age=31536000, immutable, no-transform'), null, 'a directive that only looks alike is not one');
+  assert.equal(fontCacheMiss('public, max-age=31536000, immutable, x-no-store-ish=1'), null);
 });
 
 test('firstFontUrl reads the first woff2 url from the manifest text and nothing else', () => {
