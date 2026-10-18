@@ -9,7 +9,7 @@ import { join, dirname, resolve, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { facesOf, inRange } from './lib/font-coverage.mjs';
 import { reEscape } from './lib/re-escape.mjs';
-import { servedFiles, htmlPages } from './lib/web-files.mjs';
+import { htmlPages } from './lib/web-files.mjs';
 import { renderedChars } from './lib/rendered-text.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');

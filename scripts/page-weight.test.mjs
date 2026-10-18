@@ -2,12 +2,13 @@
 // Node builtins only. Every child process has a heap cap and a kill timeout.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { htmlPages } from './lib/web-files.mjs';
+import { renderedChars } from './lib/rendered-text.mjs';
 import { fileURLToPath } from 'node:url';
 import { ALMANAC, CEILING_FACTOR, DIVERGENCES, NOT_COUNTED, checkTree, measurePage, metricVerdict, report, staleWarning } from './page-weight.mjs';
 
@@ -26,6 +27,15 @@ function fixture({ imageBytes = 0, extraRequests = 0, html = '' } = {}) {
 }
 const gone = dir => rmSync(dir, { recursive: true, force: true });
 const only = rows => { assert.equal(rows.length, 1); return rows[0]; };
+
+// The one way this file starts a child: a node process with a heap cap and a kill timeout, and its own HOME, USERPROFILE, TEMP, TMP and TMPDIR under os.tmpdir(), removed after it, so nothing the child
+// (or a later change to the CLI) writes reaches the real home. `used`, when given, collects the folder made.
+function runNode(args, used = []) {
+  const home = mkdtempSync(join(tmpdir(), 'page-weight-home-'));
+  used.push(home);
+  try { return spawnSync(process.execPath, ['--max-old-space-size=2048', ...args], { encoding: 'utf8', timeout: 120000, env: { ...process.env, HOME: home, USERPROFILE: home, TEMP: home, TMP: home, TMPDIR: home } }); } finally { gone(home); }
+}
+const cliRun = (...args) => runNode([join(ROOT, 'scripts/page-weight.mjs'), ...args]);
 
 test('the median is cited, not invented: edition, url, quote, read date, mobile figures, and a ceiling of twice the median', () => {
   assert.equal(ALMANAC.medianBytes, 2_560_000);
@@ -46,7 +56,7 @@ test('RED PROOF: a page plus an asset over twice the median FAILS, and the repor
     assert.equal(r.level, 'fail');
     assert.match(r.notes.join(' '), /above twice the median \(5120000\) and the page is not a named divergence/);
     assert.match(report([r]), /index\.html \| \d+ \| 2 \| [\d.]+ \| [\d.]+ \| FAIL/);
-    const cli = spawnSync(process.execPath, ['--max-old-space-size=2048', join(ROOT, 'scripts/page-weight.mjs'), '--web', dir], { encoding: 'utf8', timeout: 120000 });
+    const cli = cliRun('--web', dir);
     assert.equal(cli.status, 1, cli.stdout + cli.stderr);
     assert.match(cli.stdout, /FAIL/);
   } finally { gone(dir); }
@@ -65,7 +75,7 @@ test('GREEN PROOF: a page at the median passes with no note, one just above it p
     assert.equal(b.level, 'note');
     assert.match(b.notes[0], /transfer bytes \d+ is above the median 2560000, allowed up to 5120000/);
     assert.match(report([b]), /PASS \(above the median\)/);
-    const cli = spawnSync(process.execPath, ['--max-old-space-size=2048', join(ROOT, 'scripts/page-weight.mjs'), '--web', at], { encoding: 'utf8', timeout: 120000 });
+    const cli = cliRun('--web', at);
     assert.equal(cli.status, 0, cli.stdout + cli.stderr);
   } finally { gone(at); gone(above); }
 });
@@ -136,7 +146,7 @@ test('an asset a page loads that is not in the built tree is a named failure, ne
   const dir = fixture({ html: '<img src="/nope.png" alt="">' });
   try {
     assert.throws(() => measurePage(dir, 'index.html', []), /index\.html: loads \/nope\.png, which is not in the built tree/);
-    const cli = spawnSync(process.execPath, ['--max-old-space-size=2048', join(ROOT, 'scripts/page-weight.mjs'), '--web', dir], { encoding: 'utf8', timeout: 120000 });
+    const cli = cliRun('--web', dir);
     assert.equal(cli.status, 1);
     assert.match(cli.stderr, /FAIL index\.html: loads \/nope\.png/);
   } finally { gone(dir); }
@@ -160,7 +170,7 @@ test('the real site: every page passes below the median, the table names every p
     assert.ok(r.parts.some(p => p.kind === 'css' && p.url === '/fonts/fonts.css'), r.page + ' loads the font manifest');
     assert.ok(r.parts.some(p => p.kind === 'font'), r.page + ' loads a font');
   }
-  const cli = spawnSync(process.execPath, ['--max-old-space-size=2048', join(ROOT, 'scripts/page-weight.mjs')], { encoding: 'utf8', timeout: 120000 });
+  const cli = cliRun();
   assert.equal(cli.status, 0, cli.stdout + cli.stderr);
   for (const r of rows) assert.ok(cli.stdout.includes(r.page + ' | ' + r.bytes + ' | ' + r.requests + ' | '), r.page + ' is in the printed table');
   assert.ok(cli.stdout.includes(NOT_COUNTED));
@@ -285,11 +295,12 @@ test('an @import of a file that is not in the built tree is a named failure', ()
 
 // F3: one page lister for the font coverage check and this one.
 test('RED PROOF: a page in a subfolder is measured too, and the lister is the one the font coverage check uses', () => {
-  const dir = tree({ 'index.html': '<!doctype html><html><body>hi</body></html>', 'th/index.html': '<!doctype html><html lang="th"><body><img src="/img/big.png" alt=""></body></html>', 'img/big.png': randomBytes(MEDIAN * 2 + 50_000) });
+  const dir = tree({ 'index.html': '<!doctype html><html><body>hi</body></html>', 'th/index.html': '<!doctype html><html lang="th"><body>' + String.fromCodePoint(0x0e01) + '<img src="/img/big.png" alt=""></body></html>', 'img/big.png': randomBytes(MEDIAN * 2 + 50_000) });
   try {
     const rows = checkTree(dir);
     assert.deepEqual(rows.map(r => r.page), ['index.html', 'th/index.html']);
     assert.deepEqual(rows.map(r => r.page), htmlPages(dir));
+    assert.ok(renderedChars(dir).get(0x0e01)?.has('web/th/index.html'), 'renderedChars reads the nested page too (CodeRabbit nitpick)');
     assert.equal(rows[1].level, 'fail');
     assert.match(report(rows), /th\/index\.html \| \d+ \| 2 \| [\d.]+ \| [\d.]+ \| FAIL/);
   } finally { gone(dir); }
@@ -340,8 +351,41 @@ test('RED PROOF: a WARNING (not a failure) names the URL pattern to re-read once
   } finally { gone(dir); }
 });
 
+// CodeRabbit 4306008880: a test that spawns a CLI sandboxes HOME and TEMP.
+test('RED PROOF: every child of this file runs with its own HOME, USERPROFILE, TEMP, TMP and TMPDIR under os.tmpdir(), removed after it, and no spawn bypasses the helper', () => {
+  const used = [];
+  const show = (...v) => `console.log(JSON.stringify([${v.map(n => 'process.env.' + n).join(',')}]))`;
+  const a = runNode(['-e', show('HOME', 'USERPROFILE', 'TEMP', 'TMP', 'TMPDIR')], used);
+  const b = runNode(['-e', show('HOME')], used);
+  const [home, ...rest] = JSON.parse(a.stdout);
+  assert.ok(rest.every(v => v === home), 'one sandbox for all five names');
+  assert.ok(home.startsWith(tmpdir()) && home !== process.env.HOME && home !== process.env.USERPROFILE, 'under os.tmpdir(), not the real home: ' + home);
+  assert.notEqual(JSON.parse(b.stdout)[0], home, 'each child gets a folder of its own');
+  assert.ok(used.length === 2 && used.every(d => !existsSync(d)), 'the folders are removed after the child');
+  const source = readFileSync(fileURLToPath(import.meta.url), 'utf8');
+  const spawns = source.split('spawn' + 'Sync(').length - 1;
+  assert.equal(spawns, 1, `a child is started in one place only, runNode (found ${spawns} call sites)`);
+});
+
+// CodeRabbit 4306008871 and reviewer U1: the inline <style> blocks are the live ones, read by the one reader rendered-text.mjs has (comments as the HTML parser ends them, scripts skipped).
+test('RED PROOF: an @import in a <style> inside an HTML comment or a script is not followed, and a live <style> after <!-->, <!---> or --!> is', () => {
+  const dir = tree({
+    'a.css': 'i{margin:0}', 'b.css': 'i{margin:0}', 'c.css': 'i{margin:0}', 'd.css': 'i{margin:0}', 'img.png': Buffer.alloc(300, 1),
+    'index.html': '<!doctype html><html><head>'
+      + '<!-- <style>@import "/gone1.css";</style> -->'
+      + '<script>var s = \'<style>@import "/gone2.css";</style>\';</script>'
+      + '<!-- x --><style>@import "/a.css";</style>'
+      + '<!--><style>@import "/b.css";</style>'
+      + '<!---><style>@import "/c.css";</style>'
+      + '<!-- y --!><style>@import "/d.css";</style>'
+      + '<!--><img src="/img.png" alt="">'
+      + '</head><body>hello</body></html>',
+  });
+  try { assert.deepEqual(urlsOf(only(checkTree(dir))), ['/a.css', '/b.css', '/c.css', '/d.css', '/img.png', '/index.html']); } finally { gone(dir); }
+});
+
 test('an unknown flag exits 2, --help prints usage and exits 0, and a tree with no page fails rather than passes', () => {
-  const run = (...a) => spawnSync(process.execPath, ['--max-old-space-size=2048', join(ROOT, 'scripts/page-weight.mjs'), ...a], { encoding: 'utf8', timeout: 120000 });
+  const run = (...a) => cliRun(...a);
   assert.equal(run('--bogus').status, 2);
   const h = run('--help');
   assert.equal(h.status, 0);

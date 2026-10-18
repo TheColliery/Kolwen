@@ -96,6 +96,20 @@ test('fontCacheMiss accepts the long immutable value and names what is wrong wit
   assert.match(fontCacheMiss('public, max-age=31536000, immutable, private='), /with a malformed directive "private="/);
   assert.match(fontCacheMiss('public, max-age=31536000, immutable, no-store = 1'), /with a malformed directive "no-store = 1"/);
   assert.match(fontCacheMiss('public, max-age=31536000, immutable, x y'), /with a malformed directive "x y"/);
+  // every character between the commas is kept, a stray quote included, so it can be refused (CodeRabbit 4306008861)
+  assert.match(fontCacheMiss('public, max-age=31536000, immutable"'), /with a malformed directive "immutable""/);
+  assert.match(fontCacheMiss('public, max-age=31536000, "immutable'), /with a malformed directive ""immutable"/);
+  assert.match(fontCacheMiss('public, max-age=31536000, immutable, no-cache="a,b'), /with a malformed directive "no-cache="a"/, 'an unclosed quote does not hide the comma that follows');
+  // public and immutable take no argument (RFC 9111 section 5.2.2.9, RFC 8246): public=1 is not public (CodeRabbit 4306008865)
+  assert.match(fontCacheMiss('public=1, max-age=31536000, immutable'), /without public/);
+  assert.match(fontCacheMiss('public, max-age=31536000, immutable=1'), /without immutable/);
+  assert.match(fontCacheMiss('public, max-age=31536000, immutable=""'), /without immutable/);
+  // a quoted-string may hold a comma and a quoted-pair (RFC 9110 section 5.6.4): a valid field name list is not malformed
+  assert.equal(fontCacheMiss('public, max-age=31536000, immutable, no-cache="a,b"'), null);
+  assert.equal(fontCacheMiss('public, max-age=31536000, immutable, private="a\\"b, c"'), null);
+  assert.equal(fontCacheMiss('public, max-age=31536000, immutable, no-cache="a\\"b"'), null);
+  assert.equal(fontCacheMiss('public, max-age="31536000", immutable'), null);
+  assert.match(fontCacheMiss('public, max-age=31536000, immutable, no-cache="a\\"'), /with a malformed directive/, 'a quote closed by a quoted-pair is not closed');
   assert.equal(fontCacheMiss('public, max-age=31536000, immutable,'), null, 'a trailing comma is an empty list element, which the list syntax allows');
   assert.equal(fontCacheMiss('public,, max-age=31536000 , immutable'), null, 'space before a comma and an empty element are fine');
   assert.equal(fontCacheMiss('public, max-age="31536000", immutable'), null, 'RFC 9111 accepts the quoted form of a token argument');

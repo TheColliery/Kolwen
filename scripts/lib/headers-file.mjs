@@ -137,9 +137,10 @@ export function patternMatches(pattern, path) {
 // `cache-directive = token [ "=" ( token / quoted-string ) ]`: no space around the `=`, and an argument that is there has at least one character (a token is one or more). A piece that is not that
 // is { name: the piece, bad: true }, so it can never pass for a directive.
 function cacheDirectives(value) {
-  return (value.match(/(?:"[^"]*"|[^,"])+/g) || []).map(piece => {
-    const m = /^\s*([^\s=,"]+)(?:=(?:"([^"]*)"|([^\s,"]+)))?\s*$/.exec(piece);
-    return m ? { name: m[1].toLowerCase(), arg: m[2] ?? m[3] ?? null } : { name: piece.trim().toLowerCase(), arg: null, bad: true, piece: piece.trim() };
+  // every character between the commas is kept (a stray quote too, so a piece such as `immutable"` reaches the grammar and is refused), and a quoted-string, quoted-pair included (RFC 9110 section 5.6.4), is one unit
+  return (value.match(/(?:"(?:[^"\\]|\\[\s\S])*"|[^,])+/g) || []).map(piece => {
+    const m = /^\s*([^\s=,"]+)(?:=(?:"((?:[^"\\]|\\[\s\S])*)"|([^\s,"]+)))?\s*$/.exec(piece);
+    return m ? { name: m[1].toLowerCase(), arg: m[2] !== undefined ? m[2].replace(/\\([\s\S])/g, '$1') : (m[3] ?? null) } : { name: piece.trim().toLowerCase(), arg: null, bad: true, piece: piece.trim() };
   });
 }
 
@@ -159,8 +160,9 @@ export function fontCacheMiss(value) {
   if (ages.length > 1) return `${served} with ${ages.length} max-age directives, expected exactly one (${FONT_CACHE_CONTROL})`;
   if (ages.length === 1 && !/^\d+$/.test(ages[0].arg ?? '')) return `${served} with a malformed max-age ("${ages[0].arg ?? ''}"), expected ${FONT_CACHE_CONTROL}`;
   if (!ages.length || Number(ages[0].arg) < ONE_YEAR) return `${served}, expected max-age of at least ${ONE_YEAR} (${FONT_CACHE_CONTROL})`;
-  if (!directives.some(d => d.name === 'immutable')) return `${served} without immutable, expected ${FONT_CACHE_CONTROL}`;
-  if (!directives.some(d => d.name === 'public')) return `${served} without public, expected ${FONT_CACHE_CONTROL}`;
+  // public and immutable take no argument (RFC 9111 section 5.2.2.9, RFC 8246): `public=1` is not the directive
+  if (!directives.some(d => d.name === 'immutable' && d.arg === null)) return `${served} without immutable, expected ${FONT_CACHE_CONTROL}`;
+  if (!directives.some(d => d.name === 'public' && d.arg === null)) return `${served} without public, expected ${FONT_CACHE_CONTROL}`;
   return null;
 }
 

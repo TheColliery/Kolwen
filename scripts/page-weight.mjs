@@ -16,7 +16,7 @@ import { brotliCompressSync, constants } from 'node:zlib';
 import { join, dirname, resolve, extname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { facesOf, inRange } from './lib/font-coverage.mjs';
-import { renderedChars, stripCssComments } from './lib/rendered-text.mjs';
+import { renderedChars, stripCssComments, stripHtmlComments, styleBlocksOf } from './lib/rendered-text.mjs';
 import { htmlPages } from './lib/web-files.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -76,7 +76,7 @@ const TAG = /<([a-z][a-z0-9-]*)(?=[\s\/>])((?:"[^"]*"|'[^']*'|[^>"'])*)>/gi;
 const ATTR = /[\s\/]*([^\s\/>=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]*)))?/g;
 function tagsOf(html) {
   const out = [];
-  for (const t of html.replace(/<!--[\s\S]*?-->/g, ' ').matchAll(TAG)) {
+  for (const t of stripHtmlComments(html).matchAll(TAG)) {
     const attrs = new Map();
     for (const a of t[2].matchAll(ATTR)) { const name = a[1].toLowerCase(); if (!attrs.has(name)) attrs.set(name, a[2] ?? a[3] ?? a[4] ?? ''); }
     out.push({ name: t[1].toLowerCase(), attrs });
@@ -119,7 +119,7 @@ export function assetsOf(webDir, page, cps) {
   // Stylesheets still to be read: the linked ones, then every @import found, in a list that grows (an import is walked like a linked sheet, and a cycle ends at the first repeat).
   const todo = [...found].filter(([, kind]) => kind === 'css').map(([url]) => url);
   const queue = url => { add(url, 'css'); if (!todo.includes(url)) todo.push(url); };
-  const inline = importsOf((html.match(/<style\b[\s\S]*?<\/style>/gi) || []).join('\n'), pageUrl);
+  const inline = importsOf(styleBlocksOf(html).join('\n'), pageUrl);
   inline.urls.forEach(queue);
   for (const u of cssUrls(inline.rest + '\n' + styleAttrs.join('\n'), pageUrl)) add(u, 'image');
   // Each stylesheet: its imports, its @font-face faces by unicode-range, and any other url() it loads.

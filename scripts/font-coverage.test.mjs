@@ -68,6 +68,20 @@ test('CSS content is read as the browser reads it: the property name in any case
   assert.equal(style('a::after{content:"q"; content:\'a\nb\'}'), 'q');
 });
 
+test('an HTML comment ends where the parser ends it: <!--> and <!---> are whole empty comments and --!> closes a comment, so what follows is live in cssContentOf and in textOf', () => {
+  const ARROW = String.fromCodePoint(0x2192), arrow = String.fromCharCode(92) + '2192';
+  const live = `<style>a::after{content:"${arrow}"}</style>`;
+  for (const [what, open] of [['<!-->', '<!-->'], ['<!--->', '<!--->'], ['--!>', '<!-- x --!>'], ['-->', '<!-- x -->'], ['an empty -->', '<!---->']]) {
+    assert.equal(cssContentOf(open + live), ARROW, 'a <style> after ' + what);
+    assert.match(textOf(open + '<p>after</p>'), /after/, 'text after ' + what);
+  }
+  assert.equal(cssContentOf(`<!-- ${live} --!>`), '', 'a <style> inside a comment that --!> closes is still skipped');
+  assert.equal(cssContentOf(`<!-- ${live} -->`), '');
+  assert.doesNotMatch(textOf('<!-- hidden --><p>shown</p>'), /hidden/);
+  assert.doesNotMatch(textOf('<!-- hidden --!><p>shown</p>'), /hidden/);
+  assert.equal(cssContentOf(`<!-- never closed ${live}`), '', 'a comment that is never closed runs to the end');
+});
+
 test('the derived set: the pages render these characters, the Thai block among them, and every one is a code point at or above U+0020', () => {
   const seen = renderedChars(WEB);
   assert.ok(seen.size > 100 && seen.size < 400, 'rendered code points: ' + seen.size);

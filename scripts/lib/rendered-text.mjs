@@ -51,22 +51,30 @@ const cssUnescape = s => s.replace(/\\(?:([0-9a-f]{1,6})(?:\r\n|[ \t\r\n\f])?|(\
 const JS_SIMPLE = { n: '\n', t: '\t', r: '\r', b: '\b', f: '\f', v: '\v', 0: '\0' };
 const jsUnescape = s => s.replace(/\\(?:u\{([0-9a-f]+)\}|u([0-9a-f]{4})|x([0-9a-f]{2})|(.))/gis, (m, a, b, c, d) => (a || b || c ? String.fromCodePoint(parseInt(a || b || c, 16)) : (d in JS_SIMPLE ? JS_SIMPLE[d] : d)));
 
+// An HTML comment ends where the parser ends it (WHATWG HTML, tokenizer): `<!-->` and `<!--->` are whole empty comments, `-->` and `--!>` close one, and one never closed runs to the end of the text.
+const COMMENT = /<!--(?:-?>|[\s\S]*?(?:--!?>|$))/g;
+export const stripHtmlComments = html => html.replace(COMMENT, ' ');
+
 export function textOf(html) {
-  const stripped = html.replace(/<(style|script)\b[\s\S]*?<\/\1\b[^>]*>/gi, ' ').replace(/<!--[\s\S]*?-->/g, ' ').replace(/<[^>]*>/g, ' ');
+  const stripped = stripHtmlComments(html.replace(/<(style|script)\b[\s\S]*?<\/\1\b[^>]*>/gi, ' ')).replace(/<[^>]*>/g, ' ');
   return decodeEntities(stripped);
 }
 
 // CSS comments removed outside strings (the `/*` inside a string is text; a comment never closed runs to the end). The one comment stripper of the font checks and of the budget check's @import and url() scans.
 export const stripCssComments = css => css.replace(/("(?:[^"\\\n\r\f]|\\[\s\S])*"|'(?:[^'\\\n\r\f]|\\[\s\S])*')|\/\*[\s\S]*?(?:\*\/|$)/g, (m, str) => str ?? ' ');
 
+// The bodies of the live <style> blocks of an HTML text: not one inside an HTML comment or a <script> (one alternation, the leftmost match wins, so a comment or script is consumed whole and a `<!--` inside a live <style> is left to the CSS).
+// The one style-block reader of the font checks and of the budget check.
+const STYLE_BLOCK = new RegExp(COMMENT.source + String.raw`|<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>|<style\b[^>]*>([\s\S]*?)<\/style\b[^>]*>`, 'gi');
+export const styleBlocksOf = html => [...html.matchAll(STYLE_BLOCK)].filter(m => m[1] !== undefined).map(m => m[1]);
+
 // The `content:` strings of the <style> blocks. Read as a browser reads them: the property name in any case and as a whole name (not `x-content:`, not a selector such as `.content:hover`), nothing from a CSS comment, a commented-out
 // <style> block or a <style> inside a script, and a string broken by a raw line break is a bad string that draws nothing (a backslash before the break continues it).
-const STYLE_BLOCK = /<!--[\s\S]*?(?:-->|$)|<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>|<style\b[^>]*>([\s\S]*?)<\/style\b[^>]*>/gi;
+// Known limit, deferred: only string literals in the value are read, so a string given through `var(--name)` is not derived (no page does that; the check does not claim it).
 export function cssContentOf(html) {
   const out = [];
-  for (const block of html.matchAll(STYLE_BLOCK)) {
-    if (block[1] === undefined) continue; // a comment or a script, matched only so that a <style> inside it is not read
-    for (const m of stripCssComments(block[1]).matchAll(/(?<=^|[{;\s])content\s*:\s*((?:"(?:[^"\\\n\r\f]|\\[\s\S])*"|'(?:[^'\\\n\r\f]|\\[\s\S])*'|[^;}"'])*)/gi)) {
+  for (const block of styleBlocksOf(html)) {
+    for (const m of stripCssComments(block).matchAll(/(?<=^|[{;\s])content\s*:\s*((?:"(?:[^"\\\n\r\f]|\\[\s\S])*"|'(?:[^'\\\n\r\f]|\\[\s\S])*'|[^;}"'])*)/gi)) {
       for (const lit of m[1].matchAll(/"((?:[^"\\\n\r\f]|\\[\s\S])*)"|'((?:[^'\\\n\r\f]|\\[\s\S])*)'/g)) out.push(cssUnescape(lit[1] ?? lit[2]));
     }
   }
