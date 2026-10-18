@@ -203,13 +203,30 @@ const CODE_FILE = /\.(?:m?js|cjs|ts|tsx)$/i;
 //  1. the property, then (space and comments) an assignment operator: `document.cookie = x`, `d['cookie'] ??= x`, `document.cookie /* c */ = x`;
 //  2. a destructuring target: the property, optional later items, one or more closing `]` or `}`, then `=`: `[document.cookie] = a`, `({ k: d.cookie, j } = o)`, `[[document.cookie]] = a`;
 //  3. a for-of or for-in target: `for (document.cookie of list)`, `for await (d['cookie'] in o)`.
-const COOKIE_PROP = /(?:\.\s*cookie|\[\s*['"`]cookie['"`]\s*\])/.source;
-const GAP = /(?:\s|\/\*[\s\S]*?\*\/|\/\/[^\n]*\n)*/.source; // white space and comments
+//  4. an update operator: `document.cookie++`, `d['cookie']--` (a postfix operator on the same line, as the grammar demands) and `++document.cookie`, `-- /* c */ a.b.cookie`.
+// The property may be spelled with an escape (`document.cookie`, `document['c\x6fokie']`). The pieces are built from strings and code points: this file holds no escape of its own that a tool could turn
+// into a character, and no line terminator inside a regular expression.
+const LINE_END = String.fromCharCode(10, 13, 0x2028, 0x2029); // what ends a // comment: JavaScript's line terminators, not only LF
+// A block comment holds no `*/`, so a run of comments can be cut only one way. (A lazy `[\s\S]*?` could swallow several comments as one, and a failed match then tried every cut: exponential on
+// `for (document.cookie /* c */ /* c */ ...` with no `of`; found by the timing test of PR #56.)
+const BLOCK_COMMENT = '\\/\\*(?:[^*]|\\*(?!\\/))*\\*\\/';
+const GAP = '(?:\\s|' + BLOCK_COMMENT + '|\\/\\/[^' + LINE_END + ']*[' + LINE_END + '])*'; // white space and comments
+const GAP_SAME_LINE = '(?:[ \\t]|\\/\\*(?:[^*' + LINE_END + ']|\\*(?!\\/))*\\*\\/)*'; // no line break: JavaScript allows none before a postfix ++ or --
+// One letter of a word as itself or as an escape: \uXXXX and \u{X...} in an identifier, and \xXX too in a string.
+const spell = (word, inString) => [...word].map(c => {
+  const h = c.charCodeAt(0).toString(16).replace(/[a-f]/g, m => '[' + m + m.toUpperCase() + ']');
+  return '(?:' + c + '|\\\\u00' + h + '|\\\\u\\{0*' + h + '\\}' + (inString ? '|\\\\x' + h : '') + ')';
+}).join('');
+const COOKIE_PROP = '(?:\\.\\s*' + spell('cookie', false) + '(?![\\w$])|\\[\\s*[\'"`]' + spell('cookie', true) + '[\'"`]\\s*\\])';
 const ASSIGN_OP = /(?:\*\*|<<|>>>?|&&|\|\||\?\?|[+\-*/%|&^])?=(?![=>])/.source;
+const UPDATE_OP = '(?:\\+\\+|--)';
 const DOC_COOKIE_WRITE = new RegExp([
   COOKIE_PROP + GAP + ASSIGN_OP,
-  COOKIE_PROP + GAP + /(?:,[^\]}=;]*)?[\]}]/.source + '(?:' + GAP + /[\]}]/.source + ')*' + GAP + ASSIGN_OP,
-  /\bfor\s*(?:await\s*)?\(\s*[^;()]*?/.source + COOKIE_PROP + /\s*(?:of|in)\b/.source,
+  COOKIE_PROP + GAP + '(?:,[^\\]}=;]*)?[\\]}](?:' + GAP + '[\\]}])*' + GAP + ASSIGN_OP,
+  // never two gaps side by side (the comments between them could be split in as many ways as there are comments): the closing delimiters, each with its own gap, are one optional group
+  '\\bfor\\s*(?:await\\s*)?\\(\\s*[^;()]*?' + COOKIE_PROP + GAP + '(?:(?:,[^\\]}=;()]*)?(?:[\\]}]' + GAP + ')+)?(?:of|in)\\b',
+  COOKIE_PROP + GAP_SAME_LINE + UPDATE_OP,
+  UPDATE_OP + GAP + '[\\w$.]*?' + COOKIE_PROP,
 ].join('|'));
 const ASSIGN_COOKIE = /\bObject\s*\.\s*assign\s*\(\s*document\s*,[^)]*\bcookie\b/;
 const COOKIE_CALLS = /\b(?:cookieStore\s*\.\s*set|cookies\s*\.\s*set|setCookie|serialize(?:Cookie)?)\s*\(/;

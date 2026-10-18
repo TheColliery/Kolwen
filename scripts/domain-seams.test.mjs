@@ -6,6 +6,7 @@ import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync } from 'nod
 import { execSync, spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import {
   SEAMS_FILE, pagePath, parseSeams, groupProblems, legalLinkProblems, legalCopyProblems, cspZoneProblems, cookieProblems, catalogueDomainProblems, seamProblems, snapshotOf, wordCount,
 } from './lib/domain-seams.mjs';
@@ -268,9 +269,29 @@ test('seam 4: a Set-Cookie header, a document.cookie write and a Worker cookie c
   // and the look-alikes that only read are not writes
   for (const code of ['var [a, b] = [x, document.cookie];', 'f({ k: document.cookie });', 'for (const c of document.cookie.split(";")) {}', 'var o = { k: document.cookie }; var z = 1;', 'if ([document.cookie] == z) {}', 'if ([document.cookie] === z) {}', 'for (var i in document.cookie) {}', 'var q = { k: document.cookie }\nb = 1', 'x = [document.cookie]\ny = 2'])
     assert.deepEqual(one('web/index.html', inline(code)), [], code);
-  // the stated limits, kept true: these writes are NOT seen (an item that holds = after the target, a parenthesised target), and a destructuring default that only reads is reported
-  for (const code of ['[document.cookie, z = 1] = a;', '[document.cookie, [y = 1]] = a;', '[(document.cookie)] = a;', 'for ((document.cookie) of l) {}']) assert.deepEqual(one('web/index.html', inline(code)), [], 'a stated limit: ' + code);
+  // PR #56 round 1 (CodeRabbit 4309062039, the reviewer's L-2): a for-of or for-in target with a comment or closing delimiters before `of`, the update operators, a line comment ended by CR, U+2028 or
+  // U+2029, and a property or key spelled with an escape. Built from code points: the test file holds no escape of its own.
+  const BS = String.fromCharCode(92), CR = String.fromCharCode(13), LS = String.fromCharCode(0x2028), PS = String.fromCharCode(0x2029), NL = String.fromCharCode(10);
+  const more = [
+    'for (document.cookie /* c */ of l) {}', 'for ([document.cookie] of l) {}', 'for ({ k: document.cookie } of l) {}', 'for ([document.cookie, y] in o) {}', 'for (document.cookie // c' + NL + ' of l) {}', 'for ([document.cookie] /* c */ of l) {}',
+    'for ([[document.cookie]] of l) {}', 'for await ([document.cookie] of s) {}',
+    'document.cookie++;', '++document.cookie;', 'document.cookie--;', '--document.cookie;', 'd["cookie"]++;', '++a.b.cookie;', 'document.cookie /* c */ ++;', '-- /* c */ document.cookie;',
+    'document.cookie // c' + CR + '= "x";', 'document.cookie // c' + LS + '= "x";', 'document.cookie // c' + PS + '= "x";',
+    'document.' + BS + 'u0063ookie = "a=b";', 'document.' + BS + 'u{63}ookie = "a=b";', 'document.c' + BS + 'u006Fokie = "a=b";', 'document["c' + BS + 'x6fokie"] = "a=b";', 'document["' + BS + 'u0063ookie"] += "a=b";',
+    'document[`c' + BS + 'x6Fokie`] = "a=b";', 'document["c' + BS + 'u{6f}okie"]++;',
+  ];
+  for (const code of more) {
+    p('web/index.html', inline(code), /writes document\.cookie/, code);
+    p('worker/index.js', code, /writes document\.cookie/, 'a code file: ' + code);
+  }
+  // what only reads stays clean: a property that merely starts with the word, a loop variable of that name, the postfix operator across a line break (the grammar forbids it), and a comparison
+  for (const code of ['for (const cookieof of l) {}', 'for (d.cookieof of l) {}', 'var n = d.cookies++;', 'a = document.cookie' + NL + '++b;', 'x = document.cookie;' + NL + '--y;', 'f(document.cookie) // c' + CR + 'g = 1', 'if (document.cookie > 1) {}', 'var o = { cookie: 1 }; o.cookie2 = 2;'])
+    assert.deepEqual(one('web/index.html', inline(code)), [], code);
+  // the stated limits, kept true: these writes are NOT seen (an item that holds = after the target, a parenthesised target, an HTML-like comment as the line break, a key built at run time), and two
+  // forms that only read are reported (a destructuring default, and a statement that starts with `document.cookie` on the line after a postfix operator)
+  for (const code of ['[document.cookie, z = 1] = a;', '[document.cookie, [y = 1]] = a;', '[(document.cookie)] = a;', 'for ((document.cookie) of l) {}', 'document.cookie <!-- c' + NL + '= "x";', 'document["coo" + "kie"] = "a=b";', 'document[k] = "a=b";']) assert.deepEqual(one('web/index.html', inline(code)), [], 'a stated limit: ' + code);
   assert.ok(has(one('web/index.html', inline('const { a = document.cookie } = o;')), /writes document\.cookie/), 'a stated loud false positive: a default that reads');
+  assert.ok(has(one('web/index.html', inline('i++' + NL + 'document.cookie;')), /writes document\.cookie/), 'a stated loud false positive: a statement after a postfix operator that reads');
   // a script that is not code (structured data) or prose on the page is not a cookie
   assert.deepEqual(one('web/index.html', '<script type="application/ld+json">{"note": "set-cookie"}</script><p>The Set-Cookie header and cookieStore.set(x) are named here in prose.</p>'), []);
   assert.deepEqual(one('web/index.html', inline('var a = d.cookie; if (d.cookie == "x") {} var s = "Set-Cookie is not sent";')), []);
@@ -279,6 +300,40 @@ test('seam 4: a Set-Cookie header, a document.cookie write and a Worker cookie c
   for (const cmp of ['==', '===', '!=', '!==', '<=', '>=', '<', '>']) assert.deepEqual(one('web/index.html', `<script>if (document.cookie ${cmp} "x") {}</script>`), [], `a comparison with ${cmp} reads, never writes`);
   assert.deepEqual(one('web/index.html', '<script>var f = x => x.cookie; var g = (document.cookie, 1);</script>'), [], 'an arrow function that returns the property reads');
   assert.deepEqual(one('web/_headers', '# no Set-Cookie header is sent here, no Domain\n# a cookie sent with ; Domain=.x would reach every subdomain, so none is\n/*\n  Referrer-Policy: no-referrer\n'), []);
+});
+
+// A regular expression over a file a stranger could write must not take longer as its input grows. Not a wall-clock assertion: the check runs in a child under a kill-timeout and a heap cap, and the
+// test asserts that the child FINISHED (it was not killed, it did not run out of memory). Each input has no `=` and no `of`, so the engine has to try every split.
+test('seam 4: the cookie check finishes on pathological input: every input ends the child itself, under a kill-timeout and a heap cap, never by the kill', () => {
+  const lib = pathToFileURL(join(process.cwd(), 'scripts/lib/domain-seams.mjs')).href;
+  const child = `
+    const { cookieProblems } = await import(${JSON.stringify(lib)});
+    const N = 200000, NL = String.fromCharCode(10), CR = String.fromCharCode(13);
+    const inputs = [
+      'document.cookie' + ' /*'.repeat(N),
+      '[document.cookie' + ' '.repeat(N) + ']' + ' '.repeat(N),
+      '[document.cookie] '.repeat(N / 4),
+      'for (' + 'x '.repeat(N),
+      '.cookie] ' + ' '.repeat(50) + '.cookie]'.repeat(N / 60),
+      'for (document.cookie' + ' /* c */'.repeat(N / 8),
+      'for (document.cookie' + ' /* c */'.repeat(N / 8) + ' ]'.repeat(N / 8),
+      '++' + ' '.repeat(N) + 'document',
+      '++ /* c */'.repeat(N / 8) + 'document.cookie',
+      'document.cookie' + (' //' + CR).repeat(N / 4),
+      'document.cookie //' + 'x'.repeat(N),
+      'document.cookie' + (NL + ' ').repeat(N / 2),
+      'document["' + 'c'.repeat(N) + '"]',
+      'document[' + "'" + 'c\\\\x6f'.repeat(N / 8),
+    ];
+    let seen = 0;
+    for (const t of inputs) { cookieProblems([{ file: 'web/index.html', text: '<script>' + t + '</script>' }]); cookieProblems([{ file: 'worker/index.js', text: t }]); seen++; }
+    console.log('FINISHED ' + seen);
+  `;
+  const r = spawnSync(process.execPath, ['--max-old-space-size=256', '--input-type=module', '-e', child], { encoding: 'utf8', timeout: 120000, killSignal: 'SIGKILL' });
+  assert.equal(r.error, undefined, 'the child was not killed by the timeout: ' + (r.error && r.error.message));
+  assert.equal(r.signal, null, 'and no signal ended it: ' + r.signal);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /^FINISHED 14\n?$/);
 });
 
 test('seam 4: the scan is not vacuous: no shipped file at all is a finding', () => {
@@ -329,6 +384,29 @@ test('the one entry point reports every seam: a cookie, a catalogue host key, a 
 // Each exemption ends at a HOST boundary: a word character or a hyphen, or a dot followed by a letter or digit, continues the host (`kolwen.com.au`, `kolwen.com-shop`,
 // `kolwen.hetcreep.workers.dev.evil`); a dot that ends a sentence does not.
 const OTHER_BRAND_HOST = /\bkolwen\.(?!com(?![\w-]|\.[a-z0-9]))(?!hetcreep\.workers\.dev(?![\w-]|\.[a-z0-9]))[a-z][a-z0-9-]*/i;
+// A browser reads a host through IDNA mapping (UTS #46) and a URL through its percent-decoding, so the text is tested as written AND in the form a browser would read it: the fullwidth ASCII block
+// U+FF01 to U+FF5E (the fullwidth letters and full stop) as ASCII, the ideographic full stops U+3002 and U+FF61 as a dot, the characters that map to nothing in a host (soft hyphen, zero width space,
+// joiners, word joiner, BOM) dropped, and %2E decoded. The mapping is written out and calls no Unicode compatibility normalisation: no source of this repository does (a test of
+// i18n-catalogue.test.mjs holds that line, because that form would damage the Thai catalogue), and one host guard is no reason to open it. STATED LIMITS, each kept true by a test below: every other mapping
+// of UTS #46's table (mathematical and circled letters, compatibility ligatures, small forms), a double-encoded dot (%252E), a punycode label (xn--), a bidi control; and prose that is no host is caught
+// (`Kolwen.Next`, a file name such as `kolwen.svg`): the guard is a loud tripwire on our own text, never a parser of hosts.
+const IGNORED_IN_HOST = new RegExp('[' + String.fromCharCode(0xad, 0x200b, 0x200c, 0x200d, 0x2060, 0xfeff) + ']', 'g');
+const IDEOGRAPHIC_STOP = new RegExp('[' + String.fromCharCode(0x3002, 0xff61) + ']', 'g');
+const FULLWIDTH_ASCII = new RegExp('[' + String.fromCharCode(0xff01) + '-' + String.fromCharCode(0xff5e) + ']', 'g');
+const asBrowserReads = text => text.replace(FULLWIDTH_ASCII, c => String.fromCharCode(c.charCodeAt(0) - 0xfee0)).replace(IGNORED_IN_HOST, '').replace(IDEOGRAPHIC_STOP, '.').replace(/%2e/gi, '.');
+const namesOtherHost = text => OTHER_BRAND_HOST.test(text) || OTHER_BRAND_HOST.test(asBrowserReads(text));
+
+test('the guard also reads a host the way a browser does: fullwidth and ideographic stops and letters, a soft hyphen or zero width character, a percent-encoded dot', () => {
+  const F = String.fromCharCode;
+  const caught = ['kolwen' + F(0x3002) + 'ai', 'kolwen' + F(0xff0e) + 'ai', 'kolwen' + F(0xff61) + 'ai', F(0xff4b, 0xff4f, 0xff4c, 0xff57, 0xff45, 0xff4e) + '.ai', 'kolwen%2Eai', 'kolwen%2eai', 'kolwen.com.' + F(0xad) + 'au', 'kolwen.com.' + F(0x200b) + 'au',
+    'kol' + F(0xad) + 'wen.ai', 'kolwen.' + F(0x2060) + 'ai', F(0xff4b, 0xff4f, 0xff4c, 0xff57, 0xff45, 0xff4e, 0x3002, 0xff43, 0xff4f, 0xff4d, 0x3002, 0xff41, 0xff55) + '', 'https://kolwen%2Ecom%2Eau/x'];
+  for (const host of caught) assert.ok(namesOtherHost(host), JSON.stringify(host));
+  // the held hosts stay clean in every spelling, and so does a sentence end in a fullwidth form
+  for (const ok of ['kolwen.com', 'kolwen%2Ecom', 'kolwen' + F(0xff0e) + 'com', 'kolwen' + F(0x3002) + 'com' + F(0x3002), F(0xff4b, 0xff4f, 0xff4c, 0xff57, 0xff45, 0xff4e) + '.com', 'kolwen.hetcreep.workers.dev' + F(0x3002)]) assert.ok(!namesOtherHost(ok), JSON.stringify(ok));
+  // the stated limits, kept true
+  for (const host of ['kolwen%252Eai', 'xn--kolwen-abc.ai', F(0xd835, 0xdc24, 0xd835, 0xdc28, 0xd835, 0xdc25, 0xd835, 0xdc30, 0xd835, 0xdc1e, 0xd835, 0xdc27) + '.ai', F(0x24a6) + 'olwen.ai', 'kolwen' + F(0xfe52) + 'ai']) assert.ok(!namesOtherHost(host), 'a stated limit: ' + JSON.stringify(host));
+  for (const prose of ['Kolwen.Next', 'kolwen.svg']) assert.ok(namesOtherHost(prose), 'a stated loud false positive: ' + prose);
+});
 
 test('the guard against a host the owner does not hold names none, and catches any other top-level domain', () => {
   for (const host of ['kolwen.invalid', 'KOLWEN.INVALID', 'kolwen.example', 'a visit to kolwen.test/x', 'kolwen.some-other']) assert.ok(OTHER_BRAND_HOST.test(host), host);
@@ -344,7 +422,7 @@ test('the map holds only the live group, and no tracked file but this test names
   // a later group is added to the map by its own unit, on the owner's word for what it serves; until then no public file announces one
   // address-check names look-alike domains (kolwen.community, kolwen.com.au) only as the negatives its address pattern must refuse; no page, header or catalogue is among the exempt
   const NEGATIVES = new Set(['scripts/domain-seams.test.mjs', 'scripts/address-check.mjs', 'scripts/address-check.test.mjs']);
-  const hits = REAL.files.filter(f => !NEGATIVES.has(f.file) && OTHER_BRAND_HOST.test(f.text)).map(f => f.file);
+  const hits = REAL.files.filter(f => !NEGATIVES.has(f.file) && namesOtherHost(f.text)).map(f => f.file);
   assert.deepEqual(hits, []);
 });
 
