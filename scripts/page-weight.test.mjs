@@ -424,6 +424,34 @@ test("RED PROOF: a stray quote in an unquoted attribute value (content=Kolwen's,
   } finally { gone(dir); }
 });
 
+// The noscript decision (the budget counts a visitor with script): what sits inside <noscript> is neither loaded nor counted, and a file it names need not exist.
+test('RED PROOF: an <img>, a <link>, a <style> with an @import and a <script src> inside <noscript> are not loaded by a visitor with script, so the budget does not count them', () => {
+  const dir = tree({
+    's.css': 'p{margin:0}', 'live.png': Buffer.alloc(300, 1),
+    'index.html': '<!doctype html><html><head><link rel="stylesheet" href="/s.css">'
+      + '<noscript><link rel="stylesheet" href="/gone.css"><style>@import "/gone2.css"; a{background:url(/gone3.png)}</style><img src="/gone4.png" alt=""><script src="/gone5.js"></script></noscript>'
+      + '</head><body>hello<img src="/live.png" alt=""></body></html>',
+  });
+  try { assert.deepEqual(urlsOf(only(checkTree(dir))), ['/index.html', '/live.png', '/s.css']); } finally { gone(dir); }
+});
+
+// L1 of the review of PR 49: the real index with a tag whose first attribute character is "=" before its stylesheet link.
+test("RED PROOF: a tag that starts its attributes with =\" before the stylesheet link (<a =\"x>z</a>) leaves the real index's parts unchanged", () => {
+  const dir = mkdtempSync(join(tmpdir(), 'page-weight-eq-'));
+  try {
+    cpSync(join(ROOT, 'web'), join(dir, 'web'), { recursive: true });
+    const f = join(dir, 'web/index.html');
+    const html = readFileSync(f, 'utf8');
+    const control = checkTree(join(dir, 'web')).find(r => r.page === 'index.html');
+    const edited = html.replace('<link rel="stylesheet"', '<a ="x>z</a><link rel="stylesheet"');
+    assert.notEqual(edited, html, 'the witness edit landed');
+    writeFileSync(f, edited);
+    const row = checkTree(join(dir, 'web')).find(r => r.page === 'index.html');
+    assert.deepEqual(row.parts.map(p => p.url).sort(), control.parts.map(p => p.url).sort());
+    assert.equal(row.requests, control.requests);
+  } finally { gone(dir); }
+});
+
 test('an unknown flag exits 2, --help prints usage and exits 0, and a tree with no page fails rather than passes', () => {
   const run = (...a) => cliRun(...a);
   assert.equal(run('--bogus').status, 2);

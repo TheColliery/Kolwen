@@ -53,25 +53,40 @@ const JS_SIMPLE = { n: '\n', t: '\t', r: '\r', b: '\b', f: '\f', v: '\v', 0: '\0
 const jsUnescape = s => s.replace(/\\(?:u\{([0-9a-f]+)\}|u([0-9a-f]{4})|x([0-9a-f]{2})|(.))/gis, (m, a, b, c, d) => (a || b || c ? String.fromCodePoint(parseInt(a || b || c, 16)) : (d in JS_SIMPLE ? JS_SIMPLE[d] : d)));
 
 // The text a page draws, from the one HTML scan (html-tokens.mjs): the text nodes and RCDATA bodies (a textarea, a title), character references decoded. Tags, comments and the bodies of scripts and styles are
-// not text; each is a space, so that two text nodes never fuse.
-export function textOf(html) {
-  return decodeEntities(htmlTokens(html).map(t => (t.type === 'text' ? t.text : ' ')).join(''));
+// not text; each is a space, so that two text nodes never fuse. `scripting` is the scan's own option: with it off (a visitor without script) a <noscript> body is ordinary markup and its text is drawn.
+export function textOf(html, opts) {
+  return decodeEntities(htmlTokens(html, opts).map(t => (t.type === 'text' ? t.text : ' ')).join(''));
 }
 
 // CSS comments removed outside strings (the `/*` inside a string is text; a comment never closed runs to the end). The one comment stripper of the font checks and of the budget check's @import and url() scans.
 export const stripCssComments = css => css.replace(/("(?:[^"\\\n\r\f]|\\[\s\S])*"|'(?:[^'\\\n\r\f]|\\[\s\S])*')|\/\*[\s\S]*?(?:\*\/|$)/g, (m, str) => str ?? ' ');
 
 // The bodies of the live <style> blocks of an HTML text (none inside a comment, a script, an attribute value or a textarea: the one scan decides). The one style-block reader of the font checks and of the budget check.
-export const styleBlocksOf = html => htmlTokens(html).filter(t => t.type === 'raw' && t.name === 'style').map(t => t.body);
+// With scripting on (the default) a <style> inside a <noscript> is not live; with `{ scripting: false }` it is.
+export const styleBlocksOf = (html, opts) => htmlTokens(html, opts).filter(t => t.type === 'raw' && t.name === 'style').map(t => t.body);
+
+const STRING_LITERAL = /"((?:[^"\\\n\r\f]|\\[\s\S])*)"|'((?:[^'\\\n\r\f]|\\[\s\S])*)'/g;
+const literalsOf = text => [...text.matchAll(STRING_LITERAL)].map(lit => cssUnescape(lit[1] ?? lit[2]));
 
 // The `content:` strings of the <style> blocks. Read as a browser reads them: the property name in any case and as a whole name (not `x-content:`, not a selector such as `.content:hover`), nothing from a CSS comment, a commented-out
 // <style> block or a <style> inside a script, and a string broken by a raw line break is a bad string that draws nothing (a backslash before the break continues it).
-// Known limit, deferred: only string literals in the value are read, so a string given through `var(--name)` is not derived (no page does that; the check does not claim it).
-export function cssContentOf(html) {
+// A `var(--name)` in the value is resolved ONE level: --name is a custom property the style blocks of the page define as plain string literals (`--arrow: "x"`), and its strings are read as if written in the value.
+// A fallback string (`var(--name, "x")`) is a string literal of the value and is read like any other, whether or not --name is defined (an over-approximation). Not followed, named limits: a custom property
+// defined through another var(), through calc() or any non-string value, one set in a style attribute or by script, and the cascade (every definition in the blocks counts, whichever selector holds it).
+export function cssContentOf(html, opts) {
   const out = [];
-  for (const block of styleBlocksOf(html)) {
-    for (const m of stripCssComments(block).matchAll(/(?<=^|[{;\s])content\s*:\s*((?:"(?:[^"\\\n\r\f]|\\[\s\S])*"|'(?:[^'\\\n\r\f]|\\[\s\S])*'|[^;}"'])*)/gi)) {
-      for (const lit of m[1].matchAll(/"((?:[^"\\\n\r\f]|\\[\s\S])*)"|'((?:[^'\\\n\r\f]|\\[\s\S])*)'/g)) out.push(cssUnescape(lit[1] ?? lit[2]));
+  const blocks = styleBlocksOf(html, opts).map(stripCssComments);
+  const custom = new Map(); // --name -> the strings it is defined as, when its whole value is string literals
+  for (const block of blocks) {
+    for (const d of block.matchAll(/(?<=^|[{;\s])(--[A-Za-z0-9_-]+)\s*:\s*((?:"(?:[^"\\\n\r\f]|\\[\s\S])*"|'(?:[^'\\\n\r\f]|\\[\s\S])*'|[^;}"'])*)/g)) {
+      const value = d[2].trim();
+      if (value && value.replace(STRING_LITERAL, '').trim() === '') custom.set(d[1], literalsOf(value));
+    }
+  }
+  for (const block of blocks) {
+    for (const m of block.matchAll(/(?<=^|[{;\s])content\s*:\s*((?:"(?:[^"\\\n\r\f]|\\[\s\S])*"|'(?:[^'\\\n\r\f]|\\[\s\S])*'|[^;}"'])*)/gi)) {
+      out.push(...literalsOf(m[1]));
+      for (const v of m[1].matchAll(/var\(\s*(--[A-Za-z0-9_-]+)/g)) out.push(...(custom.get(v[1]) ?? []));
     }
   }
   return out.join(' ');
@@ -85,6 +100,9 @@ export function scriptStringsOf(html) {
   return out.join(' ');
 }
 
+// What the font files must cover is what a page DRAWS to anyone, a visitor without script included: the <noscript> body is read as markup (scripting off), so its text and its styles count.
+const DRAWN = { scripting: false };
+
 // code point -> the pages that render it. Characters at or below U+0020 are layout, not glyphs, except the space itself, which every face must carry.
 export function renderedChars(webDir) {
   const seen = new Map();
@@ -92,7 +110,7 @@ export function renderedChars(webDir) {
   const pages = htmlPages(webDir);
   for (const page of pages) {
     const html = readFileSync(join(webDir, page), 'utf8').replace(/\r\n/g, '\n');
-    note(textOf(html) + ' ' + cssContentOf(html) + ' ' + scriptStringsOf(html), 'web/' + page);
+    note(textOf(html, DRAWN) + ' ' + cssContentOf(html, DRAWN) + ' ' + scriptStringsOf(html), 'web/' + page);
   }
   return seen;
 }

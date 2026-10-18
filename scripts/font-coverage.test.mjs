@@ -112,6 +112,42 @@ test('the derived set: the pages render these characters, the Thai block among t
 });
 
 const ch = String.fromCodePoint;
+
+// var(): resolved one level. The strings of a custom property the style blocks define as plain string literals are read as if written in the content value.
+test('RED PROOF: content through var() is derived one level: a custom property defined as strings in the style blocks, in the same or another block, and a fallback string', () => {
+  const css = (...blocks) => cssContentOf(blocks.map(b => `<style>${b}</style>`).join(''));
+  const set = (...blocks) => css(...blocks).split(' ').filter(Boolean).sort().join(' '); // only the SET of strings matters to the font coverage, not their order
+  const BS = String.fromCharCode(92);
+  assert.equal(css(':root{--arrow:"' + BS + '2192"} a::after{content:var(--arrow)}'), ch(0x2192), 'the same block');
+  assert.equal(css(':root{--arrow:"' + BS + '2192"}', 'a::after{content:var(--arrow)}'), ch(0x2192), 'another block');
+  assert.equal(css(':root{--q:\'x\' \'y\'} a::after{content:var(--q)}'), 'x y', 'a value of several strings');
+  assert.equal(set('a::after{content:"a" var(--b) "c"} :root{--b:"b"}'), 'a b c', 'literals of the value and the resolved ones together');
+  assert.equal(css('a::after{content:var(--nope, "' + BS + '2192")}'), ch(0x2192), 'a fallback string of an undefined property');
+  assert.equal(set(':root{--arrow:"' + BS + '2192"} a::after{content:var(--arrow, "z")}'), 'z ' + ch(0x2192), 'the fallback is read too (an over-approximation)');
+  assert.equal(css('a::after{content:var(--nope)}'), '', 'an undefined property with no fallback draws nothing');
+  for (const notStrings of ['calc(1px + 2px)', '12px', 'var(--other)', '"a" 12px', 'attr(x)']) assert.equal(css(`:root{--x:${notStrings}; --other:"o"} a::after{content:var(--x)}`), '', 'not followed: ' + notStrings);
+  assert.equal(css(':root{--arrow:"' + BS + '2192"} a{x-content:var(--arrow)} .content{y:var(--arrow)}'), '', 'only a content declaration reads var()');
+  assert.equal(css('/* :root{--arrow:"x"} */ a::after{content:var(--arrow)}'), '', 'a definition inside a comment is no definition');
+  assert.equal(cssContentOf('<script>var s = "<style>:root{--a:\'x\'} b::after{content:var(--a)}</style>";</script>'), '', 'a <style> inside a script string is no style');
+});
+
+// The noscript decision (the font coverage): what a visitor without script is shown must stay covered, so renderedChars reads <noscript> as markup (scripting off) while a visitor with script sees none of it.
+test('RED PROOF: text and content inside <noscript> are derived for the font coverage (a visitor without script draws them), though a visitor with script (the default view) draws none of it', () => {
+  const html = '<p>ok</p><noscript><p>' + ch(0x2030) + '</p><style>b::after{content:"' + ch(0x2122) + '"}</style></noscript>';
+  assert.ok(!textOf(html).includes(ch(0x2030)), 'scripting on: no text from a noscript');
+  assert.ok(textOf(html, { scripting: false }).includes(ch(0x2030)), 'scripting off: its text');
+  assert.equal(cssContentOf(html), '', 'scripting on: its style is not live');
+  assert.equal(cssContentOf(html, { scripting: false }), ch(0x2122), 'scripting off: its style is live');
+  const dir = webCopy(web => {
+    const f = join(web, 'index.html');
+    writeFileSync(f, readFileSync(f, 'utf8').replace('</body>', '<noscript><p>' + ch(0x2030) + '</p></noscript></body>'));
+  });
+  try {
+    assert.ok(renderedChars(join(dir, 'web')).get(0x2030)?.has('web/index.html'), 'the font set keeps a character only a no-script visitor sees');
+    assert.ok(coverageGaps(join(dir, 'web')).some(g => g.startsWith('U+2030 ') && g.includes('web/index.html')), 'and the coverage check judges it');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('character references are decoded as a browser decodes them: a numeric one without its semicolon too, a legacy named one without it (longest name first), and a reference once only', () => {
   assert.equal(decodeEntities('&#255'), ch(0xff));
   assert.equal(decodeEntities('&#xFF'), ch(0xff));
