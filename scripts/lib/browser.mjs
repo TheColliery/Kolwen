@@ -108,9 +108,11 @@ export const freePort = () => new Promise((res, rej) => {
 // The WebSocket address the browser reports for itself (webSocketDebuggerUrl of its /json/version answer), checked against the port WE chose: only ws://127.0.0.1:<port>/devtools/browser/<id>, with
 // an id of letters, digits and hyphens, is accepted, and the address that is returned is rebuilt from our port and that id. Anything else is refused with one line.
 export function devToolsEndpoint(url, port) {
-  const id = new RegExp(`^ws://127\.0\.0\.1:${Number(port)}/devtools/browser/([A-Za-z0-9-]+)$`).exec(typeof url === 'string' ? url : '');
-  if (!id) throw new Error(`the browser answered with the WebSocket address "${String(url).slice(0, 80)}", which is not ws://127.0.0.1:${Number(port)}/devtools/browser/<id>`);
-  return `ws://127.0.0.1:${Number(port)}/devtools/browser/${id[1]}`;
+  // the fixed prefix is compared as a string, so its dots are dots; only the id is tested with a pattern, and the pattern has no escape in it
+  const prefix = `ws://127.0.0.1:${Number(port)}/devtools/browser/`;
+  const id = typeof url === 'string' && url.startsWith(prefix) ? url.slice(prefix.length) : '';
+  if (!/^[A-Za-z0-9-]+$/.test(id)) throw new Error(`the browser answered with the WebSocket address "${String(url).slice(0, 80)}", which is not ws://127.0.0.1:${Number(port)}/devtools/browser/<id>`);
+  return prefix + id;
 }
 
 // What the browser on `port` says about itself, or null while it does not answer.

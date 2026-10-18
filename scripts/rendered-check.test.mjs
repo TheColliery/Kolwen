@@ -277,7 +277,10 @@ test('devToolsEndpoint: the address the browser reports is accepted only as ws:/
     'ws://127.0.0.1:92220/devtools/browser/a', 'ws://127.0.0.1/devtools/browser/a', 'wss://127.0.0.1:9222/devtools/browser/a', 'http://127.0.0.1:9222/devtools/browser/a',
     'ws://127.0.0.1:9222/devtools/page/a', 'ws://127.0.0.1:9222/devtools/browser/', 'ws://127.0.0.1:9222/devtools/browser/a/b', 'ws://127.0.0.1:9222/devtools/browser/a?x=1',
     'ws://127.0.0.1:9222/devtools/browser/a#h', 'ws://127.0.0.1:9222@evil.example/devtools/browser/a', 'ws://user@127.0.0.1:9222/devtools/browser/a', ' ws://127.0.0.1:9222/devtools/browser/a',
-    'ws://127.0.0.1:9222/devtools/browser/a\n', 'ws://127.0.0.1:9222/DEVTOOLS/browser/a', '', undefined, null, 42, {}];
+    'ws://127.0.0.1:9222/devtools/browser/a\n', 'ws://127.0.0.1:9222/DEVTOOLS/browser/a', '', undefined, null, 42, {},
+    // the dots of the host are dots and not "any character": each of these has one character in a dot's place, or one more after the host
+    'ws://127x0x0x1:9222/devtools/browser/a', 'ws://127.0.0.1x:9222/devtools/browser/a', 'ws://127.0.0x1:9222/devtools/browser/a', 'ws://127x0.0.1:9222/devtools/browser/a', 'ws://127.0x0.1:9222/devtools/browser/a',
+    'ws://1270.0.1:9222/devtools/browser/a', 'ws://127,0,0,1:9222/devtools/browser/a', 'ws://127-0-0-1:9222/devtools/browser/a'];
   for (const bad of bads) assert.throws(() => devToolsEndpoint(bad, 9222), /the browser answered with the WebSocket address [\s\S]* which is not ws:\/\/127\.0\.0\.1:9222\/devtools\/browser\/<id>$/, JSON.stringify(bad));
 });
 
