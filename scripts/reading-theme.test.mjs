@@ -1,5 +1,5 @@
 // Tests for the reading theme (scripts/lib/layout-tokens.mjs READING, scripts/lib/contrast.mjs, the job lint of scripts/lib/type-lint.mjs, surface-check rule 22), without a browser: the contrast
-// arithmetic is the standard's, every pair of both schemes is measured and a weak palette is found, a page must declare its job, and the built pages declare the jobs the owner named.
+// arithmetic is the standard's, every pair of both schemes is measured and a weak palette is found, a page must declare its job, and the built pages declare the jobs they are meant to have.
 // The rendered half (real computed colours and line heights in both schemes) is in scripts/rendered-check.test.mjs. Node builtins only.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -153,7 +153,7 @@ test('the page generator refuses a page that declares no job, or an unknown one'
   assert.ok(!shell({ ...page, job: 'default' }).includes('name="color-scheme"'));
 });
 
-test('the built pages declare the jobs the owner named: the legal pages and the changelog are prose, the home, pricing and 404 pages are the default', () => {
+test('the built pages declare the jobs they are meant to have: the legal pages and the changelog are prose, the home, pricing and 404 pages are the default', () => {
   const want = { 'terms.html': 'prose', 'privacy.html': 'prose', 'refund.html': 'prose', 'changelog.html': 'prose', 'index.html': 'default', 'pricing.html': 'default', '404.html': 'default' };
   const pages = htmlPages(WEB);
   assert.deepEqual([...pages].sort(), Object.keys(want).sort(), 'every page is judged, none left out');

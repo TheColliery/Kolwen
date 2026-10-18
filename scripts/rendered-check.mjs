@@ -325,7 +325,7 @@ export async function renderedChecks({ webDir, browser, checks = ALL_CHECKS, hea
       }
     }
   } finally { await closePage(); await server.close(); }
-  // After every run: the profile's default context must hold no cookie from outside the served origin (Edge once signed the Windows Microsoft account in there by itself). Read, never cleared.
+  // After every run: the profile's default context must hold no cookie from outside the served origin (Edge signs the computer's Microsoft account in there by itself unless it is told not to). Read, never cleared.
   const stray = foreignCookies(await browser.defaultCookies());
   if (stray.length) failures.push({ page: '(browser profile)', lang: '-', check: 'cookies', detail: jarDetail(stray, `the default context of the browser profile ${browser.profile}`) });
   return { failures, measured, notes };

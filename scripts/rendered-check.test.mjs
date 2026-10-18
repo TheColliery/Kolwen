@@ -374,7 +374,7 @@ test('a second launch while a browser has the profile fails at once with one lin
 });
 
 // ── a context for every page, a marker for the profile, a jar that stays clean ──────────────────────────────────
-// The profile of a headless Edge held the owner's Microsoft account sign-in cookies (.bing.com, .msn.com: .MSA.Auth and _U), put there by Edge itself at start. Pages are measured in a browser
+// The profile of a headless Edge held the computer's Microsoft account sign-in cookies (.MSA.Auth and _U on .bing.com and .msn.com), put there by Edge itself at start. Pages are measured in a browser
 // context of their own so they never see that jar, nothing clears a jar browser-wide, a run fails if any jar holds a cookie from outside the served origin, and only a folder this code made is used.
 test('prepareProfile: it makes and marks a new folder, accepts its own, adopts an empty one, and refuses any other folder with one line before anything starts', () => {
   const root = mkdtempSync(join(tmpdir(), 'kolwen-test-prep-'));

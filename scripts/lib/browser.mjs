@@ -6,9 +6,8 @@
 //
 // ONE PROFILE, REUSED, NEVER DELETED. Every run uses the same profile folder: KOLWEN_BROWSER_PROFILE if set, else kolwen-browser-profile in the user's own cache folder, never in a shared temp folder
 // (profilePath(): %LOCALAPPDATA% on Windows, $XDG_CACHE_HOME or ~/.cache elsewhere). It is made once, with mode 0o700, and this module never deletes it or anything in it (it imports no delete call,
-// and a test holds it to that). Why: measured on the owner's Windows box, a file-system filter refuses every process but the browser READ, WRITE and DELETE on the files Edge writes, so a profile
-// made per run (or per launch) can never be removed again and they pile up (81 folders, about 1 GB; warehouse research/browser-test-profiles-2026-10-18/FINDINGS.md). The browser child gets the
-// profile as its HOME and TEMP.
+// and a test holds it to that). Why: on a developer's Windows machine a file-system filter can refuse every process but the browser READ, WRITE and DELETE on the files Edge writes, so a profile
+// made per run (or per launch) can never be removed again and they pile up. The browser child gets the profile as its HOME and TEMP.
 //
 // ONE RUN AT A TIME, BY A LOCK THAT IS NOT A FILE. A profile can be open in one browser at a time. The run takes a lock by listening on a port of 127.0.0.1 that is a function of the profile's path
 // (lockProfile): the operating system hands the port back when the process ends, however it ends, so nothing is written, nothing is deleted and nothing is read from a file. A second launch on the
@@ -26,8 +25,8 @@
 // profile's default context, nothing it writes outlives the context, and page.close() disposes the context. Nothing here clears cookies or cache browser-wide. The default context is only ever
 // READ (defaultCookies()), so a run can fail loudly if the profile holds a cookie from outside the served origin.
 //
-// NO SIGN-IN, NO NETWORK. Measured on the owner's box: a headless Edge on a fresh profile signs the Windows Microsoft account in by itself at start and puts 17 cookies in the default context
-// (.bing.com, .msn.com, www.bing.com, among them .MSA.Auth and _U); with --disable-features=msImplicitSignin it puts none, on two launches of the same profile. A profile that was ALREADY signed in
+// NO SIGN-IN, NO NETWORK. Measured on a developer's Windows machine: a headless Edge on a fresh profile signs the computer's Microsoft account in by itself at start and puts 17 cookies in the
+// default context (.bing.com, .msn.com, www.bing.com, among them .MSA.Auth and _U); with --disable-features=msImplicitSignin it puts none, on two launches of the same profile. A profile that was ALREADY signed in
 // is not helped by that switch alone: after the cookies were cleared, Edge put the same 17 back within 4 s. What stops it there is that the browser can resolve no host name at all
 // (--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE 127.0.0.1): the cookies stayed at 0 at 4 s and at 12 s. The check opens only the caller's own server on 127.0.0.1, so it needs no other host.
 // Both are in the arguments of launchBrowser.
@@ -67,7 +66,7 @@ export const profileBase = (env = process.env, platform = process.platform, home
   ? (env.LOCALAPPDATA || join(home, 'AppData', 'Local'))
   : (env.XDG_CACHE_HOME && isAbsolute(env.XDG_CACHE_HOME) ? env.XDG_CACHE_HOME : join(home, '.cache')));
 
-// The one profile folder of this machine and user. The same path on every call, in every run.
+// The one profile folder of a computer and user. The same path on every call, in every run.
 export const profilePath = (env = process.env, platform = process.platform, home = homedir()) => resolve(env[PROFILE_ENV] || join(profileBase(env, platform, home), 'kolwen-browser-profile'));
 
 // The file this code writes into a profile folder when it makes the folder.
@@ -182,7 +181,7 @@ export async function launchBrowser({ binary, lifetimeMs = 300000, commandTimeou
     const port = await freePort();
     const args = ['--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', '--disable-gpu', '--disable-extensions', '--disable-background-networking',
       '--disable-component-update', '--disable-sync', '--metrics-recording-only', '--hide-scrollbars', '--js-flags=--max-old-space-size=512',
-      '--disable-features=msImplicitSignin', // Edge signs the Windows Microsoft account in by itself at start without it (see NO SIGN-IN above); Chrome and Chromium ignore the name
+      '--disable-features=msImplicitSignin', // Edge signs the computer's Microsoft account in by itself at start without it (see NO SIGN-IN above); Chrome and Chromium ignore the name
       '--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE 127.0.0.1', // no host name resolves: nothing of Microsoft's (or anyone's) is reachable, so no sign-in cookie can come back
       ...(ci ? ['--no-sandbox'] : []), 'about:blank'];
     // the browser's own HOME and TEMP are the profile, so what it writes outside --user-data-dir lands in the one folder, not in the user's. USERPROFILE is NOT overridden: measured with
