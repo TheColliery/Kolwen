@@ -179,10 +179,10 @@ const SHIPPED = new Set([
   'web/llms.txt',
   'web/favicon.svg', 'web/favicon-32.png', 'web/apple-touch-icon.png', 'web/og.png',
   // The self-hosted fonts, BY NAME like everything above (a new face or a new script is a deliberate act here, with its OFL.txt beside it): the one manifest every page
-  // links, and the WOFF2 files and licence texts of KW Sans Thai (a folder per script) and KW Mono, which are subsets of IBM Plex Sans Thai and IBM Plex Mono renamed under OFL-1.1. post-deploy-check lists web/ recursively, so these are checked when deployed.
+  // links, and the WOFF2 files and licence texts of KW Sans Thai (a folder per script) and KW Mono, which are subsets of IBM Plex Sans Thai and IBM Plex Mono renamed under OFL-1.1. The WOFF2 names carry a hash of their bytes (scripts/font-subset.mjs writes them, and prints these lines); fonts.test.mjs and font-versions.test.mjs hold name and bytes together. post-deploy-check lists web/ recursively, so these are checked when deployed.
   'web/fonts/fonts.css',
-  'web/fonts/thai/KWSansThai-Regular.woff2', 'web/fonts/thai/KWSansThai-Medium.woff2', 'web/fonts/thai/KWSansThai-SemiBold.woff2', 'web/fonts/thai/KWSansThai-Bold.woff2', 'web/fonts/thai/OFL.txt',
-  'web/fonts/mono/KWMono-Regular.woff2', 'web/fonts/mono/KWMono-Medium.woff2', 'web/fonts/mono/OFL.txt',
+  'web/fonts/thai/kw-sans-thai-400.7a93a32da9.woff2', 'web/fonts/thai/kw-sans-thai-500.bab87050a2.woff2', 'web/fonts/thai/kw-sans-thai-600.4e5f5074ff.woff2', 'web/fonts/thai/kw-sans-thai-700.b87d41e0f9.woff2', 'web/fonts/thai/OFL.txt',
+  'web/fonts/mono/kw-mono-400.e8d30e29b8.woff2', 'web/fonts/mono/kw-mono-500.78ee778fb0.woff2', 'web/fonts/mono/OFL.txt',
 ]);
 for (const f of tracked.filter(f => f.startsWith('web/'))) {
   if (!SHIPPED.has(f)) note(f, 'is tracked under the publish root but is not a declared shipped asset — every path under web/ is a live URL');

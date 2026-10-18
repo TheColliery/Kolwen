@@ -4,6 +4,7 @@
 // It over-approximates on purpose: a rendered character inside a face's range must be in that face's file whatever family actually draws it, because the page cascade
 // is not evaluated here. A character outside every declared range is another check's business (fonts.test.mjs: every character is inside a declared Sans range).
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { renderedChars } from './rendered-text.mjs';
 import { woff2Cmap } from './woff2-cmap.mjs';
@@ -52,3 +53,26 @@ export function coverageGaps(webDir) {
 
 // True when a page's CSS (a <style> block or a style attribute) switches an OpenType layout feature on or off, which the cut files may have dropped.
 export const asksForLayoutFeature = html => /font-feature-settings|font-variant|font-variation-settings|font-language-override/.test((html.match(/<style\b[\s\S]*?<\/style>/g) || []).join('\n') + (html.match(/style="[^"]*"/g) || []).join('\n'));
+
+// ── versioned names: /fonts/<folder>/<base>.<first 10 hex of the sha256 of the bytes>.woff2 ────────────────────────────────────
+// A font file's name carries a hash of its bytes, so the long immutable cache (web/_headers) can never serve a stale font: changed bytes are a new url.
+// fonts.css, the one unhashed file a page links, stays revalidated and always names the current urls.
+export const HASH_LEN = 10;
+export const hashOf = bytes => createHash('sha256').update(bytes).digest('hex').slice(0, HASH_LEN);
+// Group 1 the folder, 2 the base, 3 the hash when present (font-subset.mjs reads an unhashed url too, to stamp it).
+export const FONT_URL = /^\/fonts\/([a-z]+)\/([a-z0-9]+(?:-[a-z0-9]+)*?)(?:\.([0-9a-f]{10}))?\.woff2$/;
+
+// One line per problem; empty when every font url in the manifest is a hashed name, resolves to a file, and names the hash of that file's bytes.
+export function fontNameProblems(webDir) {
+  const out = [];
+  const urls = [...new Set(facesOf(readFileSync(join(webDir, 'fonts/fonts.css'), 'utf8').replace(/\r\n/g, '\n')).flatMap(f => f.urls))];
+  for (const url of urls) {
+    const m = FONT_URL.exec(url);
+    if (!m || !m[3]) { out.push(`${url}: not a versioned name, expected /fonts/<folder>/<base>.<${HASH_LEN} hex of the sha256>.woff2`); continue; }
+    let bytes;
+    try { bytes = readFileSync(join(webDir, url)); } catch { out.push(`${url}: named by fonts.css but the file does not exist`); continue; }
+    const real = hashOf(bytes);
+    if (real !== m[3]) out.push(`${url}: the name says ${m[3]} but the bytes hash to ${real}; run scripts/font-subset.mjs, or rename the file`);
+  }
+  return out;
+}

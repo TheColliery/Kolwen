@@ -21,7 +21,7 @@
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url('/fonts/thai/KWSansThai-Regular.woff2') format('woff2');
+  src: url('/fonts/thai/kw-sans-thai-400.7a93a32da9.woff2') format('woff2');
   unicode-range: U+0E01-0E3A, U+0E3F-0E5B, U+200B-200D, U+25CC;
 }
 @font-face {
@@ -29,7 +29,7 @@
   font-style: normal;
   font-weight: 500;
   font-display: swap;
-  src: url('/fonts/thai/KWSansThai-Medium.woff2') format('woff2');
+  src: url('/fonts/thai/kw-sans-thai-500.bab87050a2.woff2') format('woff2');
   unicode-range: U+0E01-0E3A, U+0E3F-0E5B, U+200B-200D, U+25CC;
 }
 @font-face {
@@ -37,7 +37,7 @@
   font-style: normal;
   font-weight: 600;
   font-display: swap;
-  src: url('/fonts/thai/KWSansThai-SemiBold.woff2') format('woff2');
+  src: url('/fonts/thai/kw-sans-thai-600.4e5f5074ff.woff2') format('woff2');
   unicode-range: U+0E01-0E3A, U+0E3F-0E5B, U+200B-200D, U+25CC;
 }
 @font-face {
@@ -45,7 +45,7 @@
   font-style: normal;
   font-weight: 700;
   font-display: swap;
-  src: url('/fonts/thai/KWSansThai-Bold.woff2') format('woff2');
+  src: url('/fonts/thai/kw-sans-thai-700.b87d41e0f9.woff2') format('woff2');
   unicode-range: U+0E01-0E3A, U+0E3F-0E5B, U+200B-200D, U+25CC;
 }
 
@@ -55,7 +55,7 @@
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url('/fonts/thai/KWSansThai-Regular.woff2') format('woff2');
+  src: url('/fonts/thai/kw-sans-thai-400.7a93a32da9.woff2') format('woff2');
   unicode-range: U+0020-007E, U+00A0-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2030, U+2039-203A, U+2044, U+2122, U+2212;
 }
 @font-face {
@@ -63,7 +63,7 @@
   font-style: normal;
   font-weight: 500;
   font-display: swap;
-  src: url('/fonts/thai/KWSansThai-Medium.woff2') format('woff2');
+  src: url('/fonts/thai/kw-sans-thai-500.bab87050a2.woff2') format('woff2');
   unicode-range: U+0020-007E, U+00A0-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2030, U+2039-203A, U+2044, U+2122, U+2212;
 }
 @font-face {
@@ -71,7 +71,7 @@
   font-style: normal;
   font-weight: 600;
   font-display: swap;
-  src: url('/fonts/thai/KWSansThai-SemiBold.woff2') format('woff2');
+  src: url('/fonts/thai/kw-sans-thai-600.4e5f5074ff.woff2') format('woff2');
   unicode-range: U+0020-007E, U+00A0-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2030, U+2039-203A, U+2044, U+2122, U+2212;
 }
 @font-face {
@@ -79,7 +79,7 @@
   font-style: normal;
   font-weight: 700;
   font-display: swap;
-  src: url('/fonts/thai/KWSansThai-Bold.woff2') format('woff2');
+  src: url('/fonts/thai/kw-sans-thai-700.b87d41e0f9.woff2') format('woff2');
   unicode-range: U+0020-007E, U+00A0-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2030, U+2039-203A, U+2044, U+2122, U+2212;
 }
 
@@ -89,7 +89,7 @@
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url('/fonts/mono/KWMono-Regular.woff2') format('woff2');
+  src: url('/fonts/mono/kw-mono-400.e8d30e29b8.woff2') format('woff2');
   unicode-range: U+0020-007E, U+00A0-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2030, U+2039-203A, U+2044, U+20AC, U+2122, U+2212, U+FB01-FB02;
 }
 @font-face {
@@ -97,6 +97,6 @@
   font-style: normal;
   font-weight: 500;
   font-display: swap;
-  src: url('/fonts/mono/KWMono-Medium.woff2') format('woff2');
+  src: url('/fonts/mono/kw-mono-500.78ee778fb0.woff2') format('woff2');
   unicode-range: U+0020-007E, U+00A0-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2030, U+2039-203A, U+2044, U+20AC, U+2122, U+2212, U+FB01-FB02;
 }

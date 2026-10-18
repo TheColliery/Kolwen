@@ -12,7 +12,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { parseRedirectsFile, isDynamic, redirectMiss } from './lib/redirects-file.mjs';
 import { servedFiles } from './lib/web-files.mjs';
-import { parseHeadersFile, declaredSecurityHeaders, servedHeaderMisses, robotsRailMisses, notFoundVerdict, robotsVerdict } from './lib/headers-file.mjs';
+import { parseHeadersFile, declaredSecurityHeaders, servedHeaderMisses, robotsRailMisses, notFoundVerdict, robotsVerdict, fontCacheMisses } from './lib/headers-file.mjs';
 
 const args = process.argv.slice(2);
 const w = args.indexOf('--wait');
@@ -183,6 +183,8 @@ async function probe(origin, until) {
       if (live !== want) misses.push(`${f}: served sha ${live}, committed ${want}`);
     }
   }
+  // The long immutable cache on a font file: its url is read from the SERVED fonts.css, never written here, so a re-cut that renames the files cannot leave this check pointing at a stale name.
+  misses.push(...await fontCacheMisses(origin, u => get(u, until)));
   return misses;
 }
 

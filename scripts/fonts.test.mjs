@@ -17,6 +17,9 @@ const PAGES = ['index', 'pricing', '404', 'terms', 'privacy', 'refund', 'changel
 const manifest = () => facesOf(read('web/fonts/fonts.css'));
 const filesUnder = dir => readdirSync(dir, { withFileTypes: true }).flatMap(e => (e.isDirectory() ? filesUnder(join(dir, e.name)) : [join(dir, e.name)]));
 const rel = p => relative(ROOT, p).split(sep).join('/');
+// The manifest's own url for a font file (the names carry a hash of the bytes, so a test never writes one).
+const urlOf = re => manifest().flatMap(f => f.urls).find(u => re.test(u));
+const SANS_400 = () => urlOf(/kw-sans-thai-400\./), MONO_500 = () => urlOf(/kw-mono-500\./);
 
 test('the manifest names every face of the two families, each with font-display swap, a unicode-range and one same-origin woff2 file that exists', () => {
   const faces = manifest();
@@ -26,7 +29,7 @@ test('the manifest names every face of the two families, each with font-display 
     assert.equal(f.display, 'swap', id + ': font-display swap');
     assert.ok(f.range && /^U\+/i.test(f.range.trim()), id + ': a unicode-range');
     assert.equal(f.urls.length, 1, id + ': one src url');
-    assert.match(f.urls[0], /^\/fonts\/[a-z]+\/[A-Za-z0-9-]+\.woff2$/, id + ': a same-origin woff2 under /fonts/: ' + f.urls[0]);
+    assert.match(f.urls[0], /^\/fonts\/[a-z]+\/[a-z0-9-]+\.[0-9a-f]{10}\.woff2$/, id + ': a same-origin versioned woff2 under /fonts/: ' + f.urls[0]);
     const file = join(WEB, f.urls[0]);
     assert.ok(existsSync(file), id + ': the file exists: ' + f.urls[0]);
     assert.equal(readFileSync(file).subarray(0, 4).toString('latin1'), 'wOF2', id + ': the file is a WOFF2');
@@ -76,7 +79,7 @@ test('the list of deployed files is recursive: a font under web/fonts is listed,
     assert.ok(servedFiles(dir).includes('fonts/_headers'), 'only the two files at the root are not served');
   } finally { rmSync(dir, { recursive: true, force: true }); }
   const real = servedFiles(WEB);
-  assert.ok(real.includes('fonts/fonts.css') && real.includes('fonts/thai/KWSansThai-Regular.woff2'), 'the real tree lists the manifest and a face');
+  assert.ok(real.includes('fonts/fonts.css') && real.includes(SANS_400().slice(1)), 'the real tree lists the manifest and a face');
   assert.ok(!real.includes('_headers') && !real.includes('_redirects'));
 });
 
@@ -111,11 +114,11 @@ test('surface-check admits the font files by name and nothing else: a font outsi
     const c = put('web/fonts/other/OFL.txt');
     assert.match(c.stdout + c.stderr, /web\/fonts\/other\/OFL\.txt: is tracked under the publish root but is not a declared shipped asset/);
     rmSync(join(dir, 'web/fonts/other'), { recursive: true });
-    rmSync(join(dir, 'web/fonts/mono/KWMono-Medium.woff2'));
+    rmSync(join(dir, 'web' + MONO_500()));
     track(dir);
     const d = surface(dir);
     assert.equal(d.status, 1, d.stdout + d.stderr);
-    assert.match(d.stdout + d.stderr, /web\/fonts\/mono\/KWMono-Medium\.woff2: is declared a shipped asset but is missing from the publish root/);
+    assert.match(d.stdout + d.stderr, new RegExp('web' + MONO_500().replace(/[.]/g, '\\.') + ': is declared a shipped asset but is missing from the publish root'));
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -171,18 +174,18 @@ test('surface-check rule 13 judges the font manifest: self in style-src, font-sr
     assert.match(out(b), /the HTML loads a stylesheet from 'self', which style-src does not name/);
     writeFileSync(headers, real);
     const css = join(dir, 'web/fonts/fonts.css'), realCss = readFileSync(css, 'utf8');
-    writeFileSync(css, realCss.replace("url('/fonts/thai/KWSansThai-Regular.woff2')", "url('https://fonts.gstatic.com/x.woff2')"));
+    writeFileSync(css, realCss.replace("url('" + SANS_400() + "')", "url('https://fonts.gstatic.com/x.woff2')"));
     const c = surface(dir);
     assert.equal(c.status, 1, out(c));
     assert.match(out(c), /web\/fonts\/fonts\.css: .*https:\/\/fonts\.gstatic\.com\/x\.woff2.*not on this site/);
-    writeFileSync(css, realCss.replace("url('/fonts/thai/KWSansThai-Regular.woff2')", "url('/fonts/thai/Nope.woff2')"));
+    writeFileSync(css, realCss.replace("url('" + SANS_400() + "')", "url('/fonts/thai/Nope.woff2')"));
     const d = surface(dir);
     assert.equal(d.status, 1, out(d));
     assert.match(out(d), /web\/fonts\/fonts\.css: .*\/fonts\/thai\/Nope\.woff2.*(does not exist|is not a declared shipped asset)/);
     mkdirSync(join(dir, 'web/fonts/thai'), { recursive: true });
     writeFileSync(join(dir, 'web/fonts/thai/Extra.woff2'), 'wOF2');
     track(dir);
-    writeFileSync(css, realCss.replace("url('/fonts/thai/KWSansThai-Regular.woff2')", "url('/fonts/thai/Extra.woff2')"));
+    writeFileSync(css, realCss.replace("url('" + SANS_400() + "')", "url('/fonts/thai/Extra.woff2')"));
     const d2 = surface(dir);
     assert.equal(d2.status, 1, out(d2));
     assert.match(out(d2), /web\/fonts\/fonts\.css: url\(\/fonts\/thai\/Extra\.woff2\) points at web\/fonts\/thai\/Extra\.woff2, which is not a declared shipped asset/);

@@ -120,3 +120,41 @@ export function notFoundVerdict(hostname, bodyIsOurPage, headers, declared) {
     notes: [`${hostname} answers an unmatched path with a platform 404, not web/404.html, so the header check on the 404 page was skipped on this host (measured on a Workers Preview, 2026-09-25: a 9-byte body, no asset default headers, no _headers rule applied). Production is held to both.`],
   };
 }
+
+// ── the long cache of the versioned font files (web-build rule W-PERF-02) ──────────────────────────────────────────────────────
+// The WOFF2 files under /fonts/ carry a hash of their bytes in their names (lib/font-coverage.mjs), so they are served `public, max-age=31536000, immutable`. fonts.css, the one
+// unhashed file that names them, and each OFL.txt keep the platform default (revalidated), because their urls never change.
+export const FONT_CACHE_CONTROL = 'public, max-age=31536000, immutable';
+const ONE_YEAR = 31536000;
+
+// Does a `_headers` path pattern match a request path? A `*` splat matches any run of characters (slashes too), a `:name` placeholder one path segment, everything else literally.
+export function patternMatches(pattern, path) {
+  const re = pattern.split(/(\*|:[A-Za-z]\w*)/).map(part => (part === '*' ? '.*' : /^:[A-Za-z]/.test(part) ? '[^/]+' : part.replace(/[.+?^${}()|[\]\\]/g, '\\$&'))).join('');
+  return new RegExp('^' + re + '$').test(path);
+}
+
+// null when a served Cache-Control value is a long immutable one (public, a max-age of at least a year, immutable), else the reason it is not.
+export function fontCacheMiss(value) {
+  if (value == null) return 'is served with no Cache-Control, expected ' + FONT_CACHE_CONTROL;
+  const age = /(?:^|[\s,])max-age=(\d+)/i.exec(value);
+  if (!age || Number(age[1]) < ONE_YEAR) return `is served Cache-Control "${value}", expected max-age of at least ${ONE_YEAR} (${FONT_CACHE_CONTROL})`;
+  if (!/(?:^|[\s,])immutable(?:$|[\s,])/i.test(value)) return `is served Cache-Control "${value}" without immutable, expected ${FONT_CACHE_CONTROL}`;
+  if (!/(?:^|[\s,])public(?:$|[\s,])/i.test(value)) return `is served Cache-Control "${value}" without public, expected ${FONT_CACHE_CONTROL}`;
+  return null;
+}
+
+// The first font url the manifest names, read from the manifest text (the live one, never a name written in this repo's checks).
+export const firstFontUrl = css => (/url\(\s*['"]?(\/fonts\/[^'")\s]+\.woff2)['"]?\s*\)/.exec(css) || [])[1] || null;
+
+// The misses of one origin: fetch its fonts.css, take the first font url it names, fetch that, and require the long immutable cache on it. `get(url)` returns a fetch Response.
+// `origin` ends with a slash, as in post-deploy-check.
+export async function fontCacheMisses(origin, get) {
+  const sheet = await get(origin + 'fonts/fonts.css');
+  if (!sheet.ok) return [`fonts/fonts.css: served HTTP ${sheet.status}, so no font url can be read from it`];
+  const url = firstFontUrl(await sheet.text());
+  if (!url) return ['fonts/fonts.css: names no font url, so no font cache header can be checked'];
+  const font = await get(origin + url.replace(/^\//, ''));
+  if (font.status !== 200) return [`${url}: served HTTP ${font.status}, expected 200`];
+  const miss = fontCacheMiss(font.headers.get('cache-control'));
+  return miss ? [`${url}: ${miss}`] : [];
+}
