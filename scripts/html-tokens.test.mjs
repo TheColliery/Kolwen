@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { htmlTokens, attrsOf } from './lib/html-tokens.mjs';
 
-const kinds = html => htmlTokens(html).map(t => (t.type === 'text' ? 'text:' + t.text : t.type === 'tag' ? (t.closing ? '/' : '<') + t.name : t.type === 'raw' ? 'raw:' + t.name + ':' + t.body : t.type));
+const kinds = (html, opts) => htmlTokens(html, opts).map(t => (t.type === 'text' ? 'text:' + t.text : t.type === 'tag' ? (t.closing ? '/' : '<') + t.name : t.type === 'raw' ? 'raw:' + t.name + ':' + t.body : t.type));
 
 test('a comment ends where the tokenizer ends it: -->, --!>, <!-->, <!---> and the end of the input; what follows a comment is live', () => {
   for (const [what, comment] of [['-->', '<!-- x -->'], ['--!>', '<!-- x --!>'], ['<!-->', '<!-->'], ['<!--->', '<!--->'], ['an empty comment', '<!---->']]) {
@@ -76,6 +76,51 @@ test('RED PROOF: a tag never closed but followed by a ">" throws a named error, 
   assert.deepEqual(kinds('ok <img src="/a.png"'), ['text:ok '], 'no ">" after it: the end of the input');
   assert.deepEqual(kinds('ok <img src=/a.png'), ['text:ok '], 'an unquoted value cut off by the end of the input');
   assert.deepEqual(kinds('a<b'), ['text:a'], 'a tag name cut off by the end of the input');
+});
+
+// L1 of the review of PR 49: `=` opens a value only in the before-attribute-value state (after a name), whitespace is exactly tab, LF, FF, CR and space.
+test('RED PROOF: an "=" that starts a name (the first character of a tag\'s attributes, or right after a quoted value) opens no value, so a quote after it is a name character', () => {
+  const THAI = String.fromCodePoint(0x0e01);
+  assert.deepEqual(kinds(`<a b="x"="y>z">${THAI}`), ['<a', `text:z">${THAI}`], 'after a quoted value the next character starts a name, even "="');
+  assert.deepEqual(kinds(`<a ="x>y">${THAI}`), ['<a', `text:y">${THAI}`], 'the first character of the attributes may be "="');
+  assert.deepEqual([...htmlTokens('<a b="x"="y>z">')[0].attrs], [['b', 'x'], ['="y', '']], 'the second attribute is named ="y and has no value');
+  assert.deepEqual(kinds('<a b==x>t</a>'), ['<a', 'text:t', '/a'], 'a second "=" right after the first is the start of the unquoted value');
+  assert.equal(htmlTokens('<a b==x>')[0].attrs.get('b'), '=x');
+});
+
+test('RED PROOF: only tab, LF, FF, CR and space are HTML whitespace: a no-break space or another Unicode space is an ordinary character', () => {
+  const THAI = String.fromCodePoint(0x0e01), NBSP = String.fromCharCode(0xa0), EMSP = String.fromCharCode(0x2003);
+  assert.deepEqual(kinds(`<a b=${NBSP}"x>y">${THAI}`), ['<a', `text:y">${THAI}`], 'a no-break space after "=" starts an unquoted value, it is not a space to skip');
+  assert.equal(htmlTokens(`<a b=${NBSP}"x>y">`)[0].attrs.get('b'), `${NBSP}"x`);
+  assert.deepEqual(kinds(`<a b=x${NBSP}c="y>z">${THAI}`), ['<a', `text:z">${THAI}`], 'a no-break space inside an unquoted value does not end it');
+  assert.deepEqual(kinds(`<a b=x${EMSP}c="y>z">${THAI}`), ['<a', `text:z">${THAI}`]);
+  assert.deepEqual(kinds(`<a${NBSP}b=1>t</a>`), [`<a${NBSP}b=1`, 'text:t', '/a'], 'a no-break space in a tag name is part of the name (the tag name state stops at whitespace, a slash or ">" only)');
+  for (const ws of ['\t', '\n', '\f', '\r', ' ']) {
+    assert.deepEqual([...htmlTokens(`<a${ws}b=1${ws}c=2>`)[0].attrs], [['b', '1'], ['c', '2']], JSON.stringify(ws) + ' separates attributes');
+  }
+});
+
+// L2: nothing pinned that an unquoted value ends at whitespace.
+test('RED PROOF: an unquoted value ends at whitespace and at ">", so a quoted value after it still hides its own ">"', () => {
+  const THAI = String.fromCodePoint(0x0e01);
+  for (const ws of ['\t', '\n', '\f', '\r', ' ']) {
+    assert.deepEqual(kinds(`<a b=x${ws}c="y>z">${THAI}`), ['<a', 'text:' + THAI], 'unquoted value ended by ' + JSON.stringify(ws));
+    assert.equal(htmlTokens(`<a b=x${ws}c="y>z">`)[0].attrs.get('b'), 'x');
+    assert.equal(htmlTokens(`<a b=x${ws}c="y>z">`)[0].attrs.get('c'), 'y>z');
+  }
+  assert.deepEqual(kinds(`<a b=x>c="y>z">${THAI}`), ['<a', `text:c="y>z">${THAI}`], 'an unquoted value ends at ">" too');
+  assert.deepEqual(kinds('<a b=x/>t'), ['<a', 'text:t'], 'a "/" before ">" belongs to the unquoted value');
+  assert.equal(htmlTokens('<a b=x/>')[0].attrs.get('b'), 'x/');
+});
+
+// The noscript decision: a visitor with script (everyone the budget counts) reads <noscript> as raw text and loads and draws nothing of it; a visitor without script reads it as markup.
+test('RED PROOF: <noscript> is raw text with scripting on (the default) and ordinary markup with scripting off', () => {
+  const html = '<noscript><style>a{}</style><img src="/n.png"></noscript><p>';
+  assert.deepEqual(kinds(html), ['<noscript', 'raw:noscript:<style>a{}</style><img src="/n.png">', '/noscript', '<p']);
+  assert.deepEqual(kinds(html, { scripting: true }), kinds(html));
+  assert.deepEqual(kinds(html, { scripting: false }), ['<noscript', '<style', 'raw:style:a{}', '/style', '<img', '/noscript', '<p']);
+  assert.deepEqual(kinds('<noscript>a < b</NOSCRIPT >x'), ['<noscript', 'raw:noscript:a < b', '/noscript', 'text:x'], 'its end tag in any case, then a space');
+  assert.deepEqual(kinds('<noscript>never closed'), ['<noscript', 'raw:noscript:never closed']);
 });
 
 test('what is not a tag: a "<" that starts nothing is text, a bogus comment (<!doctype>, <?x>, </ >) is a comment, and a tag never ended is dropped with the rest', () => {
