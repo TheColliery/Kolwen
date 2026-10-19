@@ -82,6 +82,25 @@ test('the 320 px check is not the same as any viewport: the planted element pass
   assert.deepEqual((await run(web, ['reflow'])).failures, []);
 });
 
+// The plan table of the pricing page (a data table) scrolls inside its own wrapper. At 320 px it had 2.4 px of slack with the font hinting off, and with FreeType's medium or full hinting (what a Linux
+// visitor's browser often applies) its text is wider and the WHOLE PAGE scrolled sideways. SC 1.4.10 exempts "parts of the content which require two-dimensional layout for usage or meaning", and its own
+// examples name data tables; so the table may scroll, and the page may not. Forced here, since the WSL route runs with the hinting off: a table of a width of 560 px, which is what slack of zero looks like.
+test('the plan table scrolls inside its own wrapper: a table wider than 320 px never makes the page scroll sideways, and its wrapper is a named, keyboard-reachable region', { skip: SKIP }, async () => {
+  const web = copyWeb(w => editPage(w, 'pricing.html', h => h.replace('</style>', '  .plans{min-width:560px}\n</style>')));
+  const { failures } = await run(web, ['reflow']);
+  assert.deepEqual(where(failures, 'pricing.html', 'reflow'), [], 'the page does not scroll sideways: ' + JSON.stringify(failures));
+  const server = await browser.serve(web, { headers: false });
+  const page = await browser.newPage();
+  try {
+    await page.setViewport(320, 800);
+    await page.goto(server.origin + '/pricing');
+    const wraps = await page.evaluate(`[...document.querySelectorAll('.plans-wrap')].map(e => ({ overflowX: getComputedStyle(e).overflowX, scrolls: e.scrollWidth > e.clientWidth, role: e.getAttribute('role'), tabindex: e.getAttribute('tabindex'), named: (e.getAttribute('aria-label') || '').length > 0, holdsTable: !!e.querySelector('table.plans'), inCard: e.parentElement.classList.contains('card') }))`);
+    assert.equal(wraps.length, 2, 'one wrapper in each language document: ' + JSON.stringify(wraps));
+    for (const x of wraps) assert.deepEqual({ ...x, scrolls: undefined }, { overflowX: 'auto', scrolls: undefined, role: 'region', tabindex: '0', named: true, holdsTable: true, inCard: true });
+    assert.equal(wraps[0].scrolls, true, 'in the visible (English) document the table really is wider than its wrapper and scrolls there');
+  } finally { await page.close(); await server.close(); }
+});
+
 test('a box that clips its own text fails the 200% text check', { skip: SKIP }, async () => {
   const web = copyWeb(w => editPage(w, 'terms.html', h => h.replace('<main>', '<div id="planted" style="width:7rem;height:1.4rem;overflow:hidden">A sentence that cannot fit in a box of this size at any text size</div><main>')));
   const { failures } = await run(web, ['zoom']);
@@ -188,8 +207,10 @@ test('the reading theme: prose pages are solid and follow the device in both col
   for (const p of prose) {
     const en = measured.find(m => m.page === p && m.check === 'measure' && m.lang === 'en'), th = measured.find(m => m.page === p && m.check === 'measure' && m.lang === 'th');
     assert.ok(en.lines >= 5 && en.max <= 80, `${p} Latin: ${en.lines} lines, longest ${en.max} characters`);
-    assert.ok(Math.abs(en.columnEm - 480 / 14.5) < 0.1, `${p}: the column is 30rem, ${en.columnEm} em of the body size`);
-    assert.ok(th.lines >= 2 && Math.abs(th.columnEm - 480 / 14.5) < 0.1, `${p} Thai: the column is recorded in em (${th.columnEm}), ${th.lines} Thai lines read`);
+    // the body text is 18 px and the column is 33em of it (594 px), in both languages: the px value is the one knob and the column follows it
+    assert.equal(en.fontPx, 18, `${p}: the body text is 18 px`);
+    assert.ok(Math.abs(en.columnEm - 33) < 0.1 && Math.abs(en.columnPx - 33 * 18) < 1, `${p}: the column is 33em of the body size, ${en.columnEm} em, ${en.columnPx} px`);
+    assert.ok(th.lines >= 2 && th.fontPx === 18 && Math.abs(th.columnEm - 33) < 0.1, `${p} Thai: 18 px, the column is recorded in em (${th.columnEm}), ${th.lines} Thai lines read`);
   }
   for (const p of ['index.html', 'pricing.html', '404.html']) assert.ok(measured.filter(m => m.page === p && m.check === 'theme').every(m => m.job === 'default'), p + ' is the default job');
   assert.ok(!measured.some(m => m.check === 'contrast' && !prose.includes(m.page)), 'the contrast check reads prose pages only');

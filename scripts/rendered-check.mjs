@@ -192,7 +192,7 @@ function measureLines(rootSelector, locale) {
   for (const [block] of blocks) { const mine = lines.filter(l => l.block === block); if (mine.length) last.add(mine[mine.length - 1]); }
   const full = lines.filter(l => !last.has(l));
   const col = root.getBoundingClientRect().width;
-  const fontPx = parseFloat(getComputedStyle(root.querySelector('p, li')).fontSize);
+  const fontPx = parseFloat(getComputedStyle(root.querySelector('.legal p, .legal li') || root.querySelector('p, li')).fontSize); // the BODY text (a subtitle or a note before it is not the body)
   return { lines: lines.length, max: lines.reduce((m, l) => Math.max(m, l.chars), 0), average: full.length ? full.reduce((s, l) => s + l.chars, 0) / full.length : null, columnPx: col, fontPx, columnEm: col / fontPx };
 }
 

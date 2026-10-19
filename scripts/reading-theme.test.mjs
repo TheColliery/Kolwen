@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseColor, ratio, over, luminance, isLargeText, readingContrast } from './lib/contrast.mjs';
-import { JOBS, READING, READING_PAIRS, TOKENS, readingCss, readingMeta, tokensCss, tokenName } from './lib/layout-tokens.mjs';
+import { JOBS, PX_PER_REM, READING, READING_PAIRS, TOKENS, readingCss, readingMeta, tokensCss, tokenName } from './lib/layout-tokens.mjs';
 import { pageJobProblems, pageTypeProblems } from './lib/type-lint.mjs';
 import { htmlPages } from './lib/web-files.mjs';
 
@@ -101,8 +101,15 @@ test('the reading theme is a variant of the colour names the pages already use, 
   assert.match(css, /@media \(prefers-color-scheme:dark\)\{html\[data-job="prose"\]\{--bg:#0f0d0b;/);
   assert.match(css, /html\[data-job="prose"\] body\{background:var\(--bg\)\}/);
   assert.match(css, /html\[data-job="prose"\] #doc-th,html\[data-job="prose"\] #doc-th \*\{line-height:var\(--kw-line-height-thai\)\}/);
-  assert.match(css, /html\[data-job="prose"\] main\{max-width:calc\(var\(--kw-size-measure-reading\) \+ 2 \* var\(--kw-space-inset-inline\)\)\}/);
-  assert.equal(TOKENS['size.measure.reading'], '30rem', 'the column of a reading page is 30rem: at most 80 Latin characters a line at the body size');
+  // The prose body is ONE knob, the px value of font.size.body, and the column follows it: main takes the body size as its own, so the column in em is the column in the body's em.
+  assert.match(css, /html\[data-job="prose"\] main\{font-size:var\(--kw-font-size-body\);max-width:calc\(var\(--kw-size-measure-reading\) \+ 2 \* var\(--kw-space-inset-inline\)\)\}/);
+  assert.equal(TOKENS['font.size.body'], '1.125rem', 'the body text of a reading page is 18 px (1.125rem at the browser default of 16 px)');
+  assert.equal(parseFloat(TOKENS['font.size.body']) * PX_PER_REM, 18);
+  assert.equal(TOKENS['size.measure.reading'], '33em', 'the column of a reading page is 33em of the body size (594 px at 18 px): the same characters per line at any body size, and the column grows with the font');
+  const shared = readFileSync(join(WEB, '..', 'scripts/lib/legal-render.mjs'), 'utf8');
+  assert.match(shared, /\.legal p,\.legal li\{font-size:var\(--kw-font-size-body\);/, 'the prose body text is the body token and no other size');
+  // the page note of a reading page (the banner) is a paragraph in the same column: at a smaller size it would hold more than 80 characters a line (94 at 14.5 px in a 594 px column)
+  assert.match(shared, /\n {2}\.banner\{[^}]*font-size:var\(--kw-font-size-body\)/, 'the banner follows the body size');
   assert.equal(TOKENS['line-height.thai'], '1.65');
   assert.equal(TOKENS['line-height.body'], '1.6');
   assert.ok(Number(TOKENS['line-height.body']) >= 1.5, 'the Latin line height is at least the 1.5 of SC 1.4.8');

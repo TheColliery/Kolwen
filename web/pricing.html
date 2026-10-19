@@ -27,6 +27,7 @@
     --kw-font-size-9:1.125rem;
     --kw-font-size-10:1.25rem;
     --kw-font-size-11:1.625rem;
+    --kw-font-size-body:1.125rem;
     --kw-font-size-display:clamp(1.75rem, -6.125rem + 30vw, 2.125rem);
     --kw-font-size-title:clamp(1.25rem, -4rem + 20vw, 1.5rem);
     --kw-font-size-title-home:clamp(1.125rem, -2.8125rem + 15vw, 1.3125rem);
@@ -49,7 +50,7 @@
     --kw-size-container-reading:47.5rem;
     --kw-size-container-wide:68.75rem;
     --kw-size-container-compact:38rem;
-    --kw-size-measure-reading:30rem;
+    --kw-size-measure-reading:33em;
     --kw-line-height-body:1.6;
     --kw-line-height-thai:1.65;
     --kw-color-switch-border:rgba(128, 128, 128, 0.7);
@@ -57,14 +58,14 @@
   html[data-job="prose"]{color-scheme:light dark;--bg:#fbfaf8;--bg2:#f1eee9;--card:#f5f2ed;--line:rgba(0, 0, 0, 0.12);--txt:#1a1a1a;--txt2:#464646;--quiet:#585858;--accent:#a65a19;--accent2:#8a4510;--kw-color-switch-border:#767676}
   @media (prefers-color-scheme:dark){html[data-job="prose"]{--bg:#0f0d0b;--bg2:#15130f;--card:#1a1714;--line:rgba(255, 255, 255, 0.08);--txt:#ece4d9;--txt2:#a89a8c;--quiet:#a2968a;--accent:#e8833a;--accent2:#ffbb7a;--kw-color-switch-border:#8c8c8c}}
   html[data-job="prose"] body{background:var(--bg)}
-  html[data-job="prose"] main{max-width:calc(var(--kw-size-measure-reading) + 2 * var(--kw-space-inset-inline))}
+  html[data-job="prose"] main{font-size:var(--kw-font-size-body);max-width:calc(var(--kw-size-measure-reading) + 2 * var(--kw-space-inset-inline))}
   html[data-job="prose"] #doc-th,html[data-job="prose"] #doc-th *{line-height:var(--kw-line-height-thai)}
 /* site-tokens-css:end */
   :root{--bg:#0f0d0b;--bg2:#15130f;--card:#1a1714;--line:rgba(255,255,255,.08);--txt:#ece4d9;--txt2:#a89a8c;--quiet:#a2968a;--accent:#e8833a;--accent2:#ffbb7a}
   *{box-sizing:border-box;margin:0}
   body{background:radial-gradient(circle at 20% 0%,rgba(232,131,58,.07),transparent 55%),var(--bg);color:var(--txt);font-family:'KW Sans Thai',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:stretch;padding:0;line-height:var(--kw-line-height-body)}
   main{flex:1 0 auto;width:100%;max-width:var(--kw-size-container-reading);margin:0 auto;padding-block:var(--kw-space-inset-block-start) 0;padding-inline:var(--kw-space-gutter-inline);display:flex;flex-direction:column;gap:var(--kw-space-section)}
-  a:focus-visible,button:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
+  a:focus-visible,button:focus-visible,.plans-wrap:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
   .mark{display:flex;align-items:center;gap:12px;color:inherit;text-decoration:none}
   .glyph{flex:none;display:block}
   .name{font-size:var(--kw-font-size-display);font-weight:700;letter-spacing:.01em}
@@ -77,6 +78,7 @@
   .card strong{color:var(--txt);font-weight:600}
   .card ul{padding-left:20px;display:flex;flex-direction:column;gap:6px}
   .card code{font-family:'KW Mono',monospace;font-size:var(--kw-font-size-4);color:var(--txt)}
+  .plans-wrap{overflow-x:auto}
   .plans{width:100%;border-collapse:collapse;font-size:var(--kw-font-size-5)}
   .plans caption{text-align:left;padding:0 0 8px;font-size:var(--kw-font-size-2);color:var(--quiet);font-family:'KW Mono',monospace}
   .plans th,.plans td{text-align:left;padding:8px var(--kw-space-cell) 8px 0;font-size:var(--kw-font-size-cell);border-bottom:1px solid var(--line);color:var(--txt2);font-weight:400;vertical-align:middle}
@@ -90,12 +92,12 @@
   .ch a:hover{border-color:rgba(232,131,58,.4);color:var(--accent2)}
   footer{margin-top:6px;font-size:var(--kw-font-size-1);color:var(--quiet);display:flex;flex-direction:column;gap:4px}
   #doc-en > * + *,#doc-th > * + *{margin-top:var(--kw-space-section)}
-  .banner{border:1px solid rgba(232,131,58,.45);background:rgba(232,131,58,.08);border-radius:10px;padding:12px 14px;font-size:var(--kw-font-size-6);color:var(--txt);margin-top:14px}
+  .banner{border:1px solid rgba(232,131,58,.45);background:rgba(232,131,58,.08);border-radius:10px;padding:12px 14px;font-size:var(--kw-font-size-body);color:var(--txt);margin-top:14px}
   .legal{display:flex;flex-direction:column;gap:14px}
   .legal > * + *{margin-top:0}
   .legal h2{font-size:var(--kw-font-size-9);font-weight:600;line-height:1.5;margin-top:14px}
   .legal h3{font-size:var(--kw-font-size-8);font-weight:600;line-height:1.5;margin-top:6px}
-  .legal p,.legal li{font-size:var(--kw-font-size-6);color:var(--txt2);overflow-wrap:anywhere}
+  .legal p,.legal li{font-size:var(--kw-font-size-body);color:var(--txt2);overflow-wrap:anywhere}
   .legal strong{color:var(--txt);font-weight:600}
   .legal ul,.legal ol{padding-left:22px;display:flex;flex-direction:column;gap:8px}
   .legal code{font-family:'KW Mono',monospace;font-size:var(--kw-font-size-3);color:var(--txt);overflow-wrap:anywhere}
@@ -243,6 +245,7 @@
     </div>
     <div class="card">
       <h2>Compare plans</h2>
+      <div class="plans-wrap" role="region" tabindex="0" aria-label="Compare plans">
       <table class="plans">
         <caption>Compare plans</caption>
         <thead><tr><th scope="col">Feature</th><th scope="col">Lite</th><th scope="col">Standard</th><th scope="col">Premium</th><th scope="col">Exclusive</th></tr></thead>
@@ -253,6 +256,7 @@
           <tr><th scope="row">Billing: monthly and yearly</th><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
         </tbody>
       </table>
+      </div>
     </div>
     <div class="card faq">
       <h2>Questions</h2>
@@ -358,6 +362,7 @@
     </div>
     <div class="card">
       <h2>เปรียบเทียบแผน</h2>
+      <div class="plans-wrap" role="region" tabindex="0" aria-label="เปรียบเทียบแผน">
       <table class="plans">
         <caption>เปรียบเทียบแผน</caption>
         <thead><tr><th scope="col">รายการ</th><th scope="col">Lite</th><th scope="col">Standard</th><th scope="col">Premium</th><th scope="col">Exclusive</th></tr></thead>
@@ -368,6 +373,7 @@
           <tr><th scope="row">การเรียกเก็บเงิน: รายเดือนและรายปี</th><td>มี</td><td>มี</td><td>มี</td><td>มี</td></tr>
         </tbody>
       </table>
+      </div>
     </div>
     <div class="card faq">
       <h2>คำถาม</h2>
