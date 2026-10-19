@@ -9,7 +9,7 @@ import { brotliCompressSync } from 'node:zlib';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { decodeEntities, textOf, stripCssComments, cssContentOf, scriptStringsOf, renderedChars } from './lib/rendered-text.mjs';
+import { decodeEntities, decodeAttribute, textOf, stripCssComments, cssContentOf, scriptStringsOf, renderedChars } from './lib/rendered-text.mjs';
 import { woff2Cmap, woff2Names } from './lib/woff2-cmap.mjs';
 import { htmlPages } from './lib/web-files.mjs';
 import { glyphSets, coverageGaps, facesOf, asksForLayoutFeature, THAI_SHAPING } from './lib/font-coverage.mjs';
@@ -20,6 +20,18 @@ const WEB = join(ROOT, 'web');
 const manifest = () => facesOf(readFileSync(join(WEB, 'fonts/fonts.css'), 'utf8').replace(/\r\n/g, '\n'));
 const fontFiles = () => [...new Set(manifest().map(f => f.urls[0]))];
 const cp = s => s.codePointAt(0);
+
+test('Q-9: an attribute value decodes its character references as the attribute state does: a legacy name with no semicolon before = or a letter or digit stays as written', () => {
+  assert.equal(decodeAttribute('/a?x=1&copy=2'), '/a?x=1&copy=2', 'a query string, not the copyright sign');
+  assert.equal(decodeAttribute('&copyx'), '&copyx');
+  assert.equal(decodeAttribute('&copy 2026'), String.fromCharCode(0xa9) + ' 2026', 'a space after it: decoded');
+  assert.equal(decodeAttribute('&copy'), String.fromCharCode(0xa9), 'at the end of the value it decodes');
+  assert.equal(decodeAttribute('&copy;2'), String.fromCharCode(0xa9) + '2', 'terminated: always');
+  assert.equal(decodeAttribute('&#106;avascript&colon;&amp;'), 'javascript:&');
+  assert.equal(decodeAttribute('&amp;#106;'), '&#106;', 'one pass: a decoded ampersand starts nothing');
+  assert.equal(decodeEntities('/a?x=1&copy=2'), '/a?x=1' + String.fromCharCode(0xa9) + '=2', 'text decodes it, which is why the attribute needs its own');
+  assert.throws(() => decodeAttribute('&nosuchname;'), /unknown character reference/);
+});
 
 test('the rendered text of a page: text nodes, character references, CSS content strings and script strings, and nothing from tags, comments or attributes', () => {
   const html = '<html lang="th"><head><title>A &amp; B</title><style>a::after{content:"\\2192 x"}b{content:attr(x)}</style></head><body title="Z"><!-- Q --><p>\u0e01&#39;&#x2014;</p><script>var s = "\\u00e9\\n"; var t = \'q\';</script></body></html>';

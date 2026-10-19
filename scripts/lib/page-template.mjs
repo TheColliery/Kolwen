@@ -18,7 +18,7 @@
 //     optgroup or track); the content of a description, an application-name or a social meta; a CSS `content`
 //     string in a <style> block or a style attribute; or a string of the structured data that is not a slot (a URL, an email address and the JSON-LD keywords @context @type @id @vocab @base @language
 //     are data, not words; an @value or @comment is a word);
-//   - no script: a template holds no executable <script> element, no inline event handler and no javascript: URL (href, src, action, formaction, xlink:href), so nothing a script writes into the page can
+//   - no script: a template holds no executable <script> element, no inline event handler and no javascript: URL (href, src, action, formaction, xlink:href, and the data of an object; the value is read as a browser reads it, with its character references decoded and its tabs, line breaks and leading spaces dropped), no srcdoc, no meta refresh to a javascript: URL and no data: document in an iframe, frame, embed or object, so nothing a script writes into the page can
 //     be a string outside the catalogue; the page script comes in whole as {{raw:script}};
 //   - each slot in its place (above), and no slot in an attribute name, a <style> block or a data block that is not structured data; an attribute slot is refused in a text node and in a `style`
 //     attribute, a slot of any kind is refused between the strings of structured data, and a block or raw slot stands alone on its line (the one other form: the whole body of a <style> element);
@@ -29,9 +29,9 @@
 // Limits, stated: the lint reads the template, not the shared blocks of legal-render.mjs (their strings come from the catalogue through t() and a test marks every value to prove it); it reads no custom
 // attribute (a data-* attribute is data the shared page script reads, `data-lang-set`, and is no text a visitor sees); it does not read the text a script writes into the page at run time, which is why a
 // template holds no script; it reads a javascript: URL written in the template, not one a catalogue value would make through an {{=key}} slot in an href (the site's CSP, with no 'unsafe-inline', blocks it
-// at run time, and no catalogue value holds a URL); it reads `<td abbr>` (assistive only) and the text of a comment as nothing; and the text of an <svg> or <math> element is read as any other text.
+// at run time, and no catalogue value holds a URL); it reads no other attribute as an address (poster, background, ping, cite, longdesc, manifest, codebase), no blob: or filesystem: URL, and not a <base href> that changes how a relative address resolves; a reference that is decoded twice by a layer outside the HTML (a script that unescapes an attribute) is outside it; it reads `<td abbr>` (assistive only) and the text of a comment as nothing; and the text of an <svg> or <math> element is read as any other text.
 import { htmlTokens } from './html-tokens.mjs';
-import { cssContentOf } from './rendered-text.mjs';
+import { cssContentOf, decodeAttribute } from './rendered-text.mjs';
 import { bcp47Problem, DEFAULT_LANG, valueHtml, valuePlain, valueJson, escAttr } from './i18n-catalogue.mjs';
 
 const KEY = '[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)*';
@@ -53,9 +53,18 @@ const META_TEXT = new Set(['description', 'application-name', 'apple-mobile-web-
 const BUTTON_INPUTS = /^(?:button|submit|reset)$/i; // an <input> of these types shows its `value` as the button's label
 // Every other <input> shows its `value` too (a text field, an email field, a type no browser knows reads as text), except these, whose value is submitted data or unused and is drawn nowhere.
 const DATA_INPUTS = /^(?:hidden|checkbox|radio|range|color|file|image)$/i;
-const JS_URL_ATTRS = new Set(['href', 'src', 'action', 'formaction', 'xlink:href']);
-// A URL parser drops leading control characters and spaces and every tab and line break before it reads the scheme.
-const isJsUrl = v => /^javascript:/i.test(v.replace(/[\t\n\r]/g, '').replace(/^[\x00-\x20]+/, ''));
+const JS_URL_ATTRS = new Set(['href', 'src', 'action', 'formaction', 'xlink:href', 'data']); // data: the address an <object> loads
+// A URL parser drops leading control characters and spaces and every tab and line break before it reads the scheme; the value it reads has had its character references decoded (decodeAttribute).
+const urlText = v => v.replace(/[\t\n\r]/g, '').replace(/^[\x00-\x20]+/, '');
+const isJsUrl = v => /^javascript:/i.test(urlText(v));
+const isDataUrl = v => /^data:/i.test(urlText(v));
+// An element that draws a whole document from its address: a data: URL there is a page of its own, markup and script the lint does not read.
+const DOCUMENT_URL_ATTR = { iframe: 'src', frame: 'src', embed: 'src', object: 'data' };
+// The address of a <meta http-equiv=refresh> (WHATWG HTML, shared declarative refresh steps): a time, then `;` or `,` or a space, then optionally `url=` and the address, which may be quoted.
+const refreshUrl = content => {
+  const m = /^\s*[0-9.]*\s*(?:[;,]\s*)?(?:url\s*=\s*)?(?:"([^"]*)"?|'([^']*)'?|(.*))$/is.exec(content);
+  return m ? (m[1] ?? m[2] ?? m[3] ?? '') : '';
+};
 const scriptType = tag => (tag.attrs.get('type') ?? '').trim().toLowerCase(); // a MIME type is case-insensitive and the attribute is read without its surrounding spaces
 const LABELLED = new Set(['option', 'optgroup', 'track']); // elements whose `label` attribute is shown
 const ENDORSED_KEYS = new Set(['@context', '@type', '@id', '@vocab', '@base', '@language']); // JSON-LD keys whose value is data, not words (`@value` and `@comment` are words)
@@ -146,7 +155,19 @@ export function templateProblems(src, name = 'template') {
         else if (k === 'style' && v.includes(ATTR_MASK)) out.push(`${at}: attribute style holds an attribute slot; a catalogue value is not written into inline CSS: remove the slot, or put the CSS the build owns in a <style> block as a {{block:}} or {{raw:}} slot`);
         // a block or raw slot is structure, never the text of an attribute: a line of its own inside a quoted value (even across lines) is still inside the attribute
         if (v.includes(CODE_MASK)) out.push(`${at}: attribute ${k} holds a block or raw slot; it is whole markup or code the build owns, and stands alone on its own line outside any tag`);
-        if (JS_URL_ATTRS.has(k) && isJsUrl(v)) out.push(`${at}: attribute ${k} is a javascript: URL; a template holds no script`);
+        // an address is read as a browser reads it: its character references decoded first. An unknown reference is a typo that hides what the address is, so it is a finding, not a guess.
+        const decoded = (k) => { try { return decodeAttribute(t.attrs.get(k)); } catch { out.push(`${at}: attribute ${k} holds a character reference the check cannot read; write the character itself`); return null; } };
+        if (JS_URL_ATTRS.has(k)) {
+          const url = decoded(k);
+          if (url !== null && isJsUrl(url)) out.push(`${at}: attribute ${k} is a javascript: URL; a template holds no script`);
+          else if (url !== null && DOCUMENT_URL_ATTR[t.name] === k && isDataUrl(url)) out.push(`${at}: attribute ${k} is a data: URL on the ${t.name} element; it draws a document of its own, which the lint does not read`);
+        }
+      }
+      if (t.attrs.has('srcdoc')) out.push(`${at}: the ${t.name} element has a srcdoc attribute; it holds a whole document the lint does not read, and a template holds no script`);
+      if (t.name === 'meta' && /^refresh$/i.test((t.attrs.get('http-equiv') ?? '').trim()) && t.attrs.has('content')) {
+        let address = null;
+        try { address = refreshUrl(decodeAttribute(t.attrs.get('content'))); } catch { out.push(`${at}: attribute content holds a character reference the check cannot read; write the character itself`); }
+        if (address !== null && isJsUrl(address)) out.push(`${at}: the meta refresh goes to a javascript: URL; a template holds no script`);
       }
       if (LABELLED.has(t.name) && (t.attrs.get('label') ?? '') !== '') attrProblems(`label of the ${t.name}`, t.attrs.get('label'));
       const meta = t.name === 'meta' ? (t.attrs.get('name') ?? t.attrs.get('property') ?? '') : '';
