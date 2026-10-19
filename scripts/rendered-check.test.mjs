@@ -15,7 +15,8 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { findBrowser, findRoute, launchBrowser, BROWSER_ENV, EXIT_NOT_RUN_HERE } from './lib/browser.mjs';
 import * as browserLib from './lib/browser.mjs'; // devToolsEndpoint, profilePath, lockProfile and the rest are used through the namespace
-import * as wslLib from './lib/wsl-route.mjs'; // toWslPath, decodeWslText, findWslRoute
+import * as wslLib from './lib/wsl-route.mjs';
+import { stripComments, readsOwnPath, startsItself } from './lib/entry-scan.mjs'; // toWslPath, decodeWslText, findWslRoute
 import { makeResponder } from './lib/static-server.mjs';
 import { renderedChecks, urlPathOf } from './rendered-check.mjs';
 import * as checkLib from './rendered-check.mjs'; // classifyLogs
@@ -815,42 +816,59 @@ function bareCopy() {
 }
 const importOf = file => ['--input-type=module', '-e', `await import(${JSON.stringify(pathToFileURL(file).href)})`];
 
-// How the scan finds a script that starts itself, and the spellings it refuses (PR #56 round 2, Q-8c: `process.argv.at(1)` and `import.meta.url.endsWith(...)` both passed the first scan). A script may start
-// itself only through isMainModule(import.meta.url); every other way to learn "which file is the main module" is read as a guard of its own. The refused spellings are the text of the source with its
-// comments removed: `import.meta.main` and `import.meta.filename`, a test or compare on `import.meta.url` (a method of the string, or `==` and `===` and their negations), and any use of `process.argv`
-// other than an argument (`argv[2]` to `argv[9]`, `argv.slice(2...)`, `argv.length`): so `argv[1]`, `argv.at(1)`, `argv.at(-1)`, `argv.slice(1)`, a destructuring of it, `process['argv']` and `{ argv } = process`.
-// STATED LIMITS, kept true by the test below: this reads text. A guard that reaches argv through a name built at run time (`Reflect.get(process, 'ar' + 'gv')`), an alias of the whole `process`
-// object (`const p = process; p.argv.at(1)`), or `eval` is not seen; a comment marker inside a string cuts the rest of that line from the scan; and a script that starts itself by a way that reads
-// no path at all (a top-level call that is not behind any guard) is not a "self-running" script but a script that runs on import, which the import test below finds only for the listed ones.
-const stripComments = src => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/[^\n]*/g, '$1');
-const OWN_PATH_SPELLINGS = [
-  /\bimport\.meta\.(?:main|filename)\b/,
-  /\bimport\.meta\.url\s*\.\s*(?:endsWith|startsWith|includes|match|test|indexOf|search|slice|substring)\b/,
-  /\bimport\.meta\.url\s*[!=]==?|[!=]==?\s*import\.meta\.url\b/,
-  /\bprocess\s*\.\s*argv\b(?!\s*\[\s*[2-9]\s*\]|\s*\.\s*slice\(\s*[2-9]|\s*\.\s*length\b)/,
-  /\bprocess\s*\[\s*['"`]argv['"`]\s*\]/,
-  /\{[^}]*\bargv\b[^}]*\}\s*=\s*process\b/,
-];
-const readsOwnPath = src => OWN_PATH_SPELLINGS.some(re => re.test(stripComments(src)));
-const startsItself = src => readsOwnPath(src) || /isMainModule\(import\.meta\.url\)/.test(stripComments(src));
-
-test('the scan for a script that starts itself refuses every other way to ask "am I the main module", and lets an argument and the shared guard through', () => {
+// How the scan finds a script that starts itself, and the spellings it refuses, is scripts/lib/entry-scan.mjs (header). STATED LIMITS, kept true by the test below: it reads text. A guard that reaches argv
+// through a name built at run time (`Reflect.get(process, 'ar' + 'gv')`), an alias of the whole `process` object (`const p = process; p.argv.at(1)`), `eval`, or a compare that reaches
+// `import.meta.url` through a call other than fileURLToPath (`new URL(import.meta.url).pathname === x`) is not seen; a comment marker inside a string cuts the rest of that line from the scan;
+// and a script that starts itself by a way that reads no path at all (a top-level call that is not behind any guard) is not a "self-running" script but a script that runs on import, which the
+// import test below finds only for the listed ones.
+test('the scan for a script that starts itself refuses the ways to ask "am I the main module" that it can read, and lets an argument and the shared guard through', () => {
   const planted = [
     'if (fileURLToPath(import.meta.url) === resolve(process.argv.at(1) ?? "")) main();', 'if (import.meta.main) main();', 'if (import.meta.filename === process.argv[1]) main();',
     "if (import.meta.url.endsWith('x.mjs')) main();", "if (import.meta.url.includes('x')) main();", 'if (import.meta.url === pathToFileURL(a).href) main();', 'if (pathToFileURL(a).href !== import.meta.url) {}',
     'if (process.argv[1].endsWith("x.mjs")) main();', 'const [, self] = process.argv;', 'const self = process.argv.slice(1)[0];', 'const self = process.argv.at(-1);', "const argv = process['argv'];",
     'const { argv } = process; if (argv[1]) main();', 'const a = process.argv; if (a[1]) main();', 'if (process . argv [ 1 ]) main();',
+    // PR #58 round 1 (CodeRabbit 4309797621): a compare that reaches import.meta.url through fileURLToPath is a guard of its own, on either side
+    'if (fileURLToPath(import.meta.url) === x) main();', 'if (x === fileURLToPath(import.meta.url)) main();', 'if (fileURLToPath( import.meta.url ) !== y) return;',
+    // the reviewer's L-3 turned round: the argument reads that remain refused ask which file is the main module
+    'const [, self] = process.argv; const [, , a] = process.argv; const s = process.argv[1];', 'process.argv.includes(selfPath)', 'process.argv.indexOf(__filename)', 'process.argv.at(2)', 'process.argv[0]',
+    'const { x, argv: a } = process;', 'const { x, y: z, argv = [] } = process;',
   ];
   for (const src of planted) assert.ok(readsOwnPath(src), 'refused: ' + src);
   const fine = [
     'const arg = process.argv[2];', 'const args = process.argv.slice(2);', 'for (const a of process.argv.slice(2)) {}', 'if (process.argv.length > 2) {}', 'const x = process.argv[ 3 ];',
     'const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");', "const u = new URL('lib/x.mjs', import.meta.url);", 'const t = JSON.parse(readFileSync(new URL("./a.json", import.meta.url)));',
     'if (isMainModule(import.meta.url)) main();', '// process.argv[1] is only named in this comment', '/* import.meta.main, in a block comment */ const a = 1;',
+    // PR #58 round 1 (the reviewer's L-3): reading an argument is no question about the main module
+    "if (process.argv.includes('--help')) usage();", "const web = process.argv.indexOf('--web') !== -1;", 'const [, , ...args] = process.argv;', 'const [,, first, second] = process.argv;', 'const x = process.argv[10];',
+    'const rest = process.argv.slice(2).filter(a => a !== "--write");', "const w = process.argv.slice(3).includes('--write');",
   ];
   for (const src of fine) assert.ok(!readsOwnPath(src), 'allowed: ' + src);
   assert.ok(startsItself('if (isMainModule(import.meta.url)) main();') && startsItself('if (import.meta.main) main();') && !startsItself('const arg = process.argv[2];'));
   // the stated limits: not seen
-  for (const src of ["Reflect.get(process, 'ar' + 'gv').at(1)", 'const p = process; p.argv.at(1);']) assert.ok(!readsOwnPath(src), 'a stated limit: ' + src);
+  for (const src of ["Reflect.get(process, 'ar' + 'gv').at(1)", 'const p = process; p.argv.at(1);', 'if (new URL(import.meta.url).pathname === x) main();']) assert.ok(!readsOwnPath(src), 'a stated limit: ' + src);
+});
+
+// PR #58 round 1, the reviewer's L-4: a pattern of the helper took time cubic in the input (a `{ argv ` run with no closing brace: 6.2 s at 11,200 characters) and its comment stripper quadratic (an unclosed
+// `/* a ` run). Not a wall-clock assertion: the helper runs in a child under a kill-timeout and a heap cap, and the test asserts that the child FINISHED.
+test('the scan helpers finish on bulk input that gives their patterns nothing to match: every input ends the child itself, never by the kill', () => {
+  const lib = pathToFileURL(join(ROOT, 'scripts/lib/entry-scan.mjs')).href;
+  const child = `
+    const { readsOwnPath, startsItself, stripComments } = await import(${JSON.stringify(lib)});
+    const N = 40000;
+    const inputs = [
+      '{ argv '.repeat(N), '{ a, '.repeat(N), '{' + ' a,'.repeat(N), '/* a '.repeat(N), '/* a */ '.repeat(N), '// a '.repeat(N), 'process . '.repeat(N), 'process.argv.'.repeat(N), 'process.argv[ '.repeat(N),
+      '[ , ,'.repeat(N), '[' + ' ,'.repeat(N), 'process.argv.includes('.repeat(N), 'import.meta.url '.repeat(N), 'fileURLToPath( import.meta.url '.repeat(N), ' '.repeat(N * 4) + '{', '{' + ' '.repeat(N * 4),
+      '{ ' + 'a: b, '.repeat(N) + 'argv', "'".repeat(N), '\\n'.repeat(N),
+    ];
+    let seen = 0;
+    for (const t of inputs) { stripComments(t); readsOwnPath(t); startsItself(t); seen++; }
+    console.log('FINISHED ' + seen + ' OF ' + inputs.length);
+  `;
+  const r = spawnSync(process.execPath, ['--max-old-space-size=256', '--input-type=module', '-e', child], { encoding: 'utf8', timeout: 60000, killSignal: 'SIGKILL' });
+  assert.equal(r.error, undefined, 'the child was not killed by the timeout: ' + (r.error && r.error.message));
+  assert.equal(r.signal, null, 'and no signal ended it: ' + r.signal);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /^FINISHED (\d+) OF \1\n?$/);
 });
 
 // No link here: these hold wherever the test runs, so a system that cannot make a link still checks them (CodeRabbit 4309062056, 4309062060).
