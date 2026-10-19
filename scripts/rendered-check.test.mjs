@@ -188,8 +188,10 @@ test('the reading theme: prose pages are solid and follow the device in both col
   for (const p of prose) {
     const en = measured.find(m => m.page === p && m.check === 'measure' && m.lang === 'en'), th = measured.find(m => m.page === p && m.check === 'measure' && m.lang === 'th');
     assert.ok(en.lines >= 5 && en.max <= 80, `${p} Latin: ${en.lines} lines, longest ${en.max} characters`);
-    assert.ok(Math.abs(en.columnEm - 480 / 14.5) < 0.1, `${p}: the column is 30rem, ${en.columnEm} em of the body size`);
-    assert.ok(th.lines >= 2 && Math.abs(th.columnEm - 480 / 14.5) < 0.1, `${p} Thai: the column is recorded in em (${th.columnEm}), ${th.lines} Thai lines read`);
+    // the body text is 18 px and the column is 33em of it (594 px), in both languages: the px value is the one knob and the column follows it
+    assert.equal(en.fontPx, 18, `${p}: the body text is 18 px`);
+    assert.ok(Math.abs(en.columnEm - 33) < 0.1 && Math.abs(en.columnPx - 33 * 18) < 1, `${p}: the column is 33em of the body size, ${en.columnEm} em, ${en.columnPx} px`);
+    assert.ok(th.lines >= 2 && th.fontPx === 18 && Math.abs(th.columnEm - 33) < 0.1, `${p} Thai: 18 px, the column is recorded in em (${th.columnEm}), ${th.lines} Thai lines read`);
   }
   for (const p of ['index.html', 'pricing.html', '404.html']) assert.ok(measured.filter(m => m.page === p && m.check === 'theme').every(m => m.job === 'default'), p + ' is the default job');
   assert.ok(!measured.some(m => m.check === 'contrast' && !prose.includes(m.page)), 'the contrast check reads prose pages only');

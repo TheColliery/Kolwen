@@ -44,6 +44,9 @@ export const TOKENS = {
   'font.size.9': rem(18),
   'font.size.10': rem(20),
   'font.size.11': rem(26),
+  // The body text of a reading page (the paragraphs and list items of the legal pages and the changelog, in both languages): THE ONE KNOB. Its px value is the only number to change to make that text larger
+  // or smaller; the column below is written in em, so it follows (the owner, 2026-10-19: 18 px, and the column grows with it, for less empty space left and right of the text).
+  'font.size.body': rem(18),
   // Type that adapts: the mark's name, the page title (legal pages and the home page), and the plan table's cells.
   'font.size.display': fluid(28, 34),
   'font.size.title': fluid(20, 24),
@@ -71,8 +74,10 @@ export const TOKENS = {
   'size.container.reading': rem(760),
   'size.container.wide': rem(1100),
   'size.container.compact': '38rem',
-  // The measure of a reading page: the width of its text column, in rem. At the body size of the pages (14.5 px) it is 33.1 em, which holds at most 80 Latin characters on a line, measured on the rendered page (SC 1.4.8, a TARGET, never claimed as met).
-  'size.measure.reading': '30rem',
+  // The measure of a reading page: the width of its text column, in EM of the body text, so it follows the font (594 px at the 18 px of font.size.body). A reading page's main takes the body size as its own font size
+  // (readingCss), so this em is the body's. 33em is the column the pages had when their body was 14.5 px (480 px = 33.1 em): the same number of characters on a line at any body size, which held at most 80 Latin
+  // characters on a rendered line (SC 1.4.8, a TARGET, never claimed as met; the rendered check measures it on every prose page, in both languages, and fails a line over 80).
+  'size.measure.reading': '33em',
   // Line heights: the Latin body text (the house's 1.6, at least the 1.5 of SC 1.4.8) and the Thai text of a reading page (1.65: at 1.5 the tallest marks of the bold face collide).
   'line-height.body': '1.6',
   'line-height.thai': '1.65',
@@ -121,7 +126,7 @@ export function readingCss() {
     `  ${prose}{color-scheme:light dark;${cssVars(READING.light)}}`,
     `  @media (prefers-color-scheme:dark){${prose}{${cssVars(READING.dark)}}}`,
     `  ${prose} body{background:var(--bg)}`,
-    `  ${prose} main{max-width:calc(var(${tokenName('size.measure.reading')}) + 2 * var(${tokenName('space.inset-inline')}))}`,
+    `  ${prose} main{font-size:var(${tokenName('font.size.body')});max-width:calc(var(${tokenName('size.measure.reading')}) + 2 * var(${tokenName('space.inset-inline')}))}`,
     `  ${prose} #doc-th,${prose} #doc-th *{line-height:var(${tokenName('line-height.thai')})}`,
   ].join('\n');
 }

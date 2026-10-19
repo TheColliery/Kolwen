@@ -355,12 +355,12 @@ ${fenced('site-tokens-css')}
   .ch a:hover{border-color:rgba(232,131,58,.4);color:var(--accent2)}
   footer{margin-top:6px;font-size:var(--kw-font-size-1);color:var(--quiet);display:flex;flex-direction:column;gap:4px}
   #doc-en > * + *,#doc-th > * + *{margin-top:var(--kw-space-section)}
-  .banner{border:1px solid rgba(232,131,58,.45);background:rgba(232,131,58,.08);border-radius:10px;padding:12px 14px;font-size:var(--kw-font-size-6);color:var(--txt);margin-top:14px}
+  .banner{border:1px solid rgba(232,131,58,.45);background:rgba(232,131,58,.08);border-radius:10px;padding:12px 14px;font-size:var(--kw-font-size-body);color:var(--txt);margin-top:14px}
   .legal{display:flex;flex-direction:column;gap:14px}
   .legal > * + *{margin-top:0}
   .legal h2{font-size:var(--kw-font-size-9);font-weight:600;line-height:1.5;margin-top:14px}
   .legal h3{font-size:var(--kw-font-size-8);font-weight:600;line-height:1.5;margin-top:6px}
-  .legal p,.legal li{font-size:var(--kw-font-size-6);color:var(--txt2);overflow-wrap:anywhere}
+  .legal p,.legal li{font-size:var(--kw-font-size-body);color:var(--txt2);overflow-wrap:anywhere}
   .legal strong{color:var(--txt);font-weight:600}
   .legal ul,.legal ol{padding-left:22px;display:flex;flex-direction:column;gap:8px}
   .legal code{font-family:'KW Mono',monospace;font-size:var(--kw-font-size-3);color:var(--txt);overflow-wrap:anywhere}
