@@ -150,7 +150,12 @@ export function assertChipMatchesLabel(replies, lbl) {
     why: measured <= declared ? 'measured chip is within the label' : `measured ${measured} but the label says ${declared} — the chip is not what the label claims` };
 }
 
-if (process.argv[1] && process.argv[1].endsWith('decap-battery.mjs')) {
+// This file imports node builtins only (node/runtime.md section 1: a static import of a missing lib would end the run with no FAIL line), so the shared entry guard is loaded here, inside a try.
+// It compares REAL paths, so a run through a junction or a symlink still runs; the file name test it replaces ended in the name as typed, which a link or a renamed copy of the file could spoof.
+let started = false, guardError = null;
+try { started = (await import('./lib/entry-guard.mjs')).isMainModule(import.meta.url); } catch (e) { guardError = e; }
+if (guardError) { console.error('FAIL decap-battery could not load scripts/lib/entry-guard.mjs'); process.exitCode = 1; }
+else if (started) {
   const arg = process.argv[2];
   const fail = m => { console.error(m); process.exitCode = 1; };
   const lbl = label();
