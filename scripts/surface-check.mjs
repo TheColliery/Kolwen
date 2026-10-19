@@ -93,6 +93,24 @@ for (const f of tracked.filter(SCANNABLE)) {
 }
 
 // ── 4. Thai orthography ──────────────────────────────────────────────────────
+// The prose of a Markdown file, for the character references GitHub decodes: fenced code blocks (a run of at least three backticks or tildes, closed by a run of the same character at least as long),
+// inline code spans (a run of backticks closed by a run of the same length) and HTML comments are blanked, the rest is kept as written.
+function markdownProse(s) {
+  const out = [];
+  let fence = null;
+  for (const line of s.split('\n')) {
+    const m = /^ {0,3}(`{3,}|~{3,})/.exec(line);
+    if (fence) {
+      if (m && m[1][0] === fence[0] && m[1].length >= fence.length && /^[ \t\r]*$/.test(line.slice(m[0].length))) fence = null;
+      out.push('');
+    } else if (m && !(m[1][0] === '`' && line.slice(m[0].length).includes('`'))) {
+      fence = m[1];
+      out.push('');
+    } else out.push(line);
+  }
+  return out.join('\n').replace(/(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)/g, ' ').replace(/<!--[\s\S]*?-->/g, ' ');
+}
+const MD_NBSP = /^&(?:nbsp|NonBreakingSpace|#0*160|#[xX]0*[aA]0);$/;
 for (const f of tracked.filter(PUBLISHED)) {
   const s = read(f);
   if (/ํา/.test(s)) note(f, 'decomposed SARA AM (U+0E4D U+0E32) — must be U+0E33');
@@ -133,6 +151,22 @@ for (const f of tracked.filter(PUBLISHED)) {
       }
     } catch (e) { writtenNbsp = NBSP_IN_TEXT.test(s); note(f, `has markup rule 4 cannot walk (${String(e.message).slice(0, 100)}), so its no-break space references are read over the whole source`); }
     if (writtenNbsp) note(f, 'invisible character U+A0 written as an entity (&nbsp;); a page uses a no-break space only before the Thai repetition mark, as the character');
+  } else if (f.endsWith('.md')) {
+    // A Markdown file is drawn by GitHub's renderer, which decodes entity references outside code (CommonMark: only a TERMINATED reference, a name it knows or a number of at most 7 digits, 6 hex digits;
+    // anything else is text). So the prose of the file (fenced blocks, inline code spans and comments taken out) has its terminated references decoded and read as a page's are. A reference that is no
+    // reference to CommonMark (an unknown name, no semicolon) is text and no finding. STATED LIMITS: an indented code block (four spaces) is read as prose, so a reference shown there is a loud
+    // false positive; a code span or fence that the real renderer closes differently (a span across a paragraph break) is read as the spec reads it, not as an old renderer might; raw HTML
+    // inside a Markdown file is read as prose, and the body of a script or style there is not decoded by a browser but is here. The code-span match is quadratic in the number of unclosed backtick runs, which is no concern for the files of this repository (the scan reads text we wrote, not a stranger's upload).
+    const prose = markdownProse(s);
+    let writtenNbsp = false, decodeMd = m => m;
+    try { decodeMd = (await import(pathToFileURL(resolve('scripts/lib/rendered-text.mjs')).href)).decodeEntities; }
+    catch (e) { note(f, `has character references rule 4 cannot read (${String(e.message).slice(0, 100)}), so its invisible characters are not all checked`); }
+    const decoded = prose.replace(/&(?:#[xX][0-9a-fA-F]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/g, m => {
+      if (MD_NBSP.test(m)) writtenNbsp = true;
+      try { return decodeMd(m); } catch { return m; }
+    });
+    if (decoded !== prose) scan(decoded, ' (written as a character reference)');
+    if (writtenNbsp) note(f, 'invisible character U+A0 written as an entity (&nbsp;); a published document uses a no-break space only before the Thai repetition mark, as the character');
   }
   if (s.includes('…')) note(f, 'U+2026 ellipsis — use three ASCII dots');
 }

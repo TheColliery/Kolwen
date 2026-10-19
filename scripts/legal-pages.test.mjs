@@ -966,6 +966,43 @@ test('surface-check rule 4 also refuses U+2800, U+2028 and U+2029, and an invisi
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+// Q-9 / H4: GitHub draws a Markdown file through a renderer that decodes entity references outside code, so a published README can carry an invisible character as `&#x200B;`. Rule 4 reads a Markdown
+// file with its code (fenced blocks and inline code spans) and its comments taken out, decodes the TERMINATED references (CommonMark decodes no other: `&nbsp` with no semicolon is text, and so is a
+// name it does not know), and refuses what a page refuses.
+test('surface-check rule 4 reads the character references of a Markdown file outside its code, as GitHub draws it', () => {
+  const dir = surfaceCopy();
+  try {
+    const readme = readFileSync(join(dir, 'README.md'), 'utf8');
+    const put = tail => writeFileSync(join(dir, 'README.md'), readme + '\n\n' + tail + '\n');
+    for (const [ref, cp] of [['&#x200B;', 0x200b], ['&#8203;', 0x200b], ['&ZeroWidthSpace;', 0x200b], ['&shy;', 0xad], ['&#8239;', 0x202f], ['&#x2800;', 0x2800]]) {
+      put('A' + ref + 'B in a paragraph.');
+      const r = surface(dir);
+      assert.equal(r.status, 1, ref + ': ' + r.stdout + r.stderr);
+      assert.match(r.stdout + r.stderr, new RegExp('README\\.md: invisible character U\\+' + cp.toString(16).toUpperCase() + ' \\(written as a character reference\\)'), ref);
+    }
+    for (const ref of ['&nbsp;', '&NonBreakingSpace;', '&#160;', '&#xA0;']) {
+      put('A' + ref + 'B in a paragraph.');
+      const r = surface(dir);
+      assert.equal(r.status, 1, ref + ': ' + r.stdout + r.stderr);
+      assert.match(r.stdout + r.stderr, /README\.md: invisible character U\+A0 written as an entity/, ref);
+    }
+    // a reference inside code is shown as typed, and a reference GitHub does not decode is text: all clean
+    for (const [what, tail] of [
+      ['an inline code span', 'Write `A&#x200B;B` and ``C&nbsp;D`` to show them.'],
+      ['a fenced block', '```html\nA&#x200B;B &nbsp; C\n```'],
+      ['a tilde fence', '~~~\nA&ZeroWidthSpace;B\n~~~'],
+      ['a comment', '<!-- A&#x200B;B -->'],
+      ['ordinary references', 'Fish &amp; chips, 1 &lt; 2, &copy; 2026, &#35; and &#x41;.'],
+      ['a reference with no semicolon', 'A&nbsp B and C&#x200B D are text, not references.'],
+      ['a name no table holds', 'A &bogusref; B stays as typed.'],
+    ]) {
+      put(tail);
+      const r = surface(dir);
+      assert.equal(r.status, 0, what + ': ' + r.stdout + r.stderr);
+    }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('surface-check rule 17 allows a live button only when it is exactly a switch button the lib renders and sits inside the shared header or footer block', () => {
   const dir = surfaceCopy();
   try {
