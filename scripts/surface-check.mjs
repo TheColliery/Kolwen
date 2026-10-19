@@ -94,21 +94,49 @@ for (const f of tracked.filter(SCANNABLE)) {
 
 // ── 4. Thai orthography ──────────────────────────────────────────────────────
 // The prose of a Markdown file, for the character references GitHub decodes: fenced code blocks (a run of at least three backticks or tildes, closed by a run of the same character at least as long),
-// inline code spans (a run of backticks closed by a run of the same length) and HTML comments are blanked, the rest is kept as written.
+// inline code spans (a run of backticks closed by a run of the same length, found left to right and never opened by an escaped backtick) and HTML comments are blanked, a backslash-escaped ampersand is blanked, the rest is kept as written.
 function markdownProse(s) {
-  const out = [];
+  // fenced code blocks, line by line
+  const lines = [];
   let fence = null;
   for (const line of s.split('\n')) {
     const m = /^ {0,3}(`{3,}|~{3,})/.exec(line);
     if (fence) {
       if (m && m[1][0] === fence[0] && m[1].length >= fence.length && /^[ \t\r]*$/.test(line.slice(m[0].length))) fence = null;
-      out.push('');
+      lines.push('');
     } else if (m && !(m[1][0] === '`' && line.slice(m[0].length).includes('`'))) {
       fence = m[1];
-      out.push('');
-    } else out.push(line);
+      lines.push('');
+    } else lines.push(line);
   }
-  return out.join('\n').replace(/(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)/g, ' ').replace(/<!--[\s\S]*?-->/g, ' ');
+  // inline, left to right in one pass: a backslash before ASCII punctuation makes that character literal (so an escaped backtick opens no code span, and an escaped ampersand starts no reference);
+  // a run of N backticks opens a code span that a later run of exactly N closes (no escape works inside it); `<!--` opens a comment that `-->` closes. A delimiter with no closer is text, and
+  // once one run length has no closer a later run of the same length has none either, so each failed search is made once per length and the pass is linear.
+  const t = lines.join('\n'), n = t.length, noSpan = new Set();
+  let out = '', i = 0, noComment = false;
+  while (i < n) {
+    const c = t[i];
+    if (c === '\\' && i + 1 < n && /[!-/:-@[-`{-~]/.test(t[i + 1])) {
+      out += t[i + 1] === '&' ? ' ' : c + t[i + 1];
+      i += 2;
+    } else if (c === '`') {
+      let j = i;
+      while (t[j] === '`') j++;
+      const len = j - i;
+      let close = -1;
+      for (let k = noSpan.has(len) ? -1 : t.indexOf('`', j); k !== -1;) {
+        let e = k;
+        while (t[e] === '`') e++;
+        if (e - k === len) { close = e; break; }
+        k = t.indexOf('`', e);
+      }
+      if (close === -1) { noSpan.add(len); out += t.slice(i, j); i = j; } else { out += ' '; i = close; }
+    } else if (c === '<' && !noComment && t.startsWith('<!--', i)) {
+      const e = t.indexOf('-->', i + 4);
+      if (e === -1) { noComment = true; out += c; i++; } else { out += ' '; i = e + 3; }
+    } else { out += c; i++; }
+  }
+  return out;
 }
 const MD_NBSP = /^&(?:nbsp|NonBreakingSpace|#0*160|#[xX]0*[aA]0);$/;
 for (const f of tracked.filter(PUBLISHED)) {
@@ -156,7 +184,7 @@ for (const f of tracked.filter(PUBLISHED)) {
     // anything else is text). So the prose of the file (fenced blocks, inline code spans and comments taken out) has its terminated references decoded and read as a page's are. A reference that is no
     // reference to CommonMark (an unknown name, no semicolon) is text and no finding. STATED LIMITS: an indented code block (four spaces) is read as prose, so a reference shown there is a loud
     // false positive; a code span or fence that the real renderer closes differently (a span across a paragraph break) is read as the spec reads it, not as an old renderer might; raw HTML
-    // inside a Markdown file is read as prose, and the body of a script or style there is not decoded by a browser but is here. The code-span match is quadratic in the number of unclosed backtick runs, which is no concern for the files of this repository (the scan reads text we wrote, not a stranger's upload).
+    // inside a Markdown file is read as prose, and the body of a script or style there is not decoded by a browser but is here. A backslash before ASCII punctuation makes it literal (an escaped backtick opens no code span, an escaped ampersand starts no reference); a code span, a comment and the failed search for a closer are scanned once, so the pass is linear in the file.
     const prose = markdownProse(s);
     let writtenNbsp = false, decodeMd = m => m;
     try { decodeMd = (await import(pathToFileURL(resolve('scripts/lib/rendered-text.mjs')).href)).decodeEntities; }

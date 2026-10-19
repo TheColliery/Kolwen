@@ -986,6 +986,32 @@ test('surface-check rule 4 reads the character references of a Markdown file out
       assert.equal(r.status, 1, ref + ': ' + r.stdout + r.stderr);
       assert.match(r.stdout + r.stderr, /README\.md: invisible character U\+A0 written as an entity/, ref);
     }
+    // PR #58 round 1 (CodeRabbit 4309797641, the reviewer's L-2): a backslash makes the character after it literal outside code, so an escaped backtick opens no code span (its prose is still prose) and an
+    // escaped ampersand starts no reference; inside a code span a backslash is just a backslash, so it does not hide the closing backtick; an escaped backslash escapes nothing after it
+    const BSL = String.fromCharCode(92);
+    for (const [what, tail] of [
+      ['escaped backticks around a reference', BSL + '`A&#x200B;B' + BSL + '`'],
+      ['one escaped backtick before a reference', 'a ' + BSL + '` b &#x200B; c'],
+      ['a span closed by a backtick that follows a backslash, then a reference', '`code' + BSL + '` then A&#x200B;B after'],
+      ['an escaped backslash before a reference', BSL + BSL + '&#x200B;'],
+      ['an escaped backtick that would otherwise open a double-backtick span, then a reference', BSL + '``x`` A&#x200B;B'],
+    ]) {
+      put(tail);
+      const r = surface(dir);
+      assert.equal(r.status, 1, what + ': ' + r.stdout + r.stderr);
+      assert.match(r.stdout + r.stderr, /README\.md: invisible character U\+200B \(written as a character reference\)/, what);
+    }
+    for (const [what, tail] of [
+      ['an escaped ampersand before a reference', BSL + '&#x200B;'],
+      ['an escaped ampersand before a no-break space', 'A' + BSL + '&nbsp;B'],
+      ['an escaped ampersand after a real span', '`x` ' + BSL + '&#x200B;'],
+      // the pass is linear: delimiters with no closer, repeated (a run of every length once, 20,000 unclosed comments, 20,000 escaped backticks); the run ends, and nothing in it is a reference
+      ['unclosed delimiters in bulk', Array.from({ length: 300 }, (_, k) => '`'.repeat(k + 1) + ' x ').join('') + '\n\n' + '<!-- a '.repeat(20000) + '\n\n' + (BSL + '` ').repeat(20000)],
+    ]) {
+      put(tail);
+      const r = surface(dir);
+      assert.equal(r.status, 0, what + ': ' + r.stdout + r.stderr);
+    }
     // a reference inside code is shown as typed, and a reference GitHub does not decode is text: all clean
     for (const [what, tail] of [
       ['an inline code span', 'Write `A&#x200B;B` and ``C&nbsp;D`` to show them.'],
