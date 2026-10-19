@@ -783,11 +783,10 @@ test('the WSL route starts only the System32 wsl.exe: KOLWEN_WSL_EXE no longer e
   const direct = wslLib.wslRun(['-l', '-q'], env);
   assert.equal(direct.status, null, 'the renamed copy of node.exe was not started (a started node.exe exits 9 on -l)');
   assert.ok(direct.error, 'the missing System32 wsl.exe is the failure');
-  const asked = [];
-  const run = args => { asked.push(args); return { status: 1, stdout: Buffer.alloc(0), error: null }; };
-  const r = wslLib.findWslRoute({ env, run });
-  assert.equal(r.kind, 'none', 'no route is refused for a name any more: there is no name to give');
-  assert.equal(asked.length, 1, 'WSL was asked once, through the injected runner');
+  // route discovery with its DEFAULT runner (an injected one never reaches the program selection): it starts the System32 wsl.exe, which is missing here, and not the renamed copy (that one exits 9)
+  const r = wslLib.findWslRoute({ env });
+  assert.equal(r.kind, 'none', 'discovery found no route');
+  assert.match(r.why, /could not be started: ENOENT/, 'the failure is the missing System32 wsl.exe, so the copy named in KOLWEN_WSL_EXE was not started: ' + r.why);
   const h = wslLib.startWslBrowser({ distro: 'Ubuntu', port: 1, lifetimeS: 1, scriptsDir: SCRIPTS_ON_C, env });
   for (let i = 0; i < 100 && !h.exited(); i++) await new Promise(res => setTimeout(res, 50));
   assert.equal(h.spawnError()?.code, 'ENOENT', 'startWslBrowser started the System32 wsl.exe, which is missing here: nothing named in the call is started');
