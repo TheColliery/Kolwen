@@ -778,10 +778,10 @@ test('the WSL route starts only the System32 wsl.exe: KOLWEN_WSL_EXE no longer e
   assert.equal(wslLib.systemWslExe({}), 'C:\\Windows\\System32\\wsl.exe');
 });
 
-// Every script that starts itself when it is run has the same guard, from scripts/lib/entry-guard.mjs (decap-battery keeps its own, which tests the file name and so survives a link): run through a
+// Every script that starts itself when it is run has the same guard, from scripts/lib/entry-guard.mjs: run through a
 // junction or a symlink it does what a direct run does, and an import runs nothing. The scripts run in a bare copy of scripts/ (no web/, no git), where each one ends in its own failure line and a
 // code other than 0: so a silent 0 is the guard's doing and nothing else. A script is added to this list when it starts itself, or the first test below fails.
-const SELF_RUNNING = ['address-check', 'decap-battery', 'font-subset', 'page-weight', 'rendered-check'];
+const SELF_RUNNING = ['address-check', 'decap-battery', 'font-subset', 'page-weight', 'rendered-check', 'reply-language-check'];
 
 // The bare copy and a way to run a script of it: the folder is made here, and nothing outside it is touched.
 function bareCopy() {
@@ -797,13 +797,53 @@ function bareCopy() {
 }
 const importOf = file => ['--input-type=module', '-e', `await import(${JSON.stringify(pathToFileURL(file).href)})`];
 
+// How the scan finds a script that starts itself, and the spellings it refuses (PR #56 round 2, Q-8c: `process.argv.at(1)` and `import.meta.url.endsWith(...)` both passed the first scan). A script may start
+// itself only through isMainModule(import.meta.url); every other way to learn "which file is the main module" is read as a guard of its own. The refused spellings are the text of the source with its
+// comments removed: `import.meta.main` and `import.meta.filename`, a test or compare on `import.meta.url` (a method of the string, or `==` and `===` and their negations), and any use of `process.argv`
+// other than an argument (`argv[2]` to `argv[9]`, `argv.slice(2...)`, `argv.length`): so `argv[1]`, `argv.at(1)`, `argv.at(-1)`, `argv.slice(1)`, a destructuring of it, `process['argv']` and `{ argv } = process`.
+// STATED LIMITS, kept true by the test below: this reads text. A guard that reaches argv through a name built at run time (`Reflect.get(process, 'ar' + 'gv')`), an alias of the whole `process`
+// object (`const p = process; p.argv.at(1)`), or `eval` is not seen; a comment marker inside a string cuts the rest of that line from the scan; and a script that starts itself by a way that reads
+// no path at all (a top-level call that is not behind any guard) is not a "self-running" script but a script that runs on import, which the import test below finds only for the listed ones.
+const stripComments = src => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/[^\n]*/g, '$1');
+const OWN_PATH_SPELLINGS = [
+  /\bimport\.meta\.(?:main|filename)\b/,
+  /\bimport\.meta\.url\s*\.\s*(?:endsWith|startsWith|includes|match|test|indexOf|search|slice|substring)\b/,
+  /\bimport\.meta\.url\s*[!=]==?|[!=]==?\s*import\.meta\.url\b/,
+  /\bprocess\s*\.\s*argv\b(?!\s*\[\s*[2-9]\s*\]|\s*\.\s*slice\(\s*[2-9]|\s*\.\s*length\b)/,
+  /\bprocess\s*\[\s*['"`]argv['"`]\s*\]/,
+  /\{[^}]*\bargv\b[^}]*\}\s*=\s*process\b/,
+];
+const readsOwnPath = src => OWN_PATH_SPELLINGS.some(re => re.test(stripComments(src)));
+const startsItself = src => readsOwnPath(src) || /isMainModule\(import\.meta\.url\)/.test(stripComments(src));
+
+test('the scan for a script that starts itself refuses every other way to ask "am I the main module", and lets an argument and the shared guard through', () => {
+  const planted = [
+    'if (fileURLToPath(import.meta.url) === resolve(process.argv.at(1) ?? "")) main();', 'if (import.meta.main) main();', 'if (import.meta.filename === process.argv[1]) main();',
+    "if (import.meta.url.endsWith('x.mjs')) main();", "if (import.meta.url.includes('x')) main();", 'if (import.meta.url === pathToFileURL(a).href) main();', 'if (pathToFileURL(a).href !== import.meta.url) {}',
+    'if (process.argv[1].endsWith("x.mjs")) main();', 'const [, self] = process.argv;', 'const self = process.argv.slice(1)[0];', 'const self = process.argv.at(-1);', "const argv = process['argv'];",
+    'const { argv } = process; if (argv[1]) main();', 'const a = process.argv; if (a[1]) main();', 'if (process . argv [ 1 ]) main();',
+  ];
+  for (const src of planted) assert.ok(readsOwnPath(src), 'refused: ' + src);
+  const fine = [
+    'const arg = process.argv[2];', 'const args = process.argv.slice(2);', 'for (const a of process.argv.slice(2)) {}', 'if (process.argv.length > 2) {}', 'const x = process.argv[ 3 ];',
+    'const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");', "const u = new URL('lib/x.mjs', import.meta.url);", 'const t = JSON.parse(readFileSync(new URL("./a.json", import.meta.url)));',
+    'if (isMainModule(import.meta.url)) main();', '// process.argv[1] is only named in this comment', '/* import.meta.main, in a block comment */ const a = 1;',
+  ];
+  for (const src of fine) assert.ok(!readsOwnPath(src), 'allowed: ' + src);
+  assert.ok(startsItself('if (isMainModule(import.meta.url)) main();') && startsItself('if (import.meta.main) main();') && !startsItself('const arg = process.argv[2];'));
+  // the stated limits: not seen
+  for (const src of ["Reflect.get(process, 'ar' + 'gv').at(1)", 'const p = process; p.argv.at(1);']) assert.ok(!readsOwnPath(src), 'a stated limit: ' + src);
+});
+
 // No link here: these hold wherever the test runs, so a system that cannot make a link still checks them (CodeRabbit 4309062056, 4309062060).
 test('the self-running scripts of scripts/ are exactly the list this test checks, none compares its path lexically, each says something and fails in a bare copy, and an import of each runs nothing', () => {
   const scripts = readdirSync(join(ROOT, 'scripts')).filter(f => /\.mjs$/.test(f) && !/\.test\.mjs$/.test(f)), source = f => readFileSync(join(ROOT, 'scripts', f), 'utf8');
-  const found = scripts.filter(f => /isMainModule\(import\.meta\.url\)|process\.argv\[1\]/.test(source(f))).map(f => f.replace(/\.mjs$/, '')).sort();
+  const found = scripts.filter(f => startsItself(source(f))).map(f => f.replace(/\.mjs$/, '')).sort();
   assert.deepEqual(found, [...SELF_RUNNING].sort(), 'a script that starts itself is in SELF_RUNNING, or it does not start itself: the list is what the link test below walks');
-  const lexical = scripts.filter(f => /resolve\(process\.argv\[1\]\)\s*===|pathToFileURL\(process\.argv\[1\]|import\.meta\.url\s*===/.test(source(f)));
-  assert.deepEqual(lexical, [], 'no script compares its path lexically: a junction or a symlink would make it exit 0 having done nothing');
+  const lexical = scripts.filter(f => readsOwnPath(source(f)));
+  assert.deepEqual(lexical, [], 'no script reads its own path or asks "am I the main module" in its own words: a junction or a symlink would make it exit 0 having done nothing, and a file name test runs on an import');
+  const unguarded = SELF_RUNNING.filter(name => !/isMainModule\(import\.meta\.url\)/.test(stripComments(source(name + '.mjs'))));
+  assert.deepEqual(unguarded, [], 'every self-running script starts through isMainModule(import.meta.url) of scripts/lib/entry-guard.mjs');
   const { real, run } = bareCopy();
   for (const name of SELF_RUNNING) {
     const direct = run([join(real, name + '.mjs')]);
@@ -812,6 +852,20 @@ test('the self-running scripts of scripts/ are exactly the list this test checks
     const imported = run(importOf(join(real, name + '.mjs')));
     assert.equal(imported.status, 0, name + ': an import runs nothing: ' + imported.stderr);
     assert.equal(imported.stdout + imported.stderr, '', name);
+  }
+});
+
+// Q-10: decap-battery once started on the NAME of the file it was run as (`argv[1].endsWith('decap-battery.mjs')`), so any file with that name that merely imports it ran the whole command line. It starts
+// through isMainModule now: a same-named file that imports it runs nothing (the old guard ran the label printer, or ended in a crash for want of web/ic.json in the bare copy).
+test('decap-battery and reply-language-check start only as the main module: a file of the same name that imports each of them runs nothing', () => {
+  const { root, real, run } = bareCopy();
+  for (const name of ['decap-battery', 'reply-language-check']) {
+    const dir = join(root, 'spoof-' + name);
+    mkdirSync(dir);
+    writeFileSync(join(dir, name + '.mjs'), `await import(${JSON.stringify(pathToFileURL(join(real, name + '.mjs')).href)});\n`);
+    const r = run([join(dir, name + '.mjs'), name === 'decap-battery' ? '--label' : '--scan']);
+    assert.equal(r.status, 0, name + ': ' + r.stderr);
+    assert.equal(r.stdout + r.stderr, '', name + ': an import by a file of the same name runs nothing');
   }
 });
 
