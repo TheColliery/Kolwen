@@ -749,6 +749,25 @@ test('a HEAD request gets no body and a GET the whole page, on whichever route t
   } finally { await page.close(); await server.close(); }
 });
 
+// Q-11: a page listens for the browser's events (Log.entryAdded, Network.*, Fetch.requestPaused, Page.loadEventFired), and the connection used to keep every handler for as long as it lived, so a long
+// run held one set per page ever opened, each filtering on a session id that no longer existed. A closed page now takes its handlers with it, and a load wait takes its own away once it is over.
+test('a page that is closed leaves no event handler on the connection, and a navigation leaves none behind', { skip: SKIP }, async () => {
+  const server = await browser.serve(join(ROOT, 'web'), { headers: false });
+  const base = browser.listenerCount();
+  try {
+    for (let round = 0; round < 3; round++) {
+      const page = await browser.newPage();
+      const open = browser.listenerCount();
+      assert.ok(open > base, 'an open page holds its handlers');
+      await page.goto(server.origin + '/');
+      await page.goto(server.origin + '/pricing');
+      assert.equal(browser.listenerCount(), open, 'a finished navigation leaves no handler of its own');
+      await page.close();
+      assert.equal(browser.listenerCount(), base, 'a closed page leaves none (round ' + round + ')');
+    }
+  } finally { await server.close(); }
+});
+
 test('the WSL route starts only the System32 wsl.exe: KOLWEN_WSL_EXE no longer exists, so a renamed binary is never started', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'kolwen-test-wsl-'));
   copies.push(dir);
