@@ -10,16 +10,16 @@
 // the distro, Windows drives it over DevTools, and the pages travel over that same channel (Fetch.fulfillRequest, scripts/lib/browser.mjs) from the one Node responder.
 // Node builtins only.
 import { spawn, spawnSync } from 'node:child_process';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const WSL_EXE_ENV = 'KOLWEN_WSL_EXE'; // the program to start instead of wsl.exe: only one NAMED wsl.exe (a test makes it a path that does not exist, or a stand-in), never any other program
-const WSL_NAME = /(^|[\\/])wsl\.exe$/i; // the last path segment is wsl.exe (any case, either separator); a trailing separator, or any other name, is not it
-
-// The program that stands for wsl.exe: { exe } when it is named wsl.exe, otherwise { exe, why } and nothing may start it (KOLWEN_WSL_EXE=msedge.exe would start a person's Edge).
-export function wslExe(env = process.env) {
-  const exe = env[WSL_EXE_ENV] || 'wsl.exe';
-  return WSL_NAME.test(exe) ? { exe } : { exe, why: `${WSL_EXE_ENV} names ${exe}, which is not wsl.exe: this check starts no other program there` };
+// The program the route starts is ONE file: <SystemRoot>/System32/wsl.exe, built from %windir% (then %SystemRoot%, then C:/Windows: Windows sets both to one folder) and from nothing a caller names. There is no knob for another
+// program: an earlier KOLWEN_WSL_EXE checked only that the name ended in wsl.exe, so a renamed copy of any program passed (measured: a node.exe saved as <dir>/wsl.exe was started). A test that needs
+// WSL absent points windir at an empty folder (not SystemRoot: a node process started with a wrong SystemRoot aborts, exit 134, measured), and one that needs a stand-in for its answers injects the
+// runner (findWslRoute's run). Limit: the environment is the person's own, so a windir they point at a folder of their making starts what they put there; this check defends against a mistaken name, not against the account that runs it.
+export function systemWslExe(env = process.env) {
+  const root = env.windir || env.SystemRoot || 'C:\\Windows';
+  return win32.join(root, 'System32', 'wsl.exe');
 }
 export const STABLE_SHELL = '~/tools/chrome-headless-shell-linux64/chrome-headless-shell';
 export const WSL_SCRIPTS = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'wsl');
@@ -39,21 +39,17 @@ export function decodeWslText(buf) {
   return text.replace(/\0/g, '');
 }
 
-// Run wsl.exe with an argument list (never a shell string). `run` is injectable so a test needs no WSL.
+// Run the System32 wsl.exe with an argument list (never a shell string). `run` is injectable (findWslRoute) so a test needs no WSL.
 export function wslRun(args, env = process.env) {
-  const w = wslExe(env);
-  if (w.why) return { status: null, stdout: Buffer.alloc(0), error: new Error(w.why) };
-  const r = spawnSync(w.exe, args, { timeout: 60000, windowsHide: true });
+  const r = spawnSync(systemWslExe(env), args, { timeout: 60000, windowsHide: true });
   return { status: r.status, stdout: r.stdout ?? Buffer.alloc(0), error: r.error ?? null };
 }
 
-// The route: { kind: 'wsl', exe, distro } when the distro exists AND the headless shell is executable at the stable path, otherwise { kind: 'none', why } saying which of the two is missing.
+// The route: { kind: 'wsl', distro } when the distro exists AND the headless shell is executable at the stable path, otherwise { kind: 'none', why } saying which of the two is missing.
 // `distro` asks for one by name (KOLWEN_BROWSER=wsl:<name>); without it the first distro that is not Docker's is used.
 export function findWslRoute({ env = process.env, run = wslRun, distro = null, scriptsDir = WSL_SCRIPTS } = {}) {
-  const { exe, why } = wslExe(env);
-  if (why) return { kind: 'refused', why };
   const listed = run(['-l', '-q'], env);
-  if (listed.error || listed.status !== 0) return { kind: 'none', why: `WSL is not available here (${exe} ${listed.error ? 'could not be started: ' + (listed.error.code ?? listed.error.message) : 'exited ' + listed.status})` };
+  if (listed.error || listed.status !== 0) return { kind: 'none', why: `WSL is not available here (wsl.exe ${listed.error ? 'could not be started: ' + (listed.error.code ?? listed.error.message) : 'exited ' + listed.status})` };
   const names = decodeWslText(listed.stdout).split(/\r?\n/).map(s => s.trim()).filter(s => s && !/^docker-desktop/i.test(s));
   const name = distro ? names.find(n => n === distro) : names[0];
   if (!name) return { kind: 'none', why: distro ? `WSL has no distro named ${distro}` : 'WSL has no distro' };
@@ -61,15 +57,14 @@ export function findWslRoute({ env = process.env, run = wslRun, distro = null, s
   if (!probe) return { kind: 'none', why: `the repository is not on a drive the distro can see (${scriptsDir})` };
   const probed = run(['-d', name, '--exec', 'bash', probe], env);
   if (probed.error || !/kolwen-wsl: OK/.test(decodeWslText(probed.stdout))) return { kind: 'none', why: `the headless shell is not executable at ${STABLE_SHELL} in the WSL distro ${name}` };
-  return { kind: 'wsl', exe, distro: name };
+  return { kind: 'wsl', distro: name };
 }
 
 // Start the browser script in the distro. Returns { child, output(), exited(), kill() }; output() is what the script and the browser printed so far.
-export function startWslBrowser({ exe, distro, port, lifetimeS, scriptsDir = WSL_SCRIPTS }) {
-  if (!WSL_NAME.test(exe)) throw new Error(`${exe} is not wsl.exe: this check starts no other program there`);
+export function startWslBrowser({ distro, port, lifetimeS, scriptsDir = WSL_SCRIPTS, env = process.env }) {
   const script = toWslPath(join(scriptsDir, 'browser-run.sh'));
   if (!script) throw new Error(`the repository is not on a drive the distro can see (${scriptsDir})`);
-  const child = spawn(exe, ['-d', distro, '--exec', 'bash', script, String(port), String(lifetimeS)], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+  const child = spawn(systemWslExe(env), ['-d', distro, '--exec', 'bash', script, String(port), String(lifetimeS)], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
   let text = '', done = false, spawnError = null;
   const take = d => { if (text.length < 20000) text += decodeWslText(d); };
   child.stdout.on('data', take);

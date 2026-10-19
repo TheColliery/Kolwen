@@ -41,6 +41,25 @@ export function decodeEntities(s) {
   });
 }
 
+// The same decoding for the VALUE OF AN ATTRIBUTE (WHATWG HTML, "Character reference state"): one difference from text. A legacy name with no `;` that is followed by `=` or a letter or digit stays
+// as written (`href="/a?x=1&copy=2"` is a query, not the copyright sign); a terminated name and a numeric reference decode as in text. An unknown terminated name throws, as in decodeEntities.
+export function decodeAttribute(s) {
+  return s.replace(/&(?:#x([0-9a-f]+)|#([0-9]+)|([a-z][a-z0-9]*))(;?)/gi, (m, hex, dec, name, semi, offset) => {
+    if (hex || dec) return numeric(hex ? parseInt(hex, 16) : Number(dec));
+    if (semi) {
+      if (NAMED.has(name)) return NAMED.get(name);
+      if (name.length < SHORTEST_NAME) return m;
+      throw new Error('rendered-text: unknown character reference ' + m);
+    }
+    for (let n = Math.min(name.length, LONGEST_LEGACY); n > 0; n--) {
+      if (!LEGACY.has(name.slice(0, n))) continue;
+      const next = n < name.length ? name[n] : s[offset + m.length] ?? '';
+      return /[a-z0-9=]/i.test(next) ? m : NAMED.get(name.slice(0, n)) + name.slice(n);
+    }
+    return m;
+  });
+}
+
 // CSS string escapes, decoded in ONE pass (two passes read the backslash of `\\00ff`, an escaped backslash, as the start of a hex escape): a backslash and 1 to 6 hex digits (and one space that ends them), where 0, a surrogate
 // and a value above U+10FFFF are U+FFFD; a backslash and a line break, which continues the string and draws nothing; or a backslash and any other character, which is that character.
 const cssUnescape = s => s.replace(/\\(?:([0-9a-f]{1,6})(?:\r\n|[ \t\r\n\f])?|(\r\n|[\s\S]))/gi, (m, h, c) => {

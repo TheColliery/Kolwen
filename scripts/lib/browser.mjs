@@ -203,7 +203,7 @@ class Connection {
         this.pending.delete(msg.id);
         clearTimeout(p.timer);
         if (msg.error) p.reject(new Error(`${p.method}: ${msg.error.message}`)); else p.resolve(msg.result);
-      } else for (const h of this.handlers.get(msg.method) ?? []) h(msg.params, msg.sessionId);
+      } else for (const h of [...(this.handlers.get(msg.method) ?? [])]) h(msg.params, msg.sessionId); // a copy: a handler may remove itself
     });
     ws.addEventListener('close', () => { for (const [, p] of this.pending) { clearTimeout(p.timer); p.reject(new Error(`${p.method}: the browser closed the connection`)); } this.pending.clear(); });
   }
@@ -215,7 +215,12 @@ class Connection {
       this.ws.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }));
     });
   }
-  on(event, handler) { (this.handlers.get(event) ?? this.handlers.set(event, []).get(event)).push(handler); }
+  // Returns the function that takes the handler away again (a page does that when it closes).
+  on(event, handler) {
+    (this.handlers.get(event) ?? this.handlers.set(event, []).get(event)).push(handler);
+    return () => { const list = this.handlers.get(event); const i = list ? list.indexOf(handler) : -1; if (i >= 0) list.splice(i, 1); if (list && !list.length) this.handlers.delete(event); };
+  }
+  listenerCount() { let n = 0; for (const list of this.handlers.values()) n += list.length; return n; }
 }
 
 // The switches both routes start the browser with (the native arguments below; scripts/wsl/browser-run.sh carries the same list, and a test holds the two to each other): no sync, no component
@@ -249,6 +254,8 @@ async function drive({ endpoint, profile, label, commandTimeoutMs, isExited, cle
     },
     // Browser-level protocol commands, for a test that has to reach the default context.
     send: (method, params) => conn.send(method, params),
+    // How many protocol event handlers the connection holds: a test reads it to hold that a closed page leaves none behind.
+    listenerCount: () => conn.listenerCount(),
     // The cookies of the profile's DEFAULT context, names and domains only. Read, never cleared.
     async defaultCookies() { return (await conn.send('Storage.getCookies', {})).cookies.map(shown); },
     // A page in a browser context of its own (see EVERY PAGE IN A CONTEXT OF ITS OWN above); page.close() disposes the context.
@@ -262,16 +269,18 @@ async function drive({ endpoint, profile, label, commandTimeoutMs, isExited, cle
       await send('Runtime.enable');
       await send('Log.enable');
       await send('Network.enable');
+      const offs = []; // takes every handler this page added away again when it closes
+      const listen = (event, handler) => { offs.push(conn.on(event, handler)); };
       const logs = []; // what the browser itself reports: a Content-Security-Policy violation arrives here (source 'security')
-      conn.on('Log.entryAdded', (p, sid) => { if (sid === sessionId) logs.push({ source: p.entry.source, level: p.entry.level, text: p.entry.text, url: p.entry.url }); });
+      listen('Log.entryAdded', (p, sid) => { if (sid === sessionId) logs.push({ source: p.entry.source, level: p.entry.level, text: p.entry.text, url: p.entry.url }); });
       const resourceFailures = []; // a request that failed, with its address: [{ url, errorText }]
       const urls = new Map();
-      conn.on('Network.requestWillBeSent', (p, sid) => { if (sid === sessionId) urls.set(p.requestId, p.request.url); });
-      conn.on('Network.loadingFailed', (p, sid) => { if (sid === sessionId) resourceFailures.push({ url: urls.get(p.requestId) ?? '', errorText: p.errorText }); });
+      listen('Network.requestWillBeSent', (p, sid) => { if (sid === sessionId) urls.set(p.requestId, p.request.url); });
+      listen('Network.loadingFailed', (p, sid) => { if (sid === sessionId) resourceFailures.push({ url: urls.get(p.requestId) ?? '', errorText: p.errorText }); });
       if (channel && web.responder) {
         // the pages of this origin are answered here, over the channel
         await send('Fetch.enable', { patterns: [{ urlPattern: `${web.origin}/*`, requestStage: 'Request' }] });
-        conn.on('Fetch.requestPaused', (p, sid) => {
+        listen('Fetch.requestPaused', (p, sid) => {
           if (sid !== sessionId) return;
           let out = null;
           try { out = web.responder ? web.responder(p.request.url) : null; } catch { out = null; }
@@ -292,8 +301,9 @@ async function drive({ endpoint, profile, label, commandTimeoutMs, isExited, cle
         async cookies() { return (await conn.send('Storage.getCookies', { browserContextId })).cookies.map(shown); },
         async goto(url) {
           const loaded = new Promise((res, rej) => {
-            const timer = setTimeout(() => rej(new Error(`${url}: the page did not finish loading in ${commandTimeoutMs} ms`)), commandTimeoutMs);
-            conn.on('Page.loadEventFired', (_p, sid) => { if (sid === sessionId) { clearTimeout(timer); res(); } });
+            let off = () => {};
+            const timer = setTimeout(() => { off(); rej(new Error(`${url}: the page did not finish loading in ${commandTimeoutMs} ms`)); }, commandTimeoutMs);
+            off = conn.on('Page.loadEventFired', (_p, sid) => { if (sid === sessionId) { clearTimeout(timer); off(); res(); } }); // this wait's own handler goes when the wait is over
           });
           await send('Page.navigate', { url });
           await loaded;
@@ -309,6 +319,7 @@ async function drive({ endpoint, profile, label, commandTimeoutMs, isExited, cle
         async close() {
           try { await conn.send('Target.closeTarget', { targetId }); } catch { /* the browser may be gone */ }
           try { await conn.send('Target.disposeBrowserContext', { browserContextId }); } catch { /* the browser may be gone */ }
+          for (const off of offs.splice(0)) off();
         },
       };
     },
@@ -371,7 +382,7 @@ async function launchNative(binary, { lifetimeMs, commandTimeoutMs, ci }) {
 // forwarding; the port is a free one on Windows, chosen here, and the script is told to bind it inside the distro.
 async function launchWsl(route, { lifetimeMs, commandTimeoutMs }) {
   const port = await freePort();
-  const run = startWslBrowser({ exe: route.exe, distro: route.distro, port, lifetimeS: Math.ceil(lifetimeMs / 1000) + 5 });
+  const run = startWslBrowser({ distro: route.distro, port, lifetimeS: Math.ceil(lifetimeMs / 1000) + 5 });
   const cleanup = async () => {
     if (!run.exited()) await wait(0);
     for (let i = 0; i < 150 && !run.exited(); i++) await wait(100); // the script ends the browser and removes its folder when the browser closes

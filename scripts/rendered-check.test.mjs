@@ -10,12 +10,13 @@ import assert from 'node:assert/strict';
 import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve, win32 } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { findBrowser, findRoute, launchBrowser, BROWSER_ENV, EXIT_NOT_RUN_HERE } from './lib/browser.mjs';
 import * as browserLib from './lib/browser.mjs'; // devToolsEndpoint, profilePath, lockProfile and the rest are used through the namespace
-import * as wslLib from './lib/wsl-route.mjs'; // toWslPath, decodeWslText, findWslRoute
+import * as wslLib from './lib/wsl-route.mjs';
+import { stripComments, readsOwnPath, startsItself } from './lib/entry-scan.mjs'; // toWslPath, decodeWslText, findWslRoute
 import { makeResponder } from './lib/static-server.mjs';
 import { renderedChecks, urlPathOf } from './rendered-check.mjs';
 import * as checkLib from './rendered-check.mjs'; // classifyLogs
@@ -31,6 +32,8 @@ const SKIP_WSL = SKIP || (WSL ? false : 'the WSL route only');
 
 let browser = null;
 const copies = [];
+// An environment whose windir is the given folder, with no other spelling of it left (a copy of process.env can hold WINDIR, and the child would then read either one): the System32 wsl.exe is not under it. windir and not SystemRoot, because a node child started with a wrong SystemRoot aborts (exit 134).
+const withWindir = (env, dir) => ({ ...Object.fromEntries(Object.entries(env).filter(([k]) => !/^windir$/i.test(k))), windir: dir });
 before(async () => { if (USABLE) browser = await launchBrowser({ route, lifetimeMs: 600000 }); });
 after(async () => { if (browser) await browser.close(); for (const d of copies) rmSync(d, { recursive: true, force: true }); });
 
@@ -600,13 +603,13 @@ test('on Windows the command line without WSL says "not run here" in one line an
   copies.push(home);
   const env = { ...process.env, HOME: home, USERPROFILE: home, TEMP: home, TMP: home, TMPDIR: home, CI: '' };
   delete env[BROWSER_ENV];
-  // WSL made unreachable: the program that would be started is a path that does not exist
-  const noWsl = spawnSync(process.execPath, ['--max-old-space-size=256', script], { encoding: 'utf8', timeout: 60000, env: { ...env, [wslLib.WSL_EXE_ENV]: join(tmpdir(), 'no-such-dir', 'wsl.exe') } });
+  // WSL made unreachable: windir is a folder that does not exist, so the System32 wsl.exe is not there
+  const noWsl = spawnSync(process.execPath, ['--max-old-space-size=256', script], { encoding: 'utf8', timeout: 60000, env: withWindir(env, join(tmpdir(), 'no-such-dir')) });
   assert.equal(noWsl.status, EXIT_NOT_RUN_HERE);
   assert.match(noWsl.stdout, /NOT RUN HERE rendered-check: WSL is not available here .* did not run here\. This is not a pass/);
   assert.equal(noWsl.stdout.trim().split('\n').length, 1, 'one line');
   // an existing Windows program named as the browser: refused, and nothing is started (the program is node itself, so it cannot be mistaken for a browser launch)
-  const refused = spawnSync(process.execPath, ['--max-old-space-size=256', script], { encoding: 'utf8', timeout: 60000, env: { ...env, [BROWSER_ENV]: process.execPath, [wslLib.WSL_EXE_ENV]: join(tmpdir(), 'no-such-dir', 'wsl.exe') } });
+  const refused = spawnSync(process.execPath, ['--max-old-space-size=256', script], { encoding: 'utf8', timeout: 60000, env: withWindir({ ...env, [BROWSER_ENV]: process.execPath }, join(tmpdir(), 'no-such-dir')) });
   assert.equal(refused.status, EXIT_NOT_RUN_HERE);
   assert.match(refused.stdout, /NOT RUN HERE rendered-check: KOLWEN_BROWSER names .*, which is not the WSL route: on Windows this check never starts a Windows browser/);
 });
@@ -643,7 +646,7 @@ const SCRIPTS_ON_C = win('C:', 'repo', 'scripts', 'wsl'); // the scripts folder 
 test('findRoute on Windows: only the WSL route; the distro must exist AND the headless shell must be at its stable path; a Windows browser in KOLWEN_BROWSER is refused', () => {
   const calls = [];
   const ok = findRoute({}, 'win32', { scriptsDir: SCRIPTS_ON_C, run: fakeWsl({ calls }) });
-  assert.deepEqual(ok, { kind: 'wsl', exe: 'wsl.exe', distro: 'Ubuntu' });
+  assert.deepEqual(ok, { kind: 'wsl', distro: 'Ubuntu' });
   const probe = calls.find(a => a[0] === '-d');
   assert.deepEqual(probe.slice(0, 4), ['-d', 'Ubuntu', '--exec', 'bash'], 'argv, started without a shell: nothing is a string a shell parses');
   assert.match(probe[4], /^\/mnt\/[a-z]\/.*\/scripts\/wsl\/probe\.sh$/);
@@ -747,32 +750,57 @@ test('a HEAD request gets no body and a GET the whole page, on whichever route t
   } finally { await page.close(); await server.close(); }
 });
 
-test('KOLWEN_WSL_EXE accepts only a program named wsl.exe: any other program is refused, and nothing is started', () => {
-  const asked = [];
-  const run = args => { asked.push(args); return { status: 1, stdout: Buffer.alloc(0), error: null }; };
-  for (const other of [process.execPath, 'msedge.exe', 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe', '/usr/bin/wsl', 'wsl.exe.bak', 'xwsl.exe', 'C:\\x\\wsl.exe\\']) {
-    const r = wslLib.findWslRoute({ env: { [wslLib.WSL_EXE_ENV]: other }, run });
-    assert.equal(r.kind, 'refused', other);
-    assert.match(r.why, /KOLWEN_WSL_EXE names .*, which is not wsl\.exe: this check starts no other program there$/, other);
-    const direct = wslLib.wslRun(['-l', '-q'], { [wslLib.WSL_EXE_ENV]: other });
-    assert.equal(direct.status, null, 'wslRun starts nothing for ' + other);
-    assert.ok(direct.error, other);
-    assert.throws(() => wslLib.startWslBrowser({ exe: other, distro: 'Ubuntu', port: 1, lifetimeS: 1, scriptsDir: SCRIPTS_ON_C }), /is not wsl\.exe/, other);
-  }
-  assert.deepEqual(asked, [], 'WSL was never asked');
-  // a missing path, or a stand-in, is accepted when it is NAMED wsl.exe (any case, either separator); unset means wsl.exe itself
-  for (const named of [join(tmpdir(), 'no-such-dir', 'wsl.exe'), 'C:\\no\\such\\WSL.EXE', '/no/such/wsl.exe', undefined]) {
-    const r = wslLib.findWslRoute({ env: named ? { [wslLib.WSL_EXE_ENV]: named } : {}, run });
-    assert.equal(r.kind, 'none', String(named));
-    assert.match(r.why, /^WSL is not available here/, String(named));
-  }
-  assert.equal(asked.length, 4, 'the four accepted names each asked WSL once');
+// Q-11: a page listens for the browser's events (Log.entryAdded, Network.*, Fetch.requestPaused, Page.loadEventFired), and the connection used to keep every handler for as long as it lived, so a long
+// run held one set per page ever opened, each filtering on a session id that no longer existed. A closed page now takes its handlers with it, and a load wait takes its own away once it is over.
+test('a page that is closed leaves no event handler on the connection, and a navigation leaves none behind', { skip: SKIP }, async () => {
+  const server = await browser.serve(join(ROOT, 'web'), { headers: false });
+  const base = browser.listenerCount();
+  try {
+    for (let round = 0; round < 3; round++) {
+      const page = await browser.newPage();
+      const open = browser.listenerCount();
+      assert.ok(open > base, 'an open page holds its handlers');
+      await page.goto(server.origin + '/');
+      await page.goto(server.origin + '/pricing');
+      assert.equal(browser.listenerCount(), open, 'a finished navigation leaves no handler of its own');
+      await page.close();
+      assert.equal(browser.listenerCount(), base, 'a closed page leaves none (round ' + round + ')');
+    }
+  } finally { await server.close(); }
 });
 
-// Every script that starts itself when it is run has the same guard, from scripts/lib/entry-guard.mjs (decap-battery keeps its own, which tests the file name and so survives a link): run through a
+test('the WSL route starts only the System32 wsl.exe: KOLWEN_WSL_EXE no longer exists, so a renamed binary is never started', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'kolwen-test-wsl-'));
+  copies.push(dir);
+  // the reviewer's witness: a copy of node.exe saved as <odd dir>/wsl.exe is NAMED wsl.exe, and the old name check let it through
+  const odd = join(dir, 'odd dir');
+  mkdirSync(odd);
+  const renamed = join(odd, 'wsl.exe');
+  cpSync(process.execPath, renamed);
+  const root = join(dir, 'root'); // a windir with no System32: the system wsl.exe is not there
+  mkdirSync(root);
+  const env = { KOLWEN_WSL_EXE: renamed, windir: root, SystemRoot: root };
+  assert.equal(wslLib.systemWslExe(env), win32.join(root, 'System32', 'wsl.exe'), 'the program is derived from SystemRoot and from nothing else');
+  const direct = wslLib.wslRun(['-l', '-q'], env);
+  assert.equal(direct.status, null, 'the renamed copy of node.exe was not started (a started node.exe exits 9 on -l)');
+  assert.ok(direct.error, 'the missing System32 wsl.exe is the failure');
+  // route discovery with its DEFAULT runner (an injected one never reaches the program selection): it starts the System32 wsl.exe, which is missing here, and not the renamed copy (that one exits 9)
+  const r = wslLib.findWslRoute({ env });
+  assert.equal(r.kind, 'none', 'discovery found no route');
+  assert.match(r.why, /could not be started: ENOENT/, 'the failure is the missing System32 wsl.exe, so the copy named in KOLWEN_WSL_EXE was not started: ' + r.why);
+  const h = wslLib.startWslBrowser({ distro: 'Ubuntu', port: 1, lifetimeS: 1, scriptsDir: SCRIPTS_ON_C, env });
+  for (let i = 0; i < 100 && !h.exited(); i++) await new Promise(res => setTimeout(res, 50));
+  assert.equal(h.spawnError()?.code, 'ENOENT', 'startWslBrowser started the System32 wsl.exe, which is missing here: nothing named in the call is started');
+  // windir unset: SystemRoot, then C:\Windows
+  assert.equal(wslLib.systemWslExe({ windir: 'D:\\W' }), 'D:\\W\\System32\\wsl.exe');
+  assert.equal(wslLib.systemWslExe({ SystemRoot: 'E:\\R' }), 'E:\\R\\System32\\wsl.exe');
+  assert.equal(wslLib.systemWslExe({}), 'C:\\Windows\\System32\\wsl.exe');
+});
+
+// Every script that starts itself when it is run has the same guard, from scripts/lib/entry-guard.mjs: run through a
 // junction or a symlink it does what a direct run does, and an import runs nothing. The scripts run in a bare copy of scripts/ (no web/, no git), where each one ends in its own failure line and a
 // code other than 0: so a silent 0 is the guard's doing and nothing else. A script is added to this list when it starts itself, or the first test below fails.
-const SELF_RUNNING = ['address-check', 'decap-battery', 'font-subset', 'page-weight', 'rendered-check'];
+const SELF_RUNNING = ['address-check', 'decap-battery', 'font-subset', 'page-weight', 'rendered-check', 'reply-language-check'];
 
 // The bare copy and a way to run a script of it: the folder is made here, and nothing outside it is touched.
 function bareCopy() {
@@ -781,20 +809,77 @@ function bareCopy() {
   const real = join(root, 'real'), work = join(root, 'work');
   cpSync(join(ROOT, 'scripts'), real, { recursive: true });
   mkdirSync(work);
-  const env = { ...process.env, HOME: work, USERPROFILE: work, TEMP: work, TMP: work, TMPDIR: work, CI: 'true', [BROWSER_ENV]: join(tmpdir(), 'no-such-dir', 'no-such-browser') };
-  if (process.platform === 'win32') env[wslLib.WSL_EXE_ENV] = join(tmpdir(), 'no-such-dir', 'wsl.exe');
+  let env = { ...process.env, HOME: work, USERPROFILE: work, TEMP: work, TMP: work, TMPDIR: work, CI: 'true', [BROWSER_ENV]: join(tmpdir(), 'no-such-dir', 'no-such-browser') };
+  if (process.platform === 'win32') env = withWindir(env, join(tmpdir(), 'no-such-dir'));
   const run = args => spawnSync(process.execPath, ['--max-old-space-size=256', ...args], { encoding: 'utf8', timeout: 60000, env, cwd: work });
   return { root, real, run };
 }
 const importOf = file => ['--input-type=module', '-e', `await import(${JSON.stringify(pathToFileURL(file).href)})`];
 
+// How the scan finds a script that starts itself, and the spellings it refuses, is scripts/lib/entry-scan.mjs (header). STATED LIMITS, kept true by the test below: it reads text. A guard that reaches argv
+// through a name built at run time (`Reflect.get(process, 'ar' + 'gv')`), an alias of the whole `process` object (`const p = process; p.argv.at(1)`), `eval`, or a compare that reaches
+// `import.meta.url` through a call other than fileURLToPath (`new URL(import.meta.url).pathname === x`) is not seen; a comment marker inside a string cuts the rest of that line from the scan;
+// and a script that starts itself by a way that reads no path at all (a top-level call that is not behind any guard) is not a "self-running" script but a script that runs on import, which the
+// import test below finds only for the listed ones.
+test('the scan for a script that starts itself refuses the ways to ask "am I the main module" that it can read, and lets an argument and the shared guard through', () => {
+  const planted = [
+    'if (fileURLToPath(import.meta.url) === resolve(process.argv.at(1) ?? "")) main();', 'if (import.meta.main) main();', 'if (import.meta.filename === process.argv[1]) main();',
+    "if (import.meta.url.endsWith('x.mjs')) main();", "if (import.meta.url.includes('x')) main();", 'if (import.meta.url === pathToFileURL(a).href) main();', 'if (pathToFileURL(a).href !== import.meta.url) {}',
+    'if (process.argv[1].endsWith("x.mjs")) main();', 'const [, self] = process.argv;', 'const self = process.argv.slice(1)[0];', 'const self = process.argv.at(-1);', "const argv = process['argv'];",
+    'const { argv } = process; if (argv[1]) main();', 'const a = process.argv; if (a[1]) main();', 'if (process . argv [ 1 ]) main();',
+    // PR #58 round 1 (CodeRabbit 4309797621): a compare that reaches import.meta.url through fileURLToPath is a guard of its own, on either side
+    'if (fileURLToPath(import.meta.url) === x) main();', 'if (x === fileURLToPath(import.meta.url)) main();', 'if (fileURLToPath( import.meta.url ) !== y) return;',
+    // the reviewer's L-3 turned round: the argument reads that remain refused ask which file is the main module
+    'const [, self] = process.argv; const [, , a] = process.argv; const s = process.argv[1];', 'process.argv.includes(selfPath)', 'process.argv.indexOf(__filename)', 'process.argv.at(2)', 'process.argv[0]',
+    'const { x, argv: a } = process;', 'const { x, y: z, argv = [] } = process;',
+  ];
+  for (const src of planted) assert.ok(readsOwnPath(src), 'refused: ' + src);
+  const fine = [
+    'const arg = process.argv[2];', 'const args = process.argv.slice(2);', 'for (const a of process.argv.slice(2)) {}', 'if (process.argv.length > 2) {}', 'const x = process.argv[ 3 ];',
+    'const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");', "const u = new URL('lib/x.mjs', import.meta.url);", 'const t = JSON.parse(readFileSync(new URL("./a.json", import.meta.url)));',
+    'if (isMainModule(import.meta.url)) main();', '// process.argv[1] is only named in this comment', '/* import.meta.main, in a block comment */ const a = 1;',
+    // PR #58 round 1 (the reviewer's L-3): reading an argument is no question about the main module
+    "if (process.argv.includes('--help')) usage();", "const web = process.argv.indexOf('--web') !== -1;", 'const [, , ...args] = process.argv;', 'const [,, first, second] = process.argv;', 'const x = process.argv[10];',
+    'const rest = process.argv.slice(2).filter(a => a !== "--write");', "const w = process.argv.slice(3).includes('--write');",
+  ];
+  for (const src of fine) assert.ok(!readsOwnPath(src), 'allowed: ' + src);
+  assert.ok(startsItself('if (isMainModule(import.meta.url)) main();') && startsItself('if (import.meta.main) main();') && !startsItself('const arg = process.argv[2];'));
+  // the stated limits: not seen
+  for (const src of ["Reflect.get(process, 'ar' + 'gv').at(1)", 'const p = process; p.argv.at(1);', 'if (new URL(import.meta.url).pathname === x) main();']) assert.ok(!readsOwnPath(src), 'a stated limit: ' + src);
+});
+
+// PR #58 round 1, the reviewer's L-4: a pattern of the helper took time cubic in the input (a `{ argv ` run with no closing brace: 6.2 s at 11,200 characters) and its comment stripper quadratic (an unclosed
+// `/* a ` run). Not a wall-clock assertion: the helper runs in a child under a kill-timeout and a heap cap, and the test asserts that the child FINISHED.
+test('the scan helpers finish on bulk input that gives their patterns nothing to match: every input ends the child itself, never by the kill', () => {
+  const lib = pathToFileURL(join(ROOT, 'scripts/lib/entry-scan.mjs')).href;
+  const child = `
+    const { readsOwnPath, startsItself, stripComments } = await import(${JSON.stringify(lib)});
+    const N = 40000;
+    const inputs = [
+      '{ argv '.repeat(N), '{ a, '.repeat(N), '{' + ' a,'.repeat(N), '/* a '.repeat(N), '/* a */ '.repeat(N), '// a '.repeat(N), 'process . '.repeat(N), 'process.argv.'.repeat(N), 'process.argv[ '.repeat(N),
+      '[ , ,'.repeat(N), '[' + ' ,'.repeat(N), 'process.argv.includes('.repeat(N), 'import.meta.url '.repeat(N), 'fileURLToPath( import.meta.url '.repeat(N), ' '.repeat(N * 4) + '{', '{' + ' '.repeat(N * 4),
+      '{ ' + 'a: b, '.repeat(N) + 'argv', "'".repeat(N), '\\n'.repeat(N),
+    ];
+    let seen = 0;
+    for (const t of inputs) { stripComments(t); readsOwnPath(t); startsItself(t); seen++; }
+    console.log('FINISHED ' + seen + ' OF ' + inputs.length);
+  `;
+  const r = spawnSync(process.execPath, ['--max-old-space-size=256', '--input-type=module', '-e', child], { encoding: 'utf8', timeout: 60000, killSignal: 'SIGKILL' });
+  assert.equal(r.error, undefined, 'the child was not killed by the timeout: ' + (r.error && r.error.message));
+  assert.equal(r.signal, null, 'and no signal ended it: ' + r.signal);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /^FINISHED (\d+) OF \1\n?$/);
+});
+
 // No link here: these hold wherever the test runs, so a system that cannot make a link still checks them (CodeRabbit 4309062056, 4309062060).
 test('the self-running scripts of scripts/ are exactly the list this test checks, none compares its path lexically, each says something and fails in a bare copy, and an import of each runs nothing', () => {
   const scripts = readdirSync(join(ROOT, 'scripts')).filter(f => /\.mjs$/.test(f) && !/\.test\.mjs$/.test(f)), source = f => readFileSync(join(ROOT, 'scripts', f), 'utf8');
-  const found = scripts.filter(f => /isMainModule\(import\.meta\.url\)|process\.argv\[1\]/.test(source(f))).map(f => f.replace(/\.mjs$/, '')).sort();
+  const found = scripts.filter(f => startsItself(source(f))).map(f => f.replace(/\.mjs$/, '')).sort();
   assert.deepEqual(found, [...SELF_RUNNING].sort(), 'a script that starts itself is in SELF_RUNNING, or it does not start itself: the list is what the link test below walks');
-  const lexical = scripts.filter(f => /resolve\(process\.argv\[1\]\)\s*===|pathToFileURL\(process\.argv\[1\]|import\.meta\.url\s*===/.test(source(f)));
-  assert.deepEqual(lexical, [], 'no script compares its path lexically: a junction or a symlink would make it exit 0 having done nothing');
+  const lexical = scripts.filter(f => readsOwnPath(source(f)));
+  assert.deepEqual(lexical, [], 'no script reads its own path or asks "am I the main module" in its own words: a junction or a symlink would make it exit 0 having done nothing, and a file name test runs on an import');
+  const unguarded = SELF_RUNNING.filter(name => !/isMainModule\(import\.meta\.url\)/.test(stripComments(source(name + '.mjs'))));
+  assert.deepEqual(unguarded, [], 'every self-running script starts through isMainModule(import.meta.url) of scripts/lib/entry-guard.mjs');
   const { real, run } = bareCopy();
   for (const name of SELF_RUNNING) {
     const direct = run([join(real, name + '.mjs')]);
@@ -803,6 +888,20 @@ test('the self-running scripts of scripts/ are exactly the list this test checks
     const imported = run(importOf(join(real, name + '.mjs')));
     assert.equal(imported.status, 0, name + ': an import runs nothing: ' + imported.stderr);
     assert.equal(imported.stdout + imported.stderr, '', name);
+  }
+});
+
+// Q-10: decap-battery once started on the NAME of the file it was run as (`argv[1].endsWith('decap-battery.mjs')`), so any file with that name that merely imports it ran the whole command line. It starts
+// through isMainModule now: a same-named file that imports it runs nothing (the old guard ran the label printer, or ended in a crash for want of web/ic.json in the bare copy).
+test('decap-battery and reply-language-check start only as the main module: a file of the same name that imports each of them runs nothing', () => {
+  const { root, real, run } = bareCopy();
+  for (const name of ['decap-battery', 'reply-language-check']) {
+    const dir = join(root, 'spoof-' + name);
+    mkdirSync(dir);
+    writeFileSync(join(dir, name + '.mjs'), `await import(${JSON.stringify(pathToFileURL(join(real, name + '.mjs')).href)});\n`);
+    const r = run([join(dir, name + '.mjs'), name === 'decap-battery' ? '--label' : '--scan']);
+    assert.equal(r.status, 0, name + ': ' + r.stderr);
+    assert.equal(r.stdout + r.stderr, '', name + ': an import by a file of the same name runs nothing');
   }
 });
 

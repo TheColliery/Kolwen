@@ -93,6 +93,52 @@ for (const f of tracked.filter(SCANNABLE)) {
 }
 
 // ── 4. Thai orthography ──────────────────────────────────────────────────────
+// The prose of a Markdown file, for the character references GitHub decodes: fenced code blocks (a run of at least three backticks or tildes, closed by a run of the same character at least as long),
+// inline code spans (a run of backticks closed by a run of the same length, found left to right and never opened by an escaped backtick) and HTML comments are blanked, a backslash-escaped ampersand is blanked, the rest is kept as written.
+function markdownProse(s) {
+  // fenced code blocks, line by line
+  const lines = [];
+  let fence = null;
+  for (const line of s.split('\n')) {
+    const m = /^ {0,3}(`{3,}|~{3,})/.exec(line);
+    if (fence) {
+      if (m && m[1][0] === fence[0] && m[1].length >= fence.length && /^[ \t\r]*$/.test(line.slice(m[0].length))) fence = null;
+      lines.push('');
+    } else if (m && !(m[1][0] === '`' && line.slice(m[0].length).includes('`'))) {
+      fence = m[1];
+      lines.push('');
+    } else lines.push(line);
+  }
+  // inline, left to right in one pass: a backslash before ASCII punctuation makes that character literal (so an escaped backtick opens no code span, and an escaped ampersand starts no reference);
+  // a run of N backticks opens a code span that a later run of exactly N closes (no escape works inside it); `<!--` opens a comment that `-->` closes. A delimiter with no closer is text, and
+  // once one run length has no closer a later run of the same length has none either, so each failed search is made once per length and the pass is linear.
+  const t = lines.join('\n'), n = t.length, noSpan = new Set();
+  let out = '', i = 0, noComment = false;
+  while (i < n) {
+    const c = t[i];
+    if (c === '\\' && i + 1 < n && /[!-/:-@[-`{-~]/.test(t[i + 1])) {
+      out += t[i + 1] === '&' ? ' ' : c + t[i + 1];
+      i += 2;
+    } else if (c === '`') {
+      let j = i;
+      while (t[j] === '`') j++;
+      const len = j - i;
+      let close = -1;
+      for (let k = noSpan.has(len) ? -1 : t.indexOf('`', j); k !== -1;) {
+        let e = k;
+        while (t[e] === '`') e++;
+        if (e - k === len) { close = e; break; }
+        k = t.indexOf('`', e);
+      }
+      if (close === -1) { noSpan.add(len); out += t.slice(i, j); i = j; } else { out += ' '; i = close; }
+    } else if (c === '<' && !noComment && t.startsWith('<!--', i)) {
+      const e = t.indexOf('-->', i + 4);
+      if (e === -1) { noComment = true; out += c; i++; } else { out += ' '; i = e + 3; }
+    } else { out += c; i++; }
+  }
+  return out;
+}
+const MD_NBSP = /^&(?:nbsp|NonBreakingSpace|#0*160|#[xX]0*[aA]0);$/;
 for (const f of tracked.filter(PUBLISHED)) {
   const s = read(f);
   if (/ํา/.test(s)) note(f, 'decomposed SARA AM (U+0E4D U+0E32) — must be U+0E33');
@@ -133,6 +179,22 @@ for (const f of tracked.filter(PUBLISHED)) {
       }
     } catch (e) { writtenNbsp = NBSP_IN_TEXT.test(s); note(f, `has markup rule 4 cannot walk (${String(e.message).slice(0, 100)}), so its no-break space references are read over the whole source`); }
     if (writtenNbsp) note(f, 'invisible character U+A0 written as an entity (&nbsp;); a page uses a no-break space only before the Thai repetition mark, as the character');
+  } else if (f.endsWith('.md')) {
+    // A Markdown file is drawn by GitHub's renderer, which decodes entity references outside code (CommonMark: only a TERMINATED reference, a name it knows or a number of at most 7 digits, 6 hex digits;
+    // anything else is text). So the prose of the file (fenced blocks, inline code spans and comments taken out) has its terminated references decoded and read as a page's are. A reference that is no
+    // reference to CommonMark (an unknown name, no semicolon) is text and no finding. STATED LIMITS: an indented code block (four spaces) is read as prose, so a reference shown there is a loud
+    // false positive; a code span or fence that the real renderer closes differently (a span across a paragraph break) is read as the spec reads it, not as an old renderer might; raw HTML
+    // inside a Markdown file is read as prose, and the body of a script or style there is not decoded by a browser but is here. A backslash before ASCII punctuation makes it literal (an escaped backtick opens no code span, an escaped ampersand starts no reference); a code span, a comment and the failed search for a closer are scanned once, so the pass is linear in the file.
+    const prose = markdownProse(s);
+    let writtenNbsp = false, decodeMd = m => m;
+    try { decodeMd = (await import(pathToFileURL(resolve('scripts/lib/rendered-text.mjs')).href)).decodeEntities; }
+    catch (e) { note(f, `has character references rule 4 cannot read (${String(e.message).slice(0, 100)}), so its invisible characters are not all checked`); }
+    const decoded = prose.replace(/&(?:#[xX][0-9a-fA-F]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/g, m => {
+      if (MD_NBSP.test(m)) writtenNbsp = true;
+      try { return decodeMd(m); } catch { return m; }
+    });
+    if (decoded !== prose) scan(decoded, ' (written as a character reference)');
+    if (writtenNbsp) note(f, 'invisible character U+A0 written as an entity (&nbsp;); a published document uses a no-break space only before the Thai repetition mark, as the character');
   }
   if (s.includes('…')) note(f, 'U+2026 ellipsis — use three ASCII dots');
 }

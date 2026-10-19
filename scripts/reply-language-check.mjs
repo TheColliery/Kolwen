@@ -101,7 +101,12 @@ export function scanTree() {
 }
 
 // ── CLI ───────────────────────────────────────────────────────────────────────
-if (import.meta.url.endsWith('reply-language-check.mjs')) {
+// `import.meta.url` is this module's own address, so a test that it ends in this file's name was true on every import: the command line (a scan of the git tree) ran for any importer. The shared entry
+// guard compares REAL paths and is true only for the main module. This file imports node builtins only (node/runtime.md section 1), so the guard is loaded inside a try.
+let started = false, guardError = null;
+try { started = (await import('./lib/entry-guard.mjs')).isMainModule(import.meta.url); } catch (e) { guardError = e; }
+if (guardError) { console.error('FAIL reply-language-check could not load scripts/lib/entry-guard.mjs'); process.exitCode = 1; }
+else if (started) {
   const arg = process.argv[2];
   const fail = m => { console.error(m); process.exitCode = 1; };
 

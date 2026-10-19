@@ -19,7 +19,7 @@
 //    12 words, are not found; a link target inside the Markdown source of a paragraph is dropped before the comparison. The dictionary is ICU's, so a count near the limit can differ
 //    between ICU versions.
 //  - Cookies: the check reads the text of shipped files (a headers file, a page's markup and inline scripts, Worker code). It finds a Set-Cookie header, a quoted `Set-Cookie`, a meta
-//    set-cookie, any `.cookie` or `['cookie']` write (however the document is named, and with a comment between the property and the operator), a destructuring target (`[document.cookie] = a`,
+//    set-cookie, any `.cookie` or `['cookie']` write (however the document is named, with a comment between the object and the dot, the dot and the name, inside the brackets, or between the property and the operator), a destructuring target (`[document.cookie] = a`,
 //    `({ k: d.cookie } = o)`) and a for-of or for-in target, `Object.assign(document, { cookie })`, the Cookie Store `set`, a cookie library's `set` or `serialize`, and a `; Domain=`
 //    attribute or `domain:` option. It does not see a cookie written through a name built at run time (`document['coo' + 'kie']`), `Reflect.set` or `Object.defineProperty` on the
 //    document, `cookieStore['set']`, an inline handler attribute other than a `.cookie` write, or a script a page loads from another origin (rule 13 names every origin a script may come
@@ -217,7 +217,8 @@ const spell = (word, inString) => [...word].map(c => {
   const h = c.charCodeAt(0).toString(16).replace(/[a-f]/g, m => '[' + m + m.toUpperCase() + ']');
   return '(?:' + c + '|\\\\u00' + h + '|\\\\u\\{0*' + h + '\\}' + (inString ? '|\\\\x' + h : '') + ')';
 }).join('');
-const COOKIE_PROP = '(?:\\.\\s*' + spell('cookie', false) + '(?![\\w$])|\\[\\s*[\'"`]' + spell('cookie', true) + '[\'"`]\\s*\\])';
+// A comment may sit between the dot and the name, or inside the brackets (`document /* c */ . /* c */ cookie`); the object and the dot before it lie outside the match, so they need no gap here.
+const COOKIE_PROP = '(?:\\.' + GAP + spell('cookie', false) + '(?![\\w$])|\\[' + GAP + '[\'"`]' + spell('cookie', true) + '[\'"`]' + GAP + '\\])';
 const ASSIGN_OP = /(?:\*\*|<<|>>>?|&&|\|\||\?\?|[+\-*/%|&^])?=(?![=>])/.source;
 const UPDATE_OP = '(?:\\+\\+|--)';
 const DOC_COOKIE_WRITE = new RegExp([

@@ -563,6 +563,26 @@ test('(b) the literal lint reads the value of a text field, an ld+json block wha
     ['a javascript: form action', into('<p>', '<form action="javascript:go()"></form><p>'), /attribute action is a javascript: URL/],
     ['a javascript: formaction', into('<p>', '<button formaction="javascript:go()">{{home.origin}}</button><p>'), /attribute formaction is a javascript: URL/],
     ['a javascript: src', into('<p>', '<iframe src="javascript:go()"></iframe><p>'), /attribute src is a javascript: URL/],
+    // Q-9 / H3: the attribute is read as a browser reads it (character references decoded, as the attribute state decodes them), and the other places that run or draw a document
+    ['a javascript: href written with a numeric reference', into('<p>', '<a href="&#106;avascript:go()">{{home.origin}}</a><p>'), /attribute href is a javascript: URL/],
+    ['a javascript: href written with a hex reference and a reference for the colon', into('<p>', '<a href="&#x6A;avascript&#58;go()">{{home.origin}}</a><p>'), /attribute href is a javascript: URL/],
+    ['a javascript: href with a named colon', into('<p>', '<a href="javascript&colon;go()">{{home.origin}}</a><p>'), /attribute href is a javascript: URL/],
+    ['a javascript: href with a named tab and a named line break', into('<p>', '<a href="java&Tab;script&NewLine;:go()">{{home.origin}}</a><p>'), /attribute href is a javascript: URL/],
+    ['a javascript: href with a reference for a leading space', into('<p>', '<a href="&#32;&#x9;javascript:go()">{{home.origin}}</a><p>'), /attribute href is a javascript: URL/],
+    ['a javascript: object data', into('<p>', '<object data="javascript:go()"></object><p>'), /attribute data is a javascript: URL/],
+    ['a javascript: object data written with a reference', into('<p>', '<object data="&#106;avascript:go()"></object><p>'), /attribute data is a javascript: URL/],
+    ['an iframe srcdoc', into('<p>', '<iframe srcdoc="&lt;script&gt;go()&lt;/script&gt;"></iframe><p>'), /iframe element has a srcdoc attribute/],
+    ['a meta refresh to a javascript: URL', into('<p>', '<meta http-equiv="refresh" content="0;url=javascript:go()"><p>'), /meta refresh .* javascript: URL/],
+    ['a meta refresh to a quoted javascript: URL', into('<p>', '<meta http-equiv="Refresh" content="0; URL=\'javascript:go()\'"><p>'), /meta refresh .* javascript: URL/],
+    ['a meta refresh to a javascript: URL written with a reference', into('<p>', '<meta http-equiv="refresh" content="0;url=&#106;avascript:go()"><p>'), /meta refresh .* javascript: URL/],
+    // PR #58 round 1 (CodeRabbit 4309797624): the attribute that picks the refresh check is read as a browser reads it too
+    ['a meta refresh whose http-equiv is written with a reference', into('<p>', '<meta http-equiv="refre&#115;h" content="0;url=javascript:go()"><p>'), /meta refresh .* javascript: URL/],
+    ['a meta refresh whose http-equiv is written with a hex reference in capitals', into('<p>', '<meta http-equiv="&#x52;EFRESH" content="0;url=javascript:go()"><p>'), /meta refresh .* javascript: URL/],
+    ['a meta refresh whose http-equiv holds a reference the check cannot read', into('<p>', '<meta http-equiv="refresh&nosuchname;" content="0;url=/pricing"><p>'), /attribute http-equiv holds a character reference the check cannot read/],
+    ['an iframe whose source is a data: document', into('<p>', '<iframe src="data:text/html,&lt;script&gt;go()&lt;/script&gt;"></iframe><p>'), /attribute src is a data: URL/],
+    ['an object whose data is a data: document', into('<p>', '<object data="DATA:text/html,x"></object><p>'), /attribute data is a data: URL/],
+    ['an embed whose source is a data: document', into('<p>', '<embed src="data:text/html,x"><p>'), /attribute src is a data: URL/],
+    ['a reference the check cannot read in a URL attribute', into('<p>', '<a href="/a&nosuchname;">{{home.origin}}</a><p>'), /attribute href holds a character reference the check cannot read/],
   ];
   for (const [what, src, re] of planted) assert.ok(templateProblems(src, 'home').some(p => re.test(p)), what + ': ' + JSON.stringify(templateProblems(src, 'home')));
   for (const [what, src] of [
@@ -570,6 +590,10 @@ test('(b) the literal lint reads the value of a text field, an ld+json block wha
     ['a button element value', into('<p>', '<button value="go">{{home.origin}}</button><p>')],
     ['an empty text field and a slot', into('<p>', '<input type="text" value=""><input type="text" value="{{=home.origin}}"><p>')],
     ['ordinary links', into('<p>', '<a href="/pricing">{{home.origin}}</a><a href="https://kolwen.com/">{{home.origin}}</a><a href="#javascript:x">{{home.origin}}</a><a href="mailto:info@kolwen.com">{{home.origin}}</a><p>')],
+    // the attribute state keeps a legacy name that is followed by = or a letter or digit as text (`&copy=2` is a query, not the copyright sign), and a reference decodes only once
+    ['references that are not a javascript: URL', into('<p>', '<a href="/a?x=1&copy=2">{{home.origin}}</a><a href="/a?x=1&amp;y=2">{{home.origin}}</a><a href="#&#106;avascript">{{home.origin}}</a><a href="&amp;#106;avascript:x">{{home.origin}}</a><p>')],
+    ['a meta whose http-equiv is not a refresh, written plainly or with a reference', into('<p>', '<meta http-equiv="content-type" content="javascript:x"><meta http-equiv="refre&#115;h" content="5;url=/pricing"><meta http-equiv="x-&#117;a-compatible" content="IE=edge"><p>')],
+    ['a meta refresh to a page, a data URL on a link, and an iframe from this site', into('<p>', '<meta http-equiv="refresh" content="5;url=/pricing"><a href="data:text/plain,x">{{home.origin}}</a><iframe src="/embed"></iframe><object data="/x.svg"></object><p>')],
   ]) assert.deepEqual(templateProblems(src, 'home'), [], what);
 });
 
