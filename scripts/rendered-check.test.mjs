@@ -353,12 +353,29 @@ test('nothing in the browser code deletes anything: no rm, rmSync, rmdir, unlink
   assert.equal(browserLib.runDir, undefined);
 });
 
-test('lockProfile: a profile is locked once; a second lock fails at once with one line, giving the lock up frees it, and another profile is not in the way', async () => {
-  const a = join(tmpdir(), 'kolwen-lock-test-a'), b = join(tmpdir(), 'kolwen-lock-test-b'); // path strings only: nothing is made, and nothing is read
+// A lock port is a hash of the profile path, so a test that locks a path of its own chooses it here: the port of a fixed path can be held on a runner by a program that is not this check (main went red
+// on that at 3581a1c: port 53356 for /tmp/kolwen-lock-test-b), and the lock then rightly names the foreign holder. The candidates are `<stem>`, `<stem>-1`, `<stem>-2` ... in the temp folder (path strings
+// only: nothing is made). Each is taken when its port can be bound and released now, and no two chosen paths share a port. There is no retry: when fewer than `count` of `tried` candidates are free
+// the test is skipped, visibly, naming the ports that were busy; it never passes on a path it did not check.
+const portIsFree = port => new Promise(res => { const s = createServer(); s.once('error', () => res(false)); s.listen(port, '127.0.0.1', () => s.close(() => res(true))); });
+async function freeLockPaths(stem, count, tried = 40) {
+  const chosen = [], ports = new Set(), busy = [];
+  for (let i = 0; i < tried && chosen.length < count; i++) {
+    const p = join(tmpdir(), i === 0 ? stem : `${stem}-${i}`), port = browserLib.lockPortOf(p);
+    if (ports.has(port)) continue;
+    if (await portIsFree(port)) { chosen.push(p); ports.add(port); } else busy.push(port);
+  }
+  return chosen.length === count ? { paths: chosen } : { skip: `${count} lock port(s) were needed and only ${chosen.length} of ${tried} candidate paths named by ${stem} have one free here; busy: ${busy.join(', ')}` };
+}
+
+test('lockProfile: a profile is locked once; a second lock fails at once with one line, giving the lock up frees it, and another profile is not in the way', async t => {
+  const got = await freeLockPaths('kolwen-lock-test', 2);
+  if (got.skip) { t.skip(got.skip); return; }
+  const [a, b] = got.paths;
   const release = await browserLib.lockProfile(a);
   // no clock here: a lock that hung instead of failing would be stopped by the runner's --test-timeout
   await assert.rejects(browserLib.lockProfile(a), e => {
-    assert.match(e.message, /^the browser profile .*kolwen-lock-test-a is in use by another run$/);
+    assert.equal(e.message, `the browser profile ${a} is in use by another run`);
     assert.ok(!e.message.includes('\n'), 'one line');
     return true;
   });
@@ -955,13 +972,14 @@ test('the WSL script and the native route start the browser with the same switch
 });
 
 test('a lock port held by a program that is not this check is reported as that, and not as another run', async t => {
-  const p = join(tmpdir(), 'kolwen-lock-test-foreign'); // a path string only: nothing is made
-  const port = browserLib.lockPortOf(p);
+  const got = await freeLockPaths('kolwen-lock-test-foreign', 1); // the foreign listener needs the port free to take it, so the path is one whose port is
+  if (got.skip) { t.skip(got.skip); return; }
+  const p = got.paths[0], port = browserLib.lockPortOf(p);
   const foreign = createServer(s => { s.on('error', () => {}); s.end('hello'); }); // it speaks, but it does not greet as this check's lock does
-  try { await new Promise((res, rej) => { foreign.once('error', rej); foreign.listen(port, '127.0.0.1', res); }); } catch { t.skip('the lock port of this path is taken on this machine'); return; }
+  try { await new Promise((res, rej) => { foreign.once('error', rej); foreign.listen(port, '127.0.0.1', res); }); } catch { t.skip(`lock port ${port} of ${p} was taken between the check and the listen`); return; }
   try {
     await assert.rejects(browserLib.lockProfile(p), e => {
-      assert.match(e.message, /^the browser profile .*kolwen-lock-test-foreign could not be locked: port \d+ of 127\.0\.0\.1 is held by a program that is not this check \(point KOLWEN_BROWSER_PROFILE at another folder\)$/);
+      assert.equal(e.message, `the browser profile ${p} could not be locked: port ${port} of 127.0.0.1 is held by a program that is not this check (point KOLWEN_BROWSER_PROFILE at another folder)`);
       assert.ok(!e.message.includes('in use by another run'));
       return true;
     });
