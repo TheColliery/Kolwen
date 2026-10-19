@@ -371,7 +371,7 @@ async function launchNative(binary, { lifetimeMs, commandTimeoutMs, ci }) {
 // forwarding; the port is a free one on Windows, chosen here, and the script is told to bind it inside the distro.
 async function launchWsl(route, { lifetimeMs, commandTimeoutMs }) {
   const port = await freePort();
-  const run = startWslBrowser({ exe: route.exe, distro: route.distro, port, lifetimeS: Math.ceil(lifetimeMs / 1000) + 5 });
+  const run = startWslBrowser({ distro: route.distro, port, lifetimeS: Math.ceil(lifetimeMs / 1000) + 5 });
   const cleanup = async () => {
     if (!run.exited()) await wait(0);
     for (let i = 0; i < 150 && !run.exited(); i++) await wait(100); // the script ends the browser and removes its folder when the browser closes

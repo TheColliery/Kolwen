@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve, win32 } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { findBrowser, findRoute, launchBrowser, BROWSER_ENV, EXIT_NOT_RUN_HERE } from './lib/browser.mjs';
@@ -31,6 +31,8 @@ const SKIP_WSL = SKIP || (WSL ? false : 'the WSL route only');
 
 let browser = null;
 const copies = [];
+// An environment whose windir is the given folder, with no other spelling of it left (a copy of process.env can hold WINDIR, and the child would then read either one): the System32 wsl.exe is not under it. windir and not SystemRoot, because a node child started with a wrong SystemRoot aborts (exit 134).
+const withWindir = (env, dir) => ({ ...Object.fromEntries(Object.entries(env).filter(([k]) => !/^windir$/i.test(k))), windir: dir });
 before(async () => { if (USABLE) browser = await launchBrowser({ route, lifetimeMs: 600000 }); });
 after(async () => { if (browser) await browser.close(); for (const d of copies) rmSync(d, { recursive: true, force: true }); });
 
@@ -600,13 +602,13 @@ test('on Windows the command line without WSL says "not run here" in one line an
   copies.push(home);
   const env = { ...process.env, HOME: home, USERPROFILE: home, TEMP: home, TMP: home, TMPDIR: home, CI: '' };
   delete env[BROWSER_ENV];
-  // WSL made unreachable: the program that would be started is a path that does not exist
-  const noWsl = spawnSync(process.execPath, ['--max-old-space-size=256', script], { encoding: 'utf8', timeout: 60000, env: { ...env, [wslLib.WSL_EXE_ENV]: join(tmpdir(), 'no-such-dir', 'wsl.exe') } });
+  // WSL made unreachable: windir is a folder that does not exist, so the System32 wsl.exe is not there
+  const noWsl = spawnSync(process.execPath, ['--max-old-space-size=256', script], { encoding: 'utf8', timeout: 60000, env: withWindir(env, join(tmpdir(), 'no-such-dir')) });
   assert.equal(noWsl.status, EXIT_NOT_RUN_HERE);
   assert.match(noWsl.stdout, /NOT RUN HERE rendered-check: WSL is not available here .* did not run here\. This is not a pass/);
   assert.equal(noWsl.stdout.trim().split('\n').length, 1, 'one line');
   // an existing Windows program named as the browser: refused, and nothing is started (the program is node itself, so it cannot be mistaken for a browser launch)
-  const refused = spawnSync(process.execPath, ['--max-old-space-size=256', script], { encoding: 'utf8', timeout: 60000, env: { ...env, [BROWSER_ENV]: process.execPath, [wslLib.WSL_EXE_ENV]: join(tmpdir(), 'no-such-dir', 'wsl.exe') } });
+  const refused = spawnSync(process.execPath, ['--max-old-space-size=256', script], { encoding: 'utf8', timeout: 60000, env: withWindir({ ...env, [BROWSER_ENV]: process.execPath }, join(tmpdir(), 'no-such-dir')) });
   assert.equal(refused.status, EXIT_NOT_RUN_HERE);
   assert.match(refused.stdout, /NOT RUN HERE rendered-check: KOLWEN_BROWSER names .*, which is not the WSL route: on Windows this check never starts a Windows browser/);
 });
@@ -643,7 +645,7 @@ const SCRIPTS_ON_C = win('C:', 'repo', 'scripts', 'wsl'); // the scripts folder 
 test('findRoute on Windows: only the WSL route; the distro must exist AND the headless shell must be at its stable path; a Windows browser in KOLWEN_BROWSER is refused', () => {
   const calls = [];
   const ok = findRoute({}, 'win32', { scriptsDir: SCRIPTS_ON_C, run: fakeWsl({ calls }) });
-  assert.deepEqual(ok, { kind: 'wsl', exe: 'wsl.exe', distro: 'Ubuntu' });
+  assert.deepEqual(ok, { kind: 'wsl', distro: 'Ubuntu' });
   const probe = calls.find(a => a[0] === '-d');
   assert.deepEqual(probe.slice(0, 4), ['-d', 'Ubuntu', '--exec', 'bash'], 'argv, started without a shell: nothing is a string a shell parses');
   assert.match(probe[4], /^\/mnt\/[a-z]\/.*\/scripts\/wsl\/probe\.sh$/);
@@ -747,26 +749,33 @@ test('a HEAD request gets no body and a GET the whole page, on whichever route t
   } finally { await page.close(); await server.close(); }
 });
 
-test('KOLWEN_WSL_EXE accepts only a program named wsl.exe: any other program is refused, and nothing is started', () => {
+test('the WSL route starts only the System32 wsl.exe: KOLWEN_WSL_EXE no longer exists, so a renamed binary is never started', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'kolwen-test-wsl-'));
+  copies.push(dir);
+  // the reviewer's witness: a copy of node.exe saved as <odd dir>/wsl.exe is NAMED wsl.exe, and the old name check let it through
+  const odd = join(dir, 'odd dir');
+  mkdirSync(odd);
+  const renamed = join(odd, 'wsl.exe');
+  cpSync(process.execPath, renamed);
+  const root = join(dir, 'root'); // a windir with no System32: the system wsl.exe is not there
+  mkdirSync(root);
+  const env = { KOLWEN_WSL_EXE: renamed, windir: root, SystemRoot: root };
+  assert.equal(wslLib.systemWslExe(env), win32.join(root, 'System32', 'wsl.exe'), 'the program is derived from SystemRoot and from nothing else');
+  const direct = wslLib.wslRun(['-l', '-q'], env);
+  assert.equal(direct.status, null, 'the renamed copy of node.exe was not started (a started node.exe exits 9 on -l)');
+  assert.ok(direct.error, 'the missing System32 wsl.exe is the failure');
   const asked = [];
   const run = args => { asked.push(args); return { status: 1, stdout: Buffer.alloc(0), error: null }; };
-  for (const other of [process.execPath, 'msedge.exe', 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe', '/usr/bin/wsl', 'wsl.exe.bak', 'xwsl.exe', 'C:\\x\\wsl.exe\\']) {
-    const r = wslLib.findWslRoute({ env: { [wslLib.WSL_EXE_ENV]: other }, run });
-    assert.equal(r.kind, 'refused', other);
-    assert.match(r.why, /KOLWEN_WSL_EXE names .*, which is not wsl\.exe: this check starts no other program there$/, other);
-    const direct = wslLib.wslRun(['-l', '-q'], { [wslLib.WSL_EXE_ENV]: other });
-    assert.equal(direct.status, null, 'wslRun starts nothing for ' + other);
-    assert.ok(direct.error, other);
-    assert.throws(() => wslLib.startWslBrowser({ exe: other, distro: 'Ubuntu', port: 1, lifetimeS: 1, scriptsDir: SCRIPTS_ON_C }), /is not wsl\.exe/, other);
-  }
-  assert.deepEqual(asked, [], 'WSL was never asked');
-  // a missing path, or a stand-in, is accepted when it is NAMED wsl.exe (any case, either separator); unset means wsl.exe itself
-  for (const named of [join(tmpdir(), 'no-such-dir', 'wsl.exe'), 'C:\\no\\such\\WSL.EXE', '/no/such/wsl.exe', undefined]) {
-    const r = wslLib.findWslRoute({ env: named ? { [wslLib.WSL_EXE_ENV]: named } : {}, run });
-    assert.equal(r.kind, 'none', String(named));
-    assert.match(r.why, /^WSL is not available here/, String(named));
-  }
-  assert.equal(asked.length, 4, 'the four accepted names each asked WSL once');
+  const r = wslLib.findWslRoute({ env, run });
+  assert.equal(r.kind, 'none', 'no route is refused for a name any more: there is no name to give');
+  assert.equal(asked.length, 1, 'WSL was asked once, through the injected runner');
+  const h = wslLib.startWslBrowser({ distro: 'Ubuntu', port: 1, lifetimeS: 1, scriptsDir: SCRIPTS_ON_C, env });
+  for (let i = 0; i < 100 && !h.exited(); i++) await new Promise(res => setTimeout(res, 50));
+  assert.equal(h.spawnError()?.code, 'ENOENT', 'startWslBrowser started the System32 wsl.exe, which is missing here: nothing named in the call is started');
+  // windir unset: SystemRoot, then C:\Windows
+  assert.equal(wslLib.systemWslExe({ windir: 'D:\\W' }), 'D:\\W\\System32\\wsl.exe');
+  assert.equal(wslLib.systemWslExe({ SystemRoot: 'E:\\R' }), 'E:\\R\\System32\\wsl.exe');
+  assert.equal(wslLib.systemWslExe({}), 'C:\\Windows\\System32\\wsl.exe');
 });
 
 // Every script that starts itself when it is run has the same guard, from scripts/lib/entry-guard.mjs (decap-battery keeps its own, which tests the file name and so survives a link): run through a
@@ -781,8 +790,8 @@ function bareCopy() {
   const real = join(root, 'real'), work = join(root, 'work');
   cpSync(join(ROOT, 'scripts'), real, { recursive: true });
   mkdirSync(work);
-  const env = { ...process.env, HOME: work, USERPROFILE: work, TEMP: work, TMP: work, TMPDIR: work, CI: 'true', [BROWSER_ENV]: join(tmpdir(), 'no-such-dir', 'no-such-browser') };
-  if (process.platform === 'win32') env[wslLib.WSL_EXE_ENV] = join(tmpdir(), 'no-such-dir', 'wsl.exe');
+  let env = { ...process.env, HOME: work, USERPROFILE: work, TEMP: work, TMP: work, TMPDIR: work, CI: 'true', [BROWSER_ENV]: join(tmpdir(), 'no-such-dir', 'no-such-browser') };
+  if (process.platform === 'win32') env = withWindir(env, join(tmpdir(), 'no-such-dir'));
   const run = args => spawnSync(process.execPath, ['--max-old-space-size=256', ...args], { encoding: 'utf8', timeout: 60000, env, cwd: work });
   return { root, real, run };
 }
