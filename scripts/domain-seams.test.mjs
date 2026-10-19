@@ -279,13 +279,16 @@ test('seam 4: a Set-Cookie header, a document.cookie write and a Worker cookie c
     'document.cookie // c' + CR + '= "x";', 'document.cookie // c' + LS + '= "x";', 'document.cookie // c' + PS + '= "x";',
     'document.' + BS + 'u0063ookie = "a=b";', 'document.' + BS + 'u{63}ookie = "a=b";', 'document.c' + BS + 'u006Fokie = "a=b";', 'document["c' + BS + 'x6fokie"] = "a=b";', 'document["' + BS + 'u0063ookie"] += "a=b";',
     'document[`c' + BS + 'x6Fokie`] = "a=b";', 'document["c' + BS + 'u{6f}okie"]++;',
+    // PR #56 round 2 (Q-8a): a comment between the object, the dot and the name, or inside the brackets
+    'document /* c */ . /* c */ cookie = "x";', 'document. /* c */ cookie = "x";', 'document. // c' + NL + ' cookie = "x";', 'document[ /* c */ "cookie" /* c */ ] = "x";', 'document[ // c' + NL + ' "cookie" ] += "x";',
+    'document. /* c */ cookie++;', '++document. /* c */ cookie;', 'for (document. /* c */ cookie of l) {}', '[document. /* c */ cookie] = a;', '({ k: document /* c */ . /* c */ cookie } = o);',
   ];
   for (const code of more) {
     p('web/index.html', inline(code), /writes document\.cookie/, code);
     p('worker/index.js', code, /writes document\.cookie/, 'a code file: ' + code);
   }
   // what only reads stays clean: a property that merely starts with the word, a loop variable of that name, the postfix operator across a line break (the grammar forbids it), and a comparison
-  for (const code of ['for (const cookieof of l) {}', 'for (d.cookieof of l) {}', 'var n = d.cookies++;', 'a = document.cookie' + NL + '++b;', 'x = document.cookie;' + NL + '--y;', 'f(document.cookie) // c' + CR + 'g = 1', 'if (document.cookie > 1) {}', 'var o = { cookie: 1 }; o.cookie2 = 2;'])
+  for (const code of ['for (const cookieof of l) {}', 'for (d.cookieof of l) {}', 'var n = d.cookies++;', 'a = document.cookie' + NL + '++b;', 'x = document.cookie;' + NL + '--y;', 'f(document.cookie) // c' + CR + 'g = 1', 'if (document.cookie > 1) {}', 'var o = { cookie: 1 }; o.cookie2 = 2;', 'var a = document. /* c */ cookie;', 'if (document /* c */ . /* c */ cookie == z) {}', 'x = document[ /* c */ "cookie" ];'])
     assert.deepEqual(one('web/index.html', inline(code)), [], code);
   // the stated limits, kept true: these writes are NOT seen (an item that holds = after the target, a parenthesised target, an HTML-like comment as the line break, a key built at run time), and two
   // forms that only read are reported (a destructuring default, and a statement that starts with `document.cookie` on the line after a postfix operator)
@@ -324,6 +327,9 @@ test('seam 4: the cookie check finishes on pathological input: every input ends 
       'document.cookie' + (NL + ' ').repeat(N / 2),
       'document["' + 'c'.repeat(N) + '"]',
       'document[' + "'" + 'c\\\\x6f'.repeat(N / 8),
+      '.' + ' /* c */'.repeat(N / 8) + ' x',
+      '[' + ' /* c */'.repeat(N / 8) + ' "cookie"',
+      '. '.repeat(N / 2) + 'cookie',
     ];
     let seen = 0;
     for (const t of inputs) { cookieProblems([{ file: 'web/index.html', text: '<script>' + t + '</script>' }]); cookieProblems([{ file: 'worker/index.js', text: t }]); seen++; }
@@ -333,7 +339,7 @@ test('seam 4: the cookie check finishes on pathological input: every input ends 
   assert.equal(r.error, undefined, 'the child was not killed by the timeout: ' + (r.error && r.error.message));
   assert.equal(r.signal, null, 'and no signal ended it: ' + r.signal);
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /^FINISHED 14\n?$/);
+  assert.match(r.stdout, /^FINISHED 17\n?$/);
 });
 
 test('seam 4: the scan is not vacuous: no shipped file at all is a finding', () => {
@@ -386,25 +392,31 @@ test('the one entry point reports every seam: a cookie, a catalogue host key, a 
 const OTHER_BRAND_HOST = /\bkolwen\.(?!com(?![\w-]|\.[a-z0-9]))(?!hetcreep\.workers\.dev(?![\w-]|\.[a-z0-9]))[a-z][a-z0-9-]*/i;
 // A browser reads a host through IDNA mapping (UTS #46) and a URL through its percent-decoding, so the text is tested as written AND in the form a browser would read it: the fullwidth ASCII block
 // U+FF01 to U+FF5E (the fullwidth letters and full stop) as ASCII, the ideographic full stops U+3002 and U+FF61 as a dot, the characters that map to nothing in a host (soft hyphen, zero width space,
-// joiners, word joiner, BOM) dropped, and %2E decoded. The mapping is written out and calls no Unicode compatibility normalisation: no source of this repository does (a test of
+// joiners, word joiner, BOM) dropped, and every percent escape decoded once (UTF-8, so %E3%80%82 is U+3002). The mapping is written out and calls no Unicode compatibility normalisation: no source of this repository does (a test of
 // i18n-catalogue.test.mjs holds that line, because that form would damage the Thai catalogue), and one host guard is no reason to open it. STATED LIMITS, each kept true by a test below: every other mapping
-// of UTS #46's table (mathematical and circled letters, compatibility ligatures, small forms), a double-encoded dot (%252E), a punycode label (xn--), a bidi control; and prose that is no host is caught
+// of UTS #46's table (mathematical and circled letters, compatibility ligatures, small forms), a double-encoded escape (%252E, %25E3%2580%2582), a truncated or invalid escape sequence, a punycode label (xn--), a bidi control; and prose that is no host is caught
 // (`Kolwen.Next`, a file name such as `kolwen.svg`): the guard is a loud tripwire on our own text, never a parser of hosts.
 const IGNORED_IN_HOST = new RegExp('[' + String.fromCharCode(0xad, 0x200b, 0x200c, 0x200d, 0x2060, 0xfeff) + ']', 'g');
 const IDEOGRAPHIC_STOP = new RegExp('[' + String.fromCharCode(0x3002, 0xff61) + ']', 'g');
 const FULLWIDTH_ASCII = new RegExp('[' + String.fromCharCode(0xff01) + '-' + String.fromCharCode(0xff5e) + ']', 'g');
-const asBrowserReads = text => text.replace(FULLWIDTH_ASCII, c => String.fromCharCode(c.charCodeAt(0) - 0xfee0)).replace(IGNORED_IN_HOST, '').replace(IDEOGRAPHIC_STOP, '.').replace(/%2e/gi, '.');
+// Percent-decoding comes first and covers every escaped byte, not only %2E: the UTF-8 bytes of U+3002, U+FF0E and U+FF61 (`%E3%80%82`, `%EF%BC%8E`, `%EF%BD%A1`) decode to the characters the later
+// steps map to a dot. A run of escapes is decoded as UTF-8 without throwing (an invalid byte becomes U+FFFD, so one bad escape spoils only itself). One pass only, as a browser does it.
+const PERCENT_RUN = /(?:%[0-9a-f]{2})+/gi;
+const percentDecoded = text => text.replace(PERCENT_RUN, run => new TextDecoder().decode(Uint8Array.from(run.slice(1).split('%'), h => parseInt(h, 16))));
+const asBrowserReads = text => percentDecoded(text).replace(FULLWIDTH_ASCII, c => String.fromCharCode(c.charCodeAt(0) - 0xfee0)).replace(IGNORED_IN_HOST, '').replace(IDEOGRAPHIC_STOP, '.');
 const namesOtherHost = text => OTHER_BRAND_HOST.test(text) || OTHER_BRAND_HOST.test(asBrowserReads(text));
 
 test('the guard also reads a host the way a browser does: fullwidth and ideographic stops and letters, a soft hyphen or zero width character, a percent-encoded dot', () => {
   const F = String.fromCharCode;
   const caught = ['kolwen' + F(0x3002) + 'ai', 'kolwen' + F(0xff0e) + 'ai', 'kolwen' + F(0xff61) + 'ai', F(0xff4b, 0xff4f, 0xff4c, 0xff57, 0xff45, 0xff4e) + '.ai', 'kolwen%2Eai', 'kolwen%2eai', 'kolwen.com.' + F(0xad) + 'au', 'kolwen.com.' + F(0x200b) + 'au',
-    'kol' + F(0xad) + 'wen.ai', 'kolwen.' + F(0x2060) + 'ai', F(0xff4b, 0xff4f, 0xff4c, 0xff57, 0xff45, 0xff4e, 0x3002, 0xff43, 0xff4f, 0xff4d, 0x3002, 0xff41, 0xff55) + '', 'https://kolwen%2Ecom%2Eau/x'];
+    'kol' + F(0xad) + 'wen.ai', 'kolwen.' + F(0x2060) + 'ai', F(0xff4b, 0xff4f, 0xff4c, 0xff57, 0xff45, 0xff4e, 0x3002, 0xff43, 0xff4f, 0xff4d, 0x3002, 0xff41, 0xff55) + '', 'https://kolwen%2Ecom%2Eau/x',
+    // Q-8b: the three stops that map to a dot, percent-encoded as the UTF-8 bytes of U+3002, U+FF0E and U+FF61
+    'kolwen%E3%80%82ai', 'kolwen%e3%80%82ai', 'kolwen%EF%BC%8Eai', 'kolwen%EF%BD%A1ai', 'https://kolwen%E3%80%82com%E3%80%82au/x', 'kolwen%EF%BC%8Ecom%EF%BC%8Eau'];
   for (const host of caught) assert.ok(namesOtherHost(host), JSON.stringify(host));
   // the held hosts stay clean in every spelling, and so does a sentence end in a fullwidth form
-  for (const ok of ['kolwen.com', 'kolwen%2Ecom', 'kolwen' + F(0xff0e) + 'com', 'kolwen' + F(0x3002) + 'com' + F(0x3002), F(0xff4b, 0xff4f, 0xff4c, 0xff57, 0xff45, 0xff4e) + '.com', 'kolwen.hetcreep.workers.dev' + F(0x3002)]) assert.ok(!namesOtherHost(ok), JSON.stringify(ok));
+  for (const ok of ['kolwen.com', 'kolwen%2Ecom', 'kolwen' + F(0xff0e) + 'com', 'kolwen' + F(0x3002) + 'com' + F(0x3002), F(0xff4b, 0xff4f, 0xff4c, 0xff57, 0xff45, 0xff4e) + '.com', 'kolwen.hetcreep.workers.dev' + F(0x3002), 'kolwen%E3%80%82com', 'kolwen%EF%BC%8Ecom', 'kolwen%EF%BD%A1com%EF%BD%A1']) assert.ok(!namesOtherHost(ok), JSON.stringify(ok));
   // the stated limits, kept true
-  for (const host of ['kolwen%252Eai', 'xn--kolwen-abc.ai', F(0xd835, 0xdc24, 0xd835, 0xdc28, 0xd835, 0xdc25, 0xd835, 0xdc30, 0xd835, 0xdc1e, 0xd835, 0xdc27) + '.ai', F(0x24a6) + 'olwen.ai', 'kolwen' + F(0xfe52) + 'ai']) assert.ok(!namesOtherHost(host), 'a stated limit: ' + JSON.stringify(host));
+  for (const host of ['kolwen%252Eai', 'kolwen%25E3%2580%2582ai', 'kolwen%E3%80ai', 'xn--kolwen-abc.ai', F(0xd835, 0xdc24, 0xd835, 0xdc28, 0xd835, 0xdc25, 0xd835, 0xdc30, 0xd835, 0xdc1e, 0xd835, 0xdc27) + '.ai', F(0x24a6) + 'olwen.ai', 'kolwen' + F(0xfe52) + 'ai']) assert.ok(!namesOtherHost(host), 'a stated limit: ' + JSON.stringify(host));
   for (const prose of ['Kolwen.Next', 'kolwen.svg']) assert.ok(namesOtherHost(prose), 'a stated loud false positive: ' + prose);
 });
 
