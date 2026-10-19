@@ -164,7 +164,12 @@ export function templateProblems(src, name = 'template') {
         }
       }
       if (t.attrs.has('srcdoc')) out.push(`${at}: the ${t.name} element has a srcdoc attribute; it holds a whole document the lint does not read, and a template holds no script`);
-      if (t.name === 'meta' && /^refresh$/i.test((t.attrs.get('http-equiv') ?? '').trim()) && t.attrs.has('content')) {
+      // http-equiv is read as a browser reads it too (`refre&#115;h` is refresh), and as the spec matches it: ASCII case-insensitively, with no trimming.
+      let equiv = '';
+      if (t.name === 'meta' && t.attrs.has('http-equiv')) {
+        try { equiv = decodeAttribute(t.attrs.get('http-equiv')); } catch { out.push(`${at}: attribute http-equiv holds a character reference the check cannot read; write the character itself`); }
+      }
+      if (/^refresh$/i.test(equiv) && t.attrs.has('content')) {
         let address = null;
         try { address = refreshUrl(decodeAttribute(t.attrs.get('content'))); } catch { out.push(`${at}: attribute content holds a character reference the check cannot read; write the character itself`); }
         if (address !== null && isJsUrl(address)) out.push(`${at}: the meta refresh goes to a javascript: URL; a template holds no script`);

@@ -575,6 +575,10 @@ test('(b) the literal lint reads the value of a text field, an ld+json block wha
     ['a meta refresh to a javascript: URL', into('<p>', '<meta http-equiv="refresh" content="0;url=javascript:go()"><p>'), /meta refresh .* javascript: URL/],
     ['a meta refresh to a quoted javascript: URL', into('<p>', '<meta http-equiv="Refresh" content="0; URL=\'javascript:go()\'"><p>'), /meta refresh .* javascript: URL/],
     ['a meta refresh to a javascript: URL written with a reference', into('<p>', '<meta http-equiv="refresh" content="0;url=&#106;avascript:go()"><p>'), /meta refresh .* javascript: URL/],
+    // PR #58 round 1 (CodeRabbit 4309797624): the attribute that picks the refresh check is read as a browser reads it too
+    ['a meta refresh whose http-equiv is written with a reference', into('<p>', '<meta http-equiv="refre&#115;h" content="0;url=javascript:go()"><p>'), /meta refresh .* javascript: URL/],
+    ['a meta refresh whose http-equiv is written with a hex reference in capitals', into('<p>', '<meta http-equiv="&#x52;EFRESH" content="0;url=javascript:go()"><p>'), /meta refresh .* javascript: URL/],
+    ['a meta refresh whose http-equiv holds a reference the check cannot read', into('<p>', '<meta http-equiv="refresh&nosuchname;" content="0;url=/pricing"><p>'), /attribute http-equiv holds a character reference the check cannot read/],
     ['an iframe whose source is a data: document', into('<p>', '<iframe src="data:text/html,&lt;script&gt;go()&lt;/script&gt;"></iframe><p>'), /attribute src is a data: URL/],
     ['an object whose data is a data: document', into('<p>', '<object data="DATA:text/html,x"></object><p>'), /attribute data is a data: URL/],
     ['an embed whose source is a data: document', into('<p>', '<embed src="data:text/html,x"><p>'), /attribute src is a data: URL/],
@@ -588,6 +592,7 @@ test('(b) the literal lint reads the value of a text field, an ld+json block wha
     ['ordinary links', into('<p>', '<a href="/pricing">{{home.origin}}</a><a href="https://kolwen.com/">{{home.origin}}</a><a href="#javascript:x">{{home.origin}}</a><a href="mailto:info@kolwen.com">{{home.origin}}</a><p>')],
     // the attribute state keeps a legacy name that is followed by = or a letter or digit as text (`&copy=2` is a query, not the copyright sign), and a reference decodes only once
     ['references that are not a javascript: URL', into('<p>', '<a href="/a?x=1&copy=2">{{home.origin}}</a><a href="/a?x=1&amp;y=2">{{home.origin}}</a><a href="#&#106;avascript">{{home.origin}}</a><a href="&amp;#106;avascript:x">{{home.origin}}</a><p>')],
+    ['a meta whose http-equiv is not a refresh, written plainly or with a reference', into('<p>', '<meta http-equiv="content-type" content="javascript:x"><meta http-equiv="refre&#115;h" content="5;url=/pricing"><meta http-equiv="x-&#117;a-compatible" content="IE=edge"><p>')],
     ['a meta refresh to a page, a data URL on a link, and an iframe from this site', into('<p>', '<meta http-equiv="refresh" content="5;url=/pricing"><a href="data:text/plain,x">{{home.origin}}</a><iframe src="/embed"></iframe><object data="/x.svg"></object><p>')],
   ]) assert.deepEqual(templateProblems(src, 'home'), [], what);
 });
