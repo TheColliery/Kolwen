@@ -320,6 +320,13 @@ export const fenced = name => `${BLOCK[name].begin}\n${BLOCK[name].render() ? BL
 // The page script as the page carries it: the one inline <script> element, holding the fenced block. The legal pages' shell and the three templates ({{raw:script}}) take it from here.
 export const pageScriptHtml = () => `<script>\n${fenced('site-script')}\n</script>`;
 
+// THE PLAN TABLE SCROLLS, THE PAGE DOES NOT (WCAG 2.2 SC 1.4.10). The comparison table of the pricing page is a data table, and the criterion exempts "parts of the content which require two-dimensional layout
+// for usage or meaning"; its Note 2 names "data tables (not individual cells)" among them (w3.org/WAI/WCAG22/Understanding/reflow.html, read 2026-10-19). So the table may be wider than the viewport and scroll
+// sideways INSIDE its wrapper (`.plans-wrap`, overflow-x:auto), as long as the page around it does not (the rendered check's reflow test reads the page's scrollWidth); each cell must still reflow.
+// Measured at 320 px, in the English document: the table needs 275.6 px with the font hinting off and 290 px with FreeType's medium or full hinting (a Linux browser may apply either), against 238 px of card
+// content. With the hinting off it ended 3.4 px before the viewport's edge (past the card's own border); with medium or full hinting it ended 11 px past the edge, and the whole page scrolled sideways.
+// The wrapper is a named region and takes focus (role=region, aria-label from the catalogue, tabindex=0), because a scrolling box with no focusable content cannot be scrolled by keyboard in every browser
+// (SC 2.1.1); its focus ring is the site's own.
 // ── 5b. The page shell (the site's own: fonts, colours, the language toggle and its noscript rule) ──
 // One style block serves the four generated pages (terms, privacy, refund, changelog) AND web/pricing.html, so the five share one CSP hash (surface-check rule 13). The pricing template
 // takes it whole as {{raw:style}}; `legal-pages.mjs --check` fails if the page's style block is not byte-for-byte this one.
@@ -329,7 +336,7 @@ ${fenced('site-tokens-css')}
   *{box-sizing:border-box;margin:0}
   body{background:radial-gradient(circle at 20% 0%,rgba(232,131,58,.07),transparent 55%),var(--bg);color:var(--txt);font-family:'KW Sans Thai',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:stretch;padding:0;line-height:var(--kw-line-height-body)}
   main{flex:1 0 auto;width:100%;max-width:var(--kw-size-container-reading);margin:0 auto;padding-block:var(--kw-space-inset-block-start) 0;padding-inline:var(--kw-space-gutter-inline);display:flex;flex-direction:column;gap:var(--kw-space-section)}
-  a:focus-visible,button:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
+  a:focus-visible,button:focus-visible,.plans-wrap:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
   .mark{display:flex;align-items:center;gap:12px;color:inherit;text-decoration:none}
   .glyph{flex:none;display:block}
   .name{font-size:var(--kw-font-size-display);font-weight:700;letter-spacing:.01em}
@@ -342,6 +349,7 @@ ${fenced('site-tokens-css')}
   .card strong{color:var(--txt);font-weight:600}
   .card ul{padding-left:20px;display:flex;flex-direction:column;gap:6px}
   .card code{font-family:'KW Mono',monospace;font-size:var(--kw-font-size-4);color:var(--txt)}
+  .plans-wrap{overflow-x:auto}
   .plans{width:100%;border-collapse:collapse;font-size:var(--kw-font-size-5)}
   .plans caption{text-align:left;padding:0 0 8px;font-size:var(--kw-font-size-2);color:var(--quiet);font-family:'KW Mono',monospace}
   .plans th,.plans td{text-align:left;padding:8px var(--kw-space-cell) 8px 0;font-size:var(--kw-font-size-cell);border-bottom:1px solid var(--line);color:var(--txt2);font-weight:400;vertical-align:middle}

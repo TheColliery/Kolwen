@@ -82,6 +82,25 @@ test('the 320 px check is not the same as any viewport: the planted element pass
   assert.deepEqual((await run(web, ['reflow'])).failures, []);
 });
 
+// The plan table of the pricing page (a data table) scrolls inside its own wrapper. At 320 px it had 2.4 px of slack with the font hinting off, and with FreeType's medium or full hinting (what a Linux
+// visitor's browser often applies) its text is wider and the WHOLE PAGE scrolled sideways. SC 1.4.10 exempts "parts of the content which require two-dimensional layout for usage or meaning", and its own
+// examples name data tables; so the table may scroll, and the page may not. Forced here, since the WSL route runs with the hinting off: a table of a width of 560 px, which is what slack of zero looks like.
+test('the plan table scrolls inside its own wrapper: a table wider than 320 px never makes the page scroll sideways, and its wrapper is a named, keyboard-reachable region', { skip: SKIP }, async () => {
+  const web = copyWeb(w => editPage(w, 'pricing.html', h => h.replace('</style>', '  .plans{min-width:560px}\n</style>')));
+  const { failures } = await run(web, ['reflow']);
+  assert.deepEqual(where(failures, 'pricing.html', 'reflow'), [], 'the page does not scroll sideways: ' + JSON.stringify(failures));
+  const server = await browser.serve(web, { headers: false });
+  const page = await browser.newPage();
+  try {
+    await page.setViewport(320, 800);
+    await page.goto(server.origin + '/pricing');
+    const wraps = await page.evaluate(`[...document.querySelectorAll('.plans-wrap')].map(e => ({ overflowX: getComputedStyle(e).overflowX, scrolls: e.scrollWidth > e.clientWidth, role: e.getAttribute('role'), tabindex: e.getAttribute('tabindex'), named: (e.getAttribute('aria-label') || '').length > 0, holdsTable: !!e.querySelector('table.plans'), inCard: e.parentElement.classList.contains('card') }))`);
+    assert.equal(wraps.length, 2, 'one wrapper in each language document: ' + JSON.stringify(wraps));
+    for (const x of wraps) assert.deepEqual({ ...x, scrolls: undefined }, { overflowX: 'auto', scrolls: undefined, role: 'region', tabindex: '0', named: true, holdsTable: true, inCard: true });
+    assert.equal(wraps[0].scrolls, true, 'in the visible (English) document the table really is wider than its wrapper and scrolls there');
+  } finally { await page.close(); await server.close(); }
+});
+
 test('a box that clips its own text fails the 200% text check', { skip: SKIP }, async () => {
   const web = copyWeb(w => editPage(w, 'terms.html', h => h.replace('<main>', '<div id="planted" style="width:7rem;height:1.4rem;overflow:hidden">A sentence that cannot fit in a box of this size at any text size</div><main>')));
   const { failures } = await run(web, ['zoom']);

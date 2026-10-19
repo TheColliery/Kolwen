@@ -117,7 +117,7 @@
 # `/*` rule below is that zone's strict hash policy. Another zone is another Worker with its own publish root and its own headers file, so its
 # policy is its own rule set; it is never a second CSP rule here, because Cloudflare joins the values of two matching rules and rule 20 fails the file that tries it.
 /*
-  Content-Security-Policy: default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; script-src 'self' https://static.cloudflareinsights.com/beacon.min.js/ 'sha256-E7qPAYbONhknD/BCPohidP4Ita9lluXiIgAgddNS2sU='; style-src 'self' 'sha256-yzjIvtJjATLj6yYy1gfv7FPI/iiIcDsPlKDZ4vqKwRM=' 'sha256-SanFvN6cSrjeCrKCZn9sdumbLWAizEcqnDXW0KiJNFg=' 'sha256-sZNvwikQoW03RYWPJMrnIVYUPGiYdRyYzEt1IpxrrRI=' 'sha256-es3vMITfxLbEFmrp7gvFieNqACTOEk7TIZnDabpbWn4='; font-src 'self'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; script-src 'self' https://static.cloudflareinsights.com/beacon.min.js/ 'sha256-E7qPAYbONhknD/BCPohidP4Ita9lluXiIgAgddNS2sU='; style-src 'self' 'sha256-yzjIvtJjATLj6yYy1gfv7FPI/iiIcDsPlKDZ4vqKwRM=' 'sha256-I9LZq0bea3LcL3z5NWDBKhF7ovRY+QuccIZANEils3o=' 'sha256-sZNvwikQoW03RYWPJMrnIVYUPGiYdRyYzEt1IpxrrRI=' 'sha256-es3vMITfxLbEFmrp7gvFieNqACTOEk7TIZnDabpbWn4='; font-src 'self'; form-action 'self'
   Referrer-Policy: strict-origin-when-cross-origin
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin

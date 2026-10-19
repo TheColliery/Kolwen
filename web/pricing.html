@@ -65,7 +65,7 @@
   *{box-sizing:border-box;margin:0}
   body{background:radial-gradient(circle at 20% 0%,rgba(232,131,58,.07),transparent 55%),var(--bg);color:var(--txt);font-family:'KW Sans Thai',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:stretch;padding:0;line-height:var(--kw-line-height-body)}
   main{flex:1 0 auto;width:100%;max-width:var(--kw-size-container-reading);margin:0 auto;padding-block:var(--kw-space-inset-block-start) 0;padding-inline:var(--kw-space-gutter-inline);display:flex;flex-direction:column;gap:var(--kw-space-section)}
-  a:focus-visible,button:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
+  a:focus-visible,button:focus-visible,.plans-wrap:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
   .mark{display:flex;align-items:center;gap:12px;color:inherit;text-decoration:none}
   .glyph{flex:none;display:block}
   .name{font-size:var(--kw-font-size-display);font-weight:700;letter-spacing:.01em}
@@ -78,6 +78,7 @@
   .card strong{color:var(--txt);font-weight:600}
   .card ul{padding-left:20px;display:flex;flex-direction:column;gap:6px}
   .card code{font-family:'KW Mono',monospace;font-size:var(--kw-font-size-4);color:var(--txt)}
+  .plans-wrap{overflow-x:auto}
   .plans{width:100%;border-collapse:collapse;font-size:var(--kw-font-size-5)}
   .plans caption{text-align:left;padding:0 0 8px;font-size:var(--kw-font-size-2);color:var(--quiet);font-family:'KW Mono',monospace}
   .plans th,.plans td{text-align:left;padding:8px var(--kw-space-cell) 8px 0;font-size:var(--kw-font-size-cell);border-bottom:1px solid var(--line);color:var(--txt2);font-weight:400;vertical-align:middle}
@@ -244,6 +245,7 @@
     </div>
     <div class="card">
       <h2>Compare plans</h2>
+      <div class="plans-wrap" role="region" tabindex="0" aria-label="Compare plans">
       <table class="plans">
         <caption>Compare plans</caption>
         <thead><tr><th scope="col">Feature</th><th scope="col">Lite</th><th scope="col">Standard</th><th scope="col">Premium</th><th scope="col">Exclusive</th></tr></thead>
@@ -254,6 +256,7 @@
           <tr><th scope="row">Billing: monthly and yearly</th><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
         </tbody>
       </table>
+      </div>
     </div>
     <div class="card faq">
       <h2>Questions</h2>
@@ -359,6 +362,7 @@
     </div>
     <div class="card">
       <h2>เปรียบเทียบแผน</h2>
+      <div class="plans-wrap" role="region" tabindex="0" aria-label="เปรียบเทียบแผน">
       <table class="plans">
         <caption>เปรียบเทียบแผน</caption>
         <thead><tr><th scope="col">รายการ</th><th scope="col">Lite</th><th scope="col">Standard</th><th scope="col">Premium</th><th scope="col">Exclusive</th></tr></thead>
@@ -369,6 +373,7 @@
           <tr><th scope="row">การเรียกเก็บเงิน: รายเดือนและรายปี</th><td>มี</td><td>มี</td><td>มี</td><td>มี</td></tr>
         </tbody>
       </table>
+      </div>
     </div>
     <div class="card faq">
       <h2>คำถาม</h2>
