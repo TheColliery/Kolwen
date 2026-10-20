@@ -1071,9 +1071,20 @@ test('a lock port held by a program that is not this check is reported as that, 
 
 test('a lock port that the system reserves (Windows keeps ranges of the dynamic ports) is one line saying so, not a raw listen error', async t => {
   const tryListen = port => new Promise(res => { const s = createServer(); s.once('error', e => res(e.code)); s.listen(port, '127.0.0.1', () => s.close(() => res('ok'))); });
+  // a capability probe: every port of the lock's range is tried (in batches, at once), then paths are hashed (nothing is bound) until one maps to a reserved port; the lock range moved under the
+  // client ranges (Q-13), where a system reserves little: Windows lists one port there on the box this was written on, so the paths are searched, not the ports of 6000 of them
+  const reserved = new Set();
+  const started = Date.now();
+  let probed = 0;
+  // a budget of 8 s and an early stop at the first reserved port: a bind is slow on Windows (about 1.4 ms), where reservations live, and fast where there are none
+  for (let first = browserLib.LOCK_PORT_FIRST; first <= browserLib.LOCK_PORT_LAST && !reserved.size && Date.now() - started < 8000; first += 512) {
+    const ports = Array.from({ length: Math.min(512, browserLib.LOCK_PORT_LAST - first + 1) }, (_, k) => first + k);
+    (await Promise.all(ports.map(async p => [p, await tryListen(p)]))).forEach(([p, code]) => { if (code === 'EACCES') reserved.add(p); });
+    probed += ports.length;
+  }
   let found = null;
-  for (let i = 0; i < 6000 && !found; i++) { const p = join(tmpdir(), 'kolwen-lock-probe-' + i); if (await tryListen(browserLib.lockPortOf(p)) === 'EACCES') found = p; } // a capability probe: look for a path whose port is reserved
-  if (!found) { t.skip('no lock port of 6000 paths is reserved on this system'); return; }
+  if (reserved.size) for (let i = 0; i < 2000000 && !found; i++) { const p = join(tmpdir(), 'kolwen-lock-probe-' + i); if (reserved.has(browserLib.lockPortOf(p))) found = p; }
+  if (!found) { t.skip(reserved.size ? `${reserved.size} reserved port(s) in the lock range, and no path of 2,000,000 maps to one` : `no reserved port found among the ${probed} ports of the lock range 16384 to 32767 that were tried in 8 s`); return; }
   await assert.rejects(browserLib.lockProfile(found), e => {
     assert.match(e.message, /^the browser profile .*kolwen-lock-probe-\d+ could not be locked: port \d+ of 127\.0\.0\.1 is reserved by the system \(point KOLWEN_BROWSER_PROFILE at another folder\)$/);
     return true;
