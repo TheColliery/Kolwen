@@ -353,8 +353,9 @@ test('nothing in the browser code deletes anything: no rm, rmSync, rmdir, unlink
   assert.equal(browserLib.runDir, undefined);
 });
 
-// A lock port is a hash of the profile path, so a test that locks a path of its own chooses it here: the port of a fixed path can be held on a runner by a program that is not this check (main went red
-// on that at 3581a1c: port 53356 for /tmp/kolwen-lock-test-b), and the lock then rightly names the foreign holder. The candidates are `<stem>`, `<stem>-1`, `<stem>-2` ... in the temp folder (path strings
+// A lock port is a hash of the profile path, so a test that locks a path of its own chooses it here: the port of a fixed path can be held on a runner by something that is not this check (main went red
+// on that at 3581a1c: port 53356 for /tmp/kolwen-lock-test-b; the holder was never identified, and on Linux it may have been a client socket of the run itself, which the lock range of that day, 49152 to
+// 65535, overlapped: see the range test below), and the lock then names the holder as it looks. The candidates are `<stem>`, `<stem>-1`, `<stem>-2` ... in the temp folder (path strings
 // only: nothing is made). Each is taken when its port can be bound and released now, and no two chosen paths share a port. There is no retry: when fewer than `count` of `tried` candidates are free
 // the test is skipped, visibly, naming the ports that were busy; it never passes on a path it did not check.
 const portIsFree = port => new Promise(res => { const s = createServer(); s.once('error', () => res(false)); s.listen(port, '127.0.0.1', () => s.close(() => res(true))); });
@@ -386,12 +387,32 @@ test('lockProfile: a profile is locked once; a second lock fails at once with on
   await again();
 });
 
-test('lockPortOf: the same profile always gives the same port, in 49152 to 65535, and different profiles give different ones', () => {
+// Q-13 (the re-check of PR #59, L-1). The lock's port used to be in 49152 to 65535, which is the whole dynamic range of Windows and macOS (IANA) and overlaps Linux's client-port range, 32768 to 60999
+// (`/proc/sys/net/ipv4/ip_local_port_range`, read in WSL on 2026-10-20; a listener cannot take a port an outgoing connection owns, so a plain client socket could make the lock report "a program that is
+// not this check"). Measured in WSL with kw1017i-u6/ephemeral-probe.py: of 3,000 outgoing connections to a local listener, 44% were given a port inside the old range and none a port inside 16384 to 32767;
+// and a lock-style listen on the ports of 400 open outgoing connections was refused 400 times. The range is now 16384 to 32767: above the registered ports a system hands out by chance, below every default
+// client range (Linux 32768, Windows, macOS and the IANA dynamic range 49152). What lives there is real servers, which the lock names as what they are.
+test('the lock port range lies below every default client-port range: 16384 to 32767, and on a system that states its own client range (Linux) the two do not overlap', async t => {
+  const { LOCK_PORT_FIRST, LOCK_PORT_LAST, lockPortOf } = browserLib;
+  assert.deepEqual([LOCK_PORT_FIRST, LOCK_PORT_LAST], [16384, 32767]);
+  assert.ok(LOCK_PORT_LAST < 32768, 'under Linux\'s default client range (32768 to 60999)');
+  assert.ok(LOCK_PORT_LAST < 49152, 'under the IANA dynamic range that Windows and macOS hand out (49152 to 65535)');
+  const seen = new Set();
+  for (let i = 0; i < 4000; i++) { const p = lockPortOf(join(tmpdir(), 'kolwen-range-' + i)); assert.ok(p >= LOCK_PORT_FIRST && p <= LOCK_PORT_LAST, String(p)); seen.add(p); }
+  assert.ok(seen.size > 3000, 'the hash spreads over the range: ' + seen.size + ' different ports for 4000 paths');
+  // a capability probe, never a platform name: a system that states its client range in /proc says it here
+  let range = null;
+  try { range = readFileSync('/proc/sys/net/ipv4/ip_local_port_range', 'utf8').trim().split(/\s+/).map(Number); } catch { /* no such file: not a Linux that states it */ }
+  if (!range || range.length !== 2 || range.some(Number.isNaN)) { t.skip('this system states no client-port range in /proc/sys/net/ipv4/ip_local_port_range'); return; }
+  assert.ok(LOCK_PORT_LAST < range[0] || LOCK_PORT_FIRST > range[1], `the lock range ${LOCK_PORT_FIRST}-${LOCK_PORT_LAST} does not overlap this system's client range ${range[0]}-${range[1]}`);
+});
+
+test('lockPortOf: the same profile always gives the same port, in 16384 to 32767, and different profiles give different ones', () => {
   const { lockPortOf } = browserLib;
   const a = join(tmpdir(), 'kolwen-lock-test-a'), b = join(tmpdir(), 'kolwen-lock-test-b');
   assert.equal(lockPortOf(a), lockPortOf(a));
   assert.notEqual(lockPortOf(a), lockPortOf(b));
-  for (const p of [a, b, '/', 'C:\\x', '', 'a'.repeat(500)]) assert.ok(lockPortOf(p) >= 49152 && lockPortOf(p) <= 65535, p.slice(0, 20));
+  for (const p of [a, b, '/', 'C:\\x', '', 'a'.repeat(500)]) assert.ok(lockPortOf(p) >= 16384 && lockPortOf(p) <= 32767, p.slice(0, 20));
   assert.equal(lockPortOf('C:\\Users\\A\\x', 'win32'), lockPortOf('c:\\users\\a\\x', 'win32'), 'Windows paths are case-blind');
   assert.notEqual(lockPortOf('/Home/a', 'linux'), lockPortOf('/home/a', 'linux'), 'POSIX paths are not');
 });

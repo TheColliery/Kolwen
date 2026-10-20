@@ -150,12 +150,19 @@ export function devToolsEndpoint(url, port) {
 // What the browser on `port` says about itself, or null while it does not answer.
 const versionOf = port => fetch(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(1000) }).then(r => r.json()).catch(() => null);
 
-// The lock of a profile. Its port is a function of the profile's path (FNV-1a, into 49152 to 65535), so every run on one profile contends for the same port. The lock is a server this process
+// The lock of a profile. Its port is a function of the profile's path (FNV-1a, into 16384 to 32767), so every run on one profile contends for the same port. The lock is a server this process
 // keeps listening: the operating system takes it back when the process ends, however it ends. Resolves to the function that gives it up; a profile that is locked already is "in use by another run".
+// WHY 16384 TO 32767: a listener cannot take a port that an OUTGOING connection owns, so a lock port inside a system's client-port range can be refused for no program at all (the check's own DevTools
+// connection will do) and the message then blames "a program that is not this check". The ranges systems hand out by default are 32768 to 60999 on Linux and 49152 to 65535 on Windows and macOS (the
+// IANA dynamic range); the lock used to sit in 49152 to 65535, which overlaps both. This range lies under every one of them, and what lives in it is servers, which the lock names as what they are.
+// STATED LIMITS: a system whose client range has been configured wider than its default (Linux's `ip_local_port_range`, Windows' `netsh int ipv4 set dynamicport`) can still hand the lock's port to a
+// client; the message then says what the holder looks like, not what it is. A system that keeps reserved ranges (Windows lists them in `netsh int ipv4 show excludedportrange`) refuses the bind with
+// EACCES, which is reported as such. The lock is used on the native route only, which is not Windows (there the WSL route gives every run a profile of its own).
+export const LOCK_PORT_FIRST = 16384, LOCK_PORT_LAST = 32767;
 export const lockPortOf = (profile, platform = process.platform) => {
   let h = 2166136261;
   for (const ch of (platform === 'win32' ? profile.toLowerCase() : profile)) h = Math.imul(h ^ ch.codePointAt(0), 16777619) >>> 0;
-  return 49152 + (h % 16384);
+  return LOCK_PORT_FIRST + (h % (LOCK_PORT_LAST - LOCK_PORT_FIRST + 1));
 };
 const LOCK_GREETING = 'kolwen-browser-profile-lock';
 
