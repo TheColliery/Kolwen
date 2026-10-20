@@ -5,8 +5,10 @@
 // later DTCG file can generate the same ones: a token at the path `font.size.1` is the custom property `--kw-font-size-1` (the path joined by dashes, prefixed `--kw-`). Until then this table
 // IS the source, and a hand-kept second stylesheet is not allowed to appear beside it.
 //
-// EVERY NUMBER IS THE HOUSE'S OWN. No standard sets a type scale, a container width, a gutter or a breakpoint (the library rows PM-24 to PM-26 find none); the numbers below are the sizes the
-// pages already used, written in rem at the browser default of 16px (so a visitor's own text size scales them, SC 1.4.4), and WCAG sets only the two bones the formula must not break:
+// EVERY NUMBER IS THE HOUSE'S OWN. No standard sets a type scale, a container width, a gutter or a breakpoint (the library rows PM-24 to PM-26 find none). Most of the numbers below are the sizes the
+// pages already used; the reading body (font.size.body, 18 px, the owner 2026-10-19, PR #57) and the reading ladder (font.size.reading-h3, -h2 and -title, 21, 24 and 30 px, the owner's BB-208 of
+// 2026-10-20) are the owner's own choices, named where they are defined, never legacy measurements. All are written in rem at the browser default of 16px (so a visitor's own text size scales them,
+// SC 1.4.4), and WCAG sets only the two bones the formula must not break:
 //  - text never scales by viewport units alone (SC 1.4.4, failure F94): every fluid size below is a clamp() whose bounds are rem and whose preferred term carries a rem term as well;
 //  - the page reflows at 320 CSS px with no scrolling in two directions (SC 1.4.10): the containers are maximums, never widths.
 //
