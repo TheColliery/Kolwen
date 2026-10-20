@@ -55,6 +55,9 @@
     --kw-font-size-10:1.25rem;
     --kw-font-size-11:1.625rem;
     --kw-font-size-body:1.125rem;
+    --kw-font-size-reading-h3:1.3125rem;
+    --kw-font-size-reading-h2:1.5rem;
+    --kw-font-size-reading-title:1.875rem;
     --kw-font-size-display:clamp(1.75rem, -6.125rem + 30vw, 2.125rem);
     --kw-font-size-title:clamp(1.25rem, -4rem + 20vw, 1.5rem);
     --kw-font-size-title-home:clamp(1.125rem, -2.8125rem + 15vw, 1.3125rem);
@@ -86,6 +89,9 @@
   @media (prefers-color-scheme:dark){html[data-job="prose"]{--bg:#0f0d0b;--bg2:#15130f;--card:#1a1714;--line:rgba(255, 255, 255, 0.08);--txt:#ece4d9;--txt2:#a89a8c;--quiet:#a2968a;--accent:#e8833a;--accent2:#ffbb7a;--kw-color-switch-border:#8c8c8c}}
   html[data-job="prose"] body{background:var(--bg)}
   html[data-job="prose"] main{font-size:var(--kw-font-size-body);max-width:calc(var(--kw-size-measure-reading) + 2 * var(--kw-space-inset-inline))}
+  html[data-job="prose"] h1{font-size:var(--kw-font-size-reading-title)}
+  html[data-job="prose"] .legal h2{font-size:var(--kw-font-size-reading-h2)}
+  html[data-job="prose"] .legal h3{font-size:var(--kw-font-size-reading-h3)}
   html[data-job="prose"] #doc-th,html[data-job="prose"] #doc-th *{line-height:var(--kw-line-height-thai)}
 /* site-tokens-css:end */
   :root{--bg:#0f0d0b;--bg2:#15130f;--card:#1a1714;--line:rgba(255,255,255,.08);--txt:#ece4d9;--txt2:#a89a8c;--quiet:#a2968a;--accent:#e8833a;--accent2:#ffbb7a}

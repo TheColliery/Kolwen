@@ -5,8 +5,10 @@
 // later DTCG file can generate the same ones: a token at the path `font.size.1` is the custom property `--kw-font-size-1` (the path joined by dashes, prefixed `--kw-`). Until then this table
 // IS the source, and a hand-kept second stylesheet is not allowed to appear beside it.
 //
-// EVERY NUMBER IS THE HOUSE'S OWN. No standard sets a type scale, a container width, a gutter or a breakpoint (the library rows PM-24 to PM-26 find none); the numbers below are the sizes the
-// pages already used, written in rem at the browser default of 16px (so a visitor's own text size scales them, SC 1.4.4), and WCAG sets only the two bones the formula must not break:
+// EVERY NUMBER IS THE HOUSE'S OWN. No standard sets a type scale, a container width, a gutter or a breakpoint (the library rows PM-24 to PM-26 find none). Most of the numbers below are the sizes the
+// pages already used; the reading body (font.size.body, 18 px, the owner 2026-10-19, PR #57) and the reading ladder (font.size.reading-h3, -h2 and -title, 21, 24 and 30 px, the owner's BB-208 of
+// 2026-10-20) are the owner's own choices, named where they are defined, never legacy measurements. All are written in rem at the browser default of 16px (so a visitor's own text size scales them,
+// SC 1.4.4), and WCAG sets only the two bones the formula must not break:
 //  - text never scales by viewport units alone (SC 1.4.4, failure F94): every fluid size below is a clamp() whose bounds are rem and whose preferred term carries a rem term as well;
 //  - the page reflows at 320 CSS px with no scrolling in two directions (SC 1.4.10): the containers are maximums, never widths.
 //
@@ -47,6 +49,13 @@ export const TOKENS = {
   // The body text of a reading page (the paragraphs and list items of the legal pages and the changelog, in both languages): THE ONE KNOB. Its px value is the only number to change to make that text larger
   // or smaller; the column below is written in em, so it follows (the owner, 2026-10-19: 18 px, and the column grows with it, for less empty space left and right of the text).
   'font.size.body': rem(18),
+  // THE READING LADDER (BB-208, the owner 2026-10-20, verbatim: "เอาลำดับ 18 21 24 30"): the headings of a reading page, above the body text, one step each: h3 21 px, h2 24 px, the page title 30 px, so
+  // title > h2 > h3 > body at every width (body is 18 px, font.size.body). The four numbers are four steps of the traditional typefounders' size series (6 7 8 9 10 11 12 14 16 18 21 24 30 36 48 60 72):
+  // a convention of the printing trade, never a standard, and the numbers stay the house's own like every other here. They are fixed rem values with no clamp(): the title that leaves its fluid
+  // 20 to 24 px (font.size.title, which the home, pricing and 404 pages keep) is 30 px at 390 px and at 2560 px alike, so it never falls under h2. They apply under data-job="prose" only (readingCss).
+  'font.size.reading-h3': rem(21),
+  'font.size.reading-h2': rem(24),
+  'font.size.reading-title': rem(30),
   // Type that adapts: the mark's name, the page title (legal pages and the home page), and the plan table's cells.
   'font.size.display': fluid(28, 34),
   'font.size.title': fluid(20, 24),
@@ -127,6 +136,9 @@ export function readingCss() {
     `  @media (prefers-color-scheme:dark){${prose}{${cssVars(READING.dark)}}}`,
     `  ${prose} body{background:var(--bg)}`,
     `  ${prose} main{font-size:var(${tokenName('font.size.body')});max-width:calc(var(${tokenName('size.measure.reading')}) + 2 * var(${tokenName('space.inset-inline')}))}`,
+    `  ${prose} h1{font-size:var(${tokenName('font.size.reading-title')})}`,
+    `  ${prose} .legal h2{font-size:var(${tokenName('font.size.reading-h2')})}`,
+    `  ${prose} .legal h3{font-size:var(${tokenName('font.size.reading-h3')})}`,
     `  ${prose} #doc-th,${prose} #doc-th *{line-height:var(${tokenName('line-height.thai')})}`,
   ].join('\n');
 }

@@ -277,6 +277,50 @@ test('a rendered Latin line of more than 80 characters fails the measure check; 
   assert.deepEqual((await run(thai, ['measure'])).failures, [], 'a long Thai line is recorded and is not a failure');
 });
 
+// BB-208 (the owner, 2026-10-20: "เอาลำดับ 18 21 24 30"): the type ladder of the reading pages, read from the browser. Title 30 px, h2 24 px, h3 21 px, body 18 px, in both languages and at every width
+// (390, 1280, 1920 and 2560 px), and each step larger than the one below. The home, pricing and 404 pages do not move: their page title is still the fluid 20 to 24 px of font.size.title and
+// title-home (the sizes measured on main at 8d01a78 at 1280 px: pricing 24 px, home 21 px, 404 21.6 px).
+test('the reading ladder: on every prose page, in both languages and at 390, 1280, 1920 and 2560 px, the title is 30 px, h2 24 px, h3 21 px and the body 18 px, each above the one below; the other pages keep their title', { skip: SKIP }, async () => {
+  const server = await browser.serve(join(ROOT, 'web'), { headers: false });
+  const sizesOf = (page, lang) => page.evaluate(`(() => {
+    const root = document.querySelector('#doc-${lang}'), size = el => parseFloat(getComputedStyle(el).fontSize), visible = el => getComputedStyle(el).display !== 'none';
+    const first = sel => [...root.querySelectorAll(sel)].filter(visible).map(size);
+    return { h1: first('h1'), h2: first('.legal h2'), h3: first('.legal h3'), body: first('.legal p:not(.sub):not(.fine), .legal li') };
+  })()`);
+  try {
+    for (const file of ['terms.html', 'privacy.html', 'refund.html', 'changelog.html']) {
+      for (const lang of ['en', 'th']) {
+        for (const width of [390, 1280, 1920, 2560]) {
+          const page = await browser.newPage();
+          try {
+            await page.setViewport(width, 800);
+            await page.goto(server.origin + checkLib.urlPathOf(file));
+            const got = await page.evaluate(`(() => { const b = document.querySelector('[data-lang-set="${lang}"]'); if (b) b.click(); return document.documentElement.lang; })()`);
+            assert.equal(got, lang, `${file}: the language switch set ${lang}`);
+            const s = await sizesOf(page, lang), at = `${file} ${lang} ${width} px`;
+            assert.deepEqual([...new Set(s.h1)], [30], at + ': the title is 30 px');
+            assert.deepEqual([...new Set(s.h2)], s.h2.length ? [24] : [], at + ': h2 is 24 px');
+            assert.deepEqual([...new Set(s.h3)], s.h3.length ? [21] : [], at + ': h3 is 21 px');
+            assert.deepEqual([...new Set(s.body)], [18], at + ': the body is 18 px');
+            const steps = [30, 24, 21, 18].filter((_, i) => [s.h1, s.h2, s.h3, s.body][i].length);
+            assert.ok(steps.length >= 2 && steps.every((x, i) => i === 0 || steps[i - 1] > x), at + ': each step is larger than the one below');
+          } finally { await page.close(); }
+        }
+      }
+    }
+    // the pages that are not prose keep the title they had
+    for (const [file, want] of [['pricing.html', 24], ['index.html', 21], ['404.html', 21.6]]) {
+      const page = await browser.newPage();
+      try {
+        await page.setViewport(1280, 800);
+        await page.goto(server.origin + checkLib.urlPathOf(file));
+        const h1 = await page.evaluate(`parseFloat(getComputedStyle(document.querySelector('h1')).fontSize)`);
+        assert.equal(h1, want, file + ': the title did not move');
+      } finally { await page.close(); }
+    }
+  } finally { await server.close(); }
+});
+
 test('the theme check finds a prose page with a background image, one without a job, and a default page that carries the reading theme', { skip: SKIP }, async () => {
   const image = copyWeb(w => editPage(w, 'privacy.html', h => h.replace('<body>', '<body style="background-image:linear-gradient(red,blue)">')));
   assert.ok((await run(image, ['theme'])).failures.some(f => f.page === 'privacy.html' && /has a background image/.test(f.detail)));
