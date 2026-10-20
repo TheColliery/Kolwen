@@ -406,6 +406,8 @@ async function launchWsl(route, { lifetimeMs, commandTimeoutMs }) {
     }
     if (run.spawnError()) throw new Error(`the WSL route could not be started (${run.spawnError().code ?? run.spawnError().message})`);
     if (!endpoint) throw new Error(run.exited() ? `the headless shell in WSL (${route.distro}) exited before it answered on its DevTools port${scriptLines(run.output()).length ? ' (' + scriptLines(run.output()).join('; ') + ')' : ''}` : 'the headless shell in WSL answered nothing on its DevTools port in 30 s');
-    return await drive({ endpoint, profile: `WSL ${route.distro}: a profile of its own under /tmp, removed at the end`, label: `WSL ${route.distro}`, commandTimeoutMs, isExited: () => run.exited(), cleanup, channel: true });
+    // the hinting the SCRIPT used, as it reported it (KOLWEN_FONT_HINTING, none by default: scripts/lib/wsl-route.mjs), so the run says what it ran with and never what it was asked for
+    const hinting = scriptLines(run.output()).map(l => /^HINTING=(none|slight|medium|full)$/.exec(l)?.[1]).find(Boolean) ?? 'unknown';
+    return { ...(await drive({ endpoint, profile: `WSL ${route.distro}: a profile of its own under /tmp, removed at the end`, label: `WSL ${route.distro}, font hinting ${hinting}`, commandTimeoutMs, isExited: () => run.exited(), cleanup, channel: true })), hinting };
   } catch (e) { run.kill(); await cleanup(); throw e; }
 }

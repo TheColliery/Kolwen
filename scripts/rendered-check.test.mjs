@@ -991,11 +991,63 @@ test('the WSL script and the native route start the browser with the same switch
   const sh = readFileSync(join(ROOT, 'scripts/wsl/browser-run.sh'), 'utf8');
   const start = sh.indexOf('"$BIN"');
   const flags = (sh.slice(start, sh.indexOf('about:blank', start)).match(/'--[^']*'|--[^\s']+/g) ?? []).map(f => f.replace(/^'|'$/g, ''));
-  const wslOnly = ['--remote-debugging-port="$PORT"', '--remote-debugging-address=127.0.0.1', '--user-data-dir="$RUN/profile"', '--font-render-hinting=none'];
+  const wslOnly = ['--remote-debugging-port="$PORT"', '--remote-debugging-address=127.0.0.1', '--user-data-dir="$RUN/profile"', '--font-render-hinting="$HINTING"'];
   for (const f of browserLib.COMMON_ARGS) assert.ok(flags.includes(f), 'the script carries ' + f);
   assert.deepEqual(flags.filter(f => !browserLib.COMMON_ARGS.includes(f) && !wslOnly.includes(f)), [], 'nothing else is in the script');
   for (const f of wslOnly) assert.ok(flags.includes(f), 'the script carries ' + f);
   assert.ok(browserLib.COMMON_ARGS.includes('--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE 127.0.0.1'), 'no host name resolves');
+});
+
+// Q-14 (the pending 4 of PR #57's unit): a one-run hinting knob. The WSL route runs the browser with the font hinting OFF, which is what makes its layout repeatable; a Linux visitor's browser often applies
+// FreeType's medium or full hinting, which makes the Thai text wider (the plan table needs 275.6 px with none and 290 px with medium or full, measured at 320 px against 238 px of card content). KOLWEN_FONT_HINTING
+// (none, slight, medium or full; unset is none) is read by scripts/wsl/browser-run.sh, so the rendered check can be run once with another hinting as a watch on the table's slack; it reaches the distro through
+// WSLENV, and the run says which hinting it used.
+test('KOLWEN_FONT_HINTING: the script reads it, takes only none, slight, medium or full (none when unset), and says which it used', () => {
+  const sh = readFileSync(join(ROOT, 'scripts/wsl/browser-run.sh'), 'utf8');
+  assert.match(sh, /^HINTING="\$\{KOLWEN_FONT_HINTING:-none\}"$/m, 'read from the environment, none by default');
+  assert.match(sh, /case "\$HINTING" in none\|slight\|medium\|full\) ;; \*\) echo "kolwen-wsl: BADHINTING"; exit 2 ;; esac/, 'only the four values, checked before anything is made');
+  assert.ok(sh.indexOf('BADHINTING') < sh.indexOf('mktemp -d'), 'the value is refused before the run folder is made');
+  assert.match(sh, /echo "kolwen-wsl: HINTING=\$HINTING"/, 'the script says which hinting it used');
+  assert.doesNotMatch(sh, /--font-render-hinting=none/, 'no hinting is written into the switches');
+  assert.deepEqual(wslLib.HINTINGS, ['none', 'slight', 'medium', 'full']);
+  assert.equal(wslLib.HINTING_ENV, 'KOLWEN_FONT_HINTING');
+  for (const [env, want] of [[{}, 'none'], [{ KOLWEN_FONT_HINTING: '' }, 'none'], [{ KOLWEN_FONT_HINTING: 'full' }, 'full'], [{ KOLWEN_FONT_HINTING: 'slight' }, 'slight']]) assert.deepEqual(wslLib.fontHinting(env), { hinting: want }, JSON.stringify(env));
+  for (const bad of ['Full', 'medium ', 'heavy', '1', '--no-sandbox', 'full; rm -rf x']) assert.match(wslLib.fontHinting({ KOLWEN_FONT_HINTING: bad }).why, /^KOLWEN_FONT_HINTING is .*, which is not one of none, slight, medium, full$/, bad);
+  // it reaches the distro only through WSLENV, and an existing WSLENV is kept
+  assert.equal(wslLib.wslEnvFor({ KOLWEN_FONT_HINTING: 'full' }).WSLENV, 'KOLWEN_FONT_HINTING');
+  assert.equal(wslLib.wslEnvFor({ KOLWEN_FONT_HINTING: 'full', WSLENV: 'A/p:B' }).WSLENV, 'A/p:B:KOLWEN_FONT_HINTING');
+  assert.equal(wslLib.wslEnvFor({ KOLWEN_FONT_HINTING: 'full', WSLENV: 'KOLWEN_FONT_HINTING/u' }).WSLENV, 'KOLWEN_FONT_HINTING/u', 'named once already: left as it is');
+  assert.equal(wslLib.wslEnvFor({ PATH: 'x' }).WSLENV, undefined, 'unset: WSLENV is not touched');
+  // a bad value starts nothing
+  assert.throws(() => wslLib.startWslBrowser({ distro: 'Ubuntu', port: 1, lifetimeS: 1, scriptsDir: SCRIPTS_ON_C, env: { KOLWEN_FONT_HINTING: 'heavy' } }), /KOLWEN_FONT_HINTING is heavy, which is not one of/);
+});
+
+test('with KOLWEN_FONT_HINTING=full the run reports it, the plan table is wider than with none, and it still scrolls inside its wrapper without the page scrolling sideways', { skip: SKIP_WSL }, async () => {
+  const old = process.env.KOLWEN_FONT_HINTING;
+  let hinted;
+  process.env.KOLWEN_FONT_HINTING = 'full';
+  try { hinted = await launchBrowser({ route, lifetimeMs: 120000 }); } finally { if (old === undefined) delete process.env.KOLWEN_FONT_HINTING; else process.env.KOLWEN_FONT_HINTING = old; }
+  const read = async b => {
+    const server = await b.serve(join(ROOT, 'web'), { headers: false });
+    const page = await b.newPage();
+    try {
+      await page.setViewport(320, 800);
+      await page.goto(server.origin + '/pricing');
+      return await page.evaluate(`(() => { const t = [...document.querySelectorAll('table.plans')].find(x => x.offsetParent), w = t.closest('.plans-wrap');
+        return { table: t.getBoundingClientRect().width, wrapper: w.clientWidth, scrolls: w.scrollWidth > w.clientWidth, overflowX: getComputedStyle(w).overflowX, page: document.documentElement.scrollWidth, viewport: document.documentElement.clientWidth }; })()`);
+    } finally { await page.close(); await server.close(); }
+  };
+  try {
+    assert.equal(hinted.hinting, 'full', 'the run reports the hinting it used');
+    assert.match(hinted.label, /font hinting full/);
+    assert.equal(browser.hinting, 'none', 'the shared browser of this file ran with the default');
+    assert.match(browser.label, /font hinting none/);
+    const none = await read(browser), full = await read(hinted);
+    assert.ok(full.table > none.table + 5, `the knob took effect: the table is ${full.table} px with full hinting and ${none.table} px with none`);
+    assert.equal(full.overflowX, 'auto');
+    assert.equal(full.scrolls, true, 'the table is wider than its wrapper and scrolls there: ' + JSON.stringify(full));
+    assert.equal(full.page, full.viewport, 'the page does not scroll sideways: ' + JSON.stringify(full));
+  } finally { await hinted.close(); }
 });
 
 test('a lock port held by a program that is not this check is reported as that, and not as another run', async t => {

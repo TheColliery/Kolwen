@@ -12,6 +12,10 @@ case "$PORT" in ''|*[!0-9]*) echo "kolwen-wsl: BADPORT"; exit 2 ;; esac
 case "$LIFETIME" in ''|*[!0-9]*) echo "kolwen-wsl: BADLIFETIME"; exit 2 ;; esac
 [ "$LIFETIME" -ge 5 ] && [ "$LIFETIME" -le 7200 ] || { echo "kolwen-wsl: BADLIFETIME"; exit 2; }
 [ -n "${HOME:-}" ] || { echo "kolwen-wsl: NOHOME"; exit 2; }
+# The font hinting of the browser, from the environment (a Windows variable reaches here through WSLENV, scripts/lib/wsl-route.mjs): none by default, which keeps the layout repeatable, or slight, medium or
+# full, to run the check once the way a Linux visitor's FreeType may draw the text. Nothing else is ever passed to the switch.
+HINTING="${KOLWEN_FONT_HINTING:-none}"
+case "$HINTING" in none|slight|medium|full) ;; *) echo "kolwen-wsl: BADHINTING"; exit 2 ;; esac
 
 BIN="$HOME/tools/chrome-headless-shell-linux64/chrome-headless-shell"
 [ -x "$BIN" ] || { echo "kolwen-wsl: NOBIN"; exit 5; }
@@ -34,6 +38,7 @@ guard() {
 
 guard || { echo "kolwen-wsl: BADRUN"; exit 6; }
 echo "kolwen-wsl: RUN=$RUN"
+echo "kolwen-wsl: HINTING=$HINTING"
 
 CHILD=""
 cleanup() {
@@ -60,7 +65,7 @@ HOME="$RUN/home" XDG_CONFIG_HOME="$RUN/home" XDG_CACHE_HOME="$RUN/home" TMPDIR="
   --remote-debugging-port="$PORT" --remote-debugging-address=127.0.0.1 --user-data-dir="$RUN/profile" \
   --no-first-run --no-default-browser-check --disable-gpu --disable-extensions --disable-background-networking \
   --disable-component-update --disable-sync --metrics-recording-only --hide-scrollbars --js-flags=--max-old-space-size=512 \
-  '--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE 127.0.0.1' --font-render-hinting=none about:blank &
+  '--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE 127.0.0.1' --font-render-hinting="$HINTING" about:blank &
 CHILD=$!
 wait "$CHILD"
 exit 0
