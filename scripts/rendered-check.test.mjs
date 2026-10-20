@@ -1148,6 +1148,21 @@ test('a lock port held by a program that is not this check is reported as that, 
   await release();
 });
 
+// PR #62 round 1 (reviewer L-2): the EACCES branch and its message are tested on every OS by an injected server whose listen fails with the code a reserving system gives; the probe test below
+// keeps the real reservation as an extra that skips visibly where the system has none
+const failingServer = code => {
+  const handlers = {};
+  return { unref() {}, once(ev, fn) { handlers[ev] = fn; }, listen() { setImmediate(() => handlers.error(Object.assign(new Error('listen ' + code), { code }))); } };
+};
+test('lockProfile: a listen refused with EACCES is one line saying the system reserves the port, and any other listen error is passed on as it is (injected server, every OS)', async () => {
+  const p = join(tmpdir(), 'kolwen-lock-stub-reserved'), port = browserLib.lockPortOf(p);
+  await assert.rejects(browserLib.lockProfile(p, () => failingServer('EACCES')), e => {
+    assert.equal(e.message, `the browser profile ${p} could not be locked: port ${port} of 127.0.0.1 is reserved by the system (point KOLWEN_BROWSER_PROFILE at another folder)`);
+    return true;
+  });
+  await assert.rejects(browserLib.lockProfile(p, () => failingServer('EMFILE')), e => { assert.equal(e.code, 'EMFILE'); assert.match(e.message, /^listen EMFILE$/); return true; });
+});
+
 test('a lock port that the system reserves (Windows keeps ranges of the dynamic ports) is one line saying so, not a raw listen error', async t => {
   const tryListen = port => new Promise(res => { const s = createServer(); s.once('error', e => res(e.code)); s.listen(port, '127.0.0.1', () => s.close(() => res('ok'))); });
   // a capability probe: every port of the lock's range is tried (in batches, at once), then paths are hashed (nothing is bound) until one maps to a reserved port; the lock range moved under the

@@ -177,9 +177,10 @@ export const lockHolder = port => new Promise(done => {
   sock.on('close', end);
 });
 
-export function lockProfile(profile) {
+// `makeServer` is injectable so a test can hand the lock a server whose listen fails with any code (the EACCES branch needs a reserving system otherwise)
+export function lockProfile(profile, makeServer = createServer) {
   return new Promise((resolveLock, reject) => {
-    const server = createServer(client => { client.on('error', () => {}); client.end(LOCK_GREETING + String.fromCharCode(10)); });
+    const server = makeServer(client => { client.on('error', () => {}); client.end(LOCK_GREETING + String.fromCharCode(10)); });
     server.unref();
     server.once('error', async e => {
       const port = lockPortOf(profile);
