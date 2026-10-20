@@ -849,6 +849,10 @@ test('the scan for a script that starts itself refuses the ways to ask "am I the
     // the reviewer's L-3 turned round: the argument reads that remain refused ask which file is the main module
     'const [, self] = process.argv; const [, , a] = process.argv; const s = process.argv[1];', 'process.argv.includes(selfPath)', 'process.argv.indexOf(__filename)', 'process.argv.at(2)', 'process.argv[0]',
     'const { x, argv: a } = process;', 'const { x, y: z, argv = [] } = process;',
+    // Q-12 (the re-check of PR #58, L-1): two forms that read the script's own path passed the allow-list: an `includes` of a template that carries `${...}`, and a `slice` whose argument is an expression that
+    // starts with a 2 or more but is worth 1; and a third of their kind, found while closing them: an `includes` of a literal joined to a name
+    "if (process.argv.includes(`${fileURLToPath(import.meta.url)}`)) main();", 'if (process.argv.slice(2 - 1)[0] === here) main();', "process.argv.includes('--x' + here)", "process.argv.indexOf(`x` + here)",
+    'process.argv.slice(3 - 2, 5)', 'process.argv.slice(2 > 1 ? 1 : 2)', "process.argv.includes(`${here}`, 1)",
   ];
   for (const src of planted) assert.ok(readsOwnPath(src), 'refused: ' + src);
   const fine = [
@@ -858,6 +862,8 @@ test('the scan for a script that starts itself refuses the ways to ask "am I the
     // PR #58 round 1 (the reviewer's L-3): reading an argument is no question about the main module
     "if (process.argv.includes('--help')) usage();", "const web = process.argv.indexOf('--web') !== -1;", 'const [, , ...args] = process.argv;', 'const [,, first, second] = process.argv;', 'const x = process.argv[10];',
     'const rest = process.argv.slice(2).filter(a => a !== "--write");', "const w = process.argv.slice(3).includes('--write');",
+    // Q-12: the literal forms that stay allowed: any quote, a template with no `${`, a second argument, a slice that ends at its start or at a comma
+    "process.argv.includes(`--help`)", 'process.argv.includes("--help")', "process.argv.includes('--a', 3)", 'process.argv.slice( 2 )', 'process.argv.slice(2, 4)', 'process.argv.slice(10)', "process.argv.indexOf( '--web' ) > -1",
   ];
   for (const src of fine) assert.ok(!readsOwnPath(src), 'allowed: ' + src);
   assert.ok(startsItself('if (isMainModule(import.meta.url)) main();') && startsItself('if (import.meta.main) main();') && !startsItself('const arg = process.argv[2];'));
@@ -874,7 +880,7 @@ test('the scan helpers finish on bulk input that gives their patterns nothing to
     const N = 40000;
     const inputs = [
       '{ argv '.repeat(N), '{ a, '.repeat(N), '{' + ' a,'.repeat(N), '/* a '.repeat(N), '/* a */ '.repeat(N), '// a '.repeat(N), 'process . '.repeat(N), 'process.argv.'.repeat(N), 'process.argv[ '.repeat(N),
-      '[ , ,'.repeat(N), '[' + ' ,'.repeat(N), 'process.argv.includes('.repeat(N), 'import.meta.url '.repeat(N), 'fileURLToPath( import.meta.url '.repeat(N), ' '.repeat(N * 4) + '{', '{' + ' '.repeat(N * 4),
+      '[ , ,'.repeat(N), '[' + ' ,'.repeat(N), 'process.argv.includes('.repeat(N), 'process.argv.includes(' + String.fromCharCode(39) + 'x'.repeat(N), 'process.argv.includes(' + String.fromCharCode(96) + 'x'.repeat(N), 'process.argv.slice(2 '.repeat(N), 'import.meta.url '.repeat(N), 'fileURLToPath( import.meta.url '.repeat(N), ' '.repeat(N * 4) + '{', '{' + ' '.repeat(N * 4),
       '{ ' + 'a: b, '.repeat(N) + 'argv', "'".repeat(N), '\\n'.repeat(N),
     ];
     let seen = 0;
