@@ -119,6 +119,27 @@ test('the reading theme is a variant of the colour names the pages already use, 
   for (const scheme of Object.values(READING)) for (const k of ['bg', 'bg2', 'card', 'line', 'txt', 'txt2', 'quiet', 'accent', 'accent2']) assert.ok(scheme[k], k);
 });
 
+// BB-208 (the owner, 2026-10-20: "เอาลำดับ 18 21 24 30"): the reading pages take a ladder of four steps, each larger than the one below. The steps come from the traditional typefounders' size series, a convention
+// and never a standard, and every number stays the house's own. Only the prose job moves: the page title leaves its fluid 20 to 24 px (the home, pricing and 404 pages keep it), and the headings of a `.legal` block
+// were 18 px (h2, the size of the body) and 15.5 px (h3, smaller than the body).
+test('the reading ladder is 18, 21, 24 and 30 px: four tokens, taken by the title and the headings of a prose page only, each step above the one below, and no clamp() in them', () => {
+  const px = path => parseFloat(TOKENS[path]) * PX_PER_REM;
+  assert.deepEqual([px('font.size.body'), px('font.size.reading-h3'), px('font.size.reading-h2'), px('font.size.reading-title')], [18, 21, 24, 30]);
+  for (const path of ['font.size.reading-h3', 'font.size.reading-h2', 'font.size.reading-title']) {
+    assert.match(TOKENS[path], /^[0-9.]+rem$/, path + ' is a rem value, like font.size.body: it scales with the visitor\'s own text size and is not fluid');
+    assert.ok(tokensCss().includes(tokenName(path) + ':' + TOKENS[path]), path + ' ships in the one tokens block');
+  }
+  const css = readingCss();
+  assert.match(css, /html\[data-job="prose"\] h1\{font-size:var\(--kw-font-size-reading-title\)\}/);
+  assert.match(css, /html\[data-job="prose"\] \.legal h2\{font-size:var\(--kw-font-size-reading-h2\)\}/);
+  assert.match(css, /html\[data-job="prose"\] \.legal h3\{font-size:var\(--kw-font-size-reading-h3\)\}/);
+  // nothing else moved: the shared rules the other pages use still name their own sizes, and the title token is still the fluid 20 to 24 px
+  const shared = readFileSync(join(WEB, '..', 'scripts/lib/legal-render.mjs'), 'utf8');
+  assert.match(shared, /\n {2}h1\{font-size:var\(--kw-font-size-title\);/);
+  assert.match(TOKENS['font.size.title'], /^clamp\(1\.25rem, .*\+ .*vw, 1\.5rem\)$/);
+  assert.match(TOKENS['font.size.title-home'], /^clamp\(1\.125rem, /);
+});
+
 test('the meta lines of a reading page: color-scheme, and a theme-color for each scheme that is its ground', () => {
   const m = readingMeta();
   assert.match(m, /<meta name="color-scheme" content="light dark">/);
