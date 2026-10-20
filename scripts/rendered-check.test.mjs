@@ -911,6 +911,10 @@ const importOf = file => ['--input-type=module', '-e', `await import(${JSON.stri
 // and a script that starts itself by a way that reads no path at all (a top-level call that is not behind any guard) is not a "self-running" script but a script that runs on import, which the
 // import test below finds only for the listed ones.
 test('the scan for a script that starts itself refuses the ways to ask "am I the main module" that it can read, and lets an argument and the shared guard through', () => {
+  // The fixtures below that carry a template literal's interpolation are source text the scan is fed, NOT templates of this file: the backtick and the dollar sign are built from their code points and the
+  // brace is joined to them, so no string of this file reads as a template written inside quotes (CodeQL js/template-syntax-in-string-literal, alert 53). The strings the scan reads are unchanged.
+  const BT = String.fromCharCode(96), DOLLAR = String.fromCharCode(36);
+  const tpl = inner => BT + DOLLAR + '{' + inner + '}' + BT;
   const planted = [
     'if (fileURLToPath(import.meta.url) === resolve(process.argv.at(1) ?? "")) main();', 'if (import.meta.main) main();', 'if (import.meta.filename === process.argv[1]) main();',
     "if (import.meta.url.endsWith('x.mjs')) main();", "if (import.meta.url.includes('x')) main();", 'if (import.meta.url === pathToFileURL(a).href) main();', 'if (pathToFileURL(a).href !== import.meta.url) {}',
@@ -923,8 +927,8 @@ test('the scan for a script that starts itself refuses the ways to ask "am I the
     'const { x, argv: a } = process;', 'const { x, y: z, argv = [] } = process;',
     // Q-12 (the re-check of PR #58, L-1): two forms that read the script's own path passed the allow-list: an `includes` of a template that carries `${...}`, and a `slice` whose argument is an expression that
     // starts with a 2 or more but is worth 1; and a third of their kind, found while closing them: an `includes` of a literal joined to a name
-    "if (process.argv.includes(`${fileURLToPath(import.meta.url)}`)) main();", 'if (process.argv.slice(2 - 1)[0] === here) main();', "process.argv.includes('--x' + here)", "process.argv.indexOf(`x` + here)",
-    'process.argv.slice(3 - 2, 5)', 'process.argv.slice(2 > 1 ? 1 : 2)', "process.argv.includes(`${here}`, 1)",
+    'if (process.argv.includes(' + tpl('fileURLToPath(import.meta.url)') + ')) main();', 'if (process.argv.slice(2 - 1)[0] === here) main();', "process.argv.includes('--x' + here)", "process.argv.indexOf(`x` + here)",
+    'process.argv.slice(3 - 2, 5)', 'process.argv.slice(2 > 1 ? 1 : 2)', 'process.argv.includes(' + tpl('here') + ', 1)',
   ];
   for (const src of planted) assert.ok(readsOwnPath(src), 'refused: ' + src);
   const fine = [
