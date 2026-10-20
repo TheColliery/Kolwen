@@ -66,10 +66,15 @@ export function findWslRoute({ env = process.env, run = wslRun, distro = null, s
 // that switch, and makes the variable cross from Windows into the distro (WSLENV).
 export const HINTING_ENV = 'KOLWEN_FONT_HINTING';
 export const HINTINGS = ['none', 'slight', 'medium', 'full'];
+// An environment value is untrusted text (a trust boundary), and what is refused is written into a line-oriented report (the gate's FAIL line, the NOT RUN HERE line): log injection, CWE-117. So a value
+// goes into a message quoted and escaped, never raw: JSON.stringify writes CR, LF and the rest of C0 as escapes and a lone surrogate as an escape; DEL, the C1 controls and the two line separators
+// (U+2028, U+2029), which it leaves as they are, are written as \uXXXX here. The result is one line of printable text.
+const UNSAFE = new RegExp('[' + String.fromCharCode(0x7f) + '-' + String.fromCharCode(0x9f, 0x2028, 0x2029) + ']', 'g');
+export const plainText = v => JSON.stringify(String(v)).replace(UNSAFE, c => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'));
 export function fontHinting(env = process.env) {
   const v = env[HINTING_ENV];
   if (v === undefined || v === '') return { hinting: 'none' };
-  return HINTINGS.includes(v) ? { hinting: v } : { why: `${HINTING_ENV} is ${v}, which is not one of ${HINTINGS.join(', ')}` };
+  return HINTINGS.includes(v) ? { hinting: v } : { why: `${HINTING_ENV} is ${plainText(v)}, which is not one of ${HINTINGS.join(', ')}` };
 }
 // A Windows variable reaches a WSL process only when WSLENV names it: this adds the knob to an existing WSLENV (kept as it is when it names the knob already) and touches nothing when the knob is unset.
 export function wslEnvFor(env) {

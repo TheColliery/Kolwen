@@ -51,7 +51,7 @@ import { connect, createServer } from 'node:net';
 import { homedir } from 'node:os';
 import { join, resolve, delimiter, isAbsolute } from 'node:path';
 import { makeResponder, serveWeb } from './static-server.mjs';
-import { findWslRoute, startWslBrowser, scriptLines } from './wsl-route.mjs';
+import { findWslRoute, startWslBrowser, scriptLines, plainText } from './wsl-route.mjs';
 
 export const BROWSER_ENV = 'KOLWEN_BROWSER'; // a path to the binary on Linux and macOS; on Windows only "wsl" or "wsl:<distro>"
 export const PROFILE_ENV = 'KOLWEN_BROWSER_PROFILE'; // an explicit path to the one profile folder (native route)
@@ -78,7 +78,7 @@ export function findBrowser(env = process.env, platform = process.platform, exis
 export function findRoute(env = process.env, platform = process.platform, deps = {}) {
   if (platform === 'win32') {
     const want = env[BROWSER_ENV];
-    if (want && !/^wsl(:[A-Za-z0-9._-]+)?$/.test(want)) return { kind: 'refused', why: `${BROWSER_ENV} names ${want}, which is not the WSL route: on Windows this check never starts a Windows browser; set it to wsl or wsl:<distro>, or leave it unset` };
+    if (want && !/^wsl(:[A-Za-z0-9._-]+)?$/.test(want)) return { kind: 'refused', why: `${BROWSER_ENV} names ${plainText(want)}, which is not the WSL route: on Windows this check never starts a Windows browser; set it to wsl or wsl:<distro>, or leave it unset` };
     return findWslRoute({ env, run: deps.run, scriptsDir: deps.scriptsDir, distro: want && want.length > 4 ? want.slice(4) : null });
   }
   const binary = findBrowser(env, platform, deps.exists);

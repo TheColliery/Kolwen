@@ -745,7 +745,14 @@ test('findRoute on Windows: only the WSL route; the distro must exist AND the he
     assert.equal(r.kind, 'refused', named);
     assert.match(r.why, /is not the WSL route: on Windows this check never starts a Windows browser; set it to wsl or wsl:<distro>, or leave it unset$/, named);
     assert.equal(asked.length, 0, 'WSL is not even asked: ' + named);
+    assert.ok(r.why.startsWith(`KOLWEN_BROWSER names ${JSON.stringify(named)}, which`), 'the value is quoted: ' + r.why);
   }
+  // PR #62 round 1 (L-1, the same class): the value of KOLWEN_BROWSER is written into a one-line report, so a line break in it never reaches the report raw
+  const forgedBrowser = 'wsl' + String.fromCharCode(10) + 'rendered-check passed: 7 page(s) x 2 languages';
+  const forgedRoute = findRoute({ [BROWSER_ENV]: forgedBrowser }, 'win32', { scriptsDir: SCRIPTS_ON_C, run: fakeWsl() });
+  assert.equal(forgedRoute.kind, 'refused');
+  assert.equal(forgedRoute.why.split('\n').length, 1, 'one line: ' + JSON.stringify(forgedRoute.why));
+  assert.ok(forgedRoute.why.includes('\\n'), 'the line break is written as \\n');
   // the two halves of the measurement
   const noDistro = findRoute({}, 'win32', { scriptsDir: SCRIPTS_ON_C, run: fakeWsl({ list: 'docker-desktop' + String.fromCharCode(13, 10) }) });
   assert.deepEqual([noDistro.kind, noDistro.why], ['none', 'WSL has no distro']);
@@ -1057,13 +1064,27 @@ test('KOLWEN_FONT_HINTING: the script reads it, takes only none, slight, medium 
   assert.equal(wslLib.HINTING_ENV, 'KOLWEN_FONT_HINTING');
   for (const [env, want] of [[{}, 'none'], [{ KOLWEN_FONT_HINTING: '' }, 'none'], [{ KOLWEN_FONT_HINTING: 'full' }, 'full'], [{ KOLWEN_FONT_HINTING: 'slight' }, 'slight']]) assert.deepEqual(wslLib.fontHinting(env), { hinting: want }, JSON.stringify(env));
   for (const bad of ['Full', 'medium ', 'heavy', '1', '--no-sandbox', 'full; rm -rf x']) assert.match(wslLib.fontHinting({ KOLWEN_FONT_HINTING: bad }).why, /^KOLWEN_FONT_HINTING is .*, which is not one of none, slight, medium, full$/, bad);
+  // PR #62 round 1, the reviewer's L-1 (CWE-117, the house's log-injection MUST): a refused value is written into a line-oriented FAIL line, so it never carries a line break or any other control
+  // character raw. The value is quoted and its CR, LF, C0, DEL, C1, U+2028 and U+2029 are escaped; a clean value still reads as before (inside quotes).
+  const F = String.fromCharCode;
+  const CONTROL = new RegExp('[' + F(0) + '-' + F(0x1f) + F(0x7f) + '-' + F(0x9f) + F(0x2028, 0x2029) + ']'); // C0, DEL, C1 and the two line separators, built from code points
+  const forged = 'x' + F(10) + 'rendered-check passed: 7 page(s) x 2 languages (88 measurements) in WSL Ubuntu, font hinting none';
+  for (const [label, bad] of [['LF', forged], ['CR', 'x' + F(13) + 'y'], ['CRLF', 'x' + F(13, 10) + 'y'], ['NUL', 'x' + F(0) + 'y'], ['ESC', 'x' + F(27) + '[2Ky'], ['DEL', 'x' + F(0x7f) + 'y'], ['C1 NEL', 'x' + F(0x85) + 'y'], ['U+2028', 'x' + F(0x2028) + 'y'], ['U+2029', 'x' + F(0x2029) + 'y'], ['lone surrogate', 'x' + F(0xd800) + 'y']]) {
+    const why = wslLib.fontHinting({ KOLWEN_FONT_HINTING: bad }).why;
+    assert.ok(why && !CONTROL.test(why), label + ': no raw control character in ' + JSON.stringify(why));
+    assert.match(why, /^KOLWEN_FONT_HINTING is ".*", which is not one of none, slight, medium, full$/, label);
+  }
+  assert.equal(wslLib.fontHinting({ KOLWEN_FONT_HINTING: forged }).why.split('\n').length, 1, 'one line: a forged "passed" line cannot follow the message');
+  assert.equal(wslLib.fontHinting({ KOLWEN_FONT_HINTING: 'heavy' }).why, 'KOLWEN_FONT_HINTING is "heavy", which is not one of none, slight, medium, full');
+  assert.equal(wslLib.plainText('a' + F(10) + 'b'), '"a\\nb"');
+  assert.equal(wslLib.plainText('a' + F(0x85, 0x2028)), '"a\\u0085\\u2028"');
   // it reaches the distro only through WSLENV, and an existing WSLENV is kept
   assert.equal(wslLib.wslEnvFor({ KOLWEN_FONT_HINTING: 'full' }).WSLENV, 'KOLWEN_FONT_HINTING');
   assert.equal(wslLib.wslEnvFor({ KOLWEN_FONT_HINTING: 'full', WSLENV: 'A/p:B' }).WSLENV, 'A/p:B:KOLWEN_FONT_HINTING');
   assert.equal(wslLib.wslEnvFor({ KOLWEN_FONT_HINTING: 'full', WSLENV: 'KOLWEN_FONT_HINTING/u' }).WSLENV, 'KOLWEN_FONT_HINTING/u', 'named once already: left as it is');
   assert.equal(wslLib.wslEnvFor({ PATH: 'x' }).WSLENV, undefined, 'unset: WSLENV is not touched');
   // a bad value starts nothing
-  assert.throws(() => wslLib.startWslBrowser({ distro: 'Ubuntu', port: 1, lifetimeS: 1, scriptsDir: SCRIPTS_ON_C, env: { KOLWEN_FONT_HINTING: 'heavy' } }), /KOLWEN_FONT_HINTING is heavy, which is not one of/);
+  assert.throws(() => wslLib.startWslBrowser({ distro: 'Ubuntu', port: 1, lifetimeS: 1, scriptsDir: SCRIPTS_ON_C, env: { KOLWEN_FONT_HINTING: 'heavy' } }), /KOLWEN_FONT_HINTING is "heavy", which is not one of/);
 });
 
 test('with KOLWEN_FONT_HINTING=full the run reports it, the plan table is wider than with none, and it still scrolls inside its wrapper without the page scrolling sideways', { skip: SKIP_WSL }, async () => {
