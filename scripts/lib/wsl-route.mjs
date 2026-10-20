@@ -60,11 +60,37 @@ export function findWslRoute({ env = process.env, run = wslRun, distro = null, s
   return { kind: 'wsl', distro: name };
 }
 
+// THE HINTING KNOB (Q-14): KOLWEN_FONT_HINTING is none, slight, medium or full (unset or empty is none). The WSL route runs the browser with the font hinting OFF, which makes its layout repeatable; a Linux
+// visitor's browser often applies FreeType's medium or full hinting, and the Thai text is wider then (the plan table: 275.6 px against 290 px at 320 px, measured), so the rendered check can be run once with
+// another value as a watch on the slack of such a table. browser-run.sh reads the variable and passes it to the browser's --font-render-hinting; this file checks the value first, so nothing else ever reaches
+// that switch, and makes the variable cross from Windows into the distro (WSLENV).
+export const HINTING_ENV = 'KOLWEN_FONT_HINTING';
+export const HINTINGS = ['none', 'slight', 'medium', 'full'];
+// An environment value is untrusted text (a trust boundary), and what is refused is written into a line-oriented report (the gate's FAIL line, the NOT RUN HERE line): log injection, CWE-117. So a value
+// goes into a message quoted and escaped, never raw: JSON.stringify writes CR, LF and the rest of C0 as escapes and a lone surrogate as an escape; DEL, the C1 controls and the two line separators
+// (U+2028, U+2029), which it leaves as they are, are written as \uXXXX here. The result is one line of printable text.
+const UNSAFE = new RegExp('[' + String.fromCharCode(0x7f) + '-' + String.fromCharCode(0x9f, 0x2028, 0x2029) + ']', 'g');
+export const plainText = v => JSON.stringify(String(v)).replace(UNSAFE, c => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'));
+export function fontHinting(env = process.env) {
+  const v = env[HINTING_ENV];
+  if (v === undefined || v === '') return { hinting: 'none' };
+  return HINTINGS.includes(v) ? { hinting: v } : { why: `${HINTING_ENV} is ${plainText(v)}, which is not one of ${HINTINGS.join(', ')}` };
+}
+// A Windows variable reaches a WSL process only when WSLENV names it: this adds the knob to an existing WSLENV (kept as it is when it names the knob already) and touches nothing when the knob is unset.
+export function wslEnvFor(env) {
+  const v = env[HINTING_ENV];
+  if (v === undefined || v === '') return { ...env };
+  const have = env.WSLENV ?? '';
+  return { ...env, WSLENV: new RegExp(`(^|:)${HINTING_ENV}(/|:|$)`).test(have) ? have : have ? `${have}:${HINTING_ENV}` : HINTING_ENV };
+}
+
 // Start the browser script in the distro. Returns { child, output(), exited(), kill() }; output() is what the script and the browser printed so far.
 export function startWslBrowser({ distro, port, lifetimeS, scriptsDir = WSL_SCRIPTS, env = process.env }) {
   const script = toWslPath(join(scriptsDir, 'browser-run.sh'));
   if (!script) throw new Error(`the repository is not on a drive the distro can see (${scriptsDir})`);
-  const child = spawn(systemWslExe(env), ['-d', distro, '--exec', 'bash', script, String(port), String(lifetimeS)], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+  const h = fontHinting(env);
+  if (h.why) throw new Error(h.why);
+  const child = spawn(systemWslExe(env), ['-d', distro, '--exec', 'bash', script, String(port), String(lifetimeS)], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, env: wslEnvFor(env) });
   let text = '', done = false, spawnError = null;
   const take = d => { if (text.length < 20000) text += decodeWslText(d); };
   child.stdout.on('data', take);

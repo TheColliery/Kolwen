@@ -51,7 +51,7 @@ import { connect, createServer } from 'node:net';
 import { homedir } from 'node:os';
 import { join, resolve, delimiter, isAbsolute } from 'node:path';
 import { makeResponder, serveWeb } from './static-server.mjs';
-import { findWslRoute, startWslBrowser, scriptLines } from './wsl-route.mjs';
+import { findWslRoute, startWslBrowser, scriptLines, plainText } from './wsl-route.mjs';
 
 export const BROWSER_ENV = 'KOLWEN_BROWSER'; // a path to the binary on Linux and macOS; on Windows only "wsl" or "wsl:<distro>"
 export const PROFILE_ENV = 'KOLWEN_BROWSER_PROFILE'; // an explicit path to the one profile folder (native route)
@@ -78,7 +78,7 @@ export function findBrowser(env = process.env, platform = process.platform, exis
 export function findRoute(env = process.env, platform = process.platform, deps = {}) {
   if (platform === 'win32') {
     const want = env[BROWSER_ENV];
-    if (want && !/^wsl(:[A-Za-z0-9._-]+)?$/.test(want)) return { kind: 'refused', why: `${BROWSER_ENV} names ${want}, which is not the WSL route: on Windows this check never starts a Windows browser; set it to wsl or wsl:<distro>, or leave it unset` };
+    if (want && !/^wsl(:[A-Za-z0-9._-]+)?$/.test(want)) return { kind: 'refused', why: `${BROWSER_ENV} names ${plainText(want)}, which is not the WSL route: on Windows this check never starts a Windows browser; set it to wsl or wsl:<distro>, or leave it unset` };
     return findWslRoute({ env, run: deps.run, scriptsDir: deps.scriptsDir, distro: want && want.length > 4 ? want.slice(4) : null });
   }
   const binary = findBrowser(env, platform, deps.exists);
@@ -150,12 +150,19 @@ export function devToolsEndpoint(url, port) {
 // What the browser on `port` says about itself, or null while it does not answer.
 const versionOf = port => fetch(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(1000) }).then(r => r.json()).catch(() => null);
 
-// The lock of a profile. Its port is a function of the profile's path (FNV-1a, into 49152 to 65535), so every run on one profile contends for the same port. The lock is a server this process
+// The lock of a profile. Its port is a function of the profile's path (FNV-1a, into 16384 to 32767), so every run on one profile contends for the same port. The lock is a server this process
 // keeps listening: the operating system takes it back when the process ends, however it ends. Resolves to the function that gives it up; a profile that is locked already is "in use by another run".
+// WHY 16384 TO 32767: a listener cannot take a port that an OUTGOING connection owns, so a lock port inside a system's client-port range can be refused for no program at all (the check's own DevTools
+// connection will do) and the message then blames "a program that is not this check". The ranges systems hand out by default are 32768 to 60999 on Linux and 49152 to 65535 on Windows and macOS (the
+// IANA dynamic range); the lock used to sit in 49152 to 65535, which overlaps both. This range lies under every one of them, and what lives in it is servers, which the lock names as what they are.
+// STATED LIMITS: a system whose client range has been configured wider than its default (Linux's `ip_local_port_range`, Windows' `netsh int ipv4 set dynamicport`) can still hand the lock's port to a
+// client; the message then says what the holder looks like, not what it is. A system that keeps reserved ranges (Windows lists them in `netsh int ipv4 show excludedportrange`) refuses the bind with
+// EACCES, which is reported as such. The lock is used on the native route only, which is not Windows (there the WSL route gives every run a profile of its own).
+export const LOCK_PORT_FIRST = 16384, LOCK_PORT_LAST = 32767;
 export const lockPortOf = (profile, platform = process.platform) => {
   let h = 2166136261;
   for (const ch of (platform === 'win32' ? profile.toLowerCase() : profile)) h = Math.imul(h ^ ch.codePointAt(0), 16777619) >>> 0;
-  return 49152 + (h % 16384);
+  return LOCK_PORT_FIRST + (h % (LOCK_PORT_LAST - LOCK_PORT_FIRST + 1));
 };
 const LOCK_GREETING = 'kolwen-browser-profile-lock';
 
@@ -170,9 +177,10 @@ export const lockHolder = port => new Promise(done => {
   sock.on('close', end);
 });
 
-export function lockProfile(profile) {
+// `makeServer` is injectable so a test can hand the lock a server whose listen fails with any code (the EACCES branch needs a reserving system otherwise)
+export function lockProfile(profile, makeServer = createServer) {
   return new Promise((resolveLock, reject) => {
-    const server = createServer(client => { client.on('error', () => {}); client.end(LOCK_GREETING + String.fromCharCode(10)); });
+    const server = makeServer(client => { client.on('error', () => {}); client.end(LOCK_GREETING + String.fromCharCode(10)); });
     server.unref();
     server.once('error', async e => {
       const port = lockPortOf(profile);
@@ -399,6 +407,8 @@ async function launchWsl(route, { lifetimeMs, commandTimeoutMs }) {
     }
     if (run.spawnError()) throw new Error(`the WSL route could not be started (${run.spawnError().code ?? run.spawnError().message})`);
     if (!endpoint) throw new Error(run.exited() ? `the headless shell in WSL (${route.distro}) exited before it answered on its DevTools port${scriptLines(run.output()).length ? ' (' + scriptLines(run.output()).join('; ') + ')' : ''}` : 'the headless shell in WSL answered nothing on its DevTools port in 30 s');
-    return await drive({ endpoint, profile: `WSL ${route.distro}: a profile of its own under /tmp, removed at the end`, label: `WSL ${route.distro}`, commandTimeoutMs, isExited: () => run.exited(), cleanup, channel: true });
+    // the hinting the SCRIPT used, as it reported it (KOLWEN_FONT_HINTING, none by default: scripts/lib/wsl-route.mjs), so the run says what it ran with and never what it was asked for
+    const hinting = scriptLines(run.output()).map(l => /^HINTING=(none|slight|medium|full)$/.exec(l)?.[1]).find(Boolean) ?? 'unknown';
+    return { ...(await drive({ endpoint, profile: `WSL ${route.distro}: a profile of its own under /tmp, removed at the end`, label: `WSL ${route.distro}, font hinting ${hinting}`, commandTimeoutMs, isExited: () => run.exited(), cleanup, channel: true })), hinting };
   } catch (e) { run.kill(); await cleanup(); throw e; }
 }

@@ -397,8 +397,9 @@ test('nothing in the browser code deletes anything: no rm, rmSync, rmdir, unlink
   assert.equal(browserLib.runDir, undefined);
 });
 
-// A lock port is a hash of the profile path, so a test that locks a path of its own chooses it here: the port of a fixed path can be held on a runner by a program that is not this check (main went red
-// on that at 3581a1c: port 53356 for /tmp/kolwen-lock-test-b), and the lock then rightly names the foreign holder. The candidates are `<stem>`, `<stem>-1`, `<stem>-2` ... in the temp folder (path strings
+// A lock port is a hash of the profile path, so a test that locks a path of its own chooses it here: the port of a fixed path can be held on a runner by something that is not this check (main went red
+// on that at 3581a1c: port 53356 for /tmp/kolwen-lock-test-b; the holder was never identified, and on Linux it may have been a client socket of the run itself, which the lock range of that day, 49152 to
+// 65535, overlapped: see the range test below), and the lock then names the holder as it looks. The candidates are `<stem>`, `<stem>-1`, `<stem>-2` ... in the temp folder (path strings
 // only: nothing is made). Each is taken when its port can be bound and released now, and no two chosen paths share a port. There is no retry: when fewer than `count` of `tried` candidates are free
 // the test is skipped, visibly, naming the ports that were busy; it never passes on a path it did not check.
 const portIsFree = port => new Promise(res => { const s = createServer(); s.once('error', () => res(false)); s.listen(port, '127.0.0.1', () => s.close(() => res(true))); });
@@ -430,12 +431,32 @@ test('lockProfile: a profile is locked once; a second lock fails at once with on
   await again();
 });
 
-test('lockPortOf: the same profile always gives the same port, in 49152 to 65535, and different profiles give different ones', () => {
+// Q-13 (the re-check of PR #59, L-1). The lock's port used to be in 49152 to 65535, which is the whole dynamic range of Windows and macOS (IANA) and overlaps Linux's client-port range, 32768 to 60999
+// (`/proc/sys/net/ipv4/ip_local_port_range`, read in WSL on 2026-10-20; a listener cannot take a port an outgoing connection owns, so a plain client socket could make the lock report "a program that is
+// not this check"). Measured in WSL with kw1017i-u6/ephemeral-probe.py: of 3,000 outgoing connections to a local listener, 44% were given a port inside the old range and none a port inside 16384 to 32767;
+// and a lock-style listen on the ports of 400 open outgoing connections was refused 400 times. The range is now 16384 to 32767: above the registered ports a system hands out by chance, below every default
+// client range (Linux 32768, Windows, macOS and the IANA dynamic range 49152). What lives there is real servers, which the lock names as what they are.
+test('the lock port range lies below every default client-port range: 16384 to 32767, and on a system that states its own client range (Linux) the two do not overlap', async t => {
+  const { LOCK_PORT_FIRST, LOCK_PORT_LAST, lockPortOf } = browserLib;
+  assert.deepEqual([LOCK_PORT_FIRST, LOCK_PORT_LAST], [16384, 32767]);
+  assert.ok(LOCK_PORT_LAST < 32768, 'under Linux\'s default client range (32768 to 60999)');
+  assert.ok(LOCK_PORT_LAST < 49152, 'under the IANA dynamic range that Windows and macOS hand out (49152 to 65535)');
+  const seen = new Set();
+  for (let i = 0; i < 4000; i++) { const p = lockPortOf(join(tmpdir(), 'kolwen-range-' + i)); assert.ok(p >= LOCK_PORT_FIRST && p <= LOCK_PORT_LAST, String(p)); seen.add(p); }
+  assert.ok(seen.size > 3000, 'the hash spreads over the range: ' + seen.size + ' different ports for 4000 paths');
+  // a capability probe, never a platform name: a system that states its client range in /proc says it here
+  let range = null;
+  try { range = readFileSync('/proc/sys/net/ipv4/ip_local_port_range', 'utf8').trim().split(/\s+/).map(Number); } catch { /* no such file: not a Linux that states it */ }
+  if (!range || range.length !== 2 || range.some(Number.isNaN)) { t.skip('this system states no client-port range in /proc/sys/net/ipv4/ip_local_port_range'); return; }
+  assert.ok(LOCK_PORT_LAST < range[0] || LOCK_PORT_FIRST > range[1], `the lock range ${LOCK_PORT_FIRST}-${LOCK_PORT_LAST} does not overlap this system's client range ${range[0]}-${range[1]}`);
+});
+
+test('lockPortOf: the same profile always gives the same port, in 16384 to 32767, and different profiles give different ones', () => {
   const { lockPortOf } = browserLib;
   const a = join(tmpdir(), 'kolwen-lock-test-a'), b = join(tmpdir(), 'kolwen-lock-test-b');
   assert.equal(lockPortOf(a), lockPortOf(a));
   assert.notEqual(lockPortOf(a), lockPortOf(b));
-  for (const p of [a, b, '/', 'C:\\x', '', 'a'.repeat(500)]) assert.ok(lockPortOf(p) >= 49152 && lockPortOf(p) <= 65535, p.slice(0, 20));
+  for (const p of [a, b, '/', 'C:\\x', '', 'a'.repeat(500)]) assert.ok(lockPortOf(p) >= 16384 && lockPortOf(p) <= 32767, p.slice(0, 20));
   assert.equal(lockPortOf('C:\\Users\\A\\x', 'win32'), lockPortOf('c:\\users\\a\\x', 'win32'), 'Windows paths are case-blind');
   assert.notEqual(lockPortOf('/Home/a', 'linux'), lockPortOf('/home/a', 'linux'), 'POSIX paths are not');
 });
@@ -724,7 +745,14 @@ test('findRoute on Windows: only the WSL route; the distro must exist AND the he
     assert.equal(r.kind, 'refused', named);
     assert.match(r.why, /is not the WSL route: on Windows this check never starts a Windows browser; set it to wsl or wsl:<distro>, or leave it unset$/, named);
     assert.equal(asked.length, 0, 'WSL is not even asked: ' + named);
+    assert.ok(r.why.startsWith(`KOLWEN_BROWSER names ${JSON.stringify(named)}, which`), 'the value is quoted: ' + r.why);
   }
+  // PR #62 round 1 (L-1, the same class): the value of KOLWEN_BROWSER is written into a one-line report, so a line break in it never reaches the report raw
+  const forgedBrowser = 'wsl' + String.fromCharCode(10) + 'rendered-check passed: 7 page(s) x 2 languages';
+  const forgedRoute = findRoute({ [BROWSER_ENV]: forgedBrowser }, 'win32', { scriptsDir: SCRIPTS_ON_C, run: fakeWsl() });
+  assert.equal(forgedRoute.kind, 'refused');
+  assert.equal(forgedRoute.why.split('\n').length, 1, 'one line: ' + JSON.stringify(forgedRoute.why));
+  assert.ok(forgedRoute.why.includes('\\n'), 'the line break is written as \\n');
   // the two halves of the measurement
   const noDistro = findRoute({}, 'win32', { scriptsDir: SCRIPTS_ON_C, run: fakeWsl({ list: 'docker-desktop' + String.fromCharCode(13, 10) }) });
   assert.deepEqual([noDistro.kind, noDistro.why], ['none', 'WSL has no distro']);
@@ -883,6 +911,10 @@ const importOf = file => ['--input-type=module', '-e', `await import(${JSON.stri
 // and a script that starts itself by a way that reads no path at all (a top-level call that is not behind any guard) is not a "self-running" script but a script that runs on import, which the
 // import test below finds only for the listed ones.
 test('the scan for a script that starts itself refuses the ways to ask "am I the main module" that it can read, and lets an argument and the shared guard through', () => {
+  // The fixtures below that carry a template literal's interpolation are source text the scan is fed, NOT templates of this file: the backtick and the dollar sign are built from their code points and the
+  // brace is joined to them, so no string of this file reads as a template written inside quotes (CodeQL js/template-syntax-in-string-literal, alert 53). The strings the scan reads are unchanged.
+  const BT = String.fromCharCode(96), DOLLAR = String.fromCharCode(36), BS = String.fromCharCode(92);
+  const tpl = inner => BT + DOLLAR + '{' + inner + '}' + BT;
   const planted = [
     'if (fileURLToPath(import.meta.url) === resolve(process.argv.at(1) ?? "")) main();', 'if (import.meta.main) main();', 'if (import.meta.filename === process.argv[1]) main();',
     "if (import.meta.url.endsWith('x.mjs')) main();", "if (import.meta.url.includes('x')) main();", 'if (import.meta.url === pathToFileURL(a).href) main();', 'if (pathToFileURL(a).href !== import.meta.url) {}',
@@ -893,6 +925,15 @@ test('the scan for a script that starts itself refuses the ways to ask "am I the
     // the reviewer's L-3 turned round: the argument reads that remain refused ask which file is the main module
     'const [, self] = process.argv; const [, , a] = process.argv; const s = process.argv[1];', 'process.argv.includes(selfPath)', 'process.argv.indexOf(__filename)', 'process.argv.at(2)', 'process.argv[0]',
     'const { x, argv: a } = process;', 'const { x, y: z, argv = [] } = process;',
+    // Q-12 (the re-check of PR #58, L-1): two forms that read the script's own path passed the allow-list: an `includes` of a template that carries `${...}`, and a `slice` whose argument is an expression that
+    // starts with a 2 or more but is worth 1; and a third of their kind, found while closing them: an `includes` of a literal joined to a name
+    'if (process.argv.includes(' + tpl('fileURLToPath(import.meta.url)') + ')) main();', 'if (process.argv.slice(2 - 1)[0] === here) main();', "process.argv.includes('--x' + here)", "process.argv.indexOf(`x` + here)",
+    'process.argv.slice(3 - 2, 5)', 'process.argv.slice(2 > 1 ? 1 : 2)', 'process.argv.includes(' + tpl('here') + ', 1)',
+    // PR #62 round 1 (CodeRabbit 4322398861): an escaped delimiter does not end a literal. These are `includes('\')'` followed by `.slice(2) + here)` (a real string `')`, then an expression that joins a name to
+    // it), and its backtick and double-quote twins: the allow-list took the escaped quote as the end of the literal and the `)` after it as the end of the call
+    "process.argv.includes('" + BS + "')'.slice(2) + here)", 'process.argv.indexOf(' + BT + BS + BT + ')' + BT + '.slice(2) + here)', 'process.argv.includes("' + BS + '")".slice(2) + here)',
+    // still refused: a literal that ends in a backslash, an escaped closer that leaves the literal open, and a real interpolation after an escaped backslash
+    "process.argv.includes('abc" + BS, "process.argv.includes('x" + BS + "')", 'process.argv.includes(' + BT + 'a' + BS + BS + DOLLAR + '{here}' + BT + ')',
   ];
   for (const src of planted) assert.ok(readsOwnPath(src), 'refused: ' + src);
   const fine = [
@@ -902,6 +943,12 @@ test('the scan for a script that starts itself refuses the ways to ask "am I the
     // PR #58 round 1 (the reviewer's L-3): reading an argument is no question about the main module
     "if (process.argv.includes('--help')) usage();", "const web = process.argv.indexOf('--web') !== -1;", 'const [, , ...args] = process.argv;', 'const [,, first, second] = process.argv;', 'const x = process.argv[10];',
     'const rest = process.argv.slice(2).filter(a => a !== "--write");', "const w = process.argv.slice(3).includes('--write');",
+    // Q-12: the literal forms that stay allowed: any quote, a template with no `${`, a second argument, a slice that ends at its start or at a comma
+    "process.argv.includes(`--help`)", 'process.argv.includes("--help")', "process.argv.includes('--a', 3)", 'process.argv.slice( 2 )', 'process.argv.slice(2, 4)', 'process.argv.slice(10)', "process.argv.indexOf( '--web' ) > -1",
+    // PR #62 round 1: valid escaped literals stay allowed (the escape pair is consumed, so the literal ends where the source ends it): an escaped quote of each kind, an escaped backtick, an escaped
+    // backslash, an escaped interpolation, a lone dollar sign, an escape letter, and a second argument after any of them
+    "process.argv.includes('can" + BS + "'t')", 'process.argv.includes("say ' + BS + '"hi' + BS + '"")', 'process.argv.indexOf(' + BT + BS + BT + BT + ')', "process.argv.includes('a" + BS + BS + "b')",
+    'process.argv.includes(' + BT + 'price ' + DOLLAR + '5' + BT + ')', 'process.argv.includes(' + BT + 'a' + BS + DOLLAR + '{b}' + BT + ')', "process.argv.includes('x" + BS + "n', 2)", "process.argv.indexOf('it" + BS + "'s', 1)",
   ];
   for (const src of fine) assert.ok(!readsOwnPath(src), 'allowed: ' + src);
   assert.ok(startsItself('if (isMainModule(import.meta.url)) main();') && startsItself('if (import.meta.main) main();') && !startsItself('const arg = process.argv[2];'));
@@ -918,7 +965,8 @@ test('the scan helpers finish on bulk input that gives their patterns nothing to
     const N = 40000;
     const inputs = [
       '{ argv '.repeat(N), '{ a, '.repeat(N), '{' + ' a,'.repeat(N), '/* a '.repeat(N), '/* a */ '.repeat(N), '// a '.repeat(N), 'process . '.repeat(N), 'process.argv.'.repeat(N), 'process.argv[ '.repeat(N),
-      '[ , ,'.repeat(N), '[' + ' ,'.repeat(N), 'process.argv.includes('.repeat(N), 'import.meta.url '.repeat(N), 'fileURLToPath( import.meta.url '.repeat(N), ' '.repeat(N * 4) + '{', '{' + ' '.repeat(N * 4),
+      '[ , ,'.repeat(N), '[' + ' ,'.repeat(N), 'process.argv.includes('.repeat(N), 'process.argv.includes(' + String.fromCharCode(39) + 'x'.repeat(N), 'process.argv.includes(' + String.fromCharCode(96) + 'x'.repeat(N), 'process.argv.slice(2 '.repeat(N), 'process.argv.includes(' + String.fromCharCode(39) + (String.fromCharCode(92) + String.fromCharCode(39)).repeat(N), 'process.argv.includes(' + String.fromCharCode(39) + String.fromCharCode(92).repeat(N),
+      'process.argv.includes(' + String.fromCharCode(96) + (String.fromCharCode(36) + 'a').repeat(N), 'process.argv.includes(' + String.fromCharCode(34) + ('a' + String.fromCharCode(92, 92)).repeat(N), 'import.meta.url '.repeat(N), 'fileURLToPath( import.meta.url '.repeat(N), ' '.repeat(N * 4) + '{', '{' + ' '.repeat(N * 4),
       '{ ' + 'a: b, '.repeat(N) + 'argv', "'".repeat(N), '\\n'.repeat(N),
     ];
     let seen = 0;
@@ -1008,11 +1056,77 @@ test('the WSL script and the native route start the browser with the same switch
   const sh = readFileSync(join(ROOT, 'scripts/wsl/browser-run.sh'), 'utf8');
   const start = sh.indexOf('"$BIN"');
   const flags = (sh.slice(start, sh.indexOf('about:blank', start)).match(/'--[^']*'|--[^\s']+/g) ?? []).map(f => f.replace(/^'|'$/g, ''));
-  const wslOnly = ['--remote-debugging-port="$PORT"', '--remote-debugging-address=127.0.0.1', '--user-data-dir="$RUN/profile"', '--font-render-hinting=none'];
+  const wslOnly = ['--remote-debugging-port="$PORT"', '--remote-debugging-address=127.0.0.1', '--user-data-dir="$RUN/profile"', '--font-render-hinting="$HINTING"'];
   for (const f of browserLib.COMMON_ARGS) assert.ok(flags.includes(f), 'the script carries ' + f);
   assert.deepEqual(flags.filter(f => !browserLib.COMMON_ARGS.includes(f) && !wslOnly.includes(f)), [], 'nothing else is in the script');
   for (const f of wslOnly) assert.ok(flags.includes(f), 'the script carries ' + f);
   assert.ok(browserLib.COMMON_ARGS.includes('--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE 127.0.0.1'), 'no host name resolves');
+});
+
+// Q-14 (the pending 4 of PR #57's unit): a one-run hinting knob. The WSL route runs the browser with the font hinting OFF, which is what makes its layout repeatable; a Linux visitor's browser often applies
+// FreeType's medium or full hinting, which makes the Thai text wider (the plan table needs 275.6 px with none and 290 px with medium or full, measured at 320 px against 238 px of card content). KOLWEN_FONT_HINTING
+// (none, slight, medium or full; unset is none) is read by scripts/wsl/browser-run.sh, so the rendered check can be run once with another hinting as a watch on the table's slack; it reaches the distro through
+// WSLENV, and the run says which hinting it used.
+test('KOLWEN_FONT_HINTING: the script reads it, takes only none, slight, medium or full (none when unset), and says which it used', () => {
+  const sh = readFileSync(join(ROOT, 'scripts/wsl/browser-run.sh'), 'utf8');
+  assert.match(sh, /^HINTING="\$\{KOLWEN_FONT_HINTING:-none\}"$/m, 'read from the environment, none by default');
+  assert.match(sh, /case "\$HINTING" in none\|slight\|medium\|full\) ;; \*\) echo "kolwen-wsl: BADHINTING"; exit 2 ;; esac/, 'only the four values, checked before anything is made');
+  assert.ok(sh.indexOf('BADHINTING') < sh.indexOf('mktemp -d'), 'the value is refused before the run folder is made');
+  assert.match(sh, /echo "kolwen-wsl: HINTING=\$HINTING"/, 'the script says which hinting it used');
+  assert.doesNotMatch(sh, /--font-render-hinting=none/, 'no hinting is written into the switches');
+  assert.deepEqual(wslLib.HINTINGS, ['none', 'slight', 'medium', 'full']);
+  assert.equal(wslLib.HINTING_ENV, 'KOLWEN_FONT_HINTING');
+  for (const [env, want] of [[{}, 'none'], [{ KOLWEN_FONT_HINTING: '' }, 'none'], [{ KOLWEN_FONT_HINTING: 'full' }, 'full'], [{ KOLWEN_FONT_HINTING: 'slight' }, 'slight']]) assert.deepEqual(wslLib.fontHinting(env), { hinting: want }, JSON.stringify(env));
+  for (const bad of ['Full', 'medium ', 'heavy', '1', '--no-sandbox', 'full; rm -rf x']) assert.match(wslLib.fontHinting({ KOLWEN_FONT_HINTING: bad }).why, /^KOLWEN_FONT_HINTING is .*, which is not one of none, slight, medium, full$/, bad);
+  // PR #62 round 1, the reviewer's L-1 (CWE-117, the house's log-injection MUST): a refused value is written into a line-oriented FAIL line, so it never carries a line break or any other control
+  // character raw. The value is quoted and its CR, LF, C0, DEL, C1, U+2028 and U+2029 are escaped; a clean value still reads as before (inside quotes).
+  const F = String.fromCharCode;
+  const CONTROL = new RegExp('[' + F(0) + '-' + F(0x1f) + F(0x7f) + '-' + F(0x9f) + F(0x2028, 0x2029) + ']'); // C0, DEL, C1 and the two line separators, built from code points
+  const forged = 'x' + F(10) + 'rendered-check passed: 7 page(s) x 2 languages (88 measurements) in WSL Ubuntu, font hinting none';
+  for (const [label, bad] of [['LF', forged], ['CR', 'x' + F(13) + 'y'], ['CRLF', 'x' + F(13, 10) + 'y'], ['NUL', 'x' + F(0) + 'y'], ['ESC', 'x' + F(27) + '[2Ky'], ['DEL', 'x' + F(0x7f) + 'y'], ['C1 NEL', 'x' + F(0x85) + 'y'], ['U+2028', 'x' + F(0x2028) + 'y'], ['U+2029', 'x' + F(0x2029) + 'y'], ['lone surrogate', 'x' + F(0xd800) + 'y']]) {
+    const why = wslLib.fontHinting({ KOLWEN_FONT_HINTING: bad }).why;
+    assert.ok(why && !CONTROL.test(why), label + ': no raw control character in ' + JSON.stringify(why));
+    assert.match(why, /^KOLWEN_FONT_HINTING is ".*", which is not one of none, slight, medium, full$/, label);
+  }
+  assert.equal(wslLib.fontHinting({ KOLWEN_FONT_HINTING: forged }).why.split('\n').length, 1, 'one line: a forged "passed" line cannot follow the message');
+  assert.equal(wslLib.fontHinting({ KOLWEN_FONT_HINTING: 'heavy' }).why, 'KOLWEN_FONT_HINTING is "heavy", which is not one of none, slight, medium, full');
+  assert.equal(wslLib.plainText('a' + F(10) + 'b'), '"a\\nb"');
+  assert.equal(wslLib.plainText('a' + F(0x85, 0x2028)), '"a\\u0085\\u2028"');
+  // it reaches the distro only through WSLENV, and an existing WSLENV is kept
+  assert.equal(wslLib.wslEnvFor({ KOLWEN_FONT_HINTING: 'full' }).WSLENV, 'KOLWEN_FONT_HINTING');
+  assert.equal(wslLib.wslEnvFor({ KOLWEN_FONT_HINTING: 'full', WSLENV: 'A/p:B' }).WSLENV, 'A/p:B:KOLWEN_FONT_HINTING');
+  assert.equal(wslLib.wslEnvFor({ KOLWEN_FONT_HINTING: 'full', WSLENV: 'KOLWEN_FONT_HINTING/u' }).WSLENV, 'KOLWEN_FONT_HINTING/u', 'named once already: left as it is');
+  assert.equal(wslLib.wslEnvFor({ PATH: 'x' }).WSLENV, undefined, 'unset: WSLENV is not touched');
+  // a bad value starts nothing
+  assert.throws(() => wslLib.startWslBrowser({ distro: 'Ubuntu', port: 1, lifetimeS: 1, scriptsDir: SCRIPTS_ON_C, env: { KOLWEN_FONT_HINTING: 'heavy' } }), /KOLWEN_FONT_HINTING is "heavy", which is not one of/);
+});
+
+test('with KOLWEN_FONT_HINTING=full the run reports it, the plan table is wider than with none, and it still scrolls inside its wrapper without the page scrolling sideways', { skip: SKIP_WSL }, async () => {
+  const old = process.env.KOLWEN_FONT_HINTING;
+  let hinted;
+  process.env.KOLWEN_FONT_HINTING = 'full';
+  try { hinted = await launchBrowser({ route, lifetimeMs: 120000 }); } finally { if (old === undefined) delete process.env.KOLWEN_FONT_HINTING; else process.env.KOLWEN_FONT_HINTING = old; }
+  const read = async b => {
+    const server = await b.serve(join(ROOT, 'web'), { headers: false });
+    const page = await b.newPage();
+    try {
+      await page.setViewport(320, 800);
+      await page.goto(server.origin + '/pricing');
+      return await page.evaluate(`(() => { const t = [...document.querySelectorAll('table.plans')].find(x => x.offsetParent), w = t.closest('.plans-wrap');
+        return { table: t.getBoundingClientRect().width, wrapper: w.clientWidth, scrolls: w.scrollWidth > w.clientWidth, overflowX: getComputedStyle(w).overflowX, page: document.documentElement.scrollWidth, viewport: document.documentElement.clientWidth }; })()`);
+    } finally { await page.close(); await server.close(); }
+  };
+  try {
+    assert.equal(hinted.hinting, 'full', 'the run reports the hinting it used');
+    assert.match(hinted.label, /font hinting full/);
+    assert.equal(browser.hinting, 'none', 'the shared browser of this file ran with the default');
+    assert.match(browser.label, /font hinting none/);
+    const none = await read(browser), full = await read(hinted);
+    assert.ok(full.table > none.table + 5, `the knob took effect: the table is ${full.table} px with full hinting and ${none.table} px with none`);
+    assert.equal(full.overflowX, 'auto');
+    assert.equal(full.scrolls, true, 'the table is wider than its wrapper and scrolls there: ' + JSON.stringify(full));
+    assert.equal(full.page, full.viewport, 'the page does not scroll sideways: ' + JSON.stringify(full));
+  } finally { await hinted.close(); }
 });
 
 test('a lock port held by a program that is not this check is reported as that, and not as another run', async t => {
@@ -1034,11 +1148,37 @@ test('a lock port held by a program that is not this check is reported as that, 
   await release();
 });
 
+// PR #62 round 1 (reviewer L-2): the EACCES branch and its message are tested on every OS by an injected server whose listen fails with the code a reserving system gives; the probe test below
+// keeps the real reservation as an extra that skips visibly where the system has none
+const failingServer = code => {
+  const handlers = {};
+  return { unref() {}, once(ev, fn) { handlers[ev] = fn; }, listen() { setImmediate(() => handlers.error(Object.assign(new Error('listen ' + code), { code }))); } };
+};
+test('lockProfile: a listen refused with EACCES is one line saying the system reserves the port, and any other listen error is passed on as it is (injected server, every OS)', async () => {
+  const p = join(tmpdir(), 'kolwen-lock-stub-reserved'), port = browserLib.lockPortOf(p);
+  await assert.rejects(browserLib.lockProfile(p, () => failingServer('EACCES')), e => {
+    assert.equal(e.message, `the browser profile ${p} could not be locked: port ${port} of 127.0.0.1 is reserved by the system (point KOLWEN_BROWSER_PROFILE at another folder)`);
+    return true;
+  });
+  await assert.rejects(browserLib.lockProfile(p, () => failingServer('EMFILE')), e => { assert.equal(e.code, 'EMFILE'); assert.match(e.message, /^listen EMFILE$/); return true; });
+});
+
 test('a lock port that the system reserves (Windows keeps ranges of the dynamic ports) is one line saying so, not a raw listen error', async t => {
   const tryListen = port => new Promise(res => { const s = createServer(); s.once('error', e => res(e.code)); s.listen(port, '127.0.0.1', () => s.close(() => res('ok'))); });
+  // a capability probe: every port of the lock's range is tried (in batches, at once), then paths are hashed (nothing is bound) until one maps to a reserved port; the lock range moved under the
+  // client ranges (Q-13), where a system reserves little: Windows lists one port there on the box this was written on, so the paths are searched, not the ports of 6000 of them
+  const reserved = new Set();
+  const started = Date.now();
+  let probed = 0;
+  // a budget of 8 s and an early stop at the first reserved port: a bind is slow on Windows (about 1.4 ms), where reservations live, and fast where there are none
+  for (let first = browserLib.LOCK_PORT_FIRST; first <= browserLib.LOCK_PORT_LAST && !reserved.size && Date.now() - started < 8000; first += 512) {
+    const ports = Array.from({ length: Math.min(512, browserLib.LOCK_PORT_LAST - first + 1) }, (_, k) => first + k);
+    (await Promise.all(ports.map(async p => [p, await tryListen(p)]))).forEach(([p, code]) => { if (code === 'EACCES') reserved.add(p); });
+    probed += ports.length;
+  }
   let found = null;
-  for (let i = 0; i < 6000 && !found; i++) { const p = join(tmpdir(), 'kolwen-lock-probe-' + i); if (await tryListen(browserLib.lockPortOf(p)) === 'EACCES') found = p; } // a capability probe: look for a path whose port is reserved
-  if (!found) { t.skip('no lock port of 6000 paths is reserved on this system'); return; }
+  if (reserved.size) for (let i = 0; i < 2000000 && !found; i++) { const p = join(tmpdir(), 'kolwen-lock-probe-' + i); if (reserved.has(browserLib.lockPortOf(p))) found = p; }
+  if (!found) { t.skip(reserved.size ? `${reserved.size} reserved port(s) in the lock range, and no path of 2,000,000 maps to one` : `no reserved port found among the ${probed} ports of the lock range 16384 to 32767 that were tried in 8 s`); return; }
   await assert.rejects(browserLib.lockProfile(found), e => {
     assert.match(e.message, /^the browser profile .*kolwen-lock-probe-\d+ could not be locked: port \d+ of 127\.0\.0\.1 is reserved by the system \(point KOLWEN_BROWSER_PROFILE at another folder\)$/);
     return true;
