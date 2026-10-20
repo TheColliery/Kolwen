@@ -913,7 +913,7 @@ const importOf = file => ['--input-type=module', '-e', `await import(${JSON.stri
 test('the scan for a script that starts itself refuses the ways to ask "am I the main module" that it can read, and lets an argument and the shared guard through', () => {
   // The fixtures below that carry a template literal's interpolation are source text the scan is fed, NOT templates of this file: the backtick and the dollar sign are built from their code points and the
   // brace is joined to them, so no string of this file reads as a template written inside quotes (CodeQL js/template-syntax-in-string-literal, alert 53). The strings the scan reads are unchanged.
-  const BT = String.fromCharCode(96), DOLLAR = String.fromCharCode(36);
+  const BT = String.fromCharCode(96), DOLLAR = String.fromCharCode(36), BS = String.fromCharCode(92);
   const tpl = inner => BT + DOLLAR + '{' + inner + '}' + BT;
   const planted = [
     'if (fileURLToPath(import.meta.url) === resolve(process.argv.at(1) ?? "")) main();', 'if (import.meta.main) main();', 'if (import.meta.filename === process.argv[1]) main();',
@@ -929,6 +929,11 @@ test('the scan for a script that starts itself refuses the ways to ask "am I the
     // starts with a 2 or more but is worth 1; and a third of their kind, found while closing them: an `includes` of a literal joined to a name
     'if (process.argv.includes(' + tpl('fileURLToPath(import.meta.url)') + ')) main();', 'if (process.argv.slice(2 - 1)[0] === here) main();', "process.argv.includes('--x' + here)", "process.argv.indexOf(`x` + here)",
     'process.argv.slice(3 - 2, 5)', 'process.argv.slice(2 > 1 ? 1 : 2)', 'process.argv.includes(' + tpl('here') + ', 1)',
+    // PR #62 round 1 (CodeRabbit 4322398861): an escaped delimiter does not end a literal. These are `includes('\')'` followed by `.slice(2) + here)` (a real string `')`, then an expression that joins a name to
+    // it), and its backtick and double-quote twins: the allow-list took the escaped quote as the end of the literal and the `)` after it as the end of the call
+    "process.argv.includes('" + BS + "')'.slice(2) + here)", 'process.argv.indexOf(' + BT + BS + BT + ')' + BT + '.slice(2) + here)', 'process.argv.includes("' + BS + '")".slice(2) + here)',
+    // still refused: a literal that ends in a backslash, an escaped closer that leaves the literal open, and a real interpolation after an escaped backslash
+    "process.argv.includes('abc" + BS, "process.argv.includes('x" + BS + "')", 'process.argv.includes(' + BT + 'a' + BS + BS + DOLLAR + '{here}' + BT + ')',
   ];
   for (const src of planted) assert.ok(readsOwnPath(src), 'refused: ' + src);
   const fine = [
@@ -940,6 +945,10 @@ test('the scan for a script that starts itself refuses the ways to ask "am I the
     'const rest = process.argv.slice(2).filter(a => a !== "--write");', "const w = process.argv.slice(3).includes('--write');",
     // Q-12: the literal forms that stay allowed: any quote, a template with no `${`, a second argument, a slice that ends at its start or at a comma
     "process.argv.includes(`--help`)", 'process.argv.includes("--help")', "process.argv.includes('--a', 3)", 'process.argv.slice( 2 )', 'process.argv.slice(2, 4)', 'process.argv.slice(10)', "process.argv.indexOf( '--web' ) > -1",
+    // PR #62 round 1: valid escaped literals stay allowed (the escape pair is consumed, so the literal ends where the source ends it): an escaped quote of each kind, an escaped backtick, an escaped
+    // backslash, an escaped interpolation, a lone dollar sign, an escape letter, and a second argument after any of them
+    "process.argv.includes('can" + BS + "'t')", 'process.argv.includes("say ' + BS + '"hi' + BS + '"")', 'process.argv.indexOf(' + BT + BS + BT + BT + ')', "process.argv.includes('a" + BS + BS + "b')",
+    'process.argv.includes(' + BT + 'price ' + DOLLAR + '5' + BT + ')', 'process.argv.includes(' + BT + 'a' + BS + DOLLAR + '{b}' + BT + ')', "process.argv.includes('x" + BS + "n', 2)", "process.argv.indexOf('it" + BS + "'s', 1)",
   ];
   for (const src of fine) assert.ok(!readsOwnPath(src), 'allowed: ' + src);
   assert.ok(startsItself('if (isMainModule(import.meta.url)) main();') && startsItself('if (import.meta.main) main();') && !startsItself('const arg = process.argv[2];'));
@@ -956,7 +965,8 @@ test('the scan helpers finish on bulk input that gives their patterns nothing to
     const N = 40000;
     const inputs = [
       '{ argv '.repeat(N), '{ a, '.repeat(N), '{' + ' a,'.repeat(N), '/* a '.repeat(N), '/* a */ '.repeat(N), '// a '.repeat(N), 'process . '.repeat(N), 'process.argv.'.repeat(N), 'process.argv[ '.repeat(N),
-      '[ , ,'.repeat(N), '[' + ' ,'.repeat(N), 'process.argv.includes('.repeat(N), 'process.argv.includes(' + String.fromCharCode(39) + 'x'.repeat(N), 'process.argv.includes(' + String.fromCharCode(96) + 'x'.repeat(N), 'process.argv.slice(2 '.repeat(N), 'import.meta.url '.repeat(N), 'fileURLToPath( import.meta.url '.repeat(N), ' '.repeat(N * 4) + '{', '{' + ' '.repeat(N * 4),
+      '[ , ,'.repeat(N), '[' + ' ,'.repeat(N), 'process.argv.includes('.repeat(N), 'process.argv.includes(' + String.fromCharCode(39) + 'x'.repeat(N), 'process.argv.includes(' + String.fromCharCode(96) + 'x'.repeat(N), 'process.argv.slice(2 '.repeat(N), 'process.argv.includes(' + String.fromCharCode(39) + (String.fromCharCode(92) + String.fromCharCode(39)).repeat(N), 'process.argv.includes(' + String.fromCharCode(39) + String.fromCharCode(92).repeat(N),
+      'process.argv.includes(' + String.fromCharCode(96) + (String.fromCharCode(36) + 'a').repeat(N), 'process.argv.includes(' + String.fromCharCode(34) + ('a' + String.fromCharCode(92, 92)).repeat(N), 'import.meta.url '.repeat(N), 'fileURLToPath( import.meta.url '.repeat(N), ' '.repeat(N * 4) + '{', '{' + ' '.repeat(N * 4),
       '{ ' + 'a: b, '.repeat(N) + 'argv', "'".repeat(N), '\\n'.repeat(N),
     ];
     let seen = 0;
