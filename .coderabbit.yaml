@@ -41,6 +41,13 @@ knowledge_base:
   learnings:
     scope: local
     approval_delay: 30
+  # Code guidelines off, on the owner's law of 2026-10-08 (the same law as above): since 2026-10-05 CodeRabbit
+  # reads a SKILL.md at skills/<name>/ in the repository root as an Agent Skill code guideline, and CLAUDE.md, AGENTS.md
+  # and the rules folder of an agent as agent rule files, so the product under review becomes the reviewer's own rule (UMB3-066).
+  # filePatterns can only add patterns, never drop a default, so this switch is the only way to stop it
+  # (docs.coderabbit.ai/knowledge-base/code-guidelines, read 2026-10-21).
+  code_guidelines:
+    enabled: false
 reviews:
   profile: assertive
   # Binary files only: a reviewer cannot read them, and the generated text files they come from are reviewed in their own paths.
