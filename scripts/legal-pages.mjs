@@ -57,8 +57,8 @@ async function main() {
   try { lib = await import(pathToFileURL(resolve(ROOT, 'scripts/lib/legal-render.mjs')).href); }
   catch (e) { console.error('FAIL scripts/lib/legal-render.mjs could not be loaded (' + (e.code || 'import failed') + '); restore it from the repository'); process.exitCode = 1; return; }
 
-  let sync, cat, tpl;
-  for (const [name, set] of [['page-sync', m => { sync = m; }], ['i18n-catalogue', m => { cat = m; }], ['page-template', m => { tpl = m; }]]) {
+  let sync, cat, tpl, slot;
+  for (const [name, set] of [['page-sync', m => { sync = m; }], ['i18n-catalogue', m => { cat = m; }], ['page-template', m => { tpl = m; }], ['controller-slot', m => { slot = m; }]]) {
     try { set(await import(pathToFileURL(resolve(ROOT, `scripts/lib/${name}.mjs`)).href)); }
     catch (e) { console.error(`FAIL scripts/lib/${name}.mjs could not be loaded (` + (e.code || 'import failed') + '); restore it from the repository'); process.exitCode = 1; return; }
   }
@@ -69,7 +69,7 @@ async function main() {
     if (stateText.charCodeAt(0) === 0xfeff) stateText = stateText.slice(1);
     inputs = {
       terms: read('TERMS.md'), privacy: read('PRIVACY.md'), clause: read('legal/thai-7day-clause.md'), changelog: read('CHANGELOG.md'),
-      state: JSON.parse(stateText), holds: JSON.parse(read('scripts/lib/legal-holds.json')),
+      state: JSON.parse(stateText), holds: JSON.parse(read('scripts/lib/legal-holds.json')), controller: JSON.parse(read('legal/controller.json')),
     };
   } catch (e) { console.error('FAIL a source could not be read: ' + (e.code || e.message)); process.exitCode = 1; return; }
 
@@ -89,6 +89,9 @@ async function main() {
     if (templates[p.group] === null) siteFails.push(`FAIL ${p.template} is missing`);
     else siteFails.push(...tpl.templateProblems(templates[p.group], p.group).map(x => 'FAIL ' + x));
   }
+  // The controller name slot belongs to PRIVACY.md only: a template or a catalogue string that carries it is a failure, with a value in the record or without one.
+  for (const p of lib.SITE_PAGES) if (templates[p.group]) siteFails.push(...slot.slotProblems(p.template, templates[p.group]).map(x => 'FAIL ' + x));
+  for (const [lang, messages] of Object.entries(catalogue.messages)) for (const [key, value] of Object.entries(messages)) siteFails.push(...slot.slotProblems(`web-src/i18n/${lang}.json ${key}`, value).map(x => 'FAIL ' + x));
   if (!siteFails.length) {
     let codeKeys = new Set();
     try { codeKeys = cat.usedKeys(() => { for (const b of lib.SYNC_BLOCKS) b.render(); for (const l of Object.keys(catalogue.messages)) lib.pageNoteHtml(l); }); }
