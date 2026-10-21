@@ -827,6 +827,8 @@ test('the DevTools route answers HEAD with the headers and an empty body, and an
   assert.equal(head.requestId, 'r1');
 });
 
+// This assertion CAN go red (CodeRabbit's catch-up of #55 read the Fetch spec and said it cannot): measured 2026-10-22 on the WSL route, with fulfillParams made to send the body on a HEAD, `h.text()` here read
+// 20,929 characters and the assertion failed, so a Blink that is handed a body for a HEAD shows it to fetch. The unit test above reads the parameters themselves.
 test('a HEAD request gets no body and a GET the whole page, on whichever route the browser takes', { skip: SKIP }, async () => {
   const server = await browser.serve(join(ROOT, 'web'), { headers: false });
   const page = await browser.newPage();
