@@ -279,6 +279,8 @@ test('seam 4: a Set-Cookie header, a document.cookie write and a Worker cookie c
     'document.cookie // c' + CR + '= "x";', 'document.cookie // c' + LS + '= "x";', 'document.cookie // c' + PS + '= "x";',
     'document.' + BS + 'u0063ookie = "a=b";', 'document.' + BS + 'u{63}ookie = "a=b";', 'document.c' + BS + 'u006Fokie = "a=b";', 'document["c' + BS + 'x6fokie"] = "a=b";', 'document["' + BS + 'u0063ookie"] += "a=b";',
     'document[`c' + BS + 'x6Fokie`] = "a=b";', 'document["c' + BS + 'u{6f}okie"]++;',
+    // PR #56 catch-up (CodeRabbit, the legacy octal escape): a classic inline script runs in sloppy mode, where a string key may spell each letter of `cookie` as a three-digit octal escape
+    'document["' + BS + '143ookie"] = "a=b";', 'document["c' + BS + '157' + BS + '157' + BS + '153' + BS + '151' + BS + '145"] += "a=b";', 'document[`' + BS + '143' + BS + '157okie`]++;',
     // PR #56 round 2 (Q-8a): a comment between the object, the dot and the name, or inside the brackets
     'document /* c */ . /* c */ cookie = "x";', 'document. /* c */ cookie = "x";', 'document. // c' + NL + ' cookie = "x";', 'document[ /* c */ "cookie" /* c */ ] = "x";', 'document[ // c' + NL + ' "cookie" ] += "x";',
     'document. /* c */ cookie++;', '++document. /* c */ cookie;', 'for (document. /* c */ cookie of l) {}', '[document. /* c */ cookie] = a;', '({ k: document /* c */ . /* c */ cookie } = o);',
@@ -327,6 +329,8 @@ test('seam 4: the cookie check finishes on pathological input: every input ends 
       'document.cookie' + (NL + ' ').repeat(N / 2),
       'document["' + 'c'.repeat(N) + '"]',
       'document[' + "'" + 'c\\\\x6f'.repeat(N / 8),
+      'document[' + "'" + 'c\\\\157'.repeat(N / 8),
+      'document[' + "'" + '\\\\157'.repeat(N / 8) + '\\\\14',
       '.' + ' /* c */'.repeat(N / 8) + ' x',
       '[' + ' /* c */'.repeat(N / 8) + ' "cookie"',
       '. '.repeat(N / 2) + 'cookie',
@@ -335,11 +339,16 @@ test('seam 4: the cookie check finishes on pathological input: every input ends 
     for (const t of inputs) { cookieProblems([{ file: 'web/index.html', text: '<script>' + t + '</script>' }]); cookieProblems([{ file: 'worker/index.js', text: t }]); seen++; }
     console.log('FINISHED ' + seen);
   `;
-  const r = spawnSync(process.execPath, ['--max-old-space-size=256', '--input-type=module', '-e', child], { encoding: 'utf8', timeout: 120000, killSignal: 'SIGKILL' });
+  // the child has a heap cap, a kill timeout, and a HOME, TEMP and working folder of its own (CodeRabbit catch-up of #56: the path instructions for a test that starts a child ask for all three)
+  const home = mkdtempSync(join(tmpdir(), 'kolwen-cookie-redos-'));
+  const env = { ...process.env, HOME: home, USERPROFILE: home, TEMP: home, TMP: home, TMPDIR: home, XDG_CONFIG_HOME: home };
+  let r;
+  try { r = spawnSync(process.execPath, ['--max-old-space-size=256', '--input-type=module', '-e', child], { encoding: 'utf8', timeout: 120000, killSignal: 'SIGKILL', env, cwd: home }); }
+  finally { rmSync(home, { recursive: true, force: true }); }
   assert.equal(r.error, undefined, 'the child was not killed by the timeout: ' + (r.error && r.error.message));
   assert.equal(r.signal, null, 'and no signal ended it: ' + r.signal);
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /^FINISHED 17\n?$/);
+  assert.match(r.stdout, /^FINISHED 19\n?$/);
 });
 
 test('seam 4: the scan is not vacuous: no shipped file at all is a finding', () => {

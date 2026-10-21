@@ -212,10 +212,11 @@ const LINE_END = String.fromCharCode(10, 13, 0x2028, 0x2029); // what ends a // 
 const BLOCK_COMMENT = '\\/\\*(?:[^*]|\\*(?!\\/))*\\*\\/';
 const GAP = '(?:\\s|' + BLOCK_COMMENT + '|\\/\\/[^' + LINE_END + ']*[' + LINE_END + '])*'; // white space and comments
 const GAP_SAME_LINE = '(?:[ \\t]|\\/\\*(?:[^*' + LINE_END + ']|\\*(?!\\/))*\\*\\/)*'; // no line break: JavaScript allows none before a postfix ++ or --
-// One letter of a word as itself or as an escape: \uXXXX and \u{X...} in an identifier, and \xXX too in a string.
+// One letter of a word as itself or as an escape: \uXXXX and \u{X...} in an identifier, and \xXX and the legacy octal \NNN too in a string (a classic inline script is sloppy mode, which accepts it). The
+// word is lower-case ASCII, so every letter's octal code has exactly three digits, no leading zero: one more literal alternative, disjoint from the others, so the pattern stays linear.
 const spell = (word, inString) => [...word].map(c => {
   const h = c.charCodeAt(0).toString(16).replace(/[a-f]/g, m => '[' + m + m.toUpperCase() + ']');
-  return '(?:' + c + '|\\\\u00' + h + '|\\\\u\\{0*' + h + '\\}' + (inString ? '|\\\\x' + h : '') + ')';
+  return '(?:' + c + '|\\\\u00' + h + '|\\\\u\\{0*' + h + '\\}' + (inString ? '|\\\\x' + h + '|\\\\' + c.charCodeAt(0).toString(8) : '') + ')';
 }).join('');
 // A comment may sit between the dot and the name, or inside the brackets (`document /* c */ . /* c */ cookie`); the object and the dot before it lie outside the match, so they need no gap here.
 const COOKIE_PROP = '(?:\\.' + GAP + spell('cookie', false) + '(?![\\w$])|\\[' + GAP + '[\'"`]' + spell('cookie', true) + '[\'"`]' + GAP + '\\])';
