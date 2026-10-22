@@ -22,6 +22,9 @@
 #      standard binds); it never tells the reviewer to stay quiet on a class, never grants an exception and never
 #      carries our conclusion about a finding. A learning that would lower the number of findings is rejected at
 #      the approval step. A detector taught to agree with its subject is no longer a detector.
+#      The same block carries the code-guidelines switch: knowledge_base.code_guidelines.enabled is false, so the
+#      reviewer never reads this repository's agent rule files or a SKILL.md as a rule of its own, and the product
+#      under review is never the reviewer's own rule (the comment beside the key gives the reason).
 #
 # PRECEDENCE, from the vendor (docs.coderabbit.ai/guides/configuration-overview, "Understanding
 # configuration priority"): "Configuration sources don't merge by default." The repository
