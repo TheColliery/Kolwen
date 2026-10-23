@@ -280,7 +280,11 @@ test('seam 4: a Set-Cookie header, a document.cookie write and a Worker cookie c
     'document.' + BS + 'u0063ookie = "a=b";', 'document.' + BS + 'u{63}ookie = "a=b";', 'document.c' + BS + 'u006Fokie = "a=b";', 'document["c' + BS + 'x6fokie"] = "a=b";', 'document["' + BS + 'u0063ookie"] += "a=b";',
     'document[`c' + BS + 'x6Fokie`] = "a=b";', 'document["c' + BS + 'u{6f}okie"]++;',
     // PR #56 catch-up (CodeRabbit, the legacy octal escape): a classic inline script runs in sloppy mode, where a string key may spell each letter of `cookie` as a three-digit octal escape
-    'document["' + BS + '143ookie"] = "a=b";', 'document["c' + BS + '157' + BS + '157' + BS + '153' + BS + '151' + BS + '145"] += "a=b";', 'document[`' + BS + '143' + BS + '157okie`]++;',
+    // INSPECT L-3 (1017j): the two forms still unseen after the octal row: an identity escape (a backslash before a letter that is no escape yields the letter, so each of c, o, k, i, e) and a line continuation
+    // (a backslash and a line break yield nothing), alone, between the letters, at either end, and with a CRLF, in a double-quoted, single-quoted and template key
+    'document["' + BS + 'c' + BS + 'o' + BS + 'o' + BS + 'k' + BS + 'i' + BS + 'e"] = "a=b";', 'document["coo' + BS + NL + 'kie"] = "a=b";', "document['" + BS + 'c' + BS + 'ookie\'] += "a=b";',
+    'document["' + BS + NL + 'cookie' + BS + NL + '"]++;', 'document[`c' + BS + String.fromCharCode(13, 10) + 'oo' + BS + 'k' + BS + NL + BS + NL + 'ie`] = "a=b";', 'document["c' + BS + String.fromCharCode(0x2028) + 'ookie"] = "a=b";',
+    'document["' + BS + '143ookie"] = "a=b";','document["c' + BS + '157' + BS + '157' + BS + '153' + BS + '151' + BS + '145"] += "a=b";', 'document[`' + BS + '143' + BS + '157okie`]++;',
     // PR #56 round 2 (Q-8a): a comment between the object, the dot and the name, or inside the brackets
     'document /* c */ . /* c */ cookie = "x";', 'document. /* c */ cookie = "x";', 'document. // c' + NL + ' cookie = "x";', 'document[ /* c */ "cookie" /* c */ ] = "x";', 'document[ // c' + NL + ' "cookie" ] += "x";',
     'document. /* c */ cookie++;', '++document. /* c */ cookie;', 'for (document. /* c */ cookie of l) {}', '[document. /* c */ cookie] = a;', '({ k: document /* c */ . /* c */ cookie } = o);',
@@ -288,6 +292,10 @@ test('seam 4: a Set-Cookie header, a document.cookie write and a Worker cookie c
   for (const code of more) {
     p('web/index.html', inline(code), /writes document\.cookie/, code);
     p('worker/index.js', code, /writes document\.cookie/, 'a code file: ' + code);
+  }
+  // L-3 quiet rows: an escape that yields another letter, a continuation inside another word, and a continuation with no letter after it are not the cookie
+  for (const code of ['document["' + BS + 'd' + BS + 'ookie"] = "a=b";', 'document["coo' + BS + NL + 'kies"] = "a=b";', 'document["' + BS + 'c' + BS + 'o' + BS + 'o' + BS + 'k' + BS + 'i"] = "a=b";', 'document["co' + BS + NL + 'o"] = "a=b";']) {
+    assert.deepEqual(one('web/index.html', inline(code)), [], code);
   }
   // what only reads stays clean: a property that merely starts with the word, a loop variable of that name, the postfix operator across a line break (the grammar forbids it), and a comparison
   for (const code of ['for (const cookieof of l) {}', 'for (d.cookieof of l) {}', 'var n = d.cookies++;', 'a = document.cookie' + NL + '++b;', 'x = document.cookie;' + NL + '--y;', 'f(document.cookie) // c' + CR + 'g = 1', 'if (document.cookie > 1) {}', 'var o = { cookie: 1 }; o.cookie2 = 2;', 'var a = document. /* c */ cookie;', 'if (document /* c */ . /* c */ cookie == z) {}', 'x = document[ /* c */ "cookie" ];'])
@@ -331,6 +339,10 @@ test('seam 4: the cookie check finishes on pathological input: every input ends 
       'document[' + "'" + 'c\\\\x6f'.repeat(N / 8),
       'document[' + "'" + 'c\\\\157'.repeat(N / 8),
       'document[' + "'" + '\\\\157'.repeat(N / 8) + '\\\\14',
+      'document[' + "'" + '\\\\c'.repeat(N / 8) + '\\\\',
+      'document[' + "'" + ('\\\\' + NL).repeat(N / 8),
+      'document[' + "'" + ('c\\\\' + NL).repeat(N / 8) + 'x',
+      'document[' + "'" + ('\\\\' + CR + NL).repeat(N / 8) + '\\\\c\\\\o\\\\o',
       '.' + ' /* c */'.repeat(N / 8) + ' x',
       '[' + ' /* c */'.repeat(N / 8) + ' "cookie"',
       '. '.repeat(N / 2) + 'cookie',
@@ -348,7 +360,7 @@ test('seam 4: the cookie check finishes on pathological input: every input ends 
   assert.equal(r.error, undefined, 'the child was not killed by the timeout: ' + (r.error && r.error.message));
   assert.equal(r.signal, null, 'and no signal ended it: ' + r.signal);
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /^FINISHED 19\n?$/);
+  assert.match(r.stdout, /^FINISHED 23\n?$/);
 });
 
 test('seam 4: the scan is not vacuous: no shipped file at all is a finding', () => {

@@ -214,10 +214,18 @@ const GAP = '(?:\\s|' + BLOCK_COMMENT + '|\\/\\/[^' + LINE_END + ']*[' + LINE_EN
 const GAP_SAME_LINE = '(?:[ \\t]|\\/\\*(?:[^*' + LINE_END + ']|\\*(?!\\/))*\\*\\/)*'; // no line break: JavaScript allows none before a postfix ++ or --
 // One letter of a word as itself or as an escape: \uXXXX and \u{X...} in an identifier, and \xXX and the legacy octal \NNN too in a string (a classic inline script is sloppy mode, which accepts it). The
 // word is lower-case ASCII, so every letter's octal code has exactly three digits, no leading zero: one more literal alternative, disjoint from the others, so the pattern stays linear.
-const spell = (word, inString) => [...word].map(c => {
-  const h = c.charCodeAt(0).toString(16).replace(/[a-f]/g, m => '[' + m + m.toUpperCase() + ']');
-  return '(?:' + c + '|\\\\u00' + h + '|\\\\u\\{0*' + h + '\\}' + (inString ? '|\\\\x' + h + '|\\\\' + c.charCodeAt(0).toString(8) : '') + ')';
-}).join('');
+// INSPECT L-3 (1017j) closes the last two string forms: an identity escape (a backslash before a letter that is no escape character yields the letter, in sloppy and strict mode alike; the letters of
+// `cookie` are none of b f n r t v u x 0-9, so each is its own alternative, disjoint from the others by the character after the backslash) and a LINE CONTINUATION (a backslash and a line break
+// yield nothing) at either end of the key and between any two letters. A continuation starts with a backslash too, but a line break follows it where every letter alternative has a letter, a digit, u or
+// x, so no position has two ways to match and the pattern stays linear (timed in the stress test of scripts/domain-seams.test.mjs).
+const CONTINUATION = '(?:\\\\(?:' + String.fromCharCode(13, 10) + '|[' + LINE_END + ']))*';
+const spell = (word, inString) => {
+  const letters = [...word].map(c => {
+    const h = c.charCodeAt(0).toString(16).replace(/[a-f]/g, m => '[' + m + m.toUpperCase() + ']');
+    return '(?:' + c + '|\\\\u00' + h + '|\\\\u\\{0*' + h + '\\}' + (inString ? '|\\\\x' + h + '|\\\\' + c.charCodeAt(0).toString(8) + '|\\\\' + c : '') + ')';
+  });
+  return inString ? CONTINUATION + letters.join(CONTINUATION) + CONTINUATION : letters.join('');
+};
 // A comment may sit between the dot and the name, or inside the brackets (`document /* c */ . /* c */ cookie`); the object and the dot before it lie outside the match, so they need no gap here.
 const COOKIE_PROP = '(?:\\.' + GAP + spell('cookie', false) + '(?![\\w$])|\\[' + GAP + '[\'"`]' + spell('cookie', true) + '[\'"`]' + GAP + '\\])';
 const ASSIGN_OP = /(?:\*\*|<<|>>>?|&&|\|\||\?\?|[+\-*/%|&^])?=(?![=>])/.source;
