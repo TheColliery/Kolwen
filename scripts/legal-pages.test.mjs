@@ -1240,6 +1240,31 @@ test('a value renders on the privacy page only, in both languages, and an invali
   assert.ok(bad.problems.some(p => p.startsWith('legal/controller.json:')), bad.problems.join(' | '));
 });
 
+// INSPECT L-1 (1017j): a misspelt slot was read as an unset placeholder and HELD the passage, so the controller sentence vanished from the page with the build green. In PRIVACY.md a token that reads as the slot
+// (case and white space folded) but is not the exact slot now fails the build, naming the token; any other unknown token keeps the hold.
+test('a misspelt controller slot in PRIVACY.md fails the build, naming the token, with a name or without one; another unknown token keeps the hold', () => {
+  const near = ['{{ controller-name }}', '{{Controller-Name}}', '{{CONTROLLER-NAME}}', '{{controller-name }}', '{{\tcontroller-name\t}}'];
+  for (const token of near) for (const controller of [EMPTY_NAME, { schema: 1, name: NAME_EN }]) {
+    const r = renderPages({ ...inputs(), privacy: read('PRIVACY.md').replace(/\s*$/, '\n') + '\nThe controller of this notice is ' + token + ' and ZQXJ marker.\n', controller });
+    const hit = r.problems.find(p => p.startsWith('PRIVACY.md carries the token ' + JSON.stringify(token)));
+    assert.ok(hit && /reads as the controller name slot .* is not the exact slot \{\{controller-name\}\}/.test(hit), JSON.stringify(token) + ' ' + JSON.stringify(controller) + ': ' + r.problems.join(' | '));
+  }
+  const other = renderPages({ ...inputs(), privacy: read('PRIVACY.md').replace(/\s*$/, '\n') + '\nAn unrelated {{some-other-token}} ZQXJ marker.\n', controller: EMPTY_NAME });
+  assert.ok(!other.problems.some(p => /controller/i.test(p)), 'another unknown token is not a controller problem: ' + other.problems.join(' | '));
+  assert.ok(!other.pages['web/privacy.html'].includes('ZQXJ'), 'and it keeps the hold: the passage is held, not shown');
+  assert.deepEqual(slotLib.nearSlotTokens('a {{ controller-name }} b {{controller-name}} c {{x}} {{Controller-Name}}'), ['{{ controller-name }}', '{{Controller-Name}}'], 'the exact slot and other tokens are not near misses');
+});
+
+test('a misspelt controller slot fails the CLI build with exit 1 and the token in the message', () => {
+  const dir = copyTree();
+  try {
+    edit(dir, 'PRIVACY.md', s => s.replace(/\s*$/, '\n') + '\nThe controller of this notice is {{ controller-name }}.\n');
+    const r = check(dir);
+    assert.equal(r.status, 1, r.stdout + r.stderr);
+    assert.match(r.stdout, /FAIL PRIVACY\.md carries the token "\{\{ controller-name \}\}"/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('every other source refuses the slot, with a value or without one', () => {
   for (const [key, file] of [['terms', 'TERMS.md'], ['clause', 'legal/thai-7day-clause.md'], ['changelog', 'CHANGELOG.md']]) {
     for (const controller of [EMPTY_NAME, { schema: 1, name: NAME_EN }]) {

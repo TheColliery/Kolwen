@@ -37,7 +37,18 @@ export function validateController(rec) {
 export const slotProblems = (label, text) => (String(text).includes(SLOT) ? [`${label}: the controller name slot ${SLOT} belongs to PRIVACY.md only (the privacy page names the controller; nothing else does)`] : []);
 
 // The text of one legal source with the slot filled. { text, problems }: in PRIVACY.md the slot becomes the name (a problem when the name is empty, text left as it is); in any other source the slot is a problem.
+// A token that reads as the slot once case and white space are folded (`{{ controller-name }}`, `{{Controller-Name}}`) but is not the exact slot. A near miss is not a placeholder to hold: it is the slot, misspelt.
+// One linear pass: a token is `{{`, anything but a brace, `}}`, so a start that finds no end stops at the next brace.
+export function nearSlotTokens(text) {
+  return (String(text).match(/\{\{[^{}]*\}\}/g) || []).filter(t => t !== SLOT && t.slice(2, -2).toLowerCase().replace(/\s+/g, '') === 'controller-name');
+}
+
 export function fillController(file, text, rec) {
+  if (file === PRIVACY_FILE) {
+    // INSPECT L-1 (1017j): without this a misspelt slot is held as an unset placeholder, the controller sentence leaves the page, and the build stays green.
+    const near = [...new Set(nearSlotTokens(text))].slice(0, 5);
+    if (near.length) return { text, problems: near.map(t => `${PRIVACY_FILE} carries the token ${JSON.stringify(t)}, which reads as the controller name slot but is not the exact slot ${SLOT}: spell it exactly, or take it out`) };
+  }
   if (!text.includes(SLOT)) return { text, problems: [] };
   if (file !== PRIVACY_FILE) return { text, problems: slotProblems(file, text) };
   const name = rec && validateController(rec).length === 0 ? rec.name : '';
