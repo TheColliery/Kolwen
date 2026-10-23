@@ -14,6 +14,8 @@ import { READING } from './lib/layout-tokens.mjs';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const lib = await import(new URL('./lib/legal-render.mjs', import.meta.url));
 const { REFUND_ROWS } = await import(new URL('./lib/legal-page-text.mjs', import.meta.url));
+const slotLib = await import(new URL('./lib/controller-slot.mjs', import.meta.url));
+const fontCoverage = await import(new URL('./lib/font-coverage.mjs', import.meta.url));
 const { HEADER_CSS, classify, renderPages, renderSource, shell, inline, plain, escText, escAttr, anchorOf, holdProblems, siteFooterHtml, footersOf, FOOTER_CSS, STYLE, SOURCES } = lib;
 // The text of rendered HTML with its tags removed, entities left as they are (so it compares with escText(plain(markdown))).
 const textOf = html => html.split('<').map((part, i) => (i === 0 ? part : part.slice(part.indexOf('>') + 1))).join('').replace(/\s+/g, ' ').trim();
@@ -218,7 +220,7 @@ test('the same inputs give the same pages', () => {
 
 // ── the CLI, against a throwaway copy of the tree ──────────────────────────────────────────────
 const FILES = ['scripts/legal-pages.mjs', 'scripts/lib/legal-render.mjs', 'scripts/lib/layout-tokens.mjs', 'scripts/lib/legal-page-text.mjs', 'scripts/lib/legal-state.mjs', 'scripts/lib/legal-holds.json', 'TERMS.md', 'PRIVACY.md', 'legal/thai-7day-clause.md', 'legal/legal-state.json', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/pricing.html', 'CHANGELOG.md', 'web/changelog.html', 'web/index.html', 'web/404.html', 'web/_headers', 'scripts/lib/headers-file.mjs', 'scripts/lib/page-sync.mjs', 'scripts/lib/csp-hashes.mjs',
-  'scripts/lib/i18n-catalogue.mjs', 'scripts/lib/page-template.mjs', 'scripts/lib/html-tokens.mjs', 'scripts/lib/rendered-text.mjs', 'scripts/lib/web-files.mjs', 'scripts/lib/html-entities.json', 'web-src/i18n/en.json', 'web-src/i18n/th.json', 'web-src/pages/home.html', 'web-src/pages/pricing.html', 'web-src/pages/notfound.html'];
+  'scripts/lib/i18n-catalogue.mjs', 'scripts/lib/page-template.mjs', 'scripts/lib/html-tokens.mjs', 'scripts/lib/rendered-text.mjs', 'scripts/lib/web-files.mjs', 'scripts/lib/html-entities.json', 'web-src/i18n/en.json', 'web-src/i18n/th.json', 'web-src/pages/home.html', 'web-src/pages/pricing.html', 'web-src/pages/notfound.html', 'scripts/lib/controller-slot.mjs', 'legal/controller.json'];
 function copyTree() {
   const dir = mkdtempSync(join(tmpdir(), 'legal-pages-'));
   for (const f of FILES) { mkdirSync(dirname(join(dir, f)), { recursive: true }); writeFileSync(join(dir, f), readFileSync(join(ROOT, f))); }
@@ -1190,4 +1192,126 @@ test('every footer text colour measures at least 4.5:1 on every page background 
   if (process.env.PRINT_CONTRAST) for (const [name, r] of rows) console.log('CONTRAST ' + r.toFixed(2) + ':1 ' + name);
   for (const [name, r] of rows) assert.ok(r >= 4.5, name + ' measures ' + r.toFixed(2) + ':1');
   assert.ok(rows.length >= 23, 'the sample covers seven pages, two backgrounds on the dark ones, and the 404 page in two schemes for its links and for its paragraphs');
+});
+
+// ── the controller name slot (card BB-214 (a): the privacy page alone names the data controller, the brand Kolwen with the owner's own name) ─────────────────────────────────────────────────────────
+// The NAME is not in this repository yet: legal/controller.json holds an empty name, PRIVACY.md carries no slot, and the build is green. The slot ({{controller-name}}) is placed into PRIVACY.md by one
+// line when the name arrives; until then these tests carry a stand-in slot through the same render. The names below are made up for the tests and are nobody's.
+const SLOT = slotLib.SLOT;
+const EMPTY_NAME = { schema: 1, name: '' };
+const NAME_EN = 'Kolwen (Test Person)', NAME_TH = 'Kolwen (ผู้ทดสอบ ตัวอย่าง)';
+const withSlot = privacy => privacy.replace(/\s*$/, '\n') + '\nThe controller of this notice is ' + SLOT + '.\n';
+
+test('the controller record holds exactly schema and name, and a name is plain text of one line: no markup, no template, no line break', () => {
+  for (const ok of [EMPTY_NAME, { schema: 1, name: NAME_EN }, { schema: 1, name: NAME_TH }]) assert.deepEqual(slotLib.validateController(ok), [], JSON.stringify(ok));
+  const bad = [{ schema: 1 }, { schema: 1, name: '', extra: 1 }, { schema: 2, name: '' }, { schema: 1, name: 5 }, null, [],
+    { schema: 1, name: 'A\nB' }, { schema: 1, name: '<b>A</b>' }, { schema: 1, name: 'A ' + SLOT }, { schema: 1, name: '*A*' }, { schema: 1, name: '[A](x)' }, { schema: 1, name: 'A'.repeat(121) },
+    { schema: 1, name: 'A' + String.fromCharCode(92) + 'B' }, { schema: 1, name: 'A' + String.fromCharCode(34) + 'B' }, { schema: 1, name: ' A' }, { schema: 1, name: 'A&amp;B' }];
+  for (const rec of bad) assert.ok(slotLib.validateController(rec).length > 0, 'refused: ' + JSON.stringify(rec));
+});
+
+test('today: PRIVACY.md carries no slot, an empty record builds green, and the record changes no page', () => {
+  assert.ok(!read('PRIVACY.md').includes(SLOT), 'the slot is not placed yet');
+  assert.deepEqual(JSON.parse(read(slotLib.CONTROLLER_FILE)), EMPTY_NAME, 'no name in the record yet');
+  const a = renderPages({ ...inputs(), controller: EMPTY_NAME }), b = renderPages(inputs());
+  assert.deepEqual(a.problems, []);
+  assert.deepEqual(a.pages, b.pages);
+});
+
+test('the slot with an empty or missing name fails loud, and no page carries a placeholder', () => {
+  for (const controller of [EMPTY_NAME, undefined]) {
+    const r = renderPages({ ...inputs(), privacy: withSlot(read('PRIVACY.md')), ...(controller ? { controller } : {}) });
+    assert.ok(r.problems.some(p => /^PRIVACY\.md carries the controller name slot .* holds no name/.test(p) && p.includes('legal/controller.json')), r.problems.join(' | '));
+    for (const [file, html] of Object.entries(r.pages)) assert.ok(!html.includes('controller-name'), file + ' carries the slot');
+  }
+});
+
+test('a value renders on the privacy page only, in both languages, and an invalid record is a problem even when no slot is placed', () => {
+  for (const name of [NAME_EN, NAME_TH]) {
+    const r = renderPages({ ...inputs(), privacy: withSlot(read('PRIVACY.md')), controller: { schema: 1, name } });
+    assert.deepEqual(r.problems, [], name);
+    const privacy = r.pages['web/privacy.html'];
+    assert.ok(docEn(privacy).includes(escText(name)), name + ': English document');
+    assert.ok(docTh(privacy).includes(escText(name)), name + ': Thai document');
+    assert.ok(!privacy.includes('controller-name'));
+    for (const [file, html] of Object.entries(r.pages)) if (file !== 'web/privacy.html') assert.ok(!html.includes(escText(name)), file + ' names the controller');
+  }
+  const bad = renderPages({ ...inputs(), controller: { schema: 1, name: '<b>x</b>' } });
+  assert.ok(bad.problems.some(p => p.startsWith('legal/controller.json:')), bad.problems.join(' | '));
+});
+
+// INSPECT L-1 (1017j): a misspelt slot was read as an unset placeholder and HELD the passage, so the controller sentence vanished from the page with the build green. In PRIVACY.md a token that reads as the slot
+// (case and white space folded) but is not the exact slot now fails the build, naming the token; any other unknown token keeps the hold.
+test('a misspelt controller slot in PRIVACY.md fails the build, naming the token, with a name or without one; another unknown token keeps the hold', () => {
+  const near = ['{{ controller-name }}', '{{Controller-Name}}', '{{CONTROLLER-NAME}}', '{{controller-name }}', '{{\tcontroller-name\t}}'];
+  for (const token of near) for (const controller of [EMPTY_NAME, { schema: 1, name: NAME_EN }]) {
+    const r = renderPages({ ...inputs(), privacy: read('PRIVACY.md').replace(/\s*$/, '\n') + '\nThe controller of this notice is ' + token + ' and ZQXJ marker.\n', controller });
+    const hit = r.problems.find(p => p.startsWith('PRIVACY.md carries the token ' + JSON.stringify(token)));
+    assert.ok(hit && /reads as the controller name slot .* is not the exact slot \{\{controller-name\}\}/.test(hit), JSON.stringify(token) + ' ' + JSON.stringify(controller) + ': ' + r.problems.join(' | '));
+  }
+  const other = renderPages({ ...inputs(), privacy: read('PRIVACY.md').replace(/\s*$/, '\n') + '\nAn unrelated {{some-other-token}} ZQXJ marker.\n', controller: EMPTY_NAME });
+  assert.ok(!other.problems.some(p => /controller/i.test(p)), 'another unknown token is not a controller problem: ' + other.problems.join(' | '));
+  assert.ok(!other.pages['web/privacy.html'].includes('ZQXJ'), 'and it keeps the hold: the passage is held, not shown');
+  assert.deepEqual(slotLib.nearSlotTokens('a {{ controller-name }} b {{controller-name}} c {{x}} {{Controller-Name}}'), ['{{ controller-name }}', '{{Controller-Name}}'], 'the exact slot and other tokens are not near misses');
+});
+
+test('a misspelt controller slot fails the CLI build with exit 1 and the token in the message', () => {
+  const dir = copyTree();
+  try {
+    edit(dir, 'PRIVACY.md', s => s.replace(/\s*$/, '\n') + '\nThe controller of this notice is {{ controller-name }}.\n');
+    const r = check(dir);
+    assert.equal(r.status, 1, r.stdout + r.stderr);
+    assert.match(r.stdout, /FAIL PRIVACY\.md carries the token "\{\{ controller-name \}\}"/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('every other source refuses the slot, with a value or without one', () => {
+  for (const [key, file] of [['terms', 'TERMS.md'], ['clause', 'legal/thai-7day-clause.md'], ['changelog', 'CHANGELOG.md']]) {
+    for (const controller of [EMPTY_NAME, { schema: 1, name: NAME_EN }]) {
+      const i = inputs();
+      const r = renderPages({ ...i, [key]: i[key] + '\n\nThe controller is ' + SLOT + '.\n', controller });
+      assert.ok(r.problems.some(p => p.startsWith(file + ':') && /belongs to PRIVACY\.md only/.test(p)), file + ' ' + JSON.stringify(controller) + ': ' + r.problems.join(' | '));
+    }
+  }
+  assert.equal(slotLib.slotProblems('web-src/pages/home.html', 'a ' + SLOT + ' b').length, 1);
+  assert.deepEqual(slotLib.slotProblems('web-src/pages/home.html', 'plain'), []);
+});
+
+test('a site template that carries the slot fails the build (home, pricing and the 404 page each)', () => {
+  for (const page of ['home', 'pricing', 'notfound']) {
+    const dir = copyTree();
+    try {
+      edit(dir, `web-src/pages/${page}.html`, s => s.replace('</main>', `<p>${SLOT}</p></main>`));
+      const r = check(dir);
+      assert.equal(r.status, 1, page + ': ' + r.stdout + r.stderr);
+      assert.match(r.stdout, new RegExp(`FAIL web-src/pages/${page}\\.html: the controller name slot \\{\\{controller-name\\}\\} belongs to PRIVACY\\.md only`));
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }
+});
+
+// The (b) half: a person's name on the privacy page trips no gate, and nothing was loosened to let it through. No gate reads a personal name today (a name has no pattern, so the rule "no personal data in
+// this repository" is prose); what is proven here is that the name reaches the page through the one source, that every gate that reads the tree passes with it in place, in English and Thai, and that the gates
+// still bite beside it (a kitchen path planted in another file fails the same run).
+test('a person name on the privacy page: surface-check, the secret gate, the page weight, the page check and the font coverage all pass, and the gates still refuse what they refused', () => {
+  const dir = surfaceCopy(), env = childEnv(dir);
+  const run = (script, ...args) => spawnSync(process.execPath, ['--max-old-space-size=2048', join(dir, 'scripts', script), ...args], { encoding: 'utf8', timeout: 120000, cwd: dir, env });
+  try {
+    for (const name of [NAME_EN, NAME_TH]) {
+      writeFileSync(join(dir, 'legal/controller.json'), JSON.stringify({ schema: 1, name }, null, 2) + '\n');
+      edit(dir, 'PRIVACY.md', s => (s.includes(SLOT) ? s : withSlot(s)));
+      const w = run('legal-pages.mjs', '--write');
+      assert.equal(w.status, 0, name + ' --write: ' + w.stdout + w.stderr);
+      assert.equal(spawnSync('git', ['add', '-A'], { cwd: dir, env, timeout: 60000 }).status, 0);
+      for (const [script, args] of [['legal-pages.mjs', ['--check']], ['surface-check.mjs', []], ['secret-gate.mjs', []], ['page-weight.mjs', []]]) {
+        const r = run(script, ...args);
+        assert.equal(r.status, 0, `${name}: ${script} ${args.join(' ')}: ${r.stdout}${r.stderr}`);
+      }
+      assert.deepEqual(fontCoverage.coverageGaps(join(dir, 'web')), [], name + ': the fonts cover every character the pages render');
+    }
+    edit(dir, 'README.md', s => s + '\nsee ' + 'scratch' + 'pad/notes for the plan\n'); // the pieces are joined here so that this file itself holds no kitchen path for the gate to read
+    assert.equal(spawnSync('git', ['add', '-A'], { cwd: dir, env, timeout: 60000 }).status, 0);
+    const kitchen = run('surface-check.mjs');
+    assert.equal(kitchen.status, 1, 'a kitchen path is still refused with the name in place: ' + kitchen.stdout + kitchen.stderr);
+    assert.match(kitchen.stdout + kitchen.stderr, /internal path or private-repo reference/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

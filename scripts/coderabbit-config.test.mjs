@@ -105,7 +105,7 @@ const globToRegExp = g => {
 
 // ── the checks ────────────────────────────────────────────────────────────────
 // The key paths schema v2 names that this file uses. `[]` marks a list item.
-const ALLOWED_KEYS = new Set(['inheritance', 'knowledge_base', 'knowledge_base.learnings', 'knowledge_base.learnings.scope', 'knowledge_base.learnings.approval_delay', 'reviews', 'reviews.profile', 'reviews.path_filters', 'reviews.path_instructions', 'reviews.path_instructions[].path', 'reviews.path_instructions[].instructions']);
+const ALLOWED_KEYS = new Set(['inheritance', 'knowledge_base', 'knowledge_base.learnings', 'knowledge_base.learnings.scope', 'knowledge_base.learnings.approval_delay', 'knowledge_base.code_guidelines', 'knowledge_base.code_guidelines.enabled', 'reviews', 'reviews.profile', 'reviews.path_filters', 'reviews.path_instructions', 'reviews.path_instructions[].path', 'reviews.path_instructions[].instructions']);
 // The words of a suppression: an instruction that tells the reviewer to stay quiet, grants an exception or lowers a severity.
 const SUPPRESSION = /\b(ignore[ds]?|skip(ped|s)?|suppress(ed|es)?|exempt(ed)?|(do not|don't|need not|never|no need to) (report|flag|raise|mention|suggest|comment)|not a finding|out of scope)\b/i;
 
@@ -128,6 +128,7 @@ function problemsOf(text, tracked, binary = BINARY) {
   if (doc.inheritance !== true) problems.push('inheritance: true is missing (without it this file replaces the organization settings)');
   if (doc.knowledge_base?.learnings?.scope !== 'local') problems.push('knowledge_base.learnings.scope must be local');
   if (doc.knowledge_base?.learnings?.approval_delay !== 30) problems.push('knowledge_base.learnings.approval_delay must be 30, the maximum');
+  if (doc.knowledge_base?.code_guidelines?.enabled !== false) problems.push('knowledge_base.code_guidelines.enabled must be false (the reviewer never reads the product under review as its own rule: UMB3-066)');
   if (doc.reviews?.profile !== 'assertive') problems.push('reviews.profile must be assertive (the measured trial)');
   for (const [where, s] of stringsOf(doc, '', [])) {
     if (s.includes('"')) problems.push(`${where}: a double quote inside a string value`);
@@ -203,6 +204,9 @@ test('RED PROOF: a key the schema does not name is a problem, and so is a hooks 
   assert.ok(problemsOf(FILE.replace('inheritance: true\n', ''), TRACKED).some(p => /inheritance/.test(p)), 'inheritance stays');
   assert.ok(problemsOf(FILE.replace('approval_delay: 30', 'approval_delay: 0'), TRACKED).some(p => /approval_delay/.test(p)), 'the maximum approval delay stays');
   assert.ok(problemsOf(FILE.replace('\n  profile: assertive', '\n  profile: chill'), TRACKED).some(p => /reviews\.profile/.test(p)), 'the trial profile stays');
+  assert.ok(problemsOf(FILE.replace('enabled: false', 'enabled: true'), TRACKED).some(p => /code_guidelines\.enabled must be false/.test(p)), 'code guidelines stay off');
+  assert.ok(problemsOf(FILE.replace('  code_guidelines:\n    enabled: false\n', ''), TRACKED).some(p => /code_guidelines\.enabled must be false/.test(p)), 'and the key is required');
+  assert.equal((FILE.match(/^knowledge_base:/gm) ?? []).length, 1, 'one knowledge_base key: a second one would replace the first');
 });
 
 test('RED PROOF: a filter that hides a text file is a problem, and so is a citation of a surface-check rule that does not exist', () => {

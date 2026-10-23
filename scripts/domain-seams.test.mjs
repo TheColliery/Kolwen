@@ -279,6 +279,12 @@ test('seam 4: a Set-Cookie header, a document.cookie write and a Worker cookie c
     'document.cookie // c' + CR + '= "x";', 'document.cookie // c' + LS + '= "x";', 'document.cookie // c' + PS + '= "x";',
     'document.' + BS + 'u0063ookie = "a=b";', 'document.' + BS + 'u{63}ookie = "a=b";', 'document.c' + BS + 'u006Fokie = "a=b";', 'document["c' + BS + 'x6fokie"] = "a=b";', 'document["' + BS + 'u0063ookie"] += "a=b";',
     'document[`c' + BS + 'x6Fokie`] = "a=b";', 'document["c' + BS + 'u{6f}okie"]++;',
+    // PR #56 catch-up (CodeRabbit, the legacy octal escape): a classic inline script runs in sloppy mode, where a string key may spell each letter of `cookie` as a three-digit octal escape
+    // INSPECT L-3 (1017j): the two forms still unseen after the octal row: an identity escape (a backslash before a letter that is no escape yields the letter, so each of c, o, k, i, e) and a line continuation
+    // (a backslash and a line break yield nothing), alone, between the letters, at either end, and with a CRLF, in a double-quoted, single-quoted and template key
+    'document["' + BS + 'c' + BS + 'o' + BS + 'o' + BS + 'k' + BS + 'i' + BS + 'e"] = "a=b";', 'document["coo' + BS + NL + 'kie"] = "a=b";', "document['" + BS + 'c' + BS + 'ookie\'] += "a=b";',
+    'document["' + BS + NL + 'cookie' + BS + NL + '"]++;', 'document[`c' + BS + String.fromCharCode(13, 10) + 'oo' + BS + 'k' + BS + NL + BS + NL + 'ie`] = "a=b";', 'document["c' + BS + String.fromCharCode(0x2028) + 'ookie"] = "a=b";',
+    'document["' + BS + '143ookie"] = "a=b";','document["c' + BS + '157' + BS + '157' + BS + '153' + BS + '151' + BS + '145"] += "a=b";', 'document[`' + BS + '143' + BS + '157okie`]++;',
     // PR #56 round 2 (Q-8a): a comment between the object, the dot and the name, or inside the brackets
     'document /* c */ . /* c */ cookie = "x";', 'document. /* c */ cookie = "x";', 'document. // c' + NL + ' cookie = "x";', 'document[ /* c */ "cookie" /* c */ ] = "x";', 'document[ // c' + NL + ' "cookie" ] += "x";',
     'document. /* c */ cookie++;', '++document. /* c */ cookie;', 'for (document. /* c */ cookie of l) {}', '[document. /* c */ cookie] = a;', '({ k: document /* c */ . /* c */ cookie } = o);',
@@ -286,6 +292,10 @@ test('seam 4: a Set-Cookie header, a document.cookie write and a Worker cookie c
   for (const code of more) {
     p('web/index.html', inline(code), /writes document\.cookie/, code);
     p('worker/index.js', code, /writes document\.cookie/, 'a code file: ' + code);
+  }
+  // L-3 quiet rows: an escape that yields another letter, a continuation inside another word, and a continuation with no letter after it are not the cookie
+  for (const code of ['document["' + BS + 'd' + BS + 'ookie"] = "a=b";', 'document["coo' + BS + NL + 'kies"] = "a=b";', 'document["' + BS + 'c' + BS + 'o' + BS + 'o' + BS + 'k' + BS + 'i"] = "a=b";', 'document["co' + BS + NL + 'o"] = "a=b";']) {
+    assert.deepEqual(one('web/index.html', inline(code)), [], code);
   }
   // what only reads stays clean: a property that merely starts with the word, a loop variable of that name, the postfix operator across a line break (the grammar forbids it), and a comparison
   for (const code of ['for (const cookieof of l) {}', 'for (d.cookieof of l) {}', 'var n = d.cookies++;', 'a = document.cookie' + NL + '++b;', 'x = document.cookie;' + NL + '--y;', 'f(document.cookie) // c' + CR + 'g = 1', 'if (document.cookie > 1) {}', 'var o = { cookie: 1 }; o.cookie2 = 2;', 'var a = document. /* c */ cookie;', 'if (document /* c */ . /* c */ cookie == z) {}', 'x = document[ /* c */ "cookie" ];'])
@@ -327,6 +337,15 @@ test('seam 4: the cookie check finishes on pathological input: every input ends 
       'document.cookie' + (NL + ' ').repeat(N / 2),
       'document["' + 'c'.repeat(N) + '"]',
       'document[' + "'" + 'c\\\\x6f'.repeat(N / 8),
+      'document[' + "'" + 'c\\\\157'.repeat(N / 8),
+      'document[' + "'" + '\\\\157'.repeat(N / 8) + '\\\\14',
+      'document[' + "'" + '\\\\c'.repeat(N / 8) + '\\\\',
+      'document[' + "'" + ('\\\\' + NL).repeat(N / 8),
+      'document[' + "'" + ('c\\\\' + NL).repeat(N / 8) + 'x',
+      'document[' + "'" + ('\\\\' + CR + NL).repeat(N / 8) + '\\\\c\\\\o\\\\o',
+      'document[/*x'.repeat(N / 4),
+      'document[/*x'.repeat(N / 4) + '*/',
+      ('document[ /* c */ ').repeat(N / 16) + 'document[/*',
       '.' + ' /* c */'.repeat(N / 8) + ' x',
       '[' + ' /* c */'.repeat(N / 8) + ' "cookie"',
       '. '.repeat(N / 2) + 'cookie',
@@ -335,11 +354,35 @@ test('seam 4: the cookie check finishes on pathological input: every input ends 
     for (const t of inputs) { cookieProblems([{ file: 'web/index.html', text: '<script>' + t + '</script>' }]); cookieProblems([{ file: 'worker/index.js', text: t }]); seen++; }
     console.log('FINISHED ' + seen);
   `;
-  const r = spawnSync(process.execPath, ['--max-old-space-size=256', '--input-type=module', '-e', child], { encoding: 'utf8', timeout: 120000, killSignal: 'SIGKILL' });
+  // the child has a heap cap, a kill timeout, and a HOME, TEMP and working folder of its own (CodeRabbit catch-up of #56: the path instructions for a test that starts a child ask for all three)
+  const home = mkdtempSync(join(tmpdir(), 'kolwen-cookie-redos-'));
+  const env = { ...process.env, HOME: home, USERPROFILE: home, TEMP: home, TMP: home, TMPDIR: home, XDG_CONFIG_HOME: home };
+  let r;
+  try { r = spawnSync(process.execPath, ['--max-old-space-size=256', '--input-type=module', '-e', child], { encoding: 'utf8', timeout: 120000, killSignal: 'SIGKILL', env, cwd: home }); }
+  finally { rmSync(home, { recursive: true, force: true }); }
   assert.equal(r.error, undefined, 'the child was not killed by the timeout: ' + (r.error && r.error.message));
   assert.equal(r.signal, null, 'and no signal ended it: ' + r.signal);
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /^FINISHED 17\n?$/);
+  assert.match(r.stdout, /^FINISHED 26\n?$/);
+});
+
+// INSPECT L-4 (1017j): every block comment the pattern tries to skip scans to the next end marker, so many openers with no marker after them cost the square of their count (measured at the base commit:
+// 500 units of `document[/*x` 30 ms, 1,000 109 ms, 2,000 445 ms, 4,000 1,803 ms). The linear form: before the patterns run, the span of all openers (each one's distance to its end marker, or to the end of
+// the text) is summed in one pass; a text whose span passes max(16 x its length, 5,000,000) is not read and is a finding. A real file has each opener close to its own end marker, so its span is about its
+// length.
+test('seam 4: a text with many unclosed or overlapping block comments is refused loudly and not read; real comments and a write after many of them are still read', () => {
+  const M = 'document[/*x';
+  const big = cookieProblems([{ file: 'worker/index.js', text: M.repeat(20000) }]);
+  assert.equal(big.length, 1, msgs(big).join(' | '));
+  assert.match(big[0].msg, /block comments span \d+ characters in a 240000-character text .*the cookie check does not read it/);
+  assert.equal(cookieProblems([{ file: 'web/index.html', text: '<script>' + M.repeat(20000) + '</script>' }]).length >= 1, true, 'the same inside an inline script');
+  assert.deepEqual(cookieProblems([{ file: 'worker/index.js', text: M.repeat(200) }]), [], 'a few hundred openers are under the bound and are read');
+  const many = '/* a */ '.repeat(5000) + 'document.cookie = "a=b";';
+  assert.equal(cookieProblems([{ file: 'worker/index.js', text: many }]).length, 1, 'five thousand closed comments: read, and the write after them found');
+  assert.match(cookieProblems([{ file: 'worker/index.js', text: many }])[0].msg, /writes document\.cookie/);
+  assert.match(cookieProblems([{ file: 'worker/index.js', text: '/* ' + '/* '.repeat(300) + '*/ document.cookie = 1;' }])[0].msg, /writes document\.cookie/, 'a few hundred openers inside one real comment stay under the bound');
+  // the stated limit, kept true: thousands of openers inside ONE comment pass the bound too (their span is the square of their count), and are refused with the same message
+  assert.match(cookieProblems([{ file: 'worker/index.js', text: '/* ' + '/* '.repeat(3000) + '*/ document.cookie = 1;' }])[0].msg, /^block comments span \d+ characters/, 'a comment of three thousand openers is refused, not read');
 });
 
 test('seam 4: the scan is not vacuous: no shipped file at all is a finding', () => {

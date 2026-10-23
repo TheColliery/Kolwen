@@ -19,6 +19,7 @@
 // frame are Thai. The hold list is matched by anchor, so two passages that open with the same eight words are held together.
 import { MARK_EN, MARK_TH, PAGES, BANNER, PENDING, THAI_OWED, TEXT_TWINS, PENDING_LINES, REFUND_ROWS } from './legal-page-text.mjs';
 import { activeSince } from './legal-state.mjs';
+import { CONTROLLER_FILE, validateController, fillController } from './controller-slot.mjs';
 import { t, html as tHtml, escText, escAttr, withCatalogue } from './i18n-catalogue.mjs';
 import { renderTemplate } from './page-template.mjs';
 import { tokensCss, readingMeta, VIEWPORT_META, JOBS } from './layout-tokens.mjs';
@@ -531,12 +532,23 @@ export function renderSitePages({ templates, messages }) {
 // inputs: { terms, privacy, clause, changelog (CHANGELOG.md, optional: without it the changelog page is not rendered), state (the parsed legal-state record), holds (the parsed hold list) }.
 // Returns { pages: { 'web/terms.html': html, ... }, report: [line], problems: [line] }.
 export function renderPages(inputs) {
-  const { terms, privacy, clause, state, holds, changelog } = inputs;
+  const { state, holds } = inputs;
+  const problems = [];
+  // The controller name (scripts/lib/controller-slot.mjs): a record with no name is the record of today. The slot is filled in PRIVACY.md only, and the other sources refuse it.
+  const controller = inputs.controller ?? { schema: 1, name: '' };
+  problems.push(...validateController(controller).map(p => `${CONTROLLER_FILE}: ${p}`));
+  const filled = {};
+  for (const [key, file] of [['terms', SOURCES.terms], ['privacy', SOURCES.privacy], ['clause', SOURCES.clause], ['changelog', SOURCES.changelog]]) {
+    if (typeof inputs[key] !== 'string') continue;
+    const f = fillController(file, inputs[key], controller);
+    filled[key] = f.text;
+    problems.push(...f.problems);
+  }
+  const { terms, privacy, clause, changelog } = filled;
   const since = state ? activeSince(state) : null;
   const active = since !== null;
   const clauseText = active ? clause.split('{{since}}').join(since) : clause;
   const opts = { holds: holds.holds, active };
-  const problems = [];
   const report = [];
   const pages = {};
 

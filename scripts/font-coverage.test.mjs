@@ -210,9 +210,11 @@ test('RED PROOF: stripCssComments keeps strings whole, removes comments outside 
 // Before the fix a name of n hex escapes with no colon took 3.4 s at n = 24 and never finished at n = 50,000 (an escape could be read whole or as a shorter escape and a name character: 2^n ways), and n repetitions of
 // an escaped space and `--a` took 5.7 s at n = 20,000 and were killed at n = 40,000 (a name that failed was tried again from every `--` inside it: n^2), and a string of n escaped quotes that never closes took 3.2 s at
 // n = 40,000 in the comment stripper (a string was tried again from every escaped quote inside it: n^2).
-// The test asserts NO time, only that the child finishes: a wall-clock figure on a loaded runner is flaky, a kill timeout is not. So n is chosen for each recorded regression so that the old reader cannot finish inside
-// the kill timeout (a quadratic input at n = 160,000 or 80,000 is 16 or 4 times the work of the sizes above; the old reader was run on exactly these sizes and was killed on every one), while the fixed reader
-// takes milliseconds, far inside it. The test proves a hang, not a speed.
+// (Those three figures were recorded while #51 was written, against a reader that never reached main; they cannot be re-run from main.)
+// The test asserts NO time, only that the current reader finishes inside the kill timeout and returns the known length: a wall-clock figure on a loaded runner is flaky, a kill timeout is not. The sizes are
+// the recorded regressions scaled up (a quadratic input at n = 160,000 or 80,000 is 16 or 4 times the work of the sizes above), and the current reader takes about 0.1 to 0.3 s on each (measured 2026-10-22). What was
+// MEASURED against a reader from main: the reader before #51 (9aa8ff2~1, which had no custom property reading) is killed at 10 s on the escaped-quote string alone and finishes the other ten inputs in under 0.4 s,
+// so those ten are regression guards sized from the recorded figures, not inputs proven to hang a reader of main. The test proves completion and the result, not a speed.
 const CHILD_HOME = mkdtempSync(join(tmpdir(), 'fc-linear-'));
 test.after(() => rmSync(CHILD_HOME, { recursive: true, force: true }));
 const LINEAR_KILL_MS = 10000;
@@ -244,12 +246,15 @@ const readInChild = (kind, n) => {
   return { killed: false, ...JSON.parse(r.stdout.trim().split('\n').pop()) };
 };
 test('RED PROOF: no adversarial style block makes the custom property reader slower than linear: hex escapes with no colon, repeated escaped spaces and names, and the other shapes that fail late', () => {
-  const inputs = [['escapes, no colon', 50000], ['escapes inside var( --...)', 50000], ['escaped-space starts', 80000], ['one long hex run', 50000], ['many names, no colon', 50000],
-    ['many definitions', 50000], ['unterminated strings', 20000], ['var( and spaces', 50000], ['a string of escaped quotes that never closes', 160000], ['many content declarations', 20000], ['many var( uses', 20000]];
+  // the length of the content text each input yields, known by reading the inputs: a custom property with no value or no colon gives none, one definition-and-use gives the one `x`, and n declarations
+  // `content:"x"` give n x's joined by n - 1 spaces
+  const inputs = [['escapes, no colon', 50000, 0], ['escapes inside var( --...)', 50000, 0], ['escaped-space starts', 80000, 0], ['one long hex run', 50000, 0], ['many names, no colon', 50000, 0],
+    ['many definitions', 50000, 1], ['unterminated strings', 20000, 0], ['var( and spaces', 50000, 0], ['a string of escaped quotes that never closes', 160000, 0], ['many content declarations', 20000, 39999], ['many var( uses', 20000, 1]];
   const failures = [];
-  for (const [kind, n] of inputs) {
+  for (const [kind, n, len] of inputs) {
     const r = readInChild(kind, n);
     if (r.killed) failures.push(r.why);
+    else if (r.len !== len) failures.push(`${kind} (n = ${n}) gave a content text of length ${r.len}, not ${len}`);
   }
   assert.deepEqual(failures, []);
 });

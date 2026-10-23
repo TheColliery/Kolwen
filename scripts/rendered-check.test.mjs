@@ -827,6 +827,8 @@ test('the DevTools route answers HEAD with the headers and an empty body, and an
   assert.equal(head.requestId, 'r1');
 });
 
+// This assertion CAN go red (CodeRabbit's catch-up of #55 read the Fetch spec and said it cannot): measured 2026-10-22 on the WSL route, with fulfillParams made to send the body on a HEAD, `h.text()` here read
+// 20,929 characters and the assertion failed, so a Blink that is handed a body for a HEAD shows it to fetch. The unit test above reads the parameters themselves.
 test('a HEAD request gets no body and a GET the whole page, on whichever route the browser takes', { skip: SKIP }, async () => {
   const server = await browser.serve(join(ROOT, 'web'), { headers: false });
   const page = await browser.newPage();
@@ -907,7 +909,7 @@ const importOf = file => ['--input-type=module', '-e', `await import(${JSON.stri
 
 // How the scan finds a script that starts itself, and the spellings it refuses, is scripts/lib/entry-scan.mjs (header). STATED LIMITS, kept true by the test below: it reads text. A guard that reaches argv
 // through a name built at run time (`Reflect.get(process, 'ar' + 'gv')`), an alias of the whole `process` object (`const p = process; p.argv.at(1)`), `eval`, or a compare that reaches
-// `import.meta.url` through a call other than fileURLToPath (`new URL(import.meta.url).pathname === x`) is not seen; a comment marker inside a string cuts the rest of that line from the scan;
+// `import.meta.url` through a call other than fileURLToPath (`new URL(import.meta.url).pathname === x`) is not seen; a comment marker inside a string is read as a comment (a `//` cuts the rest of that line from the scan, a `/*` cuts everything up to the next `*/` on any later line, a guard in that span included);
 // and a script that starts itself by a way that reads no path at all (a top-level call that is not behind any guard) is not a "self-running" script but a script that runs on import, which the
 // import test below finds only for the listed ones.
 test('the scan for a script that starts itself refuses the ways to ask "am I the main module" that it can read, and lets an argument and the shared guard through', () => {
@@ -953,7 +955,9 @@ test('the scan for a script that starts itself refuses the ways to ask "am I the
   for (const src of fine) assert.ok(!readsOwnPath(src), 'allowed: ' + src);
   assert.ok(startsItself('if (isMainModule(import.meta.url)) main();') && startsItself('if (import.meta.main) main();') && !startsItself('const arg = process.argv[2];'));
   // the stated limits: not seen
-  for (const src of ["Reflect.get(process, 'ar' + 'gv').at(1)", 'const p = process; p.argv.at(1);', 'if (new URL(import.meta.url).pathname === x) main();']) assert.ok(!readsOwnPath(src), 'a stated limit: ' + src);
+  for (const src of ["Reflect.get(process, 'ar' + 'gv').at(1)", 'const p = process; p.argv.at(1);', 'if (new URL(import.meta.url).pathname === x) main();',
+    // PR #58 catch-up (CodeRabbit): a `/*` inside a string opens a comment for the scan, and a real `*/` many lines later closes it, so the guard between them is not seen (a `//` in a string only cuts its own line)
+    "const RULE = '/*';\nif (import.meta.main) main();\n/* note */", "const u = 'a//b'; if (import.meta.main) main();"]) assert.ok(!readsOwnPath(src), 'a stated limit: ' + src);
 });
 
 // PR #58 round 1, the reviewer's L-4: a pattern of the helper took time cubic in the input (a `{ argv ` run with no closing brace: 6.2 s at 11,200 characters) and its comment stripper quadratic (an unclosed
