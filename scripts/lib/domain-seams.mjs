@@ -252,6 +252,21 @@ function codeCookieUses(code, sets, domains) {
   if (ASSIGN_COOKIE.test(code)) sets.push('writes document.cookie');
   if (DOMAIN_OPTION.test(code)) domains.push(1);
 }
+// INSPECT L-4 (1017j): the patterns above skip a block comment by scanning from its opener to the next end marker, so a text of many openers with no marker near them costs the square of their count (at the
+// base commit `document[/*x` repeated: 1,000 times 109 ms, 4,000 times 1,803 ms). The bound that keeps the check linear: the SPAN of a text is the sum, over every `/*`, of its distance to the next `*/`
+// (or to the end of the text when none follows), found in one pass with a pointer that never moves back. A real file has each opener close to its own end marker, so its span is about its length; a text
+// whose span passes max(SPAN_FACTOR x its length, SPAN_FLOOR) is not read and is a FINDING (fail loud, never quiet), so the work the patterns can be given is bounded by that number.
+// STATED LIMIT: a file that is mostly one comment holding more than SPAN_FACTOR openers (a long commented-out block) is refused too, with the message telling its author to close or split them.
+export const SPAN_FACTOR = 16, SPAN_FLOOR = 5000000;
+export function commentSpan(text) {
+  const n = text.length;
+  let span = 0, close = -2;
+  for (let i = text.indexOf('/*'); i !== -1; i = text.indexOf('/*', i + 1)) {
+    if (close !== -1 && close < i + 2) close = text.indexOf('*/', i + 2);
+    span += (close === -1 ? n : close + 2) - i;
+  }
+  return span;
+}
 export function cookieProblems(files) {
   if (!files || files.length === 0) return [prob('web/', 'no shipped file was read, so the cookie check read nothing')];
   const out = [];
@@ -266,6 +281,11 @@ export function cookieProblems(files) {
         if (DOMAIN_ATTR.test(line)) domains.push(1);
       }
     } else {
+      const span = commentSpan(text);
+      if (span > Math.max(SPAN_FACTOR * text.length, SPAN_FLOOR)) {
+        out.push(prob(file, `block comments span ${span} characters in a ${text.length}-character text (many /* openers that never close or overlap): the cookie check does not read it, so close them or split the file`));
+        continue;
+      }
       if (DOC_COOKIE_WRITE.test(text)) sets.push('writes document.cookie');
       if (DOMAIN_ATTR.test(text)) domains.push(1);
       if (CODE_FILE.test(file)) codeCookieUses(text, sets, domains);

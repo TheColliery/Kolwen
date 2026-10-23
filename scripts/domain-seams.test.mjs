@@ -343,6 +343,9 @@ test('seam 4: the cookie check finishes on pathological input: every input ends 
       'document[' + "'" + ('\\\\' + NL).repeat(N / 8),
       'document[' + "'" + ('c\\\\' + NL).repeat(N / 8) + 'x',
       'document[' + "'" + ('\\\\' + CR + NL).repeat(N / 8) + '\\\\c\\\\o\\\\o',
+      'document[/*x'.repeat(N / 4),
+      'document[/*x'.repeat(N / 4) + '*/',
+      ('document[ /* c */ ').repeat(N / 16) + 'document[/*',
       '.' + ' /* c */'.repeat(N / 8) + ' x',
       '[' + ' /* c */'.repeat(N / 8) + ' "cookie"',
       '. '.repeat(N / 2) + 'cookie',
@@ -360,7 +363,26 @@ test('seam 4: the cookie check finishes on pathological input: every input ends 
   assert.equal(r.error, undefined, 'the child was not killed by the timeout: ' + (r.error && r.error.message));
   assert.equal(r.signal, null, 'and no signal ended it: ' + r.signal);
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /^FINISHED 23\n?$/);
+  assert.match(r.stdout, /^FINISHED 26\n?$/);
+});
+
+// INSPECT L-4 (1017j): every block comment the pattern tries to skip scans to the next end marker, so many openers with no marker after them cost the square of their count (measured at the base commit:
+// 500 units of `document[/*x` 30 ms, 1,000 109 ms, 2,000 445 ms, 4,000 1,803 ms). The linear form: before the patterns run, the span of all openers (each one's distance to its end marker, or to the end of
+// the text) is summed in one pass; a text whose span passes max(16 x its length, 5,000,000) is not read and is a finding. A real file has each opener close to its own end marker, so its span is about its
+// length.
+test('seam 4: a text with many unclosed or overlapping block comments is refused loudly and not read; real comments and a write after many of them are still read', () => {
+  const M = 'document[/*x';
+  const big = cookieProblems([{ file: 'worker/index.js', text: M.repeat(20000) }]);
+  assert.equal(big.length, 1, msgs(big).join(' | '));
+  assert.match(big[0].msg, /block comments span \d+ characters in a 240000-character text .*the cookie check does not read it/);
+  assert.equal(cookieProblems([{ file: 'web/index.html', text: '<script>' + M.repeat(20000) + '</script>' }]).length >= 1, true, 'the same inside an inline script');
+  assert.deepEqual(cookieProblems([{ file: 'worker/index.js', text: M.repeat(200) }]), [], 'a few hundred openers are under the bound and are read');
+  const many = '/* a */ '.repeat(5000) + 'document.cookie = "a=b";';
+  assert.equal(cookieProblems([{ file: 'worker/index.js', text: many }]).length, 1, 'five thousand closed comments: read, and the write after them found');
+  assert.match(cookieProblems([{ file: 'worker/index.js', text: many }])[0].msg, /writes document\.cookie/);
+  assert.match(cookieProblems([{ file: 'worker/index.js', text: '/* ' + '/* '.repeat(300) + '*/ document.cookie = 1;' }])[0].msg, /writes document\.cookie/, 'a few hundred openers inside one real comment stay under the bound');
+  // the stated limit, kept true: thousands of openers inside ONE comment pass the bound too (their span is the square of their count), and are refused with the same message
+  assert.match(cookieProblems([{ file: 'worker/index.js', text: '/* ' + '/* '.repeat(3000) + '*/ document.cookie = 1;' }])[0].msg, /^block comments span \d+ characters/, 'a comment of three thousand openers is refused, not read');
 });
 
 test('seam 4: the scan is not vacuous: no shipped file at all is a finding', () => {
