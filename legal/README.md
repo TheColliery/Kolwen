@@ -1,12 +1,12 @@
 # legal/: the legal-state record and the switch it drives
 
 This folder holds the state that decides whether a conditional legal clause is in force, and the clause text itself.
-It is public, so it holds **state only**.
+It is public, so it holds **state only**, with one exception: `controller.json`, which holds only the name of the data controller for the privacy page, given by the owner.
 
 | File | What it is |
 |---|---|
 | `legal-state.json` | The record: the seller type and the dates on which a legal trigger was met. Nothing else. |
-| `controller.json` | The data controller's name for the privacy page, as `{ "schema": 1, "name": "" }`. The name stays empty until it is given; the build puts it into `PRIVACY.md` only and refuses the slot anywhere else, or in `PRIVACY.md` while the name is empty (`scripts/lib/controller-slot.mjs`). |
+| `controller.json` | The data controller's name for the privacy page, as `{ "schema": 1, "name": "" }`. The name stays empty until it is given; the build puts it into `PRIVACY.md` only and refuses the slot anywhere else, or in `PRIVACY.md` while the name is empty, and refuses a token in `PRIVACY.md` that reads as the slot once its case and white space are folded but is not the exact slot (`scripts/lib/controller-slot.mjs`). |
 | `thai-7day-clause.md` | The Thai 7-day cancellation clause (English and Thai), with a `{{since}}` placeholder for the date it takes effect. |
 
 `TERMS.md` holds one block between `<!-- legal-state:thai-7day:begin -->` and `<!-- legal-state:thai-7day:end -->`. The block is empty
