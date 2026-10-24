@@ -305,6 +305,10 @@ test('RED PROOF at the gate: surface-check finishes on a page of 4,000 untermina
     const b = surface(dir2, 60000);
     assert.equal(b.error, undefined, 'passages with a hit each: surface-check was killed by the timeout');
     assert.equal(b.status, 1);
-    assert.equal((b.out.match(/web\/changelog\.html: line \d+: says "no trackers"/g) || []).length >= 8000, true, 'every hit is named');
+    // The 8,000 hits are on one line, so they are counted, not located. On a short count the message carries what the gate printed: the count, the status, the size of the output, the
+    // lines that are not claim lines (a load failure or another rule would show there), and the tail of the output, so a red run on another runner explains itself.
+    const named = (b.out.match(/web\/changelog\.html: line \d+: says "no trackers"/g) || []).length;
+    const others = b.out.split('\n').filter(l => l.trim() && !/says "no trackers"/.test(l)).slice(0, 5);
+    assert.equal(named >= 8000, true, `every hit is named: ${named} of 8000 named; status ${b.status}; output ${b.out.length} characters; other lines ${JSON.stringify(others)}; the output's last 300 characters ${JSON.stringify(b.out.slice(-300))}`);
   } finally { rmSync(dir2, { recursive: true, force: true }); }
 });
