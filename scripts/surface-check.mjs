@@ -816,10 +816,12 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
 // STATED LIMITS, not fixed here: engine-specific names (`googlebot`, `bingbot`, a `user-agent:` prefix in the header
 // value) and directives such as `unavailable_after` are not read; a meta inside an HTML comment counts (it fails
 // safe); and a `*.workers.dev` pattern is trusted to be a preview host, which includes production's own
-// `workers.dev` alias (docs/DEPLOY.md names that residual); an attribute name written with an entity or a stray
-// character inside it (`na&#109;e`) is not read; a `name=` or `content=` text sitting inside ANOTHER attribute's
-// quoted value is still seen as the attribute. A tag that does not end within META_MAX (4096) characters, an
-// UNTERMINATED quote among them, is NOT passed over: it is a finding, one per page (scripts/lib/page-claims.mjs).
+// `workers.dev` alias (docs/DEPLOY.md names that residual); an attribute name written with an entity (`na&#109;e`)
+// is not read; a `name=` or `content=` text sitting inside ANOTHER attribute's quoted value is still seen as the
+// attribute. A meta tag is read as the HTML tokenizer reads a start tag (scripts/lib/page-claims.mjs, `tagEnd`): a
+// quote opens a value only after the `=` of an attribute, so a stray quote in an attribute name or an unquoted value
+// is plain text. A tag that does not end within META_MAX (4096) characters, an unclosed quote among them, is NOT
+// passed over: it is a finding, one per page.
 {
   // The meta tags are read by metaTagsOf and the robots test by isRobotsNoindex (scripts/lib/page-claims.mjs): a tag ends at the first `>` outside a quoted value, the attribute name must be the
   // whole name (`data-content` is not `content`), and the `name` value exactly `robots`.
@@ -916,9 +918,9 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
     }
   }
   /* FREE_ALL:end */
-  // A pin that matches no passage of its page is stale (rules 15 and 17a share the list).
-  for (const p of HISTORY_PINS) {
-    const n = tracked.includes(p.file) && pageClaims ? pageClaims.passagesOf(read(p.file)).filter(x => x.fp === p.fp).length : 0;
+  // A pin that matches no passage of its page is stale (rules 15 and 17a share the list). Without the library no pin is read at all, so none is stale: the import note above is the finding.
+  for (const p of pageClaims ? HISTORY_PINS : []) {
+    const n = tracked.includes(p.file) ? pageClaims.passagesOf(read(p.file)).filter(x => x.fp === p.fp).length : 0;
     if (n === 0) note(p.file, `pinned passage ${p.fp} (${p.start}) matches no passage of the page, so the pin excuses nothing: remove it, or re-pin the passage if its words changed`);
     else if (n !== p.count) note(p.file, `pinned passage ${p.fp} (${p.start}) appears ${n} time(s) on the page, the pin allows ${p.count}: a copy of a withdrawn quote is a new occurrence, so the pin exempts none of them until the extra copy is removed or the count is re-confirmed`);
   }

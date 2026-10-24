@@ -5,21 +5,53 @@
 // passages with a hit each). Here both are single passes, and scripts/page-claims.test.mjs runs them on bulk input in a child under a kill timeout.
 import { createHash } from 'node:crypto';
 
-// A meta tag is read from its `<meta` to the first `>` OUTSIDE a quoted attribute value, at most META_MAX characters. A tag that does not end inside the cap (an unterminated quote, a missing `>`, or
-// plain length) is reported as UNREAD, and the caller fails on it: a page whose meta tags cannot be read is not proven free of a noindex. Each start costs at most META_MAX, so the whole page is linear.
+// A meta tag is read from its `<meta` to the first `>` that the HTML tokenizer reads as the end of the start tag, at most META_MAX characters: a `>` inside a quoted attribute value does not end it. A tag that
+// does not end inside the cap (an unclosed quote, a missing `>`, or plain length) is reported as UNREAD, and the caller fails on it: a page whose meta tags cannot be read is not proven free of a noindex.
+// Each start costs at most META_MAX, so the whole page is linear.
 export const META_MAX = 4096;
 const META_START = /<meta\b/gi;
-const DQ = 34, SQ = 39, GT = 62; // " ' >
-// The index after the `>` that ends the tag starting at `at`, or -1 when no `>` outside a quote comes within META_MAX characters. One character at a time, so a start costs at most META_MAX steps.
-// A `"` opens a value that the next `"` closes (a `'` inside it is text), and a `'` likewise: the HTML rule for a quoted attribute value.
+const DQ = 34, SQ = 39, GT = 62, SLASH = 47, EQ = 61; // " ' > / =
+// The attribute states of the HTML tokenizer (WHATWG HTML §13.2.5.32 to §13.2.5.39), as far as they decide where a start tag ends. Only the two quoted-value states read a > as text.
+const BEFORE_NAME = 0, NAME = 1, AFTER_NAME = 2, BEFORE_VALUE = 3, DQ_VALUE = 4, SQ_VALUE = 5, UNQUOTED = 6, AFTER_VALUE = 7;
+// The index after the `>` that ends the tag starting at `at`, or -1 when no such `>` comes within META_MAX characters. One character at a time, so a start costs at most META_MAX steps.
+// A quote opens a value only in the before-value state, right after the `=` of an attribute: a quote inside a name, or inside an unquoted value, is a plain character, as the tokenizer reads it.
 function tagEnd(s, at) {
   const stop = Math.min(s.length, at + META_MAX);
-  let quote = 0;
+  let state = BEFORE_NAME;
   for (let i = at + 5; i < stop; i++) {
-    const c = s.charCodeAt(i);
-    if (quote) { if (c === quote) quote = 0; }
-    else if (c === DQ || c === SQ) quote = c;
-    else if (c === GT) return i + 1;
+    const c = s.charCodeAt(i), space = c === 32 || c === 9 || c === 10 || c === 12 || c === 13; // the HTML white space: space, tab, LF, form feed, CR
+    switch (state) {
+      case BEFORE_NAME: if (c === GT) return i + 1; if (!space && c !== SLASH) state = NAME; break;
+      case NAME:
+        if (c === GT) return i + 1;
+        if (c === EQ) state = BEFORE_VALUE;
+        else if (space) state = AFTER_NAME;
+        else if (c === SLASH) state = BEFORE_NAME;
+        break;
+      case AFTER_NAME:
+        if (c === GT) return i + 1;
+        if (c === EQ) state = BEFORE_VALUE;
+        else if (c === SLASH) state = BEFORE_NAME;
+        else if (!space) state = NAME;
+        break;
+      case BEFORE_VALUE:
+        if (c === GT) return i + 1;
+        if (c === DQ) state = DQ_VALUE;
+        else if (c === SQ) state = SQ_VALUE;
+        else if (!space) state = UNQUOTED;
+        break;
+      case DQ_VALUE: if (c === DQ) state = AFTER_VALUE; break;
+      case SQ_VALUE: if (c === SQ) state = AFTER_VALUE; break;
+      case UNQUOTED:
+        if (c === GT) return i + 1;
+        if (space) state = BEFORE_NAME;
+        break;
+      case AFTER_VALUE:
+        if (c === GT) return i + 1;
+        if (space || c === SLASH) state = BEFORE_NAME;
+        else state = NAME;
+        break;
+    }
   }
   return -1;
 }

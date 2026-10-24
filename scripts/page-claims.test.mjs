@@ -31,7 +31,7 @@ function surfaceCopy() {
   return dir;
 }
 const restage = dir => assert.equal(spawnSync('git', ['add', '-A'], { cwd: dir, env: childEnv(dir), timeout: 60000 }).status, 0);
-const surface = (dir, timeout = 120000) => { const r = spawnSync(process.execPath, ['--max-old-space-size=2048', join(dir, 'scripts/surface-check.mjs')], { encoding: 'utf8', timeout, killSignal: 'SIGKILL', cwd: dir, env: childEnv(dir) }); return { ...r, out: (r.stdout || '') + (r.stderr || '') }; };
+const surface = (dir, timeout = 120000) => { const r = spawnSync(process.execPath, ['--max-old-space-size=2048', join(dir, 'scripts/surface-check.mjs')], { encoding: 'utf8', timeout, killSignal: 'SIGKILL', cwd: dir, env: childEnv(dir), maxBuffer: 64 << 20 }); return { ...r, out: (r.stdout || '') + (r.stderr || '') }; };
 const pagesOf = dir => readdirSync(join(dir, 'web')).filter(f => f.endsWith('.html')).sort().map(f => 'web/' + f);
 const edit = (dir, f, fn) => { const p = join(dir, f); const before = readFileSync(p, 'utf8'); const after = fn(before); assert.notEqual(after, before, f + ' was not changed'); writeFileSync(p, after); return after; };
 
@@ -105,11 +105,43 @@ test('rule 16 reads web/_headers: an X-Robots-Tag noindex or none on a productio
 test('rule 16 is not emptied by a tag it cannot read: an unterminated meta, or one that does not end within the cap, is a finding, never a pass', () => {
   const dir = surfaceCopy();
   try {
-    const after = edit(dir, 'web/index.html', s => s.replace('</head>', '<meta name="robots" content="noindex\n</head>'));
+    // At the end of the file, so that no later quote closes the value: the tokenizer then runs off the end and the tag is unread.
+    const after = edit(dir, 'web/index.html', s => s + '<meta name="robots" content="noindex\n');
     const line = lineOf(after, after.indexOf('<meta name="robots" content="noindex\n'));
     const r = surface(dir);
     assert.equal(r.status, 1, r.out);
     assert.ok(r.out.includes(`web/index.html: line ${line}: a <meta tag`) && /was not read/.test(r.out), r.out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('rule 16 reads a quote as the HTML tokenizer does: a quote opens a value only after the = of an attribute, so a quote in a name or in an unquoted value is a plain character and the tag ends at its real >', async () => {
+  const { metaTagsOf, isRobotsNoindex } = await lib();
+  for (const row of ['<meta data-x=a" data-y="b > c" name="robots" content="noindex">', "<meta name=robots x=it's content=noindex>", '<meta x"y="z > w" name="robots" content="noindex">']) {
+    const r = metaTagsOf(row);
+    assert.deepEqual(r.unread, [], row);
+    assert.deepEqual(r.tags.map(t => t.text), [row], row);
+    assert.equal(isRobotsNoindex(r.tags[0].text), true, row);
+  }
+});
+
+test('rule 16 fails the tokenizer witness at the gate: a stray quote in an unquoted value does not hide a real noindex that follows it', () => {
+  const dir = surfaceCopy();
+  try {
+    edit(dir, 'web/index.html', s => s.replace('</head>', '<meta data-x=a" data-y="b > c" name="robots" content="noindex">\n</head>'));
+    const r = surface(dir);
+    assert.equal(r.status, 1, r.out);
+    assert.match(r.out, /web\/index\.html: line \d+: carries a robots noindex meta tag/, r.out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('a page-claims library that will not load: surface-check names the import, and prints no "remove it" line for a pin it could not read', () => {
+  const dir = surfaceCopy();
+  try {
+    edit(dir, 'scripts/lib/page-claims.mjs', s => 'export const broken = ;\n' + s);
+    const r = surface(dir);
+    assert.equal(r.status, 1, r.out);
+    assert.match(r.out, /scripts\/lib\/page-claims\.mjs: could not be loaded/, r.out);
+    assert.doesNotMatch(r.out, /matches no passage of the page, so the pin excuses nothing/, r.out);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -251,10 +283,13 @@ test('the readers finish on bulk input that gives them nothing to match: untermi
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-// The gate size is 4,000 unterminated tags, not 40,000: at 40,000 the page took 76 s (measured 2026-10-24), and the cost is NOT in rules 15 and 16. Rule 13's `<meta ... http-equiv` test and rule 17's TAG
-// pattern (`<([a-zA-Z][\w-]*)\b((?:"[^"]*"|...)*)>`) each scan from every `<meta` to the end of the page when no `>` closes it: quadratic, pre-existing, out of this unit (see the return). The library reader itself
-// is timed at 40,000 in the child test below (0.8 s).
-test('RED PROOF at the gate: surface-check finishes on a page of 4,000 unterminated meta tags and on a page of 3,000 passages that each say the withdrawn claim (the inline readers took 30 s and 28 s)', () => {
+// The unterminated-tag half uses 4,000 tags, not 40,000: at 40,000 the whole gate took about 76 s on this box (measured 2026-10-24), and that cost is NOT in rules 15 and 16. Rule 13's `<meta ... http-equiv` test and
+// rule 17's TAG pattern each scan from every `<meta` to the end of the page when no `>` closes it, so the gate is quadratic in that input. Those two patterns are not bounded here. A follow-up gives them the
+// bounded tag reader of scripts/lib/page-claims.mjs. The readers themselves are checked for linear time by the child test above: it runs N = 50,000 of each shape under a 512 MB heap cap and a 60 s SIGKILL,
+// and asserts that the child finished, with no timing assert.
+// The passage half is a time criterion, chosen by its margin: 8,000 passages under a 60 s kill. Measured on the box of 2026-10-24, the fixed rule took about 8 s and the rule as it stood at 7aefb8b, quadratic
+// in the passages, took about 238 s, so the kill sits about seven times above the first and about four times below the second, and either margin survives a runner that is several times slower or a little faster.
+test('RED PROOF at the gate: surface-check finishes on a page of 4,000 unterminated meta tags and on a page of 8,000 passages that each say the withdrawn claim', () => {
   const dir = surfaceCopy();
   try {
     edit(dir, 'web/index.html', s => s.replace('</body>', '<meta "'.repeat(4000) + '</body>'));
@@ -266,10 +301,10 @@ test('RED PROOF at the gate: surface-check finishes on a page of 4,000 untermina
   } finally { rmSync(dir, { recursive: true, force: true }); }
   const dir2 = surfaceCopy();
   try {
-    edit(dir2, 'web/changelog.html', s => s.replace('</body>', '<p class="t">no trackers</p>'.repeat(3000) + '</body>'));
-    const b = surface(dir2, 40000);
+    edit(dir2, 'web/changelog.html', s => s.replace('</body>', '<p class="t">no trackers</p>'.repeat(8000) + '</body>'));
+    const b = surface(dir2, 60000);
     assert.equal(b.error, undefined, 'passages with a hit each: surface-check was killed by the timeout');
     assert.equal(b.status, 1);
-    assert.equal((b.out.match(/web\/changelog\.html: line \d+: says "no trackers"/g) || []).length >= 3000, true, 'every hit is named');
+    assert.equal((b.out.match(/web\/changelog\.html: line \d+: says "no trackers"/g) || []).length >= 8000, true, 'every hit is named');
   } finally { rmSync(dir2, { recursive: true, force: true }); }
 });
