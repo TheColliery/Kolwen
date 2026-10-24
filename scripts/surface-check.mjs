@@ -10,7 +10,6 @@
 // scripts/lib/; the rules stay in one entry script, so there is one list and not two.
 import { readFileSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { resolve, posix } from 'node:path';
 
@@ -777,13 +776,11 @@ const HISTORY_PINS = [
   { file: 'web/changelog.html', fp: '510c767ab5d9bc0c', start: "Rule 17 of scripts/surface-check.mjs, on the web pages", count: 2, reason: 'a record of a withdrawn claim' },
   { file: 'web/changelog.html', fp: '5a476948bbcbd9d8', start: "Two more rules in scripts/surface-check.mjs, both about the web pages", count: 2, reason: 'a record of a withdrawn claim' },
 ];
-const normText = html => html.split('<').map((part, i) => (i === 0 ? part : part.slice(part.indexOf('>') + 1))).join('').replace(/\s+/g, ' ').trim();
-const passageFp = html => createHash('sha256').update(normText(html), 'utf8').digest('hex').slice(0, 16);
-const passagesOf = s => [...s.matchAll(/<(p|li) class="t"[^>]*>([\s\S]*?)<\/\1>/g)].map(m => ({ start: m.index, end: m.index + m[0].length, fp: passageFp(m[2]) }));
-const pinnedHit = (f, s, index) => {
-  const ps = passagesOf(s);
-  return ps.some(p => p.start <= index && index < p.end && HISTORY_PINS.some(q => q.file === f && q.fp === p.fp && ps.filter(x => x.fp === q.fp).length === q.count));
-};
+// The readers of rules 15 and 16 (metaTagsOf, isRobotsNoindex, passagesOf, pinnedHitter) live in scripts/lib/page-claims.mjs, one linear pass each. A gate imports only Node builtins at the top
+// level, so the library is loaded by a dynamic import here, and a library that will not load is a finding (the rules cannot read the pages without it).
+let pageClaims = null;
+try { pageClaims = await import(pathToFileURL(resolve('scripts/lib/page-claims.mjs')).href); }
+catch (e) { note('scripts/lib/page-claims.mjs', 'could not be loaded, so rules 15, 16 and 17a could not read the pages (' + (e.code || 'import failed') + ')'); }
 const PRODUCTION_PAGES = WEB_PAGES.filter(f => !PREVIEW_EXEMPT.has(f));
 const lineOf = (s, i) => s.slice(0, i).split('\n').length;
 {
@@ -791,11 +788,12 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
   // NON-VACUITY per scope: the pages that carry no pin are the ones where any hit is a live claim; if none is tracked the rule read pinned text only.
   const PINNED_FILES = new Set(HISTORY_PINS.map(p => p.file));
   if (WEB_PAGES.filter(f => !PINNED_FILES.has(f)).length === 0) note('web/', 'has no tracked HTML page outside the pinned changelog, so rule 15 read only pinned text — this CHECK is now empty, not the claim proven absent');
-  for (const f of WEB_PAGES) {
+  for (const f of pageClaims ? WEB_PAGES : []) {
     const s = read(f);
+    const pinned = pageClaims.pinnedHitter(f, s, HISTORY_PINS);
     for (const re of CLAIMS) {
       for (const m of s.matchAll(re)) {
-        if (pinnedHit(f, s, m.index)) continue;
+        if (pinned(m.index)) continue;
         note(f, `line ${lineOf(s, m.index)}: says "${m[0].replace(/\s+/g, ' ')}", a claim the site no longer makes (it runs Cloudflare Web Analytics); keep it off until counsel's analytics wording lands`);
       }
     }
@@ -818,31 +816,29 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
 // STATED LIMITS, not fixed here: engine-specific names (`googlebot`, `bingbot`, a `user-agent:` prefix in the header
 // value) and directives such as `unavailable_after` are not read; a meta inside an HTML comment counts (it fails
 // safe); and a `*.workers.dev` pattern is trusted to be a preview host, which includes production's own
-// `workers.dev` alias (docs/DEPLOY.md names that residual); an attribute name written with an entity or a stray
-// character inside it (`na&#109;e`) is not read; a `name=` or `content=` text sitting inside ANOTHER attribute's
-// quoted value is still seen as the attribute; and a tag with an UNTERMINATED quote is not matched at all (the
-// quote runs to the next matching quote, so a stray one hides the tag).
+// `workers.dev` alias (docs/DEPLOY.md names that residual); an attribute name written with an entity (`na&#109;e`)
+// is not read; a `name=` or `content=` text sitting inside ANOTHER attribute's quoted value is still seen as the
+// attribute. A meta tag is read as the HTML tokenizer reads a start tag (scripts/lib/page-claims.mjs, `tagEnd`): a
+// quote opens a value only after the `=` of an attribute, so a stray quote in an attribute name or an unquoted value
+// is plain text. A tag that does not end within META_MAX (4096) characters, an unclosed quote among them, is NOT
+// passed over: it is a finding, one per page.
 {
-  // A meta tag ends at the first `>` OUTSIDE a quoted attribute value, so `<meta data-note="a > b" name="robots"
-  // content="noindex">` is read whole. The three alternatives start on different characters, so the match is linear.
-  const META_TAG = /<meta\b(?:"[^"]*"|'[^']*'|[^>"'])*>/gi;
-  // The attribute NAME must be the whole name: `(?<![\w-])` refuses `data-content`, `data-name`, `x-content`, so a
-  // data attribute that happens to hold `noindex` or `robots` is not read as the robots meta. The `name` value must
-  // be exactly `robots`, not a longer token that merely starts with it.
-  const ROBOTS_NAME = /(?<![\w-])name\s*=\s*(?:"\s*robots\s*"|'\s*robots\s*'|robots(?![\w-]))/i;
-  const NOINDEX_CONTENT = /(?<![\w-])content\s*=\s*(?:"[^"]*\b(?:noindex|none)\b[^"]*"|'[^']*\b(?:noindex|none)\b[^']*'|[^\s"'>]*\b(?:noindex|none)\b)/i;
+  // The meta tags are read by metaTagsOf and the robots test by isRobotsNoindex (scripts/lib/page-claims.mjs): a tag ends at the first `>` outside a quoted value, the attribute name must be the
+  // whole name (`data-content` is not `content`), and the `name` value exactly `robots`.
   // ONE NAMED EXEMPTION: web/404.html already carries `noindex` on purpose. It answers an unmatched path with
   // HTTP 404, which search engines drop on their own, so the tag decides nothing about any page of the site. Its
   // `X-Robots-Tag` header is still refused below. Anything else carrying the tag is a finding.
   const NOINDEX_META_OK = new Set(['web/404.html']);
   if (WEB_PAGES.length > 0 && PRODUCTION_PAGES.length === 0) note('web/', 'has tracked HTML pages but every one is in PREVIEW_EXEMPT, so rule 16 checked nothing — this CHECK is now empty, not the noindex meta proven absent');
   for (const f of PRODUCTION_PAGES.filter(f => !NOINDEX_META_OK.has(f))) {
+    if (!pageClaims) break;
     const s = read(f);
-    for (const m of s.matchAll(META_TAG)) {
-      if (ROBOTS_NAME.test(m[0]) && NOINDEX_CONTENT.test(m[0])) {
-        note(f, `line ${lineOf(s, m.index)}: carries a robots noindex meta tag; production pages must stay indexable (only the preview host says noindex, in a response header)`);
-      }
+    const { tags, unread } = pageClaims.metaTagsOf(s);
+    for (const t of tags) {
+      if (pageClaims.isRobotsNoindex(t.text)) note(f, `line ${lineOf(s, t.index)}: carries a robots noindex meta tag; production pages must stay indexable (only the preview host says noindex, in a response header)`);
     }
+    // a tag that does not end within META_MAX characters is not read, so the page is not proven free of a noindex: one finding per page names the first and the count
+    if (unread.length) note(f, `line ${lineOf(s, unread[0])}: a <meta tag that does not end within ${pageClaims.META_MAX} characters was not read by the robots check (${unread.length} such tag(s) on the page), so the page is not proven free of a robots noindex; close the tag`);
   }
   let headersLib = null;
   try { headersLib = await import(pathToFileURL(resolve('scripts/lib/headers-file.mjs')).href); }
@@ -911,19 +907,21 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
   const URL_ATTR = /(?<![\w-])(href|action|src|formaction|data-[\w-]+)\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+)/gi;
   let buttonsSeen = 0;
   /* FREE_ALL:begin */
-  for (const f of WEB_PAGES) {
+  // Without the library no pin is read, so the pinned Free-plan passage on the changelog would be named: the import note is the finding, and the page scan waits for the library.
+  for (const f of pageClaims ? WEB_PAGES : []) {
     const s = read(f);
     // The end tag may carry whitespace or attributes ("</script >"), which the HTML parser still closes on (as rule 13's own pattern allows).
     const visible = s.replace(/<(style|script|svg)\b[\s\S]*?<\/\1\b[^>]*>/gi, m => m.replace(/[^\n]/g, ' '));
     const seenAt = new Set(); // "Free plan" matches two patterns at one place: one finding
+    const pinned = pageClaims ? pageClaims.pinnedHitter(f, s, HISTORY_PINS) : () => false;
     for (const re of [/\b(?:Free|FREE)\b/g, /\bfree\s+(?:plan|tier|version)\b/gi, /ฟรี/g]) {
-      for (const m of visible.matchAll(re)) if (!seenAt.has(m.index) && !pinnedHit(f, s, m.index)) seenAt.add(m.index), note(f, 'line ' + lineOf(s, m.index) + ': says "' + m[0].replace(/\s+/g, ' ') + '", a Free plan or a free tier; no page names a Free plan until it exists to be named');
+      for (const m of visible.matchAll(re)) if (!seenAt.has(m.index) && !pinned(m.index)) seenAt.add(m.index), note(f, 'line ' + lineOf(s, m.index) + ': says "' + m[0].replace(/\s+/g, ' ') + '", a Free plan or a free tier; no page names a Free plan until it exists to be named');
     }
   }
   /* FREE_ALL:end */
-  // A pin that matches no passage of its page is stale (rules 15 and 17a share the list).
-  for (const p of HISTORY_PINS) {
-    const n = tracked.includes(p.file) ? passagesOf(read(p.file)).filter(x => x.fp === p.fp).length : 0;
+  // A pin that matches no passage of its page is stale (rules 15 and 17a share the list). Without the library no pin is read at all, so none is stale: the import note above is the finding.
+  for (const p of pageClaims ? HISTORY_PINS : []) {
+    const n = tracked.includes(p.file) ? pageClaims.passagesOf(read(p.file)).filter(x => x.fp === p.fp).length : 0;
     if (n === 0) note(p.file, `pinned passage ${p.fp} (${p.start}) matches no passage of the page, so the pin excuses nothing: remove it, or re-pin the passage if its words changed`);
     else if (n !== p.count) note(p.file, `pinned passage ${p.fp} (${p.start}) appears ${n} time(s) on the page, the pin allows ${p.count}: a copy of a withdrawn quote is a new occurrence, so the pin exempts none of them until the extra copy is removed or the count is re-confirmed`);
   }
@@ -1129,8 +1127,10 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
   }
 }
 
+// The exit code is set, never forced: process.exit() can drop writes to stdout or stderr that are still pending, and a pipe is asynchronous on POSIX, so a long findings list could be cut short there.
 if (fail.length) {
   console.error('surface check FAILED:\n' + fail.map(f => '  - ' + f).join('\n'));
-  process.exit(1);
+  process.exitCode = 1;
+} else {
+  console.log(`surface check passed — ${tracked.length} tracked files, ${tracked.filter(SCANNABLE).length} scanned · CSP hashes recomputed for ${CSP_STATS.scripts} inline script(s) and ${CSP_STATS.styles} inline style(s)${gapNote}`);
 }
-console.log(`surface check passed — ${tracked.length} tracked files, ${tracked.filter(SCANNABLE).length} scanned · CSP hashes recomputed for ${CSP_STATS.scripts} inline script(s) and ${CSP_STATS.styles} inline style(s)${gapNote}`);
