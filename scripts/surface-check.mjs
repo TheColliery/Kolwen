@@ -907,7 +907,8 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
   const URL_ATTR = /(?<![\w-])(href|action|src|formaction|data-[\w-]+)\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+)/gi;
   let buttonsSeen = 0;
   /* FREE_ALL:begin */
-  for (const f of WEB_PAGES) {
+  // Without the library no pin is read, so the pinned Free-plan passage on the changelog would be named: the import note is the finding, and the page scan waits for the library.
+  for (const f of pageClaims ? WEB_PAGES : []) {
     const s = read(f);
     // The end tag may carry whitespace or attributes ("</script >"), which the HTML parser still closes on (as rule 13's own pattern allows).
     const visible = s.replace(/<(style|script|svg)\b[\s\S]*?<\/\1\b[^>]*>/gi, m => m.replace(/[^\n]/g, ' '));

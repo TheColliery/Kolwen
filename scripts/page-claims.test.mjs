@@ -142,6 +142,8 @@ test('a page-claims library that will not load: surface-check names the import, 
     assert.equal(r.status, 1, r.out);
     assert.match(r.out, /scripts\/lib\/page-claims\.mjs: could not be loaded/, r.out);
     assert.doesNotMatch(r.out, /matches no passage of the page, so the pin excuses nothing/, r.out);
+    // Rule 17(a) reads the pins too: without the library it does not run, so the pinned Free-plan passage on the changelog is not named as a finding.
+    assert.doesNotMatch(r.out, /web\/changelog\.html: line \d+: says "(?:Free|free plan|free tier)"/i, r.out);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -206,6 +208,24 @@ test('rule 15 pins: the quoted withdrawn claim on the changelog page passes, and
     assert.equal(r.status, 1, r.out);
     assert.match(r.out, /web\/changelog\.html: line \d+: says "no trackers"/);
     assert.match(r.out, /web\/changelog\.html: pinned passage [0-9a-f]{16} .* appears 3 time\(s\) on the page/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('rule 17(a) keeps the pinned Free-plan passage on the changelog quiet, and names an unpinned Free plan on another page', async () => {
+  const { passagesOf } = await lib();
+  const dir = surfaceCopy();
+  try {
+    const changelog = readFileSync(join(dir, 'web/changelog.html'), 'utf8');
+    const hits = [...changelog.matchAll(/\bfree\b|ฟรี/gi)];
+    assert.ok(hits.length > 0, 'the changelog quotes the Free-plan text, so the pin is exercised');
+    const ps = passagesOf(changelog);
+    assert.ok(hits.every(m => ps.some(p => m.index >= p.start && m.index < p.end)), 'every Free word on the changelog sits in a passage, which the pin covers');
+    const after = edit(dir, 'web/index.html', s => s.replace('</body>', '<p>Free plan</p></body>'));
+    const line = lineOf(after, after.indexOf('<p>Free plan</p>'));
+    const r = surface(dir);
+    assert.equal(r.status, 1, r.out);
+    assert.ok(r.out.includes(`web/index.html: line ${line}: says "Free"`), r.out);
+    assert.doesNotMatch(r.out, /web\/changelog\.html: line \d+: says "(?:Free|free plan|free tier|ฟรี)"/i, r.out);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
