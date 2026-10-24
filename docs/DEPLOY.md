@@ -95,7 +95,7 @@ which have that shape. **Production `kolwen.com` never carries it**: `kolwen.com
   production's own `workers.dev` alias, which is not a preview, for as long as that alias was served.
 - **The repo-side gate.** `scripts/surface-check.mjs` (rule 16) holds the other half of "production never says
   noindex": it fails a production page that carries a robots `noindex` (or `none`) meta tag, and any
-  `web/_headers` rule that sets `X-Robots-Tag` noindex on a pattern that is not an absolute `*.workers.dev` URL.
+  `web/_headers` rule that sets `X-Robots-Tag` noindex on a pattern that is not an absolute `*.workers.dev` URL, and a `<meta` tag it cannot finish reading (an unterminated quote, or more than 4,096 characters) as a finding rather than a pass.
   `web/404.html` carries a `noindex` meta on purpose, because it answers unmatched paths with HTTP 404, and is
   exempt there by name; its `X-Robots-Tag` header is still refused. The rule trusts every `*.workers.dev`
   pattern as a preview host, which would include production's own alias if it were ever served again (the residual above). The script is the list of record for what it checks.
