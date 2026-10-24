@@ -65,7 +65,8 @@ function strayStrings(html, MARK) {
   for (const t of htmlTokens(html, { scripting: false })) {
     if (t.type === 'tag' && !t.closing) {
       last = t;
-      for (const a of ['aria-label', 'title', 'alt', 'placeholder']) if (t.attrs.has(a) && !t.attrs.get(a).includes(MARK)) stray.push(`${t.name} ${a}="${t.attrs.get(a)}"`);
+      // an EMPTY alt is the decorative form (WCAG 1.1.1), not a visible string: it is exempt, and only it; a non-empty alt still has to carry its mark
+      for (const a of ['aria-label', 'title', 'alt', 'placeholder']) if (t.attrs.has(a) && !(a === 'alt' && t.attrs.get(a) === '') && !t.attrs.get(a).includes(MARK)) stray.push(`${t.name} ${a}="${t.attrs.get(a)}"`);
       if (t.name === 'meta' && /^(description|og:title|og:description|twitter:title|twitter:description)$/.test(t.attrs.get('name') ?? t.attrs.get('property') ?? '') && !t.attrs.get('content').includes(MARK)) stray.push(`meta ${t.attrs.get('name') ?? t.attrs.get('property')} content`);
     } else if (t.type === 'text' && t.text.trim() !== '' && !t.text.includes(MARK)) stray.push('text ' + JSON.stringify(t.text.trim().slice(0, 60)));
     else if (t.type === 'raw' && t.name === 'script' && last && last.attrs.get('type') === 'application/ld+json') {
@@ -84,6 +85,18 @@ test('(b) the stray-string walk reads a <noscript> body as a visitor without scr
   assert.ok(strayString(page('<noscript><p>Plain words</p></noscript>')).some(s => /Plain words/.test(s)), 'text in a noscript');
   assert.ok(strayString(page('<noscript><img alt="Plain alt" src="/a.png"></noscript>')).some(s => /Plain alt/.test(s)), 'an attribute in a noscript');
   function strayString(html) { return strayStrings(html, MARK).stray; }
+});
+
+test('(b) an empty alt is decorative, not a visible string: the band as the templates place it passes', () => {
+  const MARK = '§';
+  const page = img => `<!DOCTYPE html><html lang="en"><head><title>T${MARK}</title></head><body><p>ok${MARK}</p>${img}</body></html>`;
+  assert.deepEqual(strayStrings(page('<img class="band" src="/band-404.svg" width="600" height="300" alt="" decoding="async">'), MARK).stray, []);
+});
+
+test('(b) a non-empty alt that is not from the catalogue is still found', () => {
+  const MARK = '§';
+  const page = img => `<!DOCTYPE html><html lang="en"><head><title>T${MARK}</title></head><body><p>ok${MARK}</p>${img}</body></html>`;
+  assert.ok(strayStrings(page('<img src="/a.png" alt="Some English">'), MARK).stray.some(s => /Some English/.test(s)));
 });
 
 test('(b) every visible string of the three pages comes from the catalogue: each stretch of text in a value carries a mark, and no visible text or attribute lacks it', () => {

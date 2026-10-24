@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300" width="600" height="300">
+<style>
+.g{fill:#fbfaf8}.r{fill:#d8d1c8}.hi{fill:#e4ded6}.lo{fill:#c9c1b6}.ck{fill:none;stroke:#b7aea2;stroke-width:2;stroke-linecap:round}
+.lt{fill:#e9e3db}.lf{fill:#bdb4a8}.s0{stop-color:#f2b47a}.s1{stop-color:#f5cfa6}.s2{stop-color:#e9e3db}
+@media (prefers-color-scheme:dark){
+.g{fill:#141414}.r{fill:#29251f}.hi{fill:#322d27}.lo{fill:#1f1c18}.ck{stroke:#171512}
+.lt{fill:#38322c}.lf{fill:#1d1a17}.s0{stop-color:#ffbb7a}.s1{stop-color:#e8833a}.s2{stop-color:#38322c}}
+</style>
+<defs>
+<radialGradient id="pool" cx="0.5" cy="0.5" r="0.5">
+<stop offset="0" class="s0"/><stop offset="0.42" class="s1"/><stop offset="1" class="s2" stop-opacity="0"/>
+</radialGradient>
+<clipPath id="face"><rect width="600" height="300" rx="14"/></clipPath>
+</defs>
+<rect class="g" width="600" height="300"/>
+<g clip-path="url(#face)">
+<rect class="r" width="600" height="300"/>
+<path class="hi" d="M0 0H214C196 52 150 96 92 118C54 132 22 138 0 140Z"/>
+<path class="hi" d="M300 0H458C448 44 420 72 380 86C352 66 318 36 300 0Z"/>
+<path class="lo" d="M600 0V104C566 84 530 50 510 0Z"/>
+<path class="lo" d="M0 226C34 214 80 222 112 252C130 270 138 286 136 300H0Z"/>
+<path class="ck" d="M216 0C210 34 196 62 176 84M382 88C392 108 392 124 386 138"/>
+<path class="lf" d="M168 214C176 252 210 300 210 300H600V214C588 238 556 252 520 256C470 262 418 258 368 256C300 254 214 248 168 214Z"/>
+<path class="lt" d="M168 214C180 186 214 166 262 156C300 148 336 146 372 144C420 142 470 138 516 140C552 142 582 150 600 160V214C588 238 556 252 520 256C470 262 418 258 368 256C300 254 214 248 168 214Z"/>
+<path class="ck" d="M300 254C306 270 302 286 292 300M470 260C480 274 482 288 478 300"/>
+<ellipse fill="url(#pool)" cx="386" cy="200" rx="138" ry="38"/>
+</g>
+</svg>

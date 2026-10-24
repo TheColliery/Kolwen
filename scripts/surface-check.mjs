@@ -257,6 +257,8 @@ if (existsSync('brand/README.md')) {
 // tree no longer existing under web/, not by this rule.
 const SHIPPED = new Set([
   'web/index.html', 'web/robots.txt', 'web/sitemap.xml', 'web/ic.json',
+  // The two decorative bands, BY NAME: the 404 page's and the home page's `<img>` (alt="", so no visible string). Each is a new shipped asset, declared here, not waved through.
+  'web/band-404.svg', 'web/band-home.svg',
   // Added BY NAME, never by widening the glob — the point of the list is that a new path under
   // web/ is a deliberate act. `404.html` is served for an unmatched request (not_found_handling:
   // 404-page). `_headers` is PARSED by Workers and, per Cloudflare's own docs, "will not itself
