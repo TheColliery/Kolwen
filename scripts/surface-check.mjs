@@ -1126,8 +1126,10 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
   }
 }
 
+// The exit code is set, never forced: process.exit() can drop writes to stdout or stderr that are still pending, and a pipe is asynchronous on POSIX, so a long findings list could be cut short there.
 if (fail.length) {
   console.error('surface check FAILED:\n' + fail.map(f => '  - ' + f).join('\n'));
-  process.exit(1);
+  process.exitCode = 1;
+} else {
+  console.log(`surface check passed — ${tracked.length} tracked files, ${tracked.filter(SCANNABLE).length} scanned · CSP hashes recomputed for ${CSP_STATS.scripts} inline script(s) and ${CSP_STATS.styles} inline style(s)${gapNote}`);
 }
-console.log(`surface check passed — ${tracked.length} tracked files, ${tracked.filter(SCANNABLE).length} scanned · CSP hashes recomputed for ${CSP_STATS.scripts} inline script(s) and ${CSP_STATS.styles} inline style(s)${gapNote}`);
