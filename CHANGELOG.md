@@ -282,7 +282,7 @@ the pointer to it.
   match, is off and answered 404 on 2026-10-04.
   `web/404.html` keeps the `noindex` meta it already carries, as one named exemption. Each rule was proven
   red-first on a throwaway copy, and each stated limit is in the code.
-- Rule 16 now reads a `<meta` tag that does not end within 4,096 characters, an unterminated quote among them, as a finding, one per page, instead of passing over it, so a page whose tags cannot all be read is not passed as free of a robots `noindex`. Rule 15's pin check also runs once per page, not once per hit.
+- Rule 16 now reads a `<meta` tag that does not end within 4,096 characters, an unterminated quote among them, as a finding, one per page, instead of passing over it, so a page whose tags cannot all be read is not passed as free of a robots `noindex`. Rule 15's pin check also runs once per page, not once per hit. A quote inside an attribute name or an unquoted value is read as a plain character, as the HTML tokenizer reads it: before, such a quote could open a run that hid a real robots `noindex` after it, and that page passed silently; now the `noindex` is found.
 - A local secret scan before every commit and every push. GitHub scans this public repository for provider
   tokens, and a private key, a connection string or an HTTP authentication header are kinds its free
   public-repository scan is not documented to cover, so the room now
