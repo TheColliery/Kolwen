@@ -99,6 +99,13 @@ test('(b) a non-empty alt that is not from the catalogue is still found', () => 
   assert.ok(strayStrings(page('<img src="/a.png" alt="Some English">'), MARK).stray.some(s => /Some English/.test(s)));
 });
 
+test('(b) the exemption is the empty value and nothing else: a space-only alt and an empty aria-label are both found', () => {
+  const MARK = '§';
+  const page = el => `<!DOCTYPE html><html lang="en"><head><title>T${MARK}</title></head><body><p>ok${MARK}</p>${el}</body></html>`;
+  assert.ok(strayStrings(page('<img src="/a.png" alt=" ">'), MARK).stray.some(s => /alt=" "/.test(s)));
+  assert.ok(strayStrings(page('<button type="button" aria-label="">Go</button>'), MARK).stray.some(s => /aria-label=""/.test(s)));
+});
+
 test('(b) every visible string of the three pages comes from the catalogue: each stretch of text in a value carries a mark, and no visible text or attribute lacks it', () => {
   const MARK = '§';
   // a mark at the end of every stretch of text of a value (the text between its markup tags), so a piece of text the page shows that is not from a value has none
@@ -313,7 +320,7 @@ test('the render is a pure function of the templates, the catalogue and the shar
 // ── the CLI, against a throwaway copy of the tree ────────────────────────────────────────────────────────────────
 const TREE = ['scripts/legal-pages.mjs', 'scripts/lib/legal-render.mjs', 'scripts/lib/layout-tokens.mjs', 'scripts/lib/legal-page-text.mjs', 'scripts/lib/legal-state.mjs', 'scripts/lib/legal-holds.json', 'scripts/lib/headers-file.mjs', 'scripts/lib/page-sync.mjs', 'scripts/lib/csp-hashes.mjs',
   'scripts/lib/i18n-catalogue.mjs', 'scripts/lib/page-template.mjs', 'scripts/lib/html-tokens.mjs', 'scripts/lib/rendered-text.mjs', 'scripts/lib/web-files.mjs', 'scripts/lib/html-entities.json', 'TERMS.md', 'PRIVACY.md', 'legal/thai-7day-clause.md', 'legal/legal-state.json', 'legal/controller.json', 'scripts/lib/controller-slot.mjs', 'CHANGELOG.md', 'web/_headers',
-  'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html', 'web/index.html', 'web/pricing.html', 'web/404.html', 'web-src/i18n/en.json', 'web-src/i18n/th.json', ...SITE_PAGES.map(p => p.template)];
+  'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html', 'web/index.html', 'web/pricing.html', 'web/404.html', 'web/band-404.svg', 'web/band-home.svg', 'web-src/i18n/en.json', 'web-src/i18n/th.json', ...SITE_PAGES.map(p => p.template)];
 function copyTree() {
   const dir = mkdtempSync(join(tmpdir(), 'i18n-catalogue-'));
   for (const f of TREE) { mkdirSync(dirname(join(dir, f)), { recursive: true }); writeFileSync(join(dir, f), readFileSync(join(ROOT, f))); }

@@ -618,7 +618,8 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
 // browser extension adds is not in the repo and not seen; `style-src` carrying `'unsafe-inline'` is not refused (a hash makes browsers
 // ignore it); nothing the edge injects into the response is in the repo, so nothing here can see it (the
 // post-deploy check reads the served headers, and `_headers` says what the edge adds); and whether the
-// served response really carries these headers is the post-deploy check's job, not this rule's.
+// served response really carries these headers is the post-deploy check's job, not this rule's; and an SVG's `<script>` is not read, only its `<style>` is
+// hashed (no shipped SVG carries a script: re-derive with `grep -l "<script" web/*.svg`, which must print nothing).
 const CSP_STATS = { scripts: 0, styles: 0 };
 {
   const HEADERS = 'web/_headers';
@@ -658,6 +659,12 @@ const CSP_STATS = { scripts: 0, styles: 0 };
     }
     if (/<[a-zA-Z][^>]*\s(?:on[a-z]+|style)\s*=/.test(s)) note(f, 'has an inline event handler or style="" attribute, which the CSP blocks without saying so — move it into the hashed script or style');
     if (/<meta\b[^>]*http-equiv\s*=\s*["']?content-security-policy/i.test(s)) note(f, 'sets a CSP in a <meta> tag — headers are set at the host, and frame-ancestors has no meta form');
+  }
+  // An SVG under web/ is a document the same policy governs, so its <style> is hashed like a page's: a shipped SVG whose <style> the policy does not admit
+  // is drawn black by a browser that applies the policy to it. Its <script> is not read here (STATED LIMITS, below).
+  for (const f of tracked.filter(f => f.startsWith('web/') && f.endsWith('.svg'))) {
+    const s = read(f).replace(/\r\n/g, '\n');
+    for (const body of hashes ? hashes.inlineStyles(s) : []) { want.style.add(sha256(body)); CSP_STATS.styles++; }
   }
   if (CSP_STATS.scripts === 0) note('web/index.html', 'has no inline script for rule 13 to hash, so this CHECK is now empty, not the CSP proven exact. If the page\'s script was removed on purpose, remove its hash from web/_headers and ask the maintainer to retire the script half of rule 13');
   if (CSP_STATS.styles === 0) note('web/index.html', 'has no inline style for rule 13 to hash, so this CHECK is now empty for styles, not the CSP proven exact');
@@ -711,7 +718,7 @@ const CSP_STATS = { scripts: 0, styles: 0 };
           const have = new Set(toks.filter(t => /^'sha256-/.test(t)));
           for (const t of toks) if (/^'sha(?:384|512)-/.test(t)) note(HEADERS, `line ${line}: ${dir} uses ${t.slice(0, 11)}…, which rule 13 does not recompute; use sha256`);
           for (const h of want[kind]) if (!have.has(h)) note(HEADERS, `line ${line}: ${dir} does not admit the inline ${kind} whose hash is ${h} — the browser will refuse it`);
-          for (const h of have) if (!want[kind].has(h)) note(HEADERS, `line ${line}: ${dir} admits ${h}, which matches no inline ${kind} in the served HTML (a stale hash)`);
+          for (const h of have) if (!want[kind].has(h)) note(HEADERS, `line ${line}: ${dir} admits ${h}, which matches no inline ${kind} in the served HTML${kind === 'style' ? ' or SVG' : ''} (a stale hash)`);
           for (const o of origins[kind]) if (!toks.map(t => t.toLowerCase()).includes(o)) note(HEADERS, `line ${line}: the HTML loads a ${kind === 'style' ? 'stylesheet' : 'script'} from ${o}, which ${dir} does not name`);
         }
       }

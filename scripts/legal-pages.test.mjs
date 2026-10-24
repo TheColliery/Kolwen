@@ -4,7 +4,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import vm from 'node:vm';
-import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync, readdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -219,10 +220,7 @@ test('the same inputs give the same pages', () => {
 });
 
 // ── the CLI, against a throwaway copy of the tree ──────────────────────────────────────────────
-// The images the built pages load (src or href to a same-origin image), read from the pages themselves: a new image on a page is copied into the fixture without a list to edit.
-const LOADED_IMAGES = [...new Set(readdirSync(join(ROOT, 'web')).filter(f => f.endsWith('.html'))
-  .flatMap(f => [...readFileSync(join(ROOT, 'web', f), 'utf8').matchAll(/\b(?:src|href)="\/([^"?#]+\.(?:svg|png|jpe?g|webp|ico))"/g)].map(m => m[1])))].map(f => 'web/' + f);
-const FILES = [...LOADED_IMAGES, 'scripts/legal-pages.mjs','scripts/lib/legal-render.mjs', 'scripts/lib/layout-tokens.mjs', 'scripts/lib/legal-page-text.mjs', 'scripts/lib/legal-state.mjs', 'scripts/lib/legal-holds.json', 'TERMS.md', 'PRIVACY.md', 'legal/thai-7day-clause.md', 'legal/legal-state.json', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/pricing.html', 'CHANGELOG.md', 'web/changelog.html', 'web/index.html', 'web/404.html', 'web/_headers', 'scripts/lib/headers-file.mjs', 'scripts/lib/page-sync.mjs', 'scripts/lib/csp-hashes.mjs',
+const FILES = ['web/band-404.svg', 'web/band-home.svg', 'scripts/legal-pages.mjs','scripts/lib/legal-render.mjs', 'scripts/lib/layout-tokens.mjs', 'scripts/lib/legal-page-text.mjs', 'scripts/lib/legal-state.mjs', 'scripts/lib/legal-holds.json', 'TERMS.md', 'PRIVACY.md', 'legal/thai-7day-clause.md', 'legal/legal-state.json', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/pricing.html', 'CHANGELOG.md', 'web/changelog.html', 'web/index.html', 'web/404.html', 'web/_headers', 'scripts/lib/headers-file.mjs', 'scripts/lib/page-sync.mjs', 'scripts/lib/csp-hashes.mjs',
   'scripts/lib/i18n-catalogue.mjs', 'scripts/lib/page-template.mjs', 'scripts/lib/html-tokens.mjs', 'scripts/lib/rendered-text.mjs', 'scripts/lib/web-files.mjs', 'scripts/lib/html-entities.json', 'web-src/i18n/en.json', 'web-src/i18n/th.json', 'web-src/pages/home.html', 'web-src/pages/pricing.html', 'web-src/pages/notfound.html', 'scripts/lib/controller-slot.mjs', 'legal/controller.json'];
 function copyTree() {
   const dir = mkdtempSync(join(tmpdir(), 'legal-pages-'));
@@ -570,8 +568,8 @@ test('an edited footer rule in the lib is carried to all seven pages by one --wr
     assert.match(w.stdout, /wrote web\/_headers/);
     for (const f of [...TEMPLATE_PAGES, 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html']) assert.ok(readFileSync(join(dir, f), 'utf8').includes('text-decoration-thickness:3px'), f);
     const headers = readFileSync(join(dir, 'web/_headers'), 'utf8');
-    const want = new Set(['web/index.html', 'web/pricing.html', 'web/404.html', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html'].flatMap(f => inlineStyles(readFileSync(join(dir, f), 'utf8')).map(cspHash)));
-    assert.deepEqual(sortedStyleSrc(headers), [...want].sort(), 'style-src admits exactly the hashes of the seven pages');
+    const want = new Set(['web/index.html', 'web/pricing.html', 'web/404.html', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html', 'web/band-404.svg', 'web/band-home.svg'].flatMap(f => inlineStyles(readFileSync(join(dir, f), 'utf8')).map(cspHash)));
+    assert.deepEqual(sortedStyleSrc(headers), [...want].sort(), 'style-src admits exactly the hashes of the seven pages and the two SVG images');
     assert.equal(headers.split(/\r?\n/).filter((l, i) => l !== headersBefore.split(/\r?\n/)[i]).length, 1, 'one line of _headers changed: the CSP line');
     assert.equal(check(dir).status, 0);
     assert.equal(check(dir, '--write').status, 0);
@@ -627,7 +625,8 @@ for (const [what, f, k, fn, re] of CROSS) {
 const cspLine = text => /^[ \t]+Content-Security-Policy:[^\r\n]*/m.exec(text)[0];
 const directive = (line, name) => line.split(';').map(d => d.trim()).find(d => d === name || d.startsWith(name + ' '));
 const SEVEN = ['web/index.html', 'web/pricing.html', 'web/404.html', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html'];
-const pagesOf = () => Object.fromEntries(SEVEN.map(f => [f, read(f)]));
+// The documents the policy governs: the seven pages and the two SVG images, whose <style> the policy admits by hash.
+const pagesOf = () => Object.fromEntries([...SEVEN, 'web/band-404.svg', 'web/band-home.svg'].map(f => [f, read(f)]));
 // The committed _headers with extra directives put in front of the real style-src directive (in the CSP line only: the comments mention style-src too).
 const withBefore = (extra, text = read('web/_headers')) => text.replace(cspLine(text), line => line.replace('style-src ', () => extra + ' style-src '));
 const hashesIn = text => styleSrcLine(text).split(/\s+/).filter(t => t.startsWith("'sha256-"));
@@ -1316,5 +1315,54 @@ test('a person name on the privacy page: surface-check, the secret gate, the pag
     const kitchen = run('surface-check.mjs');
     assert.equal(kitchen.status, 1, 'a kitchen path is still refused with the name in place: ' + kitchen.stdout + kitchen.stderr);
     assert.match(kitchen.stdout + kitchen.stderr, /internal path or private-repo reference/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ── the <style> inside a shipped SVG is admitted by hash, as a page's is ──
+// An SVG served as a document, or drawn by an <img> in a browser that applies the SVG response's own policy, carries its own <style>. The site policy
+// refuses it unless its hash is in style-src, so the generator and surface-check rule 13 hash the <style> of every SVG under web/, as they do a page's.
+const svgStyleHash = dir => "'sha256-" + createHash('sha256').update(/<style>([\s\S]*?)<\/style>/.exec(readFileSync(join(dir, 'web/band-404.svg'), 'utf8'))[1], 'utf8').digest('base64') + "'";
+
+test('--check fails when the SVG style hash is missing from _headers, names the SVG, and --write restores it', () => {
+  const dir = copyTree();
+  try {
+    const h = svgStyleHash(dir);
+    edit(dir, 'web/_headers', t => t.replace(' ' + h, ''));
+    const r = check(dir);
+    assert.equal(r.status, 1, r.stdout + r.stderr);
+    assert.match(r.stdout, /FAIL web\/_headers style-src does not admit sha256-.*\(the <style> block of web\/band-404\.svg\)/);
+    assert.equal(check(dir, '--write').status, 0);
+    assert.equal(check(dir).status, 0);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('an edited SVG style makes its old hash stale: --check names the old hash and the SVG, and --write moves the hash to the new bytes', () => {
+  const dir = copyTree();
+  try {
+    const old = svgStyleHash(dir);
+    edit(dir, 'web/band-404.svg', s => s.replace('fill:#fbfaf8', 'fill:#fbfaf9'));
+    assert.notEqual(svgStyleHash(dir), old);
+    const r = check(dir);
+    assert.equal(r.status, 1, r.stdout + r.stderr);
+    assert.match(r.stdout, new RegExp('FAIL web/_headers style-src admits ' + reEscape(old.slice(1, -1))));
+    assert.match(r.stdout, /FAIL web\/_headers style-src does not admit sha256-.*\(the <style> block of web\/band-404\.svg\)/);
+    assert.equal(check(dir, '--write').status, 0);
+    assert.equal(check(dir).status, 0);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('surface-check rule 13 hashes the <style> of a shipped SVG: a policy without its hash fails, and the policy with it passes', () => {
+  const dir = surfaceCopy();
+  try {
+    const real = readFileSync(join(dir, 'web/_headers'), 'utf8');
+    const h = svgStyleHash(dir);
+    const put = text => writeFileSync(join(dir, 'web/_headers'), text);
+    put(real.replace(' ' + h, ''));
+    const a = surface(dir);
+    assert.equal(a.status, 1, 'a policy without the SVG style hash fails rule 13: ' + a.stdout + a.stderr);
+    assert.match(a.stdout + a.stderr, new RegExp('style-src does not admit the inline style whose hash is ' + reEscape(h)));
+    put(real);
+    const b = surface(dir);
+    assert.equal(b.status, 0, 'the committed policy passes: ' + b.stdout + b.stderr);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

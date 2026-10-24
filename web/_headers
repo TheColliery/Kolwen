@@ -78,7 +78,7 @@
 #    The beacon carries no Subresource Integrity, a named exception to the W3C Subresource Integrity practice for third-party scripts: the FAQ
 #    ("How can I enforce Subresource Integrity (SRI) with the JS beacon?") says Cloudflare does not support
 #    version-pinning the beacon, so no stable hash exists to pin.
-#  - style-src: every inline <style> block of the pages (surface-check rule 13 recomputes them and reports how many it hashed) is admitted by hash too, so there
+#  - style-src: every inline <style> block of the pages, and the <style> of every SVG image under web/ (the SVG is a document this policy governs; surface-check rule 13 recomputes them and reports how many it hashed) is admitted by hash too, so there
 #    is no 'unsafe-inline' anywhere. The font manifest is a same-origin file, so 'self' admits it; the Google Fonts stylesheet,
 #    which varied by user agent and could carry no fixed hash, was the one third-party exception, and self-hosting the two IBM Plex families retired it.
 #  - The pricing page (/pricing; it began as /plans, which now answers a 301 from web/_redirects) and the four pages scripts/legal-pages.mjs generates (/terms,
@@ -117,7 +117,7 @@
 # `/*` rule below is that zone's strict hash policy. Another zone is another Worker with its own publish root and its own headers file, so its
 # policy is its own rule set; it is never a second CSP rule here, because Cloudflare joins the values of two matching rules and rule 20 fails the file that tries it.
 /*
-  Content-Security-Policy: default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; script-src 'self' https://static.cloudflareinsights.com/beacon.min.js/ 'sha256-E7qPAYbONhknD/BCPohidP4Ita9lluXiIgAgddNS2sU='; style-src 'self' 'sha256-yzjIvtJjATLj6yYy1gfv7FPI/iiIcDsPlKDZ4vqKwRM=' 'sha256-3/HimkpZbPqfKx8I5jVZJ6Ak/e7hcDG9TBW2jyMaYKE=' 'sha256-bMvENMU1YnS0a6ycTmPlPUAsEk6+shFbmwh5kDoAgf0=' 'sha256-AttWESj7Wk/bnNMQiPkBI6I+mftbfgLaOFQBrH0H9qA='; font-src 'self'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; script-src 'self' https://static.cloudflareinsights.com/beacon.min.js/ 'sha256-E7qPAYbONhknD/BCPohidP4Ita9lluXiIgAgddNS2sU='; style-src 'self' 'sha256-yzjIvtJjATLj6yYy1gfv7FPI/iiIcDsPlKDZ4vqKwRM=' 'sha256-3/HimkpZbPqfKx8I5jVZJ6Ak/e7hcDG9TBW2jyMaYKE=' 'sha256-bMvENMU1YnS0a6ycTmPlPUAsEk6+shFbmwh5kDoAgf0=' 'sha256-AttWESj7Wk/bnNMQiPkBI6I+mftbfgLaOFQBrH0H9qA=' 'sha256-votawf6b4bRb5xWL7WgENyLSKlRfpPYVE/uFaOAFcuE='; font-src 'self'; form-action 'self'
   Referrer-Policy: strict-origin-when-cross-origin
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin
