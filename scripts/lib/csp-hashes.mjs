@@ -10,8 +10,9 @@ import { createHash } from 'node:crypto';
 export const cspHash = text => "'sha256-" + createHash('sha256').update(text, 'utf8').digest('base64') + "'";
 
 // One pattern for an inline style block. The end tag tolerates whitespace and attributes before ">", as the HTML parser does
-// (CodeQL js/bad-tag-filter), so a pattern that stops at a bare "</style>" cannot hash the wrong text.
-export const STYLE_BLOCK_SOURCE = '<style\\b[^>]*>([\\s\\S]*?)<\\/style\\b[^>]*>';
+// (CodeQL js/bad-tag-filter), so a pattern that stops at a bare "</style>" cannot hash the wrong text. The name ends at white space, "/" or ">" as the tokenizer
+// reads it (scripts/lib/page-claims.mjs), so <style-x> opens no style and "</style-x>" closes none.
+export const STYLE_BLOCK_SOURCE = '<style(?=[\\t\\n\\f\\r />])[^>]*>([\\s\\S]*?)<\\/style(?=[\\t\\n\\f\\r />])[^>]*>';
 
 // The bodies of the inline <style> blocks of a page, in document order (the one in a <noscript> included, as rule 13 counts it).
 export const inlineStyles = html => [...html.replace(/\r\n/g, '\n').matchAll(new RegExp(STYLE_BLOCK_SOURCE, 'gi'))].map(m => m[1]);
@@ -19,6 +20,6 @@ export const inlineStyles = html => [...html.replace(/\r\n/g, '\n').matchAll(new
 // The bodies of the inline EXECUTABLE <script> blocks of a page, in document order: no src, and a type of nothing, a JavaScript type or module. A JSON data
 // block (ld+json) is not code, so the policy needs no hash for it; surface-check rule 13 classifies the same way, and recomputes every hash itself.
 const EXEC_TYPES = new Set(['', 'text/javascript', 'application/javascript', 'module']);
-export const inlineScripts = html => [...html.replace(/\r\n/g, '\n').matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi)]
+export const inlineScripts = html => [...html.replace(/\r\n/g, '\n').matchAll(/<script(?=[\t\n\f\r />])([^>]*)>([\s\S]*?)<\/script(?=[\t\n\f\r />])[^>]*>/gi)]
   .filter(m => !/\bsrc\s*=/i.test(m[1]) && EXEC_TYPES.has(((m[1].match(/\btype\s*=\s*["']?([^"'\s>]+)/i) || [])[1] || '').toLowerCase()))
   .map(m => m[2]);

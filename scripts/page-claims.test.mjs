@@ -393,6 +393,61 @@ test('rule 17 reads a tag name the tokenizer reads: <i.x="><button>Buy</button>"
 });
 
 // ── the handler and the style attribute are read from the attributes, not from the white space before them ─────────
+// ── an element is the tokenizer's whole tag name: <script-x> is no <script>, <a-b> is no <a>, and the real element after it is read ─────────
+// Admits, in web/_headers, each inline script hash that rule 13 names as missing (the first run lists them, the second run is the verdict), so rule 13 passes and only rule 17 can speak.
+const admitScripts = dir => {
+  const first = surface(dir);
+  const hashes = [...new Set([...first.out.matchAll(/does not admit the inline script whose hash is ('sha256-[^']+')/g)].map(m => m[1]))];
+  assert.ok(hashes.length > 0, 'the first run names no missing script hash: ' + first.out);
+  edit(dir, 'web/_headers', h => h.replace(/script-src([^;\n]*)/g, (m, rest) => 'script-src' + rest + ' ' + hashes.join(' ')));
+  return surface(dir);
+};
+test('rule 17 reads the real <script> after <script-x>: <script-x> is no script, so the payment script after it is named at its own line', () => {
+  const dir = surfaceCopy();
+  try {
+    const after = edit(dir, 'web/index.html', s => s.replace('</body>', '<script-x></script-x><script>Paddle.Setup({})</script>\n</body>'));
+    const line = lineOf(after, after.indexOf('<script>Paddle'));
+    const r = admitScripts(dir);
+    assert.equal(r.status, 1, r.out);
+    assert.ok(r.out.includes(`web/index.html: line ${line}: carries a payment script`), r.out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+test('rule 13 wants no hash for <style-x>: its empty body is not an inline style, so the empty-body hash is not named, and the real <style> after it is read', async () => {
+  const { cspHash } = await import(pathToFileURL(join(ROOT, 'scripts/lib/csp-hashes.mjs')).href);
+  const dir = surfaceCopy();
+  try {
+    edit(dir, 'web/index.html', s => s.replace('</body>', '<style-x></style-x><style>.k{color:red}</style>\n</body>'));
+    const r = surface(dir);
+    assert.ok(!r.out.includes(cspHash('')), 'the empty body of <style-x> was hashed as an inline style: ' + r.out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+test('rule 17 reads the real <a> after a longer name: <a-b>, <a:b> and <a.b> are other elements, and the role, the aria-label or the text of the real link is read', () => {
+  for (const [plant, read] of [
+    ['<a-b>x</a-b><a href="/x" role="button">Go</a>', '("Go")'],
+    ['<a-b>x</a-b><a href="/x" aria-label="Buy now">Go</a>', '("Go Buy now")'],
+    ['<a:b>x</a:b><a href="/x" role="button">Go</a>', '("Go")'],
+    ['<a.b>x</a.b><a href="/x" role="button">Go</a>', '("Go")'],
+    ['<a-b>x</a-b><a href="/x">Buy now</a>', '("Buy now")'],
+  ]) {
+    const dir = surfaceCopy();
+    try {
+      const after = edit(dir, 'web/index.html', s => s.replace('</body>', plant + '\n</body>'));
+      const line = lineOf(after, after.indexOf('<a href="/x"'));
+      const r = surface(dir);
+      assert.equal(r.status, 1, plant + '\n' + r.out);
+      assert.ok(r.out.includes(`web/index.html: line ${line}: has a link that reads as a buy control ${read}`), plant + '\n' + r.out);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }
+});
+test('the reader names an element by its whole tag name: <script-x> and <a.b> are not the fixed-name element, and the all-tags name is the whole name', async () => {
+  const { elementsOf, startTagsOf } = await lib();
+  const e = elementsOf('<script-x></script-x><script>p()</script>', /<(script)\b/gi);
+  assert.deepEqual(e.elements.map(x => x.body), ['p()'], 'the real script, read to its own closer');
+  assert.deepEqual(e.unclosed, [], 'the script-x opener is no element at all');
+  assert.deepEqual(startTagsOf('<a.b><a>', /<(a)\b/gi).tags.map(t => t.text), ['<a>'], 'a.b is not an a');
+  assert.equal(startTagsOf('<a:b c>', /<([a-zA-Z][^\s/>]*)/g).tags[0].name, 'a:b', 'the name the tokenizer reads');
+});
+
 test('rule 13 finds an event handler or a style attribute the browser reads with no white space before it, and an upper-case one, and does not find one inside a quoted value', () => {
   for (const plant of ['<a/onclick="x()">t</a>', '<a x="1"onclick="x()">t</a>', '<a ONCLICK="x()">t</a>', '<a/style="color:red">t</a>']) {
     const dir = surfaceCopy();

@@ -431,13 +431,19 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
         if (key) {
           flush();
           const name = key[1].trim(), rest = key[2].replace(/(^|\s)#.*$/, '').trim(); // a trailing comment is not text after the colon
-          cur = { name, hasBlock: false, checkout: false, contents: false, unreadPerm: false };
+          cur = { name, hasBlock: false, checkout: false, contents: false, unreadPerm: false, indent: 0 };
           if (rest !== '') note(f, `line ${i + 1}: job "${name}" has text after its colon, so this reader cannot read this job`);
           else if (!/^[A-Za-z0-9_.-]+$/.test(name)) note(f, `line ${i + 1}: job "${name}" is not a plain key name, so this reader cannot read its job`);
           continue;
         }
         if (!cur) continue;
-        const perm = l.match(/^    permissions:(.*)$/);
+        // A job's members sit at the indent its first member line sets, as valid YAML lets them sit at any indent, so a job at 6 or 3 spaces is read as a job at 4 is. A line
+        // deeper than the members is their own content (a step item, a block scalar), read only for a uses: line.
+        const ind = l.length - l.trimStart().length;
+        if (!cur.indent && ind > 2) cur.indent = ind;
+        if (/uses:\s*["']?actions\/checkout@/.test(l)) cur.checkout = true;
+        if (cur.indent !== ind) continue;
+        const perm = l.match(new RegExp('^' + ' '.repeat(cur.indent) + 'permissions:(.*)$'));
         if (perm) {
           const v = perm[1].replace(/\s+#.*$/, '').trim(); // a trailing comment is not the value
           if (v === '') {
@@ -448,7 +454,7 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
               const trimmed = m.replace(/^\s+/, '');
               if (trimmed.startsWith('#')) continue;              // a comment at ANY indent: keep scanning
               const indent = m.length - trimmed.length;
-              if (indent <= 4) break;                             // back to job level or the next key
+              if (indent <= cur.indent) break;                    // back to job level or the next key
               if (/^[A-Za-z0-9_-]+:/.test(trimmed)) { if (/^contents:/.test(trimmed)) cur.contents = true; }
               else { note(f, `line ${k + 1}: a line inside permissions: is not a key: value line this reader reads, so the job's permissions cannot be checked`); cur.unreadPerm = true; break; }
             }
@@ -461,8 +467,7 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
             cur.unreadPerm = true;
           }
         }
-        if (!perm && /^    \S/.test(l) && !/^    [A-Za-z0-9_-]+:/.test(l)) { note(f, `line ${i + 1}: a line at job-member indent in job "${cur.name}" is not a plain key: value line this reader reads (a quoted or spaced key, or a flow mapping), so the job cannot be checked`); cur.unreadPerm = true; }
-        if (/uses:\s*["']?actions\/checkout@/.test(l)) cur.checkout = true;
+        if (!perm && !/^[A-Za-z0-9_-]+:/.test(l.trimStart())) { note(f, `line ${i + 1}: a line at job-member indent in job "${cur.name}" is not a plain key: value line this reader reads (a quoted or spaced key, or a flow mapping), so the job cannot be checked`); cur.unreadPerm = true; }
       }
       flush();
       if (jobs.length === 0) {
@@ -700,7 +705,7 @@ const CSP_STATS = { scripts: 0, styles: 0 };
       else if (/\bhref\s*=\s*["']?(?![a-z][a-z0-9+.-]*:|\/\/)[^"'\s>]/i.test(t.text)) origins.style.add("'self'");
     }
     // An event handler or a style attribute on any element, which this policy blocks without saying so; the attribute names are not case-sensitive.
-    const every = reader.startTagsOf(s, /<([a-zA-Z][\w-]*)\b/g);
+    const every = reader.startTagsOf(s, /<([a-zA-Z][^\s/>]*)/g); // the group is the whole tag name, as the tokenizer reads it
     unreadNote(every.unread, 'start tag(s)');
     if (every.tags.some(t => t.attrs.some(a => a.valued && (/^on[a-z]+$/.test(a.name) || a.name === 'style')))) note(f, 'has an inline event handler or style="" attribute, which the CSP blocks without saying so — move it into the hashed script or style');
     // A CSP set in a <meta> tag.
@@ -979,7 +984,7 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
   // hit is reported, so a page of many tags costs one pass, not one line count per tag.
   for (const f of PRODUCTION_PAGES) {
     const s = read(f);
-    const tagsRead = pageClaims ? pageClaims.startTagsOf(s, /<([a-zA-Z][\w-]*)\b/g) : { tags: [], unread: [] };
+    const tagsRead = pageClaims ? pageClaims.startTagsOf(s, /<([a-zA-Z][^\s/>]*)/g) : { tags: [], unread: [] }; // the group is the whole tag name, as the tokenizer reads it
     if (tagsRead.unread.length) note(f, `has ${tagsRead.unread.length} start tag(s) the reader cannot read to their end (first at line ${lineAt(s, tagsRead.unread[0])}), so the buy-control and payment checks cannot read them`);
     const scriptBodies = new Map(pageClaims ? pageClaims.elementsOf(s, /<(script)\b/gi).elements.map(e => [e.tag.index, e.body]) : []);
     for (const t of tagsRead.tags) {

@@ -182,3 +182,35 @@ test('rule 11 names an unread permissions value and not the job it sits in: one 
     assert.doesNotMatch(out, /job "probe" declares its own permissions: block/, out);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+// A job's members sit at the indent its first member line sets (valid YAML at any indent), so a job at 6 or 3 spaces is read as a job at 4 is.
+test('rule 11 reads job members at 6 spaces: a job that checks out and states no contents is a finding', () => {
+  const dir = surfaceCopy();
+  try {
+    const out = gateWith(dir, [
+      'name: probe', 'on: push', 'jobs:',
+      '  probe:', '      runs-on: ubuntu-latest', '      permissions:', '        pull-requests: write', '      steps:', '        - uses: actions/checkout@v4', '',
+    ].join('\n'));
+    assert.match(out, /\.github\/workflows\/probe\.yml: job "probe" declares its own permissions: block and checks the repository out, but does not state contents:/, out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+test('rule 11 reads job members at 3 spaces: a job that checks out and states no contents is a finding', () => {
+  const dir = surfaceCopy();
+  try {
+    const out = gateWith(dir, [
+      'name: probe', 'on: push', 'jobs:',
+      '  probe:', '   runs-on: ubuntu-latest', '   permissions:', '     pull-requests: write', '   steps:', '     - uses: actions/checkout@v4', '',
+    ].join('\n'));
+    assert.match(out, /\.github\/workflows\/probe\.yml: job "probe" declares its own permissions: block and checks the repository out, but does not state contents:/, out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+test('rule 11 reads a clean job at 6 spaces: a permissions block that states contents passes', () => {
+  const dir = surfaceCopy();
+  try {
+    const out = gateWith(dir, [
+      'name: probe', 'on: push', 'jobs:',
+      '  probe:', '      runs-on: ubuntu-latest', '      permissions:', '        contents: read', '      steps:', '        - uses: actions/checkout@v4', '',
+    ].join('\n'));
+    assert.deepEqual(probeLines(out), [], out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

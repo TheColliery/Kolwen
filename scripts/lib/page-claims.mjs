@@ -69,12 +69,18 @@ export function scanStartTag(s, nameEnd, max = META_MAX, collect = false) {
 // The index after the `>` that ends the start tag whose regex name ends at `nameEnd`, or -1 (UNREAD). scanStartTag gives the attribute names too.
 export const startTagEnd = (s, nameEnd, max = META_MAX) => scanStartTag(s, nameEnd, max).end;
 
+// The tokenizer's tag name runs to white space, `/` or `>` (or the end of the input), so a pattern's group 1 is the element's name only when that name ends where the match does:
+// `<script-x` is no `<script` and `<a.b` is no `<a`. Such an opener is another element, skipped whole, so it never swallows the real element after it.
+const NAME_ENDS = /[\t\n\f\r />]/;
+const namesWholeTag = (s, m) => m[1] === undefined || m.index + m[0].length >= s.length || NAME_ENDS.test(s[m.index + m[0].length]);
+
 // Every start tag that the pattern `re` opens, in order, each read to its end. `re` matches the opening `<name`; its group 1, when present, is the tag's name as written.
 // Returns { tags: [{ text, index, end, name, attrs }], unread: [index] }. A tag the reader cannot end goes to `unread`, and the scan goes on after its opener.
 export function startTagsOf(s, re, max = META_MAX) {
   const r = new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g');
   const tags = [], unread = [];
   for (let m; (m = r.exec(s)); ) {
+    if (!namesWholeTag(s, m)) continue;
     const pos = m.index + m[0].length;
     const end = scanStartTag(s, pos, max).end;
     if (end === -1) { unread.push(m.index); continue; }
@@ -103,6 +109,7 @@ export function elementsOf(s, re, max = META_MAX) {
   const elements = [], unclosed = [], unread = [];
   const closeAt = new Map(), shut = new Set();
   for (let m; (m = r.exec(s)); ) {
+    if (!namesWholeTag(s, m)) continue;
     const name = (m[1] || '').toLowerCase();
     const pos = m.index + m[0].length;
     const end = scanStartTag(s, pos, max).end;
