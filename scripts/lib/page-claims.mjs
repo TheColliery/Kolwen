@@ -5,41 +5,48 @@
 // unterminated quote, repeated n times, took 30 s at n = 40,000 (every start re-scanned to the end of the file), and the pin check re-read every passage of the page for every hit (11 s at 2,000
 // passages with a hit each). Here both are single passes, and scripts/page-claims.test.mjs runs them on bulk input in a child under a kill timeout.
 //
-// The shared start-tag reader: a start tag is read from the end of its NAME, to the first `>` the HTML tokenizer reads as its end, within a bound. A tag the bound does not end is UNREAD, and a
-// caller reports it: a page whose tags cannot be read is not proven, so a tag is never passed. An element's body is read with its closer searched ONCE per tag name, so an element with no closer costs
-// one search, and the openers after it cost nothing more.
+// The shared start-tag reader: a start tag is read as the HTML tokenizer reads it, from its opener to the first `>` that ends it, within a bound. The tokenizer's tag NAME runs to white
+// space, `/` or `>`, which can be longer than the name a caller's pattern matched, so the reader starts in that state (TAG_NAME) at the end of the caller's match. A tag the bound does not
+// end is UNREAD, and a caller reports it: a page whose tags cannot be read is not proven, so a tag is never passed. An element's body is read with its closer searched ONCE per tag name, so an
+// element with no closer costs one search, and the openers after it cost nothing more.
 import { createHash } from 'node:crypto';
 
 // The bound of one start-tag read: a tag longer than this is unread, and one opener costs at most this many steps.
 export const META_MAX = 4096;
 const DQ = 34, SQ = 39, GT = 62, SLASH = 47, EQ = 61; // " ' > / =
-// The attribute states of the HTML tokenizer (WHATWG HTML §13.2.5.32 to §13.2.5.39), as far as they decide where a start tag ends. Only the two quoted-value states read a > as text.
-const BEFORE_NAME = 0, NAME = 1, AFTER_NAME = 2, BEFORE_VALUE = 3, DQ_VALUE = 4, SQ_VALUE = 5, UNQUOTED = 6, AFTER_VALUE = 7;
+// The states of the HTML tokenizer (WHATWG HTML §13.2.5.8 and §13.2.5.32 to §13.2.5.40), as far as they decide where a start tag ends and which attribute names it has.
+const TAG_NAME = 0, BEFORE_NAME = 1, NAME = 2, AFTER_NAME = 3, BEFORE_VALUE = 4, DQ_VALUE = 5, SQ_VALUE = 6, UNQUOTED = 7, AFTER_VALUE = 8;
+const lower = c => String.fromCharCode(c).toLowerCase();
 
-// The index after the `>` that ends the start tag whose NAME ends at `nameEnd` (the index just after `<meta`, `<a`, `<script`, ...), or -1 when no such `>` comes within `max` characters.
-// One character at a time, so one read costs at most `max` steps. A quote opens a value only in the before-value state, right after the `=` of an attribute: a quote inside a name, or inside an
-// unquoted value, is a plain character, as the tokenizer reads it.
-export function startTagEnd(s, nameEnd, max = META_MAX) {
+// Scan the start tag whose regex NAME ends at `nameEnd`. `end` is the index after the `>` that ends the tag, or -1 when no such `>` comes within `max` characters (the tag is UNREAD).
+// `attrs` lists its attribute names as the tokenizer reads them (lower-cased), each with `valued`: whether the name is followed by `=`. A quote opens a value only in the before-value
+// state, right after the `=` of an attribute; a quote inside a name, or inside an unquoted value, is a plain character, as the tokenizer reads it.
+export function scanStartTag(s, nameEnd, max = META_MAX, collect = false) {
   const stop = Math.min(s.length, nameEnd + max);
-  let state = BEFORE_NAME;
+  const attrs = [];
+  const sink = { name: '', valued: false }; // the attribute of a scan that does not collect: its name is not built, so an unread tag costs no allocation
+  let state = TAG_NAME, attr = null;
+  const start = c => { if (collect) { attr = { name: lower(c), valued: false }; attrs.push(attr); } else attr = sink; return NAME; };
   for (let i = nameEnd; i < stop; i++) {
     const c = s.charCodeAt(i), space = c === 32 || c === 9 || c === 10 || c === 12 || c === 13; // the HTML white space: space, tab, LF, form feed, CR
     switch (state) {
-      case BEFORE_NAME: if (c === GT) return i + 1; if (!space && c !== SLASH) state = NAME; break;
+      case TAG_NAME: if (c === GT) return { end: i + 1, attrs }; if (space || c === SLASH) state = BEFORE_NAME; break;
+      case BEFORE_NAME: if (c === GT) return { end: i + 1, attrs }; if (!space && c !== SLASH) state = start(c); break;
       case NAME:
-        if (c === GT) return i + 1;
-        if (c === EQ) state = BEFORE_VALUE;
+        if (c === GT) return { end: i + 1, attrs };
+        if (c === EQ) { attr.valued = true; state = BEFORE_VALUE; }
         else if (space) state = AFTER_NAME;
         else if (c === SLASH) state = BEFORE_NAME;
+        else if (collect) attr.name += lower(c);
         break;
       case AFTER_NAME:
-        if (c === GT) return i + 1;
-        if (c === EQ) state = BEFORE_VALUE;
+        if (c === GT) return { end: i + 1, attrs };
+        if (c === EQ) { attr.valued = true; state = BEFORE_VALUE; }
         else if (c === SLASH) state = BEFORE_NAME;
-        else if (!space) state = NAME;
+        else if (!space) state = start(c);
         break;
       case BEFORE_VALUE:
-        if (c === GT) return i + 1;
+        if (c === GT) return { end: i + 1, attrs };
         if (c === DQ) state = DQ_VALUE;
         else if (c === SQ) state = SQ_VALUE;
         else if (!space) state = UNQUOTED;
@@ -47,60 +54,65 @@ export function startTagEnd(s, nameEnd, max = META_MAX) {
       case DQ_VALUE: if (c === DQ) state = AFTER_VALUE; break;
       case SQ_VALUE: if (c === SQ) state = AFTER_VALUE; break;
       case UNQUOTED:
-        if (c === GT) return i + 1;
+        if (c === GT) return { end: i + 1, attrs };
         if (space) state = BEFORE_NAME;
         break;
       case AFTER_VALUE:
-        if (c === GT) return i + 1;
+        if (c === GT) return { end: i + 1, attrs };
         if (space || c === SLASH) state = BEFORE_NAME;
-        else state = NAME;
+        else state = start(c);
         break;
     }
   }
-  return -1;
+  return { end: -1, attrs };
 }
+// The index after the `>` that ends the start tag whose regex name ends at `nameEnd`, or -1 (UNREAD). scanStartTag gives the attribute names too.
+export const startTagEnd = (s, nameEnd, max = META_MAX) => scanStartTag(s, nameEnd, max).end;
 
 // Every start tag that the pattern `re` opens, in order, each read to its end. `re` matches the opening `<name`; its group 1, when present, is the tag's name as written.
-// Returns { tags: [{ text, index, end, name }], unread: [index] }. A tag the reader cannot end goes to `unread`, and the scan goes on after its opener.
+// Returns { tags: [{ text, index, end, name, attrs }], unread: [index] }. A tag the reader cannot end goes to `unread`, and the scan goes on after its opener.
 export function startTagsOf(s, re, max = META_MAX) {
   const r = new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g');
   const tags = [], unread = [];
   for (let m; (m = r.exec(s)); ) {
-    const end = startTagEnd(s, m.index + m[0].length, max);
+    const pos = m.index + m[0].length;
+    const end = scanStartTag(s, pos, max).end;
     if (end === -1) { unread.push(m.index); continue; }
-    tags.push({ text: s.slice(m.index, end), index: m.index, end, name: m[1] });
+    tags.push({ text: s.slice(m.index, end), index: m.index, end, name: m[1], attrs: scanStartTag(s, pos, max, true).attrs });
     r.lastIndex = end;
   }
   return { tags, unread };
 }
 
-// The index of the first `</name` at or after `from` whose name ends there (the next character is not a name character: `</a` is not `</abbr`), or -1.
+// The index of the first `</name` at or after `from` whose name ends there. The tokenizer's end tag name runs to white space, `/` or `>`, so `</a.x>` and `</a"x>` end another name
+// and do not close `<a>`, and `</a` at the end of the input is not an end tag. The match is case-insensitive, as end tag names are.
 function closerOf(s, name, from) {
-  const re = new RegExp('</' + name + '(?![\\w-])', 'gi');
+  const re = new RegExp('</' + name + '(?=[\\t\\n\\f\\r />])', 'gi');
   re.lastIndex = from;
   const m = re.exec(s);
   return m ? m.index : -1;
 }
 
-// The elements the pattern `re` opens (as startTagsOf, the name in group 1), each with its body: the body runs from the end of the start tag to the closer `</name`, whose own end tag must be read
-// within `max`, and the scan goes on after the closer, so a body is never read as tags. The closer of a name is searched ONCE and reused by each later opener whose body starts before it. An opener
-// with no closer after it ends the search for that name (no later opener of the name can close either), so n unclosed openers cost one search per name, not n.
-// Returns { elements: [{ tag, body, close, closeEnd }], unclosed: [index], unread: [index] }: `unclosed` holds the openers with no closer, and `unread` the tags the reader could not end (a start tag,
-// or a closer whose end tag is unread).
+// The elements the pattern `re` opens (as startTagsOf, the name in group 1), each with its body: the body runs from the end of the start tag to the closer `</name`, whose own end tag must be
+// read within `max`, and the scan goes on after the closer, so a body is never read as tags. The closer of a name is searched ONCE and reused by each later opener whose body starts before it.
+// An opener with no closer after it ends the search for that name (no later opener of the name can close either), so n unclosed openers cost one search per name, not n.
+// Returns { elements: [{ tag, body, close, closeEnd }], unclosed: [index], unread: [index] }: `unclosed` holds the openers with no closer, and `unread` the tags the reader could not end (a start
+// tag, or a closer whose end tag is unread).
 export function elementsOf(s, re, max = META_MAX) {
   const r = new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g');
   const elements = [], unclosed = [], unread = [];
   const closeAt = new Map(), shut = new Set();
   for (let m; (m = r.exec(s)); ) {
     const name = (m[1] || '').toLowerCase();
-    const end = startTagEnd(s, m.index + m[0].length, max);
+    const pos = m.index + m[0].length;
+    const end = scanStartTag(s, pos, max).end;
     if (end === -1) { unread.push(m.index); continue; }
-    const tag = { text: s.slice(m.index, end), index: m.index, end, name: m[1] };
+    const tag = { text: s.slice(m.index, end), index: m.index, end, name: m[1], attrs: scanStartTag(s, pos, max, true).attrs };
     if (shut.has(name)) { unclosed.push(m.index); r.lastIndex = end; continue; }
     if (!(closeAt.get(name) >= end)) closeAt.set(name, closerOf(s, name, end));
     const c = closeAt.get(name);
     if (c === -1) { shut.add(name); unclosed.push(m.index); r.lastIndex = end; continue; }
-    const ce = startTagEnd(s, c + 2 + name.length, max);
+    const ce = scanStartTag(s, c + 2 + name.length, max).end;
     if (ce === -1) { unread.push(c); unclosed.push(m.index); r.lastIndex = end; continue; }
     elements.push({ tag, body: s.slice(end, c), close: c, closeEnd: ce });
     r.lastIndex = ce;

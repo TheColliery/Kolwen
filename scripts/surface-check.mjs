@@ -402,12 +402,11 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
 // an empty block (no contents, same as the bare-word class); `read-all`/`write-all` read as
 // granting contents, per GitHub's own docs (F3).
 //
-// FAIL CLOSED: a line in the jobs block that the reader does not read is a finding at its own line, never a pass. A job key at other than 2-space indent, or a quoted
-// key, is not a job, so a file with no readable job is "parsed to zero jobs" (F1). A plain job key with text after its colon, or a key that is not a plain name,
-// is named, and its members are not handed to the job above. A permissions value other than an empty block, `{}`, `read-all` or `write-all` (a flow mapping, an
-// anchor, an alias) is named as unread. A uses: line is read with its quotes stripped. STATED LIMIT, not fixed here (a LOW unit does not grow this into a YAML
-// parser): a job's own members are read by line, so a job whose members are written in a form this reader does not read is named only where it is a `permissions:`
-// value or a member line; a composite or reusable workflow step
+// FAIL CLOSED, for the structure this reader reads: a job key line, a member line of a job (4-space indent), and the lines of a permissions: block. A job key with text after its
+// colon (a trailing comment is not text) or a key that is not a plain name is named and opens no job, so its members are not handed to the job above. A member line that is not a plain
+// `name:` key (a quoted or spaced key, a flow mapping) is named, and its job is not passed. A permissions value other than an empty block, `{}`, `read-all` or `write-all` (a flow mapping,
+// an anchor, an alias) is named as unread. A uses: line is read with its quotes stripped. NOT CLAIMED: the step items and the block scalars below a job's members (a `run: |` body, for
+// example) are read only for a uses: line, because a line reader cannot tell free text from structure without a YAML parser; a composite or reusable workflow step
 // (`uses: ./.github/actions/x`) is never read as a checkout -- scoped to `actions/checkout@`
 // on purpose; this repo has no composite actions today.
 {
@@ -421,8 +420,8 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
       let inJobs = false, cur = null;
       const jobs = [];
       const flush = () => { if (cur) jobs.push(cur); };
-      // FAIL CLOSED: a line this reader does not read is a finding at its own line, never a pass. The forms it reads are a plain job key with nothing after its colon, a permissions key with
-      // an empty block (its members are key: value lines), `{}`, `read-all` or `write-all`, and a uses: of actions/checkout, bare or quoted. Anything else is named, and its job is not passed.
+      // FAIL CLOSED, for the structure read: a plain job key with nothing after its colon, a permissions: key whose value is an empty block, {}, read-all or write-all, and a uses: of
+      // actions/checkout, bare or quoted. Anything else on those structures is named at its own line, and its job is not passed.
       for (let i = 0; i < lines.length; i++) {
         const l = lines[i];
         if (/^jobs:\s*$/.test(l)) { inJobs = true; continue; }
@@ -431,9 +430,9 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
         const key = l.match(/^  (\S[^:]*):(.*)$/);
         if (key) {
           flush();
-          const name = key[1].trim(), rest = key[2].trim();
+          const name = key[1].trim(), rest = key[2].replace(/(^|\s)#.*$/, '').trim(); // a trailing comment is not text after the colon
           cur = { name, hasBlock: false, checkout: false, contents: false, unreadPerm: false };
-          if (rest !== '') note(f, `line ${i + 1}: job "${name}" has text after its colon, so this reader cannot read its jobs`);
+          if (rest !== '') note(f, `line ${i + 1}: job "${name}" has text after its colon, so this reader cannot read this job`);
           else if (!/^[A-Za-z0-9_.-]+$/.test(name)) note(f, `line ${i + 1}: job "${name}" is not a plain key name, so this reader cannot read its job`);
           continue;
         }
@@ -462,6 +461,7 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
             cur.unreadPerm = true;
           }
         }
+        if (!perm && /^    \S/.test(l) && !/^    [A-Za-z0-9_-]+:/.test(l)) { note(f, `line ${i + 1}: a line at job-member indent in job "${cur.name}" is not a plain key: value line this reader reads (a quoted or spaced key, or a flow mapping), so the job cannot be checked`); cur.unreadPerm = true; }
         if (/uses:\s*["']?actions\/checkout@/.test(l)) cur.checkout = true;
       }
       flush();
@@ -632,7 +632,8 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
 // stale-hash check for styles is skipped with it.
 //
 // STATED LIMITS, not fixed here: the HTML is read as text, not parsed, so a script or style inside an
-// HTML comment is counted (it fails safe, demanding a hash it does not need); `font-src` is held to 'self' alone
+// HTML comment is counted (it fails safe, demanding a hash it does not need); the element scans read a <script> or <style> body as raw text, so an opener
+// of another element inside its string is read as an opener, and a valid page with one is a finding (it fails safe); `font-src` is held to 'self' alone
 // and every url() of a tracked stylesheet (the font manifest) must be a file of this site that rule 7 declares, but a stylesheet the edge or a
 // browser extension adds is not in the repo and not seen; `style-src` carrying `'unsafe-inline'` is not refused (a hash makes browsers
 // ignore it); nothing the edge injects into the response is in the repo, so nothing here can see it (the
@@ -701,7 +702,7 @@ const CSP_STATS = { scripts: 0, styles: 0 };
     // An event handler or a style attribute on any element, which this policy blocks without saying so; the attribute names are not case-sensitive.
     const every = reader.startTagsOf(s, /<([a-zA-Z][\w-]*)\b/g);
     unreadNote(every.unread, 'start tag(s)');
-    if (every.tags.some(t => /\s(?:on[a-z]+|style)\s*=/i.test(t.text.slice(1 + t.name.length)))) note(f, 'has an inline event handler or style="" attribute, which the CSP blocks without saying so — move it into the hashed script or style');
+    if (every.tags.some(t => t.attrs.some(a => a.valued && (/^on[a-z]+$/.test(a.name) || a.name === 'style')))) note(f, 'has an inline event handler or style="" attribute, which the CSP blocks without saying so — move it into the hashed script or style');
     // A CSP set in a <meta> tag.
     const meta = reader.metaTagsOf(s);
     unreadNote(meta.unread, '<meta> tag(s)');

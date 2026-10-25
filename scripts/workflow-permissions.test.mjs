@@ -101,15 +101,84 @@ test('rule 11 does not pass an anchor or an alias for permissions: neither job i
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('rule 11 names the job whose key line has text after its colon, and does not hand its members to the job above', () => {
+test('rule 11 names a job key with text after its colon, names that one job, and does not hand its members to the job above', () => {
   const dir = surfaceCopy();
   try {
     const out = gateWith(dir, [
       'name: probe', 'on: push', 'jobs:',
       '  first:', '    runs-on: ubuntu-latest', '    steps:', '      - run: true',
+      '  probe: {runs-on: ubuntu-latest}', '    permissions:', '      pull-requests: write', '    steps:', '      - uses: actions/checkout@v4', '',
+    ].join('\n'));
+    assert.match(out, /\.github\/workflows\/probe\.yml: line 8: job "probe" has text after its colon, so this reader cannot read this job/, out);
+    assert.doesNotMatch(out, /job "first" declares/, 'the members of "probe" are not read as members of "first": ' + out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('rule 11 reads a job key with a trailing comment as the key it is: "probe:   # the probe job" is job "probe", and its missing contents is named for that job', () => {
+  const dir = surfaceCopy();
+  try {
+    const out = gateWith(dir, [
+      'name: probe', 'on: push', 'jobs:',
       '  probe:   # the probe job', '    runs-on: ubuntu-latest', '    permissions:', '      pull-requests: write', '    steps:', '      - uses: actions/checkout@v4', '',
     ].join('\n'));
-    assert.match(out, /\.github\/workflows\/probe\.yml: line 8: job "probe" has text after its colon, so this reader cannot read its jobs/m, out);
-    assert.doesNotMatch(out, /job "first" declares/, 'the members of "probe" are not read as members of "first": ' + out);
+    assert.doesNotMatch(out, /probe\.yml: line \d+: job "probe" has text after its colon/, out);
+    assert.match(out, /\.github\/workflows\/probe\.yml: job "probe" declares its own permissions: block and checks the repository out, but does not state contents:/, out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('rule 11 fails closed on a quoted member key at job-member indent: "permissions": is not read, so the job cannot be passed', () => {
+  const dir = surfaceCopy();
+  try {
+    const out = gateWith(dir, [
+      'name: probe', 'on: push', 'jobs:',
+      '  probe:', '    runs-on: ubuntu-latest', '    "permissions":', '      pull-requests: write', '    steps:', '      - uses: actions/checkout@v4', '',
+    ].join('\n'));
+    assert.match(out, /\.github\/workflows\/probe\.yml: line 6: a line at job-member indent in job "probe" is not a plain key: value line/, out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('rule 11 fails closed on a spaced member key: "permissions :" (a space before the colon) is not read', () => {
+  const dir = surfaceCopy();
+  try {
+    const out = gateWith(dir, [
+      'name: probe', 'on: push', 'jobs:',
+      '  probe:', '    runs-on: ubuntu-latest', '    permissions :', '      pull-requests: write', '    steps:', '      - uses: actions/checkout@v4', '',
+    ].join('\n'));
+    assert.match(out, /\.github\/workflows\/probe\.yml: line 6: a line at job-member indent in job "probe" is not a plain key: value line/, out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('rule 11 fails closed on a job whose value is a flow mapping on the next line', () => {
+  const dir = surfaceCopy();
+  try {
+    const out = gateWith(dir, [
+      'name: probe', 'on: push', 'jobs:',
+      '  probe:', '    {runs-on: ubuntu-latest, permissions: {pull-requests: write}, steps: [{uses: actions/checkout@v4}]}', '',
+    ].join('\n'));
+    assert.match(out, /\.github\/workflows\/probe\.yml: line 5: a line at job-member indent in job "probe" is not a plain key: value line/, out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('rule 11 names a line inside a permissions: block that is not a key: value line, and does not pass the job', () => {
+  const dir = surfaceCopy();
+  try {
+    const out = gateWith(dir, [
+      'name: probe', 'on: push', 'jobs:',
+      '  probe:', '    runs-on: ubuntu-latest', '    permissions:', '      "contents": read', '    steps:', '      - uses: actions/checkout@v4', '',
+    ].join('\n'));
+    assert.match(out, /\.github\/workflows\/probe\.yml: line 7: a line inside permissions: is not a key: value line this reader reads/, out);
+    assert.doesNotMatch(out, /job "probe" declares its own permissions: block/, 'one finding for the line, not a second for the job: ' + out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('rule 11 names an unread permissions value and not the job it sits in: one finding per fault', () => {
+  const dir = surfaceCopy();
+  try {
+    const out = gateWith(dir, [
+      'name: probe', 'on: push', 'jobs:',
+      '  probe:', '    runs-on: ubuntu-latest', '    permissions: { pull-requests: write }', '    steps:', '      - uses: actions/checkout@v4', '',
+    ].join('\n'));
+    assert.match(out, /\.github\/workflows\/probe\.yml: line 6: permissions: value "\{ pull-requests: write \}" is not one this reader reads/, out);
+    assert.doesNotMatch(out, /job "probe" declares its own permissions: block/, out);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
