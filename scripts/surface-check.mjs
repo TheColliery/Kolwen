@@ -610,6 +610,10 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
 // or a served page the rule was written around missing, is a finding, never a pass. The script and style
 // counts are printed in the pass line, so a run that hashed nothing cannot read as a run that did.
 //
+// The tags are read by the shared bounded reader (scripts/lib/page-claims.mjs): a tag ends at its real `>` within a bound, and an element's body is read to its own closer. A tag the
+// reader cannot end, or an element with no closer, is a finding that names its page, so an unreadable page is never a pass. A page with an unclosed <style> is not hashed (see the rule), and its
+// stale-hash check for styles is skipped with it.
+//
 // STATED LIMITS, not fixed here: the HTML is read as text, not parsed, so a script or style inside an
 // HTML comment is counted (it fails safe, demanding a hash it does not need); `font-src` is held to 'self' alone
 // and every url() of a tracked stylesheet (the font manifest) must be a file of this site that rule 7 declares, but a stylesheet the edge or a
@@ -634,28 +638,57 @@ const CSP_STATS = { scripts: 0, styles: 0 };
   const sha256 = text => (hashes ? hashes.cspHash(text) : '');
   const want = { script: new Set(), style: new Set() };
   const origins = { script: new Set(), style: new Set() };
+  // The tags and the elements of each page are read by the shared reader (scripts/lib/page-claims.mjs): a tag ends at the first `>` the HTML tokenizer reads as its end, within a bound, and an
+  // element's body is read to its own closer. A tag or an element the reader cannot finish is a finding, never a pass (the patterns this replaced scanned to the end of the page from
+  // every unclosed opener). The reader is imported here, not taken from rule 15's import below, which runs later in this file.
+  let reader = null;
+  try { reader = await import(pathToFileURL(resolve('scripts/lib/page-claims.mjs')).href); }
+  catch (e) { note('scripts/lib/page-claims.mjs', 'could not be loaded, so rule 13 could not read the tags of the pages (' + (e.code || 'import failed') + ')'); }
+  // A page with an unclosed <style> keeps its style hashes unchecked: the hash routine (scripts/lib/csp-hashes.mjs) scans to the end from such an opener, so it is not run on that page,
+  // and then the stale-hash check for styles is not run either (a hash of an unread page would read as stale).
+  let styleIncomplete = false;
   for (const f of htmlFiles) {
+    if (!reader) break;
     const s = read(f).replace(/\r\n/g, '\n');
-    // End tags tolerate whitespace and attributes before ">" ("</script >", "</SCRIPT foo>"): the HTML parser closes the block on
-    // those too, so a pattern that stops at a bare "</script>" hashes the wrong text (CodeQL js/bad-tag-filter).
-    for (const m of s.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi)) {
-      const src = (m[1].match(/\bsrc\s*=\s*["']?([^"'\s>]+)/i) || [])[1];
+    const lineAt = i => s.slice(0, i).split('\n').length;
+    const unreadNote = (at, what) => { if (at.length) note(f, `has ${at.length} ${what} the reader cannot read to its end (first at line ${lineAt(at[0])}), so rule 13 cannot check it`); };
+    // The <script> elements: a code block is hashed, a data block is not, and an element with no closer is a finding.
+    const scripts = reader.elementsOf(s, /<(script)\b/gi);
+    unreadNote(scripts.unread, '<script> tag(s)');
+    if (scripts.unclosed.length) note(f, `has ${scripts.unclosed.length} <script> element(s) with no closer (first at line ${lineAt(scripts.unclosed[0])}), so rule 13 cannot read their bodies`);
+    for (const e of scripts.elements) {
+      const attrs = e.tag.text.slice('<script'.length, -1);
+      const src = (attrs.match(/\bsrc\s*=\s*["']?([^"'\s>]+)/i) || [])[1];
       if (src) { const o = src.match(/^https?:\/\/[^/]+/i); if (o) origins.script.add(o[0].toLowerCase()); continue; }
-      const type = ((m[1].match(/\btype\s*=\s*["']?([^"'\s>]+)/i) || [])[1] || '').toLowerCase();
+      const type = ((attrs.match(/\btype\s*=\s*["']?([^"'\s>]+)/i) || [])[1] || '').toLowerCase();
       if (DATA_TYPES.has(type)) continue;
       if (!EXEC_TYPES.has(type)) { note(f, `has an inline <script type="${type}"> that rule 13 cannot classify as code or data, so its CSP admission is unchecked`); continue; }
-      want.script.add(sha256(m[2])); CSP_STATS.scripts++;
+      want.script.add(sha256(e.body)); CSP_STATS.scripts++;
     }
-    for (const body of hashes ? hashes.inlineStyles(s) : []) { want.style.add(sha256(body)); CSP_STATS.styles++; }
-    for (const m of s.matchAll(/<link\b[^>]*>/gi)) {
-      if (!/\brel\s*=\s*["']?[^"'>]*\bstylesheet\b/i.test(m[0])) continue;
-      const o = (m[0].match(/\bhref\s*=\s*["']?(https?:\/\/[^/"'\s>]+)/i) || [])[1];
+    // The <style> elements: the bodies are hashed by the shared routine, but only when every <style> opener has its closer.
+    const styles = reader.elementsOf(s, /<(style)\b/gi);
+    unreadNote(styles.unread, '<style> tag(s)');
+    if (styles.unclosed.length) note(f, `has ${styles.unclosed.length} <style> element(s) with no closer (first at line ${lineAt(styles.unclosed[0])}), so rule 13 cannot read their bodies`);
+    if (styles.unread.length || styles.unclosed.length) styleIncomplete = true;
+    else if (hashes) for (const body of hashes.inlineStyles(s)) { want.style.add(sha256(body)); CSP_STATS.styles++; }
+    // The <link> stylesheets name their origins.
+    const links = reader.startTagsOf(s, /<(link)\b/gi);
+    unreadNote(links.unread, '<link> tag(s)');
+    for (const t of links.tags) {
+      if (!/\brel\s*=\s*["']?[^"'>]*\bstylesheet\b/i.test(t.text)) continue;
+      const o = (t.text.match(/\bhref\s*=\s*["']?(https?:\/\/[^/"'\s>]+)/i) || [])[1];
       if (o) origins.style.add(o.toLowerCase());
       // A stylesheet from this site (the font manifest, linked by a path) is admitted by 'self', which style-src must therefore name.
-      else if (/\bhref\s*=\s*["']?(?![a-z][a-z0-9+.-]*:|\/\/)[^"'\s>]/i.test(m[0])) origins.style.add("'self'");
+      else if (/\bhref\s*=\s*["']?(?![a-z][a-z0-9+.-]*:|\/\/)[^"'\s>]/i.test(t.text)) origins.style.add("'self'");
     }
-    if (/<[a-zA-Z][^>]*\s(?:on[a-z]+|style)\s*=/.test(s)) note(f, 'has an inline event handler or style="" attribute, which the CSP blocks without saying so — move it into the hashed script or style');
-    if (/<meta\b[^>]*http-equiv\s*=\s*["']?content-security-policy/i.test(s)) note(f, 'sets a CSP in a <meta> tag — headers are set at the host, and frame-ancestors has no meta form');
+    // An event handler or a style attribute on any element, which this policy blocks without saying so; the attribute names are not case-sensitive.
+    const every = reader.startTagsOf(s, /<([a-zA-Z][\w-]*)\b/g);
+    unreadNote(every.unread, 'start tag(s)');
+    if (every.tags.some(t => /\s(?:on[a-z]+|style)\s*=/i.test(t.text.slice(1 + t.name.length)))) note(f, 'has an inline event handler or style="" attribute, which the CSP blocks without saying so — move it into the hashed script or style');
+    // A CSP set in a <meta> tag.
+    const meta = reader.metaTagsOf(s);
+    unreadNote(meta.unread, '<meta> tag(s)');
+    if (meta.tags.some(t => /http-equiv\s*=\s*["']?content-security-policy/i.test(t.text))) note(f, 'sets a CSP in a <meta> tag — headers are set at the host, and frame-ancestors has no meta form');
   }
   if (CSP_STATS.scripts === 0) note('web/index.html', 'has no inline script for rule 13 to hash, so this CHECK is now empty, not the CSP proven exact. If the page\'s script was removed on purpose, remove its hash from web/_headers and ask the maintainer to retire the script half of rule 13');
   if (CSP_STATS.styles === 0) note('web/index.html', 'has no inline style for rule 13 to hash, so this CHECK is now empty for styles, not the CSP proven exact');
@@ -709,7 +742,7 @@ const CSP_STATS = { scripts: 0, styles: 0 };
           const have = new Set(toks.filter(t => /^'sha256-/.test(t)));
           for (const t of toks) if (/^'sha(?:384|512)-/.test(t)) note(HEADERS, `line ${line}: ${dir} uses ${t.slice(0, 11)}…, which rule 13 does not recompute; use sha256`);
           for (const h of want[kind]) if (!have.has(h)) note(HEADERS, `line ${line}: ${dir} does not admit the inline ${kind} whose hash is ${h} — the browser will refuse it`);
-          for (const h of have) if (!want[kind].has(h)) note(HEADERS, `line ${line}: ${dir} admits ${h}, which matches no inline ${kind} in the served HTML (a stale hash)`);
+          for (const h of have) if (!want[kind].has(h) && !(kind === 'style' && styleIncomplete)) note(HEADERS, `line ${line}: ${dir} admits ${h}, which matches no inline ${kind} in the served HTML (a stale hash)`);
           for (const o of origins[kind]) if (!toks.map(t => t.toLowerCase()).includes(o)) note(HEADERS, `line ${line}: the HTML loads a ${kind === 'style' ? 'stylesheet' : 'script'} from ${o}, which ${dir} does not name`);
         }
       }
@@ -884,8 +917,6 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
   const bare = attrs => attrs.replace(/=\s*(?:"[^"]*"|'[^']*'|[^\s"'`=>]+)/g, '=""');
   // The backslashes are doubled: in a plain string '\w' is just 'w', which made `notdisabled` and `disabledx` read as disabled.
   const hasAttr = (attrs, name) => new RegExp('(?<![\\w-])' + name + '(?![\\w-])', 'i').test(bare(attrs));
-  const TAG = /<([a-zA-Z][\w-]*)\b((?:"[^"]*"|'[^']*'|[^>"'])*)>/g;
-  const ANCHOR = /<a\b((?:"[^"]*"|'[^']*'|[^>"'])*)>([\s\S]*?)<\/a\s*>/gi;
   const LABEL_ATTR = /(?<![\w-])(?:aria-label|title)\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+)/gi; // what a link is called besides its text
   const ALT_ATTR = /(?<![\w-])alt\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+)/gi;
   // The one live button the site allows is the language switch, and it is allowed NARROWLY: the button's whole text must be one of the strings the shared render writes (SWITCH_BUTTONS in
@@ -925,39 +956,49 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
     if (n === 0) note(p.file, `pinned passage ${p.fp} (${p.start}) matches no passage of the page, so the pin excuses nothing: remove it, or re-pin the passage if its words changed`);
     else if (n !== p.count) note(p.file, `pinned passage ${p.fp} (${p.start}) appears ${n} time(s) on the page, the pin allows ${p.count}: a copy of a withdrawn quote is a new occurrence, so the pin exempts none of them until the extra copy is removed or the count is re-confirmed`);
   }
+  // The start tags, the <a> elements and the <script> bodies of each production page are read by the shared reader (scripts/lib/page-claims.mjs), as rule 13 reads them: a tag ends at its real
+  // `>` within a bound, an element's body is read to its own closer, and a tag or an element the reader cannot finish is a finding, never a pass ). The line of a hit is counted only when a
+  // hit is reported, so a page of many tags costs one pass, not one line count per tag.
   for (const f of PRODUCTION_PAGES) {
     const s = read(f);
-    for (const m of s.matchAll(TAG)) {
-      const tag = m[1].toLowerCase(), attrs = m[2], at = lineAt(s, m.index);
+    const tagsRead = pageClaims ? pageClaims.startTagsOf(s, /<([a-zA-Z][\w-]*)\b/g) : { tags: [], unread: [] };
+    if (tagsRead.unread.length) note(f, `has ${tagsRead.unread.length} start tag(s) the reader cannot read to their end (first at line ${lineAt(s, tagsRead.unread[0])}), so the buy-control and payment checks cannot read them`);
+    const scriptBodies = new Map(pageClaims ? pageClaims.elementsOf(s, /<(script)\b/gi).elements.map(e => [e.tag.index, e.body]) : []);
+    for (const t of tagsRead.tags) {
+      const tag = t.name.toLowerCase(), attrs = t.text.slice(1 + t.name.length, -1);
       if (tag === 'button') {
         buttonsSeen++;
         /* BUY_BTN:begin */
-        if (!hasAttr(attrs, 'disabled') && !isSwitchButton(s, m.index)) note(f, 'line ' + at + ': has a button that is not disabled; a production page sells nothing yet, so every buy button stays disabled');
+        if (!hasAttr(attrs, 'disabled') && !isSwitchButton(s, t.index)) note(f, 'line ' + lineAt(s, t.index) + ': has a button that is not disabled; a production page sells nothing yet, so every buy button stays disabled');
         /* BUY_BTN:end */
       }
       /* BUY_FORM:begin */
-      if (tag === 'form' || (tag === 'input' && SUBMITTY.test(attrs) && !hasAttr(attrs, 'disabled'))) note(f, 'line ' + at + ': has a form or a submit-type input; a production page sells nothing yet, so it takes no order');
+      if (tag === 'form' || (tag === 'input' && SUBMITTY.test(attrs) && !hasAttr(attrs, 'disabled'))) note(f, 'line ' + lineAt(s, t.index) + ': has a form or a submit-type input; a production page sells nothing yet, so it takes no order');
       /* BUY_FORM:end */
       /* PAY_SCRIPT:begin */
       if (tag === 'script') {
         const src = (attrs.match(/(?<![\w-])src\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+)/i) || [])[1] || '';
-        const body = (s.slice(m.index + m[0].length).match(/^([\s\S]*?)<\/script\b/i) || [])[1] || '';
-        if (PAY_HOST.test(src) || /\bPaddle\s*[.=(]|\bpaddle_billing\b/.test(body)) note(f, 'line ' + at + ': carries a payment script (a Paddle host or the Paddle global); no payment code ships until a plan can be bought');
+        const body = scriptBodies.get(t.index) || '';
+        if (PAY_HOST.test(src) || /\bPaddle\s*[.=(]|\bpaddle_billing\b/.test(body)) note(f, 'line ' + lineAt(s, t.index) + ': carries a payment script (a Paddle host or the Paddle global); no payment code ships until a plan can be bought');
       }
       /* PAY_SCRIPT:end */
       /* PAY_URL:begin */
-      for (const u of attrs.matchAll(URL_ATTR)) if (!(tag === 'script' && u[1].toLowerCase() === 'src') && PAY_URL.test(u[2])) note(f, 'line ' + at + ': has a checkout or payment URL (' + u[2].replace(/^["']|["']$/g, '').slice(0, 60) + '); no checkout is open yet');
+      for (const u of attrs.matchAll(URL_ATTR)) if (!(tag === 'script' && u[1].toLowerCase() === 'src') && PAY_URL.test(u[2])) note(f, 'line ' + lineAt(s, t.index) + ': has a checkout or payment URL (' + u[2].replace(/^["']|["']$/g, '').slice(0, 60) + '); no checkout is open yet');
       /* PAY_URL:end */
     }
     /* BUY_LINK:begin */
-    for (const m of s.matchAll(ANCHOR)) {
+    const anchors = pageClaims ? pageClaims.elementsOf(s, /<(a)\b/gi) : { elements: [], unclosed: [], unread: [] };
+    if (anchors.unread.length) note(f, `has ${anchors.unread.length} link tag(s) the reader cannot read to their end (first at line ${lineAt(s, anchors.unread[0])}), so the buy-link check cannot read them`);
+    if (anchors.unclosed.length) note(f, `has ${anchors.unclosed.length} <a> element(s) with no closer (first at line ${lineAt(s, anchors.unclosed[0])}), so the buy-link check cannot read their text`);
+    for (const e of anchors.elements) {
+      const attrs = e.tag.text.slice(2, -1);
       let label = '';
       /* BUY_LABEL:begin */
-      for (const a of m[1].matchAll(LABEL_ATTR)) label += ' ' + a[1].replace(/^["']|["']$/g, '');
-      for (const a of m[2].matchAll(ALT_ATTR)) label += ' ' + a[1].replace(/^["']|["']$/g, '');
+      for (const a of attrs.matchAll(LABEL_ATTR)) label += ' ' + a[1].replace(/^["']|["']$/g, '');
+      for (const a of e.body.matchAll(ALT_ATTR)) label += ' ' + a[1].replace(/^["']|["']$/g, '');
       /* BUY_LABEL:end */
-      const text = m[2].replace(/<[^>]*>/g, ' ') + label;
-      if (BUY_WORDS.test(text) || /(?<![\w-])role\s*=\s*["']?button\b/i.test(m[1])) note(f, 'line ' + lineAt(s, m.index) + ': has a link that reads as a buy control ("' + text.replace(/\s+/g, ' ').trim().slice(0, 40) + '"); a production page sells nothing yet');
+      const text = e.body.replace(/<[^>]*>/g, ' ') + label;
+      if (BUY_WORDS.test(text) || /(?<![\w-])role\s*=\s*["']?button\b/i.test(attrs)) note(f, 'line ' + lineAt(s, e.tag.index) + ': has a link that reads as a buy control ("' + text.replace(/\s+/g, ' ').trim().slice(0, 40) + '"); a production page sells nothing yet');
     }
     /* BUY_LINK:end */
   }

@@ -1,4 +1,4 @@
-// Tests for surface-check rules 15 (the dropped "no trackers" claim, LWK-273) and 16 (no robots noindex on a production page, LWK-271), and for the readers behind them (scripts/lib/page-claims.mjs).
+// Tests for surface-check rules 15 (the dropped "no trackers" claim) and 16 (no robots noindex on a production page), and for the readers behind them (scripts/lib/page-claims.mjs).
 //
 // Each rule owes three things, and this file is where they are held:
 //   1. RED-FIRST: the rule FIRES on the dirty input (the reviewer's mutant I1, a noindex meta on the home page; the page set at the parent of 94b9415, which says "no trackers"). The gate tests run
@@ -304,8 +304,8 @@ test('the readers finish on bulk input that gives them nothing to match: untermi
 });
 
 // The unterminated-tag half uses 4,000 tags, not 40,000: at 40,000 the whole gate took about 76 s on this box (measured 2026-10-24), and that cost is NOT in rules 15 and 16. Rule 13's `<meta ... http-equiv` test and
-// rule 17's TAG pattern each scan from every `<meta` to the end of the page when no `>` closes it, so the gate is quadratic in that input. Those two patterns are not bounded here. A follow-up gives them the
-// bounded tag reader of scripts/lib/page-claims.mjs. The readers themselves are checked for linear time by the child test above: it runs N = 50,000 of each shape under a 512 MB heap cap and a 60 s SIGKILL,
+// rule 17's TAG pattern each scanned from every `<meta` to the end of the page when no `>` closed it, so the gate was quadratic in that input. Both now read their tags with the bounded reader of
+// scripts/lib/page-claims.mjs, and the gate rows further down hold them. The readers themselves are checked for linear time by the child test above: it runs N = 50,000 of each shape under a 512 MB heap cap and a 60 s SIGKILL,
 // and asserts that the child finished, with no timing assert.
 // The passage half is a time criterion, chosen by its margin: 8,000 passages under a 60 s kill. Measured on the box of 2026-10-24, the fixed rule took about 8 s and the rule as it stood at 7aefb8b, quadratic
 // in the passages, took about 238 s, so the kill sits about seven times above the first and about four times below the second, and either margin survives a runner that is several times slower or a little faster.
@@ -331,4 +331,97 @@ test('RED PROOF at the gate: surface-check finishes on a page of 4,000 untermina
     const others = b.out.split('\n').filter(l => l.trim() && !/says "no trackers"/.test(l)).slice(0, 5);
     assert.equal(named >= 8000, true, `every hit is named: ${named} of 8000 named; status ${b.status}; output ${b.out.length} characters; other lines ${JSON.stringify(others)}; the output's last 300 characters ${JSON.stringify(b.out.slice(-300))}`);
   } finally { rmSync(dir2, { recursive: true, force: true }); }
+});
+
+// ── CLASS B: an opener with no closer costs a bounded scan ─────────────────────────────────────────────
+// Each gate row appends BULK_N openers with no closer to a page and runs surface-check in a child under a heap cap (512 MB) and a kill timer (60 s). The row asserts that the child
+// FINISHED: not killed and no signal, and that it exits with a finding. No time is asserted, so the row cannot pass on a fast box and fail on a slow one, and a quadratic rule is killed.
+// The rows that cannot be isolated are not here: rule 17's visible-text strip (rule 17a) and rule 5 read the same openers and are not changed here (a follow-up gives them the same reader).
+const BULK_N = 200000;
+const bulkGate = (dir, unit) => {
+  edit(dir, 'web/index.html', s => s.replace('</body>', unit.repeat(BULK_N) + '</body>'));
+  return spawnSync(process.execPath, ['--max-old-space-size=512', join(dir, 'scripts/surface-check.mjs')], { encoding: 'utf8', timeout: 60000, killSignal: 'SIGKILL', cwd: dir, env: childEnv(dir), maxBuffer: 64 << 20 });
+};
+const finishedNamed = (r, label) => {
+  assert.equal(r.error, undefined, label + ': surface-check was killed by the 60 s timer, so it did not finish: ' + (r.error && r.error.code));
+  assert.equal(r.signal, null, label + ': killed by ' + r.signal);
+  assert.equal(r.status, 1, label + ': finished, and it must name the page: ' + (r.stdout + r.stderr).slice(0, 400));
+  assert.match(r.stdout + r.stderr, /web\/index\.html/, label);
+};
+test('CLASS B gate row, rule 13 and rule 16: 200,000 unterminated <meta " openers finish and name the page', () => {
+  const dir = surfaceCopy();
+  try { finishedNamed(bulkGate(dir, '<meta "'), '<meta "'); } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+test('CLASS B gate row, rule 13: 200,000 unterminated <link openers finish and name the page', () => {
+  const dir = surfaceCopy();
+  try { finishedNamed(bulkGate(dir, '<link '), '<link '); } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+test('CLASS B gate row, rules 13 and 17: 200,000 unterminated <a openers finish and name the page', () => {
+  const dir = surfaceCopy();
+  try { finishedNamed(bulkGate(dir, '<a '), '<a '); } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+test('CLASS B gate row, rule 17: 200,000 unclosed <a> elements finish and name the page', () => {
+  const dir = surfaceCopy();
+  try { finishedNamed(bulkGate(dir, '<a>'), '<a>'); } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('rule 13 does not pass a <script> or a <style> it cannot close: each is a finding that names its page and line, and an unclosed <style> raises no stale-hash note for the page', () => {
+  const dir = surfaceCopy();
+  try {
+    const after = edit(dir, 'web/index.html', s => s.replace('</body>', '<script>var probe = 1;\n<style>.probe{color:#000}\n</body>'));
+    const line = lineOf(after, after.indexOf('<script>var probe'));
+    const r = spawnSync(process.execPath, ['--max-old-space-size=512', join(dir, 'scripts/surface-check.mjs')], { encoding: 'utf8', timeout: 120000, killSignal: 'SIGKILL', cwd: dir, env: childEnv(dir), maxBuffer: 64 << 20 });
+    const out = r.stdout + r.stderr;
+    assert.equal(r.status, 1, out);
+    assert.ok(out.includes(`web/index.html: has 1 <script> element(s) with no closer (first at line ${line})`), out);
+    assert.ok(out.includes('web/index.html: has 1 <style> element(s) with no closer'), out);
+    assert.ok(!/web\/_headers: line \d+: style-src admits .* \(a stale hash\)/.test(out), 'no stale-hash note for the styles of a page that could not be read: ' + out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ── CLASS B: the shared reader, as unit tests ─────────────────────────────────────────────────────────────────────
+test('startTagEnd takes the index where the tag NAME ends, and a bound: a tag the bound does not end is unread, and a tag it ends reads to its real >', async () => {
+  const { startTagEnd, startTagsOf, META_MAX } = await lib();
+  assert.equal(startTagEnd('<a href="x>y">z', 2), 14, 'the > inside the quoted value does not end the tag');
+  assert.equal(startTagEnd('<a title="' + 'x'.repeat(50) + '">', 2, 20), -1, 'a bound shorter than the tag: unread');
+  const tag = '<a title="' + 'x'.repeat(50) + '">';
+  assert.equal(startTagEnd(tag, 2), tag.length, 'the default bound reads it, to the index after its >');
+  const r = startTagsOf('<a x="1"><a title="' + 'y'.repeat(META_MAX) + '">', /<(a)\b/gi);
+  assert.equal(r.tags.length, 1, 'the first tag is read');
+  assert.deepEqual(r.unread, [9], 'the long one is unread, at its opener, and nothing is passed');
+});
+
+test('elementsOf: a body is read to its own closer and is not read as tags; a closer is boundary-checked; an element with no closer is unclosed, and the openers after it are too', async () => {
+  const { elementsOf } = await lib();
+  const e = elementsOf('<script>a<a>b</script><script>c</script>', /<(script)\b/gi);
+  assert.deepEqual(e.elements.map(x => x.body), ['a<a>b', 'c'], 'the <a> inside the first body is not an element of its own');
+  assert.deepEqual(e.unclosed, [], e.unread.join());
+  const near = elementsOf('<a>one</abbr>', /<(a)\b/gi);
+  assert.deepEqual(near.elements, [], '</abbr> does not close <a>');
+  assert.deepEqual(near.unclosed, [0], 'the <a> has no closer');
+});
+
+// The reader is linear: on 200,000 unclosed openers of each shape it finishes, under a heap cap and a kill timer. No time is asserted.
+test('the reader finishes on 200,000 unclosed openers of each shape, in a child under a 256 MB heap cap and a 60 s kill timer', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'page-claims-reader-'));
+  const child = `
+    const { startTagsOf, elementsOf } = await import(${JSON.stringify(LIB)});
+    const N = 200000, Q = String.fromCharCode(34);
+    const shapes = [['<meta ' + Q, /<(meta)\\b/gi], ['<link ', /<(link)\\b/gi], ['<a ', /<([a-zA-Z][\\w-]*)\\b/g], ['<a>', /<(a)\\b/gi],
+      ['<script>', /<(script)\\b/gi], ['<style>', /<(style)\\b/gi], ['<script ' + Q, /<(script)\\b/gi]];
+    let seen = 0;
+    for (const [unit, re] of shapes) {
+      const s = unit.repeat(N);
+      const t = startTagsOf(s, re), e = elementsOf(s, re);
+      seen += t.tags.length + t.unread.length + e.elements.length + e.unclosed.length + e.unread.length;
+    }
+    console.log('FINISHED ' + shapes.length + ' ' + (seen > 0));
+  `;
+  try {
+    const r = spawnSync(process.execPath, ['--max-old-space-size=256', '--input-type=module', '-e', child], { encoding: 'utf8', timeout: 60000, killSignal: 'SIGKILL', cwd: dir, env: childEnv(dir) });
+    assert.equal(r.error, undefined, 'the child was not killed by the timeout: ' + (r.error && r.error.message));
+    assert.equal(r.signal, null);
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /^FINISHED 7 true\n?$/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
