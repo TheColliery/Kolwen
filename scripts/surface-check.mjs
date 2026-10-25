@@ -637,8 +637,10 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
 // stale-hash check for styles is skipped with it.
 //
 // STATED LIMITS, not fixed here: the HTML is read as text, not parsed, so a script or style inside an
-// HTML comment is counted (it fails safe, demanding a hash it does not need); the element scans read a <script> or <style> body as raw text, so an opener
-// of another element inside its string is read as an opener, and a valid page with one is a finding (it fails safe); `font-src` is held to 'self' alone
+// HTML comment is counted (it fails safe, demanding a hash it does not need); the element scans read a <script> or <style> body as markup, so an opener of another
+// element inside its string is read as an opener, and a valid page with one is a finding (it fails safe for the handler and link tests); but a <script> or <style>
+// opener inside other data (a comment, a style, a title) can make the hash routine hash the wrong body, so rule 13 can admit a hash the browser does not match:
+// a FAIL-OPEN, not yet fixed; `font-src` is held to 'self' alone
 // and every url() of a tracked stylesheet (the font manifest) must be a file of this site that rule 7 declares, but a stylesheet the edge or a
 // browser extension adds is not in the repo and not seen; `style-src` carrying `'unsafe-inline'` is not refused (a hash makes browsers
 // ignore it); nothing the edge injects into the response is in the repo, so nothing here can see it (the
@@ -927,7 +929,8 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
 //
 // NON-VACUITY: if no production page holds any <button> at all the button check read nothing (the header's
 // language buttons are the standing sample), and that is a finding, not a pass. STATED LIMITS: the HTML is read as text, so
-// a control inside a comment counts (fails safe); "disabled" is read as a bare attribute, so a button the page's own
+// a control inside a comment counts (fails safe); a tag written inside a <script> or <style> body is read as markup, so an <a> string there can swallow the real
+// link after it and hide its role, aria-label and title from this check: a FAIL-OPEN, not yet fixed; "disabled" is read as a bare attribute, so a button the page's own
 // script enables at run time is not seen; the language-switch allowance is the exact button and its place, so a live button must be
 // byte for byte one of SWITCH_BUTTONS inside the header or footer block; a link that sells without saying so ("Continue", a bare arrow), a payment script served from the site's own
 // origin, a checkout URL on another word, a custom element and an onclick handler are not read (rule 13 already refuses
