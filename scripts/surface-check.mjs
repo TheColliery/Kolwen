@@ -402,8 +402,9 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
 // an empty block (no contents, same as the bare-word class); `read-all`/`write-all` read as
 // granting contents, per GitHub's own docs (F3).
 //
-// FAIL CLOSED, for the structure this reader reads: a job key line, a member line of a job (4-space indent), and the lines of a permissions: block. A job key with text after its
-// colon (a trailing comment is not text) or a key that is not a plain name is named and opens no job, so its members are not handed to the job above. A member line that is not a plain
+// FAIL CLOSED, for the structure this reader reads: a job key line, a member line of a job (at the indent of the job's first member line), and the lines of a permissions: block.
+// A job key with text after its colon (a trailing comment is not text) or a key that is not a plain name is named, and the job is still opened: its members are read with
+// it, never handed to the job above. A member line that is not a plain
 // `name:` key (a quoted or spaced key, a flow mapping) is named, and its job is not passed. A permissions value other than an empty block, `{}`, `read-all` or `write-all` (a flow mapping,
 // an anchor, an alias) is named as unread. A uses: line is read with its quotes stripped. NOT CLAIMED: the step items and the block scalars below a job's members (a `run: |` body, for
 // example) are read only for a uses: line, because a line reader cannot tell free text from structure without a YAML parser; a composite or reusable workflow step
