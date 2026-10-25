@@ -636,11 +636,10 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
 // reader cannot end, or an element with no closer, is a finding that names its page, so an unreadable page is never a pass. A page with an unclosed <style> is not hashed (see the rule), and its
 // stale-hash check for styles is skipped with it.
 //
-// STATED LIMITS, not fixed here: the HTML is read as text, not parsed, so a script or style inside an
-// HTML comment is counted (it fails safe, demanding a hash it does not need); the element scans read a <script> or <style> body as markup, so an opener of another
-// element inside its string is read as an opener, and a valid page with one is a finding (it fails safe for the handler and link tests); but a <script> or <style>
-// opener inside other data (a comment, a style, a title) can make the hash routine hash the wrong body, so rule 13 can admit a hash the browser does not match:
-// a FAIL-OPEN, not yet fixed; `font-src` is held to 'self' alone
+// STATED LIMITS, not fixed here: the HTML is read as markup inside four kinds of data the browser treats as text: a <script> or <style> body, an HTML comment,
+// a <title> and a <textarea>. A <script> or <style> opener inside any of them can make the hash routine hash the wrong body, so rule 13 can admit a hash the
+// browser does not match: a FAIL-OPEN, not yet fixed. Inside a script or style body an opener of another element is read as an opener, and a valid page with one
+// is a finding (it fails safe for the handler and link tests). `font-src` is held to 'self' alone
 // and every url() of a tracked stylesheet (the font manifest) must be a file of this site that rule 7 declares, but a stylesheet the edge or a
 // browser extension adds is not in the repo and not seen; `style-src` carrying `'unsafe-inline'` is not refused (a hash makes browsers
 // ignore it); nothing the edge injects into the response is in the repo, so nothing here can see it (the
@@ -928,9 +927,9 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
 // so each shape has exactly one clause that owns it).
 //
 // NON-VACUITY: if no production page holds any <button> at all the button check read nothing (the header's
-// language buttons are the standing sample), and that is a finding, not a pass. STATED LIMITS: the HTML is read as text, so
-// a control inside a comment counts (fails safe); a tag written inside a <script> or <style> body is read as markup, so an <a> string there can swallow the real
-// link after it and hide its role, aria-label and title from this check: a FAIL-OPEN, not yet fixed; "disabled" is read as a bare attribute, so a button the page's own
+// language buttons are the standing sample), and that is a finding, not a pass. STATED LIMITS: a button or a form inside an
+// HTML comment counts (it fails safe). A link is a FAIL-OPEN, not yet fixed: the HTML is read as markup inside a <script> or <style> body, an HTML comment, a
+// <title> or a <textarea>, so an <a> written inside one can swallow the real link after it and hide its role, aria-label and title from this check; "disabled" is read as a bare attribute, so a button the page's own
 // script enables at run time is not seen; the language-switch allowance is the exact button and its place, so a live button must be
 // byte for byte one of SWITCH_BUTTONS inside the header or footer block; a link that sells without saying so ("Continue", a bare arrow), a payment script served from the site's own
 // origin, a checkout URL on another word, a custom element and an onclick handler are not read (rule 13 already refuses
