@@ -402,10 +402,12 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
 // an empty block (no contents, same as the bare-word class); `read-all`/`write-all` read as
 // granting contents, per GitHub's own docs (F3).
 //
-// STATED LIMIT, not fixed here (a LOW unit does not grow this into a YAML parser): a job key at
-// other than 2-space indent, or a quoted job key, is not recognised as a job at all -- such a file
-// now surfaces as "parsed to zero jobs" (a finding, per F1) rather than silently passing, but its
-// jobs are still not individually checked. A composite or reusable workflow step
+// FAIL CLOSED: a line in the jobs block that the reader does not read is a finding at its own line, never a pass. A job key at other than 2-space indent, or a quoted
+// key, is not a job, so a file with no readable job is "parsed to zero jobs" (F1). A plain job key with text after its colon, or a key that is not a plain name,
+// is named, and its members are not handed to the job above. A permissions value other than an empty block, `{}`, `read-all` or `write-all` (a flow mapping, an
+// anchor, an alias) is named as unread. A uses: line is read with its quotes stripped. STATED LIMIT, not fixed here (a LOW unit does not grow this into a YAML
+// parser): a job's own members are read by line, so a job whose members are written in a form this reader does not read is named only where it is a `permissions:`
+// value or a member line; a composite or reusable workflow step
 // (`uses: ./.github/actions/x`) is never read as a checkout -- scoped to `actions/checkout@`
 // on purpose; this repo has no composite actions today.
 {
@@ -419,32 +421,48 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
       let inJobs = false, cur = null;
       const jobs = [];
       const flush = () => { if (cur) jobs.push(cur); };
+      // FAIL CLOSED: a line this reader does not read is a finding at its own line, never a pass. The forms it reads are a plain job key with nothing after its colon, a permissions key with
+      // an empty block (its members are key: value lines), `{}`, `read-all` or `write-all`, and a uses: of actions/checkout, bare or quoted. Anything else is named, and its job is not passed.
       for (let i = 0; i < lines.length; i++) {
         const l = lines[i];
         if (/^jobs:\s*$/.test(l)) { inJobs = true; continue; }
-        if (!inJobs) continue;
-        const j = l.match(/^  ([A-Za-z0-9_.-]+):\s*$/);
-        if (j) { flush(); cur = { name: j[1], hasBlock: false, checkout: false, contents: false }; continue; }
+        if (/^\S/.test(l) && !/^#/.test(l)) { if (inJobs) flush(); inJobs = false; cur = null; continue; } // a top-level key after jobs: ends the jobs block
+        if (!inJobs || /^\s*$/.test(l) || /^\s*#/.test(l)) continue;
+        const key = l.match(/^  (\S[^:]*):(.*)$/);
+        if (key) {
+          flush();
+          const name = key[1].trim(), rest = key[2].trim();
+          cur = { name, hasBlock: false, checkout: false, contents: false, unreadPerm: false };
+          if (rest !== '') note(f, `line ${i + 1}: job "${name}" has text after its colon, so this reader cannot read its jobs`);
+          else if (!/^[A-Za-z0-9_.-]+$/.test(name)) note(f, `line ${i + 1}: job "${name}" is not a plain key name, so this reader cannot read its job`);
+          continue;
+        }
         if (!cur) continue;
-        if (/^    permissions:\s*\{\s*\}\s*$/.test(l)) {
-          cur.hasBlock = true;                                  // `{}` -- nothing specified, contents: none
-        } else if (/^    permissions:\s*(read-all|write-all)\s*$/.test(l)) {
-          cur.hasBlock = true; cur.contents = true;             // the whole-set inline forms grant contents
-        } else if (/^    permissions:\s*$/.test(l)) {
-          // the multi-line block form: scan its members past this line
-          cur.hasBlock = true;
-          for (let k = i + 1; k < lines.length; k++) {
-            const m = lines[k];
-            if (/^\s*$/.test(m)) continue;                     // blank line inside the block: keep scanning
-            const trimmed = m.replace(/^\s+/, '');
-            if (trimmed.startsWith('#')) continue;              // a comment at ANY indent: keep scanning
-            const indent = m.length - trimmed.length;
-            if (indent <= 4) break;                             // back to job level or the next key
-            if (/^contents:/.test(trimmed)) cur.contents = true;
+        const perm = l.match(/^    permissions:(.*)$/);
+        if (perm) {
+          const v = perm[1].replace(/\s+#.*$/, '').trim(); // a trailing comment is not the value
+          if (v === '') {
+            cur.hasBlock = true;
+            for (let k = i + 1; k < lines.length; k++) {
+              const m = lines[k];
+              if (/^\s*$/.test(m)) continue;                     // blank line inside the block: keep scanning
+              const trimmed = m.replace(/^\s+/, '');
+              if (trimmed.startsWith('#')) continue;              // a comment at ANY indent: keep scanning
+              const indent = m.length - trimmed.length;
+              if (indent <= 4) break;                             // back to job level or the next key
+              if (/^[A-Za-z0-9_-]+:/.test(trimmed)) { if (/^contents:/.test(trimmed)) cur.contents = true; }
+              else { note(f, `line ${k + 1}: a line inside permissions: is not a key: value line this reader reads, so the job's permissions cannot be checked`); cur.unreadPerm = true; break; }
+            }
+          } else if (/^\{\s*\}$/.test(v)) {
+            cur.hasBlock = true;                                  // `{}` -- nothing specified, contents: none
+          } else if (v === 'read-all' || v === 'write-all') {
+            cur.hasBlock = true; cur.contents = true;             // the whole-set inline forms grant contents
+          } else {
+            note(f, `line ${i + 1}: permissions: value "${v}" is not one this reader reads (an empty block, {}, read-all or write-all), so the job's permissions cannot be checked`);
+            cur.unreadPerm = true;
           }
         }
-        const lineTrimmed = l.replace(/^\s+/, '');
-        if (!lineTrimmed.startsWith('#') && /uses:\s*actions\/checkout@/.test(l)) cur.checkout = true;
+        if (/uses:\s*["']?actions\/checkout@/.test(l)) cur.checkout = true;
       }
       flush();
       if (jobs.length === 0) {
@@ -452,14 +470,13 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
         continue;
       }
       for (const j of jobs) {
-        if (j.hasBlock && j.checkout && !j.contents) {
+        if (j.hasBlock && j.checkout && !j.contents && !j.unreadPerm) {
           note(f, `job "${j.name}" declares its own permissions: block and checks the repository out, but does not state contents: -- contents reads none inside that job`);
         }
       }
     }
   }
 }
-
 // ── 12. The retired contact address never returns to a published file ──────
 // LWK-209. The role addresses replaced one address at this domain as the published contact; that
 // address is retired, and the published channels are the role addresses.
