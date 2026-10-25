@@ -118,6 +118,9 @@ the pointer to it.
 
 ### Changed
 
+- Rule 11 of `scripts/surface-check.mjs` now fails closed on a workflow's job block. A line in the jobs block that the rule cannot read is a finding at its own line, and a `permissions:` value other than an empty block, `{}`, `read-all` or `write-all` is named as unread, so that job is not passed.
+- Rules 13 and 17 read their start tags and elements through one shared bounded reader, in `scripts/lib/page-claims.mjs`. A tag the reader cannot end, and an element with no closer (such as an unclosed `<script>` or `<style>`), is a finding that names its page, so no page passes unread. A page with an unclosed `<style>` is not checked for style hashes. The scan stays bounded: an opener with no closer costs one search, not one per opener.
+- Rule 13 finds an inline event handler or `style=` attribute without regard to letter case, so `ONCLICK=` is found too.
 - `PRIVACY.md` (a draft, not linked from the site) now marks seven statements about cookies, trackers
   and analytics `[pending legal review]` (the Thai twin with the file's Thai marker `[รอที่ปรึกษากฎหมาย]`):
   "This site sets no cookies at all", "no advertising cookie and no tracker", the quoted Thai and English
