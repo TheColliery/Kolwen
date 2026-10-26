@@ -36,7 +36,7 @@ test('the catch-all never counts: an address with no enabled rule of its own fai
     assert.equal(verdictOf([at('x')], [], catchAll)[at('x')], 'NO RULE', what + ' catch-all');
     assert.deepEqual(judge([at('x')], [], catchAll).map(v => v.ok), [false], what + ' catch-all fails the address');
   }
-  // the reviewer's fixture: a forwarding rule, a disabled one, a drop, and an address with none, under a FORWARDING catch-all
+  // the fixture: a forwarding rule, a disabled one, a drop, and an address with none, under a FORWARDING catch-all
   const rules = [rule(at('a')), rule(at('b'), false), rule(at('c'), true, [{ type: 'drop' }])];
   assert.deepEqual(verdictOf([at('a'), at('b'), at('c'), at('d')], rules, forward), { [at('a')]: 'ROUTES', [at('b')]: 'DISABLED', [at('c')]: 'DROPS', [at('d')]: 'NO RULE' });
 });

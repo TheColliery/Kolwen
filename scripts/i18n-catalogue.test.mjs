@@ -416,7 +416,7 @@ test('the CLI: a catalogue the code cannot read is reported as the catalogue, ne
   }
 });
 
-// ── the JSON slot cannot leave its block (reviewer F1, CodeRabbit 4306866360) ────────────────────────────────────
+// ── the JSON slot cannot leave its block (CodeRabbit 4306866360) ────────────────────────────────────
 test('a {{j:}} slot writes < > & U+2028 and U+2029 as \\u escapes, so a catalogue value cannot close the structured-data block, and the text decodes to the same', () => {
   const BS = String.fromCharCode(92), LS = String.fromCharCode(0x2028), PS = String.fromCharCode(0x2029);
   const nasty = 'a</script><p id=inj>x</p><script>b & c ' + LS + PS + ' "q" ' + BS + ' end';
@@ -435,7 +435,7 @@ test('a {{j:}} slot writes < > & U+2028 and U+2029 as \\u escapes, so a catalogu
   assert.equal(tokens.filter(t => t.type === 'tag' && t.name === 'script' && !t.closing).length, 2, 'two script elements: the data and the page script');
 });
 
-// ── the literal lint reads every channel a visitor sees or hears (reviewer F2) ───────────────────────────────────
+// ── the literal lint reads every channel a visitor sees or hears ───────────────────────────────────
 test('(b) the literal lint reads the value of a button input, the label of an option or track, the ARIA role description, value text and placeholder, the app-name metas, a CSS content string, an inline script or handler, and a JSON-LD @value', () => {
   const base = '<!DOCTYPE html>\n<html lang="en"><head><title>{{home.meta.title}}</title></head><body>\n<p>{{home.origin}}</p>\n</body></html>\n';
   assert.deepEqual(templateProblems(base, 'home'), []);
@@ -459,7 +459,7 @@ test('(b) the literal lint reads the value of a button input, the label of an op
     ['an inline event handler', into('<p>', '<p onclick="go()">'), /inline event handler \(onclick\)/],
     ['a JSON-LD @value', ld('{"@type": "X", "@value": "Plain words"}'), /structured data value "Plain words"/],
     ['a JSON-LD @comment', ld('{"@type": "X", "@comment": "Plain words"}'), /structured data value "Plain words"/],
-    // a visitor without script reads the <noscript> body as markup (reviewer F3): the lint reads it so too
+    // a visitor without script reads the <noscript> body as markup: the lint reads it so too
     ['text in a noscript', into('<p>', '<noscript><p>No script here</p></noscript><p>'), /literal text "No script here"/],
     ['an attribute in a noscript', into('<p>', '<noscript><img alt="No script alt" src="/a.png"></noscript><p>'), /alt holds the literal "No script alt"/],
     ['a CSS content string in a noscript style', into('<p>', '<noscript><style>a::after{content:"Gone"}</style></noscript><p>'), /CSS content string "Gone" in a <style> block/],
@@ -467,7 +467,7 @@ test('(b) the literal lint reads the value of a button input, the label of an op
   ];
   for (const [what, src, re] of planted) assert.ok(templateProblems(src, 'home').some(p => re.test(p)), what + ': ' + JSON.stringify(templateProblems(src, 'home')));
   for (const [what, src] of [
-    ['an input whose value is data (a text field now has its own test: round 2, G1)', into('<p>', '<input type="checkbox" value="m"><input type="hidden" value="x"><p>')],
+    ['an input whose value is data (a text field has its own test)', into('<p>', '<input type="checkbox" value="m"><input type="hidden" value="x"><p>')],
     ['slots in the new channels', into('<p>', '<input type="submit" value="{{=home.origin}}"><div aria-roledescription="{{=home.origin}}" aria-valuetext="{{=home.origin}}"></div><p>')],
     ['a slot in an option label and an app-name meta', into('</head>', '<meta name="application-name" content="{{=home.meta.description}}"><select><option label="{{=home.origin}}"></option></select></head>')],
     ['CSS without a content string', into('</head>', '<style>a::after{content:""} .x{display:flex;justify-content:center;content:center}</style></head>')],
@@ -489,7 +489,7 @@ test('(g) any space separator or invisible character other than the no-break spa
   assert.deepEqual(catalogueProblems(edited('th', o => { o.pricing.soon = 'เร็ว' + AFTER_MATH + ' นี้'; })), [], 'the mark joined to its word');
 });
 
-// ── round 2: the pages are rendered from the catalogue the caller supplies (CodeRabbit 4306966428) ──────────────────
+// ── the pages are rendered from the catalogue the caller supplies (CodeRabbit 4306966428) ──────────────────
 test('(b) the shared blocks (the header, the footers, the page note) are rendered from the catalogue the caller supplies, not from the loaded one', () => {
   const o = structuredClone(CAT.messages);
   o.en['shared.header.pricing'] = 'Prices, supplied';
@@ -510,7 +510,7 @@ test('(b) the shared blocks (the header, the footers, the page note) are rendere
   for (const [file, html] of Object.entries(again.pages)) assert.equal(html, read(file), file + ' is the committed page again');
 });
 
-// ── round 2: each slot kind has its own place (CodeRabbit 4306966429) ───────────────────────────────────────────────
+// ── each slot kind has its own place (CodeRabbit 4306966429) ───────────────────────────────────────────────
 test('(b) a {{j:}} slot is read only inside structured data, and an attribute or a text slot is refused there; a text slot is refused in an attribute', () => {
   const base = '<!DOCTYPE html>\n<html lang="en"><head><title>{{home.meta.title}}</title></head><body>\n';
   const ok = base + '<p>{{home.origin}}</p>\n</body></html>\n';
@@ -531,7 +531,7 @@ test('(b) a {{j:}} slot is read only inside structured data, and an attribute or
     ['an attribute slot in structured data', ld('{"@type": "Organization", "name": "{{=shared.brand}}"}'), /structured data reads an attribute slot; a JSON string reads \{\{j:key\}\}/],
     ['a text slot in structured data', ld('{"@type": "Organization", "name": "{{shared.brand}}"}'), /structured data reads a text slot; a JSON string reads \{\{j:key\}\}/],
     ['a block slot in structured data', ld('{"@type": "Organization", "name": "{{block:site-header}}"}'), /structured data reads a block or raw slot/],
-    // the follow-ups promised on PR #52 (CodeRabbit 4307106771 and 4307106775, and the reviewer's H1 and H2)
+    // the follow-ups promised on PR #52 (CodeRabbit 4307106771 and 4307106775)
     ['a block slot inside a paragraph', into('<p>{{home.origin}}</p>', '<p>{{block:site-header}}</p>'), /line 3: a \{\{block:\}\} or \{\{raw:\}\} slot must stand alone on its line/],
     ['a block slot beside markup on its line', into('<p>{{home.origin}}</p>', '{{block:site-header}}<p>{{home.origin}}</p>'), /a \{\{block:\}\} or \{\{raw:\}\} slot must stand alone on its line/],
     ['a raw slot beside another slot', into('<p>{{home.origin}}</p>', '{{raw:script}}{{block:site-header}}'), /a \{\{block:\}\} or \{\{raw:\}\} slot must stand alone on its line/],
@@ -564,7 +564,7 @@ test('(b) a {{j:}} slot is read only inside structured data, and an attribute or
   ]) assert.deepEqual(templateProblems(src, 'home'), [], what);
 });
 
-// ── round 2: the channels the reviewer named (G1) ───────────────────────────────────────────────────────────────────
+// ── the channels the catalogue lint reads ───────────────────────────────────────────────────────────────────
 test('(b) the literal lint reads the value of a text field, an ld+json block whatever the case of its type, and a javascript: URL', () => {
   const base = '<!DOCTYPE html>\n<html lang="en"><head><title>{{home.meta.title}}</title></head><body>\n<p>{{home.origin}}</p>\n</body></html>\n';
   const into = (where, text) => base.replace(where, text);
@@ -595,7 +595,7 @@ test('(b) the literal lint reads the value of a text field, an ld+json block wha
     ['a meta refresh to a javascript: URL', into('<p>', '<meta http-equiv="refresh" content="0;url=javascript:go()"><p>'), /meta refresh .* javascript: URL/],
     ['a meta refresh to a quoted javascript: URL', into('<p>', '<meta http-equiv="Refresh" content="0; URL=\'javascript:go()\'"><p>'), /meta refresh .* javascript: URL/],
     ['a meta refresh to a javascript: URL written with a reference', into('<p>', '<meta http-equiv="refresh" content="0;url=&#106;avascript:go()"><p>'), /meta refresh .* javascript: URL/],
-    // PR #58 round 1 (CodeRabbit 4309797624): the attribute that picks the refresh check is read as a browser reads it too
+    // CodeRabbit 4309797624, PR #58: the attribute that picks the refresh check is read as a browser reads it too
     ['a meta refresh whose http-equiv is written with a reference', into('<p>', '<meta http-equiv="refre&#115;h" content="0;url=javascript:go()"><p>'), /meta refresh .* javascript: URL/],
     ['a meta refresh whose http-equiv is written with a hex reference in capitals', into('<p>', '<meta http-equiv="&#x52;EFRESH" content="0;url=javascript:go()"><p>'), /meta refresh .* javascript: URL/],
     ['a meta refresh whose http-equiv holds a reference the check cannot read', into('<p>', '<meta http-equiv="refresh&nosuchname;" content="0;url=/pricing"><p>'), /attribute http-equiv holds a character reference the check cannot read/],
@@ -617,7 +617,7 @@ test('(b) the literal lint reads the value of a text field, an ld+json block wha
   ]) assert.deepEqual(templateProblems(src, 'home'), [], what);
 });
 
-// ── round 2: the Thai rule reads U+2800, U+2028 and U+2029 too (G2a) ─────────────────────────────────────────────────
+// ── the Thai rule reads U+2800, U+2028 and U+2029 too ─────────────────────────────────────────────────
 test('(g) U+2800, U+2028 and U+2029 before the Thai repetition mark fail too', () => {
   for (const cp of [0x2800, 0x2028, 0x2029]) {
     const bad = edited('th', o => { o.pricing.soon = 'เร็ว' + String.fromCharCode(cp) + AFTER_MATH + ' นี้'; });

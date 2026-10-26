@@ -911,7 +911,7 @@ test('surface-check rule 4 refuses every other space separator and default-ignor
       assert.match(r.stdout + r.stderr, /web\/pricing\.html: invisible character U\+A0 written as an entity/, entity);
     }
     // a reference that only STARTS with those digits is another character, not a no-break space (U+0640, U+0A01, U+3E80): no finding from this rule
-    for (const other of ['&#1600;', '&#xA01;', '&#16000;', '&NBSP;', '&NBSP', '&Nbsp;', '&NonbreakingSpace;', '&nonbreakingspace;']) { // HTML names are case-sensitive: `&NBSP;` is no reference at all (CodeRabbit 4309062069, the reviewer's L-3)
+    for (const other of ['&#1600;', '&#xA01;', '&#16000;', '&NBSP;', '&NBSP', '&Nbsp;', '&NonbreakingSpace;', '&nonbreakingspace;']) { // HTML names are case-sensitive: `&NBSP;` is no reference at all (CodeRabbit 4309062069)
       writeFileSync(join(dir, 'web/pricing.html'), page.replace('Coming soon', 'Coming' + other + ' soon'));
       const r = surface(dir);
       assert.doesNotMatch(r.stdout + r.stderr, /written as an entity \(&nbsp;\)/, other + ': ' + r.stdout + r.stderr);
@@ -990,7 +990,7 @@ test('surface-check rule 4 reads the character references of a Markdown file out
       assert.equal(r.status, 1, ref + ': ' + r.stdout + r.stderr);
       assert.match(r.stdout + r.stderr, /README\.md: invisible character U\+A0 written as an entity/, ref);
     }
-    // PR #58 round 1 (CodeRabbit 4309797641, the reviewer's L-2): a backslash makes the character after it literal outside code, so an escaped backtick opens no code span (its prose is still prose) and an
+    // CodeRabbit 4309797641, PR #58: a backslash makes the character after it literal outside code, so an escaped backtick opens no code span (its prose is still prose) and an
     // escaped ampersand starts no reference; inside a code span a backslash is just a backslash, so it does not hide the closing backtick; an escaped backslash escapes nothing after it
     const BSL = String.fromCharCode(92);
     for (const [what, tail] of [
@@ -1042,7 +1042,7 @@ test('surface-check rule 17 allows a live button only when it is exactly a switc
     const REAL = '<button type="button" data-lang-set="en" lang="en" aria-pressed="true">English</button>';
     assert.ok(real.includes(REAL), 'the page holds the real switch button');
     const cases = [
-      ['the reviewer witness: a buy button carrying the attribute, in main', x => x.replace('<main>', () => '<main><button type="button" data-lang-set="en">Buy now</button>')],
+      ['a buy button carrying the attribute, in main', x => x.replace('<main>', () => '<main><button type="button" data-lang-set="en">Buy now</button>')],
       ['a buy button carrying the attribute inside the header block', x => x.replace(MARK.header.begin, () => MARK.header.begin + '\n<button type="button" data-lang-set="en">Buy now</button>')],
       ['a footer-block button with the attribute and another text', x => x.replace(MARK.en.begin, () => MARK.en.begin + '\n<button type="button" data-lang-set="th" lang="th" aria-pressed="false">Buy</button>')],
       ['the real switch button, moved out of the shared blocks into main', x => x.replace('<main>', () => '<main>' + REAL)],
@@ -1242,7 +1242,7 @@ test('a value renders on the privacy page only, in both languages, and an invali
   assert.ok(bad.problems.some(p => p.startsWith('legal/controller.json:')), bad.problems.join(' | '));
 });
 
-// INSPECT L-1 (1017j): a misspelt slot was read as an unset placeholder and HELD the passage, so the controller sentence vanished from the page with the build green. In PRIVACY.md a token that reads as the slot
+// A misspelt slot was read as an unset placeholder and HELD the passage, so the controller sentence vanished from the page with the build green. In PRIVACY.md a token that reads as the slot
 // (case and white space folded) but is not the exact slot now fails the build, naming the token; any other unknown token keeps the hold.
 test('a misspelt controller slot in PRIVACY.md fails the build, naming the token, with a name or without one; another unknown token keeps the hold', () => {
   const near = ['{{ controller-name }}', '{{Controller-Name}}', '{{CONTROLLER-NAME}}', '{{controller-name }}', '{{\tcontroller-name\t}}'];

@@ -269,7 +269,7 @@ test('seam 4: a Set-Cookie header, a document.cookie write and a Worker cookie c
   // and the look-alikes that only read are not writes
   for (const code of ['var [a, b] = [x, document.cookie];', 'f({ k: document.cookie });', 'for (const c of document.cookie.split(";")) {}', 'var o = { k: document.cookie }; var z = 1;', 'if ([document.cookie] == z) {}', 'if ([document.cookie] === z) {}', 'for (var i in document.cookie) {}', 'var q = { k: document.cookie }\nb = 1', 'x = [document.cookie]\ny = 2'])
     assert.deepEqual(one('web/index.html', inline(code)), [], code);
-  // PR #56 round 1 (CodeRabbit 4309062039, the reviewer's L-2): a for-of or for-in target with a comment or closing delimiters before `of`, the update operators, a line comment ended by CR, U+2028 or
+  // CodeRabbit 4309062039, PR #56: a for-of or for-in target with a comment or closing delimiters before `of`, the update operators, a line comment ended by CR, U+2028 or
   // U+2029, and a property or key spelled with an escape. Built from code points: the test file holds no escape of its own.
   const BS = String.fromCharCode(92), CR = String.fromCharCode(13), LS = String.fromCharCode(0x2028), PS = String.fromCharCode(0x2029), NL = String.fromCharCode(10);
   const more = [
@@ -280,12 +280,12 @@ test('seam 4: a Set-Cookie header, a document.cookie write and a Worker cookie c
     'document.' + BS + 'u0063ookie = "a=b";', 'document.' + BS + 'u{63}ookie = "a=b";', 'document.c' + BS + 'u006Fokie = "a=b";', 'document["c' + BS + 'x6fokie"] = "a=b";', 'document["' + BS + 'u0063ookie"] += "a=b";',
     'document[`c' + BS + 'x6Fokie`] = "a=b";', 'document["c' + BS + 'u{6f}okie"]++;',
     // PR #56 catch-up (CodeRabbit, the legacy octal escape): a classic inline script runs in sloppy mode, where a string key may spell each letter of `cookie` as a three-digit octal escape
-    // INSPECT L-3 (1017j): the two forms still unseen after the octal row: an identity escape (a backslash before a letter that is no escape yields the letter, so each of c, o, k, i, e) and a line continuation
+    // Two forms the reader did not yet see, after the octal row: an identity escape (a backslash before a letter that is no escape yields the letter, so each of c, o, k, i, e) and a line continuation
     // (a backslash and a line break yield nothing), alone, between the letters, at either end, and with a CRLF, in a double-quoted, single-quoted and template key
     'document["' + BS + 'c' + BS + 'o' + BS + 'o' + BS + 'k' + BS + 'i' + BS + 'e"] = "a=b";', 'document["coo' + BS + NL + 'kie"] = "a=b";', "document['" + BS + 'c' + BS + 'ookie\'] += "a=b";',
     'document["' + BS + NL + 'cookie' + BS + NL + '"]++;', 'document[`c' + BS + String.fromCharCode(13, 10) + 'oo' + BS + 'k' + BS + NL + BS + NL + 'ie`] = "a=b";', 'document["c' + BS + String.fromCharCode(0x2028) + 'ookie"] = "a=b";',
     'document["' + BS + '143ookie"] = "a=b";','document["c' + BS + '157' + BS + '157' + BS + '153' + BS + '151' + BS + '145"] += "a=b";', 'document[`' + BS + '143' + BS + '157okie`]++;',
-    // PR #56 round 2 (Q-8a): a comment between the object, the dot and the name, or inside the brackets
+    // PR #56: a comment between the object, the dot and the name, or inside the brackets
     'document /* c */ . /* c */ cookie = "x";', 'document. /* c */ cookie = "x";', 'document. // c' + NL + ' cookie = "x";', 'document[ /* c */ "cookie" /* c */ ] = "x";', 'document[ // c' + NL + ' "cookie" ] += "x";',
     'document. /* c */ cookie++;', '++document. /* c */ cookie;', 'for (document. /* c */ cookie of l) {}', '[document. /* c */ cookie] = a;', '({ k: document /* c */ . /* c */ cookie } = o);',
   ];
@@ -293,7 +293,7 @@ test('seam 4: a Set-Cookie header, a document.cookie write and a Worker cookie c
     p('web/index.html', inline(code), /writes document\.cookie/, code);
     p('worker/index.js', code, /writes document\.cookie/, 'a code file: ' + code);
   }
-  // L-3 quiet rows: an escape that yields another letter, a continuation inside another word, and a continuation with no letter after it are not the cookie
+  // Quiet rows: an escape that yields another letter, a continuation inside another word, and a continuation with no letter after it are not the cookie
   for (const code of ['document["' + BS + 'd' + BS + 'ookie"] = "a=b";', 'document["coo' + BS + NL + 'kies"] = "a=b";', 'document["' + BS + 'c' + BS + 'o' + BS + 'o' + BS + 'k' + BS + 'i"] = "a=b";', 'document["co' + BS + NL + 'o"] = "a=b";']) {
     assert.deepEqual(one('web/index.html', inline(code)), [], code);
   }
@@ -366,7 +366,7 @@ test('seam 4: the cookie check finishes on pathological input: every input ends 
   assert.match(r.stdout, /^FINISHED 26\n?$/);
 });
 
-// INSPECT L-4 (1017j): every block comment the pattern tries to skip scans to the next end marker, so many openers with no marker after them cost the square of their count (measured at the base commit:
+// Every block comment the pattern tries to skip scans to the next end marker, so many openers with no marker after them cost the square of their count (measured at the base commit:
 // 500 units of `document[/*x` 30 ms, 1,000 109 ms, 2,000 445 ms, 4,000 1,803 ms). The linear form: before the patterns run, the span of all openers (each one's distance to its end marker, or to the end of
 // the text) is summed in one pass; a text whose span passes max(16 x its length, 5,000,000) is not read and is a finding. A real file has each opener close to its own end marker, so its span is about its
 // length.
