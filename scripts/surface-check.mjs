@@ -202,13 +202,19 @@ for (const f of tracked.filter(PUBLISHED)) {
 // Named "structure", not "parity": these assert that both language blocks exist and that the
 // right one is default-visible. They do NOT compare the two blocks claim-for-claim. A real
 // parity assertion is a separate unit; until it exists the weaker name is the true one.
+// The page-claims library is loaded above section 5, because the balance count reads the same walk the page rules read; the readers further down use this import.
+let pageClaims = null;
+try { pageClaims = await import(pathToFileURL(resolve('scripts/lib/page-claims.mjs')).href); }
+catch (e) { note('scripts/lib/page-claims.mjs', 'could not be loaded, so the balance count and rules 5, 15, 16 and 17a could not read the pages (' + (e.code || 'import failed') + ')'); }
+const BALANCED = ['html', 'head', 'body', 'main', 'nav', 'footer', 'div', 'span', 'p', 'h1', 'h2', 'a', 'button', 'script', 'style', 'noscript', 'svg'];
 if (existsSync('web/index.html')) {
   const s = read('web/index.html');
-  for (const t of ['html','head','body','main','nav','footer','div','span','p','h1','h2','a','button','script','style','noscript','svg']) {
-    // Case-insensitive, and the end tag may carry whitespace or attributes ("</script >", "</SCRIPT>"): HTML allows both.
-    const o = (s.match(new RegExp('<' + t + '(?=[ >\\t\\r\\n/])', 'gi')) || []).length;
-    const c = (s.match(new RegExp('</' + t + '(?=[ >\\t\\r\\n/])', 'gi')) || []).length;
-    if (o !== c) note('web/index.html', `unbalanced <${t}>: ${o} open, ${c} close`);
+  // Counted at markup level by the shared walk: a tag inside a comment, a script or style body, a title or a textarea is no opener and no closer, and an end tag
+  // may carry white space or attributes ("</script >", "</SCRIPT>"), which HTML allows.
+  const counted = pageClaims ? pageClaims.tagCountsOf(s, BALANCED).counts : new Map();
+  for (const t of BALANCED) {
+    const c = counted.get(t);
+    if (c && c.opens !== c.closes) note('web/index.html', `unbalanced <${t}>: ${c.opens} open, ${c.closes} close`);
   }
   const ld = s.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script\b[^>]*>/);
   if (!ld) note('web/index.html', 'structured-data block missing');
@@ -637,10 +643,12 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
 // reader cannot end, or an element with no closer, is a finding that names its page, so an unreadable page is never a pass. A page with an unclosed <style> is not hashed (see the rule), and its
 // stale-hash check for styles is skipped with it.
 //
-// STATED LIMITS, not fixed here: the HTML is read as markup inside four kinds of data the browser treats as text: a <script> or <style> body, an HTML comment,
-// a <title> and a <textarea>. A <script> or <style> opener inside any of them can make the hash routine hash the wrong body, so rule 13 can admit a hash the
-// browser does not match: a FAIL-OPEN, not yet fixed. Inside a script or style body an opener of another element is read as an opener, and a valid page with one
-// is a finding (it fails safe for the handler and link tests). `font-src` is held to 'self' alone
+// STATED LIMITS, not fixed here: the walk reads markup at the level the HTML tokenizer does, with these exceptions. (1) A script body ends at its first `</script` followed
+// by white space, `/` or `>`; the script-data escape states (a `<!--` inside a script keeps a later `</script` from ending it) are not modelled, so such a page is read with the
+// earlier end. (2) A <noscript> body is read as markup, the scripting-off model its <style> is hashed for; a browser with scripting on reads it as text. (3) An inline SVG's
+// <style> and <title> are read as the HTML parser reads a style and a title, which differs inside `<svg>`; no shipped page holds one. (4) Character references and CDATA are
+// not decoded in any body. (5) A comment, title, textarea, plaintext, or other raw body with no end is a finding at its line, and the walk reads on past its opener, so no
+// finding hides the markup after it. `font-src` is held to 'self' alone
 // and every url() of a tracked stylesheet (the font manifest) must be a file of this site that rule 7 declares, but a stylesheet the edge or a
 // browser extension adds is not in the repo and not seen; `style-src` carrying `'unsafe-inline'` is not refused (a hash makes browsers
 // ignore it); nothing the edge injects into the response is in the repo, so nothing here can see it (the
@@ -677,9 +685,12 @@ const CSP_STATS = { scripts: 0, styles: 0 };
     const s = read(f).replace(/\r\n/g, '\n');
     const lineAt = i => s.slice(0, i).split('\n').length;
     const unreadNote = (at, what) => { if (at.length) note(f, `has ${at.length} ${what} the reader cannot read to its end (first at line ${lineAt(at[0])}), so rule 13 cannot check it`); };
+    // A data body that never ends (a comment, a title, a textarea, plaintext): the browser reads the rest of the page as that data, so the rules cannot read past it. One finding per kind.
+    const hiddenNote = at => { const seen = new Set(); for (const h of at) { if (seen.has(h.kind)) continue; seen.add(h.kind); note(f, h.kind === 'comment' ? `line ${lineAt(h.index)}: has an unclosed comment, so the page rules cannot read the markup after it` : h.kind === 'plaintext' ? `line ${lineAt(h.index)}: has a <plaintext> element, whose body is the rest of the page, so the page rules cannot read past it` : `line ${lineAt(h.index)}: has an unclosed <${h.kind}>, so the page rules cannot read the markup after it`); } };
     // The <script> elements: a code block is hashed, a data block is not, and an element with no closer is a finding.
     const scripts = reader.elementsOf(s, /<(script)\b/gi);
     unreadNote(scripts.unread, '<script> tag(s)');
+    hiddenNote(scripts.hidden);
     if (scripts.unclosed.length) note(f, `has ${scripts.unclosed.length} <script> element(s) with no closer (first at line ${lineAt(scripts.unclosed[0])}), so rule 13 cannot read their bodies`);
     for (const e of scripts.elements) {
       const attrs = e.tag.text.slice('<script'.length, -1);
@@ -690,12 +701,12 @@ const CSP_STATS = { scripts: 0, styles: 0 };
       if (!EXEC_TYPES.has(type)) { note(f, `has an inline <script type="${type}"> that rule 13 cannot classify as code or data, so its CSP admission is unchecked`); continue; }
       want.script.add(sha256(e.body)); CSP_STATS.scripts++;
     }
-    // The <style> elements: the bodies are hashed by the shared routine, but only when every <style> opener has its closer.
+    // The <style> elements: each body is hashed as the reader gives it (the routine page-sync uses reads the same walk), but only when every <style> opener has its closer.
     const styles = reader.elementsOf(s, /<(style)\b/gi);
     unreadNote(styles.unread, '<style> tag(s)');
     if (styles.unclosed.length) note(f, `has ${styles.unclosed.length} <style> element(s) with no closer (first at line ${lineAt(styles.unclosed[0])}), so rule 13 cannot read their bodies`);
     if (styles.unread.length || styles.unclosed.length) styleIncomplete = true;
-    else if (hashes) for (const body of hashes.inlineStyles(s)) { want.style.add(sha256(body)); CSP_STATS.styles++; }
+    else if (hashes) for (const e of styles.elements) { want.style.add(sha256(e.body)); CSP_STATS.styles++; }
     // The <link> stylesheets name their origins.
     const links = reader.startTagsOf(s, /<(link)\b/gi);
     unreadNote(links.unread, '<link> tag(s)');
@@ -834,11 +845,8 @@ const HISTORY_PINS = [
   { file: 'web/changelog.html', fp: '510c767ab5d9bc0c', start: "Rule 17 of scripts/surface-check.mjs, on the web pages", count: 2, reason: 'a record of a withdrawn claim' },
   { file: 'web/changelog.html', fp: '5a476948bbcbd9d8', start: "Two more rules in scripts/surface-check.mjs, both about the web pages", count: 2, reason: 'a record of a withdrawn claim' },
 ];
-// The readers of rules 15 and 16 (metaTagsOf, isRobotsNoindex, passagesOf, pinnedHitter) live in scripts/lib/page-claims.mjs, one linear pass each. A gate imports only Node builtins at the top
-// level, so the library is loaded by a dynamic import here, and a library that will not load is a finding (the rules cannot read the pages without it).
-let pageClaims = null;
-try { pageClaims = await import(pathToFileURL(resolve('scripts/lib/page-claims.mjs')).href); }
-catch (e) { note('scripts/lib/page-claims.mjs', 'could not be loaded, so rules 15, 16 and 17a could not read the pages (' + (e.code || 'import failed') + ')'); }
+// The readers of rules 15 and 16 (metaTagsOf, isRobotsNoindex, passagesOf, pinnedHitter) live in scripts/lib/page-claims.mjs, one linear pass each, and that library is loaded
+// above section 5 with the balance count. A gate imports only Node builtins at the top level; a library that will not load is a finding.
 const PRODUCTION_PAGES = WEB_PAGES.filter(f => !PREVIEW_EXEMPT.has(f));
 const lineOf = (s, i) => s.slice(0, i).split('\n').length;
 {
@@ -968,7 +976,11 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
   for (const f of pageClaims ? WEB_PAGES : []) {
     const s = read(f);
     // The end tag may carry whitespace or attributes ("</script >"), which the HTML parser still closes on (as rule 13's own pattern allows).
-    const visible = s.replace(/<(style|script|svg)\b[\s\S]*?<\/\1\b[^>]*>/gi, m => m.replace(/[^\n]/g, ' '));
+    // Comments, and the script and style elements, are not visible text: the shared walk names their ranges. An inline svg is not an HTML data element, so its pattern stays.
+    const blank = (text, a, b) => text.slice(0, a) + text.slice(a, b).replace(/[^\n]/g, ' ') + text.slice(b);
+    let visible = s;
+    if (pageClaims) for (const sp of pageClaims.dataSpansOf(s)) if (sp.kind === 'comment' || sp.kind === 'script' || sp.kind === 'style') visible = blank(visible, sp.start, sp.end);
+    visible = visible.replace(/<(svg)\b[\s\S]*?<\/\1\b[^>]*>/gi, m => m.replace(/[^\n]/g, ' '));
     const seenAt = new Set(); // "Free plan" matches two patterns at one place: one finding
     const pinned = pageClaims ? pageClaims.pinnedHitter(f, s, HISTORY_PINS) : () => false;
     for (const re of [/\b(?:Free|FREE)\b/g, /\bfree\s+(?:plan|tier|version)\b/gi, /ฟรี/g]) {
@@ -982,8 +994,8 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
     if (n === 0) note(p.file, `pinned passage ${p.fp} (${p.start}) matches no passage of the page, so the pin excuses nothing: remove it, or re-pin the passage if its words changed`);
     else if (n !== p.count) note(p.file, `pinned passage ${p.fp} (${p.start}) appears ${n} time(s) on the page, the pin allows ${p.count}: a copy of a withdrawn quote is a new occurrence, so the pin exempts none of them until the extra copy is removed or the count is re-confirmed`);
   }
-  // The start tags, the <a> elements and the <script> bodies of each production page are read by the shared reader (scripts/lib/page-claims.mjs), as rule 13 reads them: a tag ends at its real
-  // `>` within a bound, an element's body is read to its own closer, and a tag or an element the reader cannot finish is a finding, never a pass ). The line of a hit is counted only when a
+  // The start tags, the <a> elements and the <script> bodies of each production page are read by the shared walk (scripts/lib/page-claims.mjs), as rule 13 reads them: markup is read
+  // at markup level, so a tag inside a comment, a script or style body, a title or a textarea is no tag; a tag or an element the reader cannot finish is a finding, never a pass. The line of a hit is counted only when a
   // hit is reported, so a page of many tags costs one pass, not one line count per tag.
   for (const f of PRODUCTION_PAGES) {
     const s = read(f);

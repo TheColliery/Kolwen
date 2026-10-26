@@ -5,10 +5,14 @@
 // unterminated quote, repeated n times, took 30 s at n = 40,000 (every start re-scanned to the end of the file), and the pin check re-read every passage of the page for every hit (11 s at 2,000
 // passages with a hit each). Here both are single passes, and scripts/page-claims.test.mjs runs them on bulk input in a child under a kill timeout.
 //
-// The shared start-tag reader: a start tag is read as the HTML tokenizer reads it, from its opener to the first `>` that ends it, within a bound. The tokenizer's tag NAME runs to white
-// space, `/` or `>`, which can be longer than the name a caller's pattern matched, so the reader starts in that state (TAG_NAME) at the end of the caller's match. A tag the bound does not
-// end is UNREAD, and a caller reports it: a page whose tags cannot be read is not proven, so a tag is never passed. An element's body is read with its closer searched ONCE per tag name, so an
-// element with no closer costs one search, and the openers after it cost nothing more.
+// The shared walk. The page is read once, at markup level, the way the HTML tokenizer reads it: a comment, the raw-text body of script, style, xmp, iframe, noembed and
+// noframes, the RCDATA body of title and textarea, and the body of plaintext are DATA, so the walk skips each of them to its real end and reads no tag out of it. A start tag
+// is read to the first `>` outside a quoted value, within a bound; a tag the bound does not end is UNREAD, and a caller reports it. A data body that never ends is HIDDEN, and a
+// caller reports it: the browser reads the rest of the input as that body, so the rules cannot see past it. Every caller reads the same token list (a page is walked once per
+// string), so a rule that asks for start tags, elements or tag counts gets the same answer as the others.
+//
+// An element's body runs from its start tag to the first end tag of its name at markup level, and the scan goes on after that end tag, so a body is never read as tags. The
+// closer of a name is found once per name and reused by each later opener whose body starts before it; an opener with no closer ends the search for that name.
 import { createHash } from 'node:crypto';
 
 // The bound of one start-tag read: a tag longer than this is unread, and one opener costs at most this many steps.
@@ -69,26 +73,31 @@ export function scanStartTag(s, nameEnd, max = META_MAX, collect = false) {
 // The index after the `>` that ends the start tag whose regex name ends at `nameEnd`, or -1 (UNREAD). scanStartTag gives the attribute names too.
 export const startTagEnd = (s, nameEnd, max = META_MAX) => scanStartTag(s, nameEnd, max).end;
 
-// The tokenizer's tag name runs to white space, `/` or `>` (or the end of the input), so a pattern's group 1 is the element's name only when that name ends where the match does:
-// `<script-x` is no `<script` and `<a.b` is no `<a`. Such an opener is another element, skipped whole, so it never swallows the real element after it.
+// The tokenizer's tag name runs to white space, `/` or `>` (or the end of the input). A name ends at the first such character from its start, within `max`; -1 when none does.
 const NAME_ENDS = /[\t\n\f\r />]/;
-const namesWholeTag = (s, m) => m[1] === undefined || m.index + m[0].length >= s.length || NAME_ENDS.test(s[m.index + m[0].length]);
-
-// Every start tag that the pattern `re` opens, in order, each read to its end. `re` matches the opening `<name`; its group 1, when present, is the tag's name as written.
-// Returns { tags: [{ text, index, end, name, attrs }], unread: [index] }. A tag the reader cannot end goes to `unread`, and the scan goes on after its opener.
-export function startTagsOf(s, re, max = META_MAX) {
-  const r = new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g');
-  const tags = [], unread = [];
-  for (let m; (m = r.exec(s)); ) {
-    if (!namesWholeTag(s, m)) continue;
-    const pos = m.index + m[0].length;
-    const end = scanStartTag(s, pos, max).end;
-    if (end === -1) { unread.push(m.index); continue; }
-    tags.push({ text: s.slice(m.index, end), index: m.index, end, name: m[1], attrs: scanStartTag(s, pos, max, true).attrs });
-    r.lastIndex = end;
-  }
-  return { tags, unread };
+const ASCII_LETTER = /[a-zA-Z]/;
+function nameEndAt(s, from, max) {
+  const stop = Math.min(s.length, from + max);
+  for (let j = from; j < stop; j++) if (NAME_ENDS.test(s[j])) return j;
+  return -1;
 }
+
+// The data the walk skips (WHATWG HTML §13.2.5.4 to §13.2.5.5, §13.2.5.6, §13.2.5.9 to §13.2.5.10 and §13.2.5.12 onward). A raw-text or RCDATA body ends at its first end tag of
+// its own name; `plaintext` has no end, so its body is the rest of the input. `noscript` is NOT here: rule 13 hashes its <style>, which a browser with scripting off applies, so
+// its body is read as markup (a stated limit: a browser with scripting on reads it as text).
+const DATA_ELEMENT = new Set(['script', 'style', 'xmp', 'iframe', 'noembed', 'noframes', 'title', 'textarea', 'plaintext']);
+
+// The index after the comment that starts at `i` (a `<!--`), or -1 when it never ends. An abrupt `<!-->` and `<!--->` are empty comments, as the tokenizer reads them.
+function commentEnd(s, i) {
+  if (s.startsWith('<!-->', i)) return i + 5;
+  if (s.startsWith('<!--->', i)) return i + 6;
+  const re = /--!?>/g;
+  re.lastIndex = i + 4;
+  const m = re.exec(s);
+  return m ? m.index + m[0].length : -1;
+}
+// The index after the bogus comment that starts at `i` (`<!` that is no comment, `<?`, or `</` before a non-letter): it ends at the next `>`, or at the end of the input.
+function bogusEnd(s, i) { const g = s.indexOf('>', i + 2); return g < 0 ? s.length : g + 1; }
 
 // The index of the first `</name` at or after `from` whose name ends there. The tokenizer's end tag name runs to white space, `/` or `>`, so `</a.x>` and `</a"x>` end another name
 // and do not close `<a>`, and `</a` at the end of the input is not an end tag. The match is case-insensitive, as end tag names are.
@@ -99,39 +108,163 @@ function closerOf(s, name, from) {
   return m ? m.index : -1;
 }
 
-// The elements the pattern `re` opens (as startTagsOf, the name in group 1), each with its body: the body runs from the end of the start tag to the closer `</name`, whose own end tag must be
-// read within `max`, and the scan goes on after the closer, so a body is never read as tags. The closer of a name is searched ONCE and reused by each later opener whose body starts before it.
-// An opener with no closer after it ends the search for that name (no later opener of the name can close either), so n unclosed openers cost one search per name, not n.
-// Returns { elements: [{ tag, body, close, closeEnd }], unclosed: [index], unread: [index] }: `unclosed` holds the openers with no closer, and `unread` the tags the reader could not end (a start
-// tag, or a closer whose end tag is unread).
-export function elementsOf(s, re, max = META_MAX) {
-  const r = new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g');
-  const elements = [], unclosed = [], unread = [];
-  const closeAt = new Map(), shut = new Set();
-  for (let m; (m = r.exec(s)); ) {
-    if (!namesWholeTag(s, m)) continue;
-    const name = (m[1] || '').toLowerCase();
-    const pos = m.index + m[0].length;
-    const end = scanStartTag(s, pos, max).end;
-    if (end === -1) { unread.push(m.index); continue; }
-    const tag = { text: s.slice(m.index, end), index: m.index, end, name: m[1], attrs: scanStartTag(s, pos, max, true).attrs };
-    if (shut.has(name)) { unclosed.push(m.index); r.lastIndex = end; continue; }
-    if (!(closeAt.get(name) >= end)) closeAt.set(name, closerOf(s, name, end));
-    const c = closeAt.get(name);
-    if (c === -1) { shut.add(name); unclosed.push(m.index); r.lastIndex = end; continue; }
-    const ce = scanStartTag(s, c + 2 + name.length, max).end;
-    if (ce === -1) { unread.push(c); unclosed.push(m.index); r.lastIndex = end; continue; }
-    elements.push({ tag, body: s.slice(end, c), close: c, closeEnd: ce });
-    r.lastIndex = ce;
-  }
-  return { elements, unclosed, unread };
+// The closer of a data body that starts at `from` (the end of its start tag): { close, closeEnd }, close -1 when no end tag of its name follows. Once a name has no end
+// after some point, no later body of that name has one either, so the name is not searched again.
+function bodyEnd(s, name, from, max, shut) {
+  if (shut.has(name)) return { close: -1, closeEnd: -1 };
+  const close = closerOf(s, name, from);
+  if (close < 0) { shut.add(name); return { close: -1, closeEnd: -1 }; }
+  return { close, closeEnd: scanStartTag(s, close + 2 + name.length, max).end };
 }
+
+// The walk. Returns { tokens, hidden, spans }: tokens are the start and end tags read at markup level, in order (kind, name, index, nameEnd, end, unread, and for a
+// data element raw: { close, closeEnd }); hidden lists the data bodies that never end ({ kind, index }); spans lists every skipped region ({ kind, start, end }), so a caller
+// can blank comments and script or style bodies. The walk continues after an unclosed body and after an unread tag, so a finding never hides the markup after it.
+function walkPage(s, max) {
+  const tokens = [], hidden = [], spans = [];
+  const shut = new Set();
+  let i = 0;
+  for (;;) {
+    i = s.indexOf('<', i);
+    if (i < 0) break;
+    if (s.startsWith('<!--', i)) {
+      const e = commentEnd(s, i);
+      if (e < 0) { hidden.push({ kind: 'comment', index: i }); spans.push({ kind: 'comment', start: i, end: s.length }); i += 4; }
+      else { spans.push({ kind: 'comment', start: i, end: e }); i = e; }
+      continue;
+    }
+    const c = s.charAt(i + 1);
+    if (c === '/') {
+      if (!ASCII_LETTER.test(s.charAt(i + 2))) { i = bogusEnd(s, i); continue; }
+      const nameEnd = nameEndAt(s, i + 2, max);
+      const end = nameEnd < 0 ? -1 : scanStartTag(s, nameEnd, max).end;
+      tokens.push({ kind: 'end', name: nameEnd < 0 ? null : s.slice(i + 2, nameEnd).toLowerCase(), index: i, end, unread: end < 0 });
+      i = end < 0 ? i + 2 : end;
+      continue;
+    }
+    if (ASCII_LETTER.test(c)) {
+      const nameEnd = nameEndAt(s, i + 1, max);
+      if (nameEnd < 0) { tokens.push({ kind: 'start', name: null, index: i, nameEnd: -1, end: -1, unread: true, raw: null }); i += 1; continue; }
+      const name = s.slice(i + 1, nameEnd).toLowerCase();
+      const end = scanStartTag(s, nameEnd, max).end;
+      const tok = { kind: 'start', name, index: i, nameEnd, end, unread: end < 0, raw: null };
+      tokens.push(tok);
+      if (end < 0) { i += 1; continue; }
+      if (DATA_ELEMENT.has(name)) {
+        const raw = name === 'plaintext' ? { close: -1, closeEnd: -1 } : bodyEnd(s, name, end, max, shut);
+        tok.raw = raw;
+        if (raw.close < 0) {
+          // A script or a style with no end is reported by the element scans as an element with no closer; every other data body is reported here.
+          if (name !== 'script' && name !== 'style') hidden.push({ kind: name, index: i });
+          spans.push({ kind: name, start: i, end: s.length });
+          i = end;
+          continue;
+        }
+        spans.push({ kind: name, start: i, end: raw.closeEnd < 0 ? raw.close : raw.closeEnd });
+        tokens.push({ kind: 'end', name, index: raw.close, end: raw.closeEnd, unread: raw.closeEnd < 0 });
+        i = raw.closeEnd < 0 ? raw.close + 2 : raw.closeEnd;
+        continue;
+      }
+      i = end;
+      continue;
+    }
+    if (c === '!' || c === '?') { i = bogusEnd(s, i); continue; }
+    i += 1;
+  }
+  return { tokens, hidden, spans };
+}
+
+// One walk per page string: the rules ask for start tags, elements and tag counts of the same page, and each answer reads the same walk.
+let lastWalk = { s: null, max: 0, walk: null };
+function walk(s, max) {
+  if (lastWalk.s !== s || lastWalk.max !== max) lastWalk = { s, max, walk: walkPage(s, max) };
+  return lastWalk.walk;
+}
+
+// A pattern for the walk: the same expression as the caller's, sticky, so it matches at one token's index only.
+const stickyOf = re => new RegExp(re.source, re.flags.replace(/[gy]/g, '') + 'y');
+// Whether the caller's pattern opens the start tag t: it matches at t's index, and its group 1, when present, is the tag's whole name, as the tokenizer reads it.
+function matchesAt(sticky, s, t) {
+  sticky.lastIndex = t.index;
+  const m = sticky.exec(s);
+  if (!m) return false;
+  return m[1] === undefined || t.name === null || m[1].toLowerCase() === t.name;
+}
+// The index of the first token at or after position k whose index is at or after `pos`.
+function skipPast(tokens, k, pos) { while (k < tokens.length && tokens[k].index < pos) k++; return k; }
+
+// Every start tag that the pattern `re` opens at markup level, in order, each read to its end. `re` matches the opening `<name`; its group 1, when present, is the tag's name
+// as written, and must be the tag's whole name. Returns { tags: [{ text, index, end, name, attrs }], unread: [index], hidden: [{ kind, index }] }. A tag the reader cannot end
+// goes to `unread`, and the scan goes on after its opener.
+export function startTagsOf(s, re, max = META_MAX) {
+  const { tokens, hidden } = walk(s, max);
+  const sticky = stickyOf(re);
+  const tags = [], unread = [];
+  for (const t of tokens) {
+    if (t.kind !== 'start' || !matchesAt(sticky, s, t)) continue;
+    if (t.unread) { unread.push(t.index); continue; }
+    tags.push({ text: s.slice(t.index, t.end), index: t.index, end: t.end, name: s.slice(t.index + 1, t.nameEnd), attrs: scanStartTag(s, t.nameEnd, max, true).attrs });
+  }
+  return { tags, unread, hidden };
+}
+
+// The elements the pattern `re` opens (as startTagsOf, the name in group 1), each with its body: the body runs from the end of the start tag to the end tag `</name` of its own
+// name at markup level, and the scan goes on after that end tag, so a body is never read as tags. A data element (script, style and the rest of DATA_ELEMENT) has its body from the walk.
+// Returns { elements: [{ tag, body, close, closeEnd }], unclosed: [index], unread: [index], hidden: [{ kind, index }] }: `unclosed` holds the openers with no closer, and `unread`
+// the tags the reader could not end (a start tag, or a closer whose end tag is unread).
+export function elementsOf(s, re, max = META_MAX) {
+  const { tokens, hidden } = walk(s, max);
+  const sticky = stickyOf(re);
+  const elements = [], unclosed = [], unread = [];
+  const ends = new Map();
+  for (const t of tokens) if (t.kind === 'end' && t.name !== null) { let l = ends.get(t.name); if (!l) ends.set(t.name, l = []); l.push(t); }
+  const ptr = new Map();
+  for (let k = 0; k < tokens.length;) {
+    const t = tokens[k];
+    if (t.kind !== 'start' || !matchesAt(sticky, s, t)) { k++; continue; }
+    if (t.unread) { unread.push(t.index); k++; continue; }
+    const tag = { text: s.slice(t.index, t.end), index: t.index, end: t.end, name: s.slice(t.index + 1, t.nameEnd), attrs: scanStartTag(s, t.nameEnd, max, true).attrs };
+    if (t.raw) {
+      if (t.raw.close < 0) { unclosed.push(t.index); k++; continue; }
+      if (t.raw.closeEnd < 0) { unread.push(t.raw.close); unclosed.push(t.index); k++; continue; }
+      elements.push({ tag, body: s.slice(t.end, t.raw.close), close: t.raw.close, closeEnd: t.raw.closeEnd });
+      k = skipPast(tokens, k + 1, t.raw.closeEnd);
+      continue;
+    }
+    const list = ends.get(t.name) || [];
+    let p = ptr.get(t.name) || 0;
+    while (p < list.length && list[p].index < t.end) p++;
+    ptr.set(t.name, p);
+    if (p === list.length) { unclosed.push(t.index); k++; continue; }
+    const c = list[p];
+    if (c.unread) { unread.push(c.index); unclosed.push(t.index); k++; continue; }
+    elements.push({ tag, body: s.slice(t.end, c.index), close: c.index, closeEnd: c.end });
+    k = skipPast(tokens, k + 1, c.end);
+  }
+  return { elements, unclosed, unread, hidden };
+}
+
+// The start and end tags of each named element, read at markup level: counts[name] = { opens, closes }. Text, comments and data bodies count for nothing.
+// The balance rule of the rule 5 block reads this, so a `<a` in a script string is not an opener.
+export function tagCountsOf(s, names, max = META_MAX) {
+  const { tokens, hidden } = walk(s, max);
+  const counts = new Map(names.map(n => [n, { opens: 0, closes: 0 }]));
+  for (const t of tokens) {
+    const c = t.name !== null && counts.get(t.name);
+    if (c) c[t.kind === 'start' ? 'opens' : 'closes']++;
+  }
+  return { counts, hidden };
+}
+
+// Every region the walk skips: comments and data bodies, each with its kind and its whole range (the start tag through the end tag, or through the input's end when the body
+// is unclosed). A caller that must not read text inside them (rule 19's visible-text check) blanks these ranges.
+export function dataSpansOf(s, max = META_MAX) { return walk(s, max).spans; }
 
 // Every meta tag of the page in order, with its start; a tag that does not end within META_MAX characters goes to `unread` (its start), so a caller can fail on it.
 const META_START = /<(meta)\b/gi;
 export function metaTagsOf(s) {
-  const { tags, unread } = startTagsOf(s, META_START);
-  return { tags: tags.map(t => ({ text: t.text, index: t.index })), unread };
+  const { tags, unread, hidden } = startTagsOf(s, META_START);
+  return { tags: tags.map(t => ({ text: t.text, index: t.index })), unread, hidden };
 }
 // The attribute NAME must be the whole name (`data-content`, `data-name` and `x-content` are not it), and the `name` value exactly `robots`, not a longer token that starts with it.
 const ROBOTS_NAME = /(?<![\w-])name\s*=\s*(?:"\s*robots\s*"|'\s*robots\s*'|robots(?![\w-]))/i;
