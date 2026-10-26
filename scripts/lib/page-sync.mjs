@@ -103,7 +103,7 @@ function cspLineOf(headersText, dir = 'style-src') {
   return { no: d[0].line, line, head: m[1], parts, at, tokens: sourcesOf(parts[at]), elem: e < 0 ? null : sourcesOf(parts[e]), cr: m[3] };
 }
 
-// Problems between the pages and the policy of _headers, as named lines. pages: { 'web/x.html': html } with every page the site serves.
+// Problems between the pages and the policy of _headers, as named lines. pages: { 'web/x.html': html, 'web/x.svg': svg } with every document the site serves: an SVG's <style> is hashed like a page's.
 // style-src and script-src are the directives the sync owns (--write keeps their hashes exact, so a missing and a stale hash are both problems). A browser
 // applies style-src-elem to <style> blocks and script-src-elem to <script> blocks when the policy has one (CSP3: it falls back to the base directive, then
 // default-src, only when absent), so when it is present it must admit every hash too; --write never edits it, so a hash it lacks is a problem named here
