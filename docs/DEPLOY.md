@@ -165,6 +165,20 @@ pull request has been observed yet.
 **A bump deploys without `deploy-check`.** Every push to `main` deploys, but `deploy-check` runs
 only on a push touching `web/`, `wrangler.jsonc` or the checker, and a bump touches none of them.
 
+### Dependency overrides
+
+`package.json` has an `overrides` block with two entries. Both packages reach the Worker's build tooling
+only through Wrangler's `miniflare`, and both are development dependencies: the Worker is static assets
+with no script, so nothing it deploys loads them. Each entry comes out once the pin it works around is fixed.
+
+| Package | Overridden to | Advisories closed | Removal condition |
+|---|---|---|---|
+| `sharp` | 0.35.5 | GHSA-wq5f-xc86-pv6w | once `miniflare`'s own pin carries 0.35.5 or later. Its latest release, 4.20260730.0, pins 0.35.2 (read 2026-10-26) |
+| `undici` | 7.30.1 | GHSA-4qv8-2p9j-2685, GHSA-f72v-6w45-q472, GHSA-xjj6-f33q-929c | once `miniflare`'s own pin carries 7.30.1 or later |
+
+The overrides apply to an `npm ci` install, which reads the lockfile, and not to an `npx wrangler@<version>`
+run (see "Local" below).
+
 ## Local: only for dev and dry runs, and only pinned
 
 Nothing here installs `node_modules/`, which is gitignored. Tools are fetched for the length of one
@@ -225,6 +239,11 @@ the surface check holds the file: every same-site destination is a page we ship 
 hides a page, no redirect chains to another, and no URL in the sitemap is a redirect source. After a deploy, `scripts/post-deploy-check.mjs` probes
 each static line without following it and reports a miss when the status or the `Location` differs. Whether the
 edge answers a trailing-slash or `.html` source as the file says is proven only by that first live probe.
+
+Cloudflare's redirects page says that redirects in `_redirects` are not applied to requests that Worker code
+serves. This project has no Worker script (`wrangler.jsonc` has no `main`), so the three `/plans` redirects
+apply. A Worker script added later would stop them from applying, and the redirects would then have to be
+written into that code.
 
 The legal paths `/terms`, `/privacy` and `/refund` are served pages, and none has a redirect. What still waits on the
 lawyer is the parts a page holds, on any of three routes: a counsel-pending marker (on the passage, or on the head of the

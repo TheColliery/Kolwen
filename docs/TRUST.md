@@ -22,6 +22,7 @@ Measured facts, each traceable to something in this repository or to a live chec
 | Dependencies are watched and patched | Dependabot, with CI-gated auto-merge |
 | Secrets are blocked at push (GitHub push protection, the house hooks) and checked after push (the house scan in CI) | GitHub secret scanning with push protection, plus the house scan (`scripts/secret-gate.mjs`) in CI and in `.githooks/`. The hooks run only in a clone that ran `git config core.hooksPath .githooks`, and `git push --no-verify` bypasses them |
 | Vulnerabilities can be reported privately | GitHub private vulnerability reporting, and `SECURITY.md` |
+| The pages set no cookie. Measured on 2026-10-17 in headless Microsoft Edge 155, driven over the DevTools protocol with a fresh profile, across five pages in two modes (the Cloudflare Web Analytics beacon allowed, then blocked): no `Set-Cookie`, an empty `document.cookie`, and only the language choice in `localStorage` | a live check of the public site. It is one browser, one region and one date; a Cloudflare-side setting can change. The repository cannot repeat it; the curl measurement on `web/privacy.html` is the repeatable one |
 
 ## 2 · Encryption and keys
 
