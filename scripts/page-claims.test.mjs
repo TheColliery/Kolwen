@@ -1,7 +1,7 @@
 // Tests for surface-check rules 15 (the dropped "no trackers" claim) and 16 (no robots noindex on a production page), and for the readers behind them (scripts/lib/page-claims.mjs).
 //
 // Each rule owes three things, and this file is where they are held:
-//   1. RED-FIRST: the rule FIRES on the dirty input (the reviewer's mutant I1, a noindex meta on the home page; the page set at the parent of 94b9415, which says "no trackers"). The gate tests run
+//   1. RED-FIRST: the rule FIRES on the dirty input (a mutant with a noindex meta on the home page; the page set at the parent of 94b9415, which says "no trackers"). The gate tests run
 //      the real scripts/surface-check.mjs in a throwaway repository of the tracked files and look for the rule's own finding, by page and by line.
 //   2. ITS DATA CANNOT EMPTY IT, per input: the claim is planted in EVERY tracked page, in both languages and in a wrapped spelling, and each page is named; the meta is planted in every production page; a
 //      repository whose only tracked page is the pinned changelog is a finding, not a pass; a meta tag the reader cannot read is a finding, not a pass.
@@ -43,8 +43,8 @@ test('baseline: the tracked tree passes surface-check (the tests below plant one
   try { const r = surface(dir); assert.equal(r.status, 0, r.out); } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-// ── rule 16: the reviewer's mutant I1, and the pages, tag spellings and headers around it ─────────────────────────────────────────────────────────────────────
-test('rule 16 fires on the reviewer mutant I1: a robots noindex meta on the home page fails surface-check, naming the page and the line', () => {
+// ── rule 16: a mutant with a noindex meta on the home page, and the pages, tag spellings and headers around it ─────────────────────────────────────────────────────────────────────
+test('rule 16 fires on a robots noindex meta on the home page, and fails surface-check, naming the page and the line', () => {
   const dir = surfaceCopy();
   try {
     const after = edit(dir, 'web/index.html', s => s.replace('</head>', META_I1 + '\n</head>'));
@@ -243,6 +243,17 @@ test('metaTagsOf: a tag ends at the first > outside a quote, a nested <meta insi
   assert.deepEqual(c.unread, [0], 'a tag longer than the cap is unread, not silently skipped');
   assert.deepEqual(c.tags.map(t => t.text), ['<meta name=after>'], 'the tag after it is read');
   assert.deepEqual(metaTagsOf('<metadata><meta2>'), { tags: [], unread: [], hidden: [] }, 'only a meta element');
+});
+
+test('startTagEnd: white space before a quoted value, an apostrophe inside a double-quoted value, and the next attribute after a closed value', async () => {
+  const { startTagEnd, startTagsOf } = await lib();
+  const spaced = '<a x= "a>b">z';
+  assert.equal(startTagEnd(spaced, 2), spaced.indexOf('">') + 2, 'a space before the quote: the > inside the value does not end the tag');
+  const apostrophe = '<a title="it\'x>y">z';
+  assert.equal(startTagEnd(apostrophe, 2), apostrophe.indexOf('">') + 2, 'an apostrophe in a double-quoted value does not close the value');
+  const after = '<a x="1" y="a>b">z';
+  assert.equal(startTagEnd(after, 2), after.indexOf('">') + 2, 'a space after a closed value starts the next attribute; the > inside its value is not the end');
+  assert.deepEqual(startTagsOf(after, /<(a)\b/gi).tags[0].attrs.map(a => a.name), ['x', 'y'], 'the names are read whole: a space after a closed value starts no name');
 });
 
 test('isRobotsNoindex: the whole attribute name, the exact name value, noindex or none as a word', async () => {
