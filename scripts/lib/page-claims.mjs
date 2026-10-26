@@ -270,10 +270,12 @@ export function metaTagsOf(s) {
 const ROBOTS_NAME = /(?<![\w-])name\s*=\s*(?:"\s*robots\s*"|'\s*robots\s*'|robots(?![\w-]))/i;
 const NOINDEX_CONTENT = /(?<![\w-])content\s*=\s*(?:"[^"]*\b(?:noindex|none)\b[^"]*"|'[^']*\b(?:noindex|none)\b[^']*'|[^\s"'>]*\b(?:noindex|none)\b)/i;
 // The browser reads an attribute value with its numeric character references decoded, so `content="&#110;oindex"` is `noindex`. No named reference spells a letter
-// of `robots`, `noindex` or `none`, so the numeric forms are the only ones decoded here; a reference past U+10FFFF or a surrogate is left as written.
-const decodeNumeric = tag => tag.replace(/&#(?:[xX]([0-9a-fA-F]{1,8})|([0-9]{1,8}));?/g, (m, hex, dec) => {
+// of `robots`, `noindex` or `none`, so the numeric forms are the only ones decoded here. Any number of digits is read, leading zeros included, as the tokenizer reads them; zero,
+// a surrogate and a value past U+10FFFF are U+FFFD, as the tokenizer maps them.
+const REPLACEMENT = String.fromCharCode(0xFFFD);
+const decodeNumeric = tag => tag.replace(/&#(?:[xX]([0-9a-fA-F]+)|([0-9]+));?/g, (m, hex, dec) => {
   const cp = hex !== undefined ? parseInt(hex, 16) : parseInt(dec, 10);
-  return cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF) ? m : String.fromCodePoint(cp);
+  return cp === 0 || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF) ? REPLACEMENT : String.fromCodePoint(cp);
 });
 export const isRobotsNoindex = tag => { const t = decodeNumeric(tag); return ROBOTS_NAME.test(t) && NOINDEX_CONTENT.test(t); };
 

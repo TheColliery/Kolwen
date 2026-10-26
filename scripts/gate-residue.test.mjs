@@ -120,6 +120,19 @@ test('a robots noindex written as a numeric character reference is read as noind
   assert.equal(isRobotsNoindex('<meta name="robots" content="index,follow">'), false, 'no noindex is still no noindex');
 });
 
+test('a numeric reference with leading zeros past eight digits is read as noindex, as the browser reads it', async () => {
+  const { isRobotsNoindex } = await import(pathToFileURL(join(ROOT, 'scripts/lib/page-claims.mjs')).href);
+  assert.equal(isRobotsNoindex('<meta name="robots" content="&#0000000110;oindex">'), true, 'decimal, nine digits');
+  assert.equal(isRobotsNoindex('<meta name="robots" content="&#x000000006e;oindex">'), true, 'hex, twelve digits');
+});
+
+test('a numeric reference the browser maps to U+FFFD (zero, a surrogate, past U+10FFFF) is not a letter of noindex', async () => {
+  const { isRobotsNoindex } = await import(pathToFileURL(join(ROOT, 'scripts/lib/page-claims.mjs')).href);
+  assert.equal(isRobotsNoindex('<meta name="robots" content="no&#0;index">'), false, 'zero');
+  assert.equal(isRobotsNoindex('<meta name="robots" content="no&#xD800;index">'), false, 'surrogate');
+  assert.equal(isRobotsNoindex('<meta name="robots" content="no&#99999999999;index">'), false, 'past U+10FFFF');
+});
+
 // ── rule 17(a): the lowercase clause and the Thai clause are read, and say so ───────────────────────────────────────────────────────────
 
 test('rule 17(a) reads a lowercase "free plan" in visible text', () => {
