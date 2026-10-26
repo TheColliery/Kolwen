@@ -5,7 +5,7 @@
     },
     "hero": {
       "title": "A {#hl}verifiable{/hl} AI assistant—every answer will ship with its sources and a confidence level.",
-      "sub": "Answers that can’t be verified are flagged, never hidden."
+      "sub": "Answers that can’t be verified will be flagged, never hidden."
     },
     "origin": "Made in Thailand · {#th}สร้างในประเทศไทย{/th}",
     "disclosure": "In development · not yet available—this is Kolwen’s official page until it launches.",
@@ -17,10 +17,10 @@
     "meta": {
       "title": "Kolwen—verifiable AI, made in Thailand · in development",
       "description": "Kolwen (โคลเวน) — a verifiable AI assistant made in Thailand. In development, not yet available. Answers will ship with sources and a confidence level.",
-      "og-description": "In development, not yet available. Every answer will ship with its sources and a confidence level; answers that cannot be verified are flagged, never hidden."
+      "og-description": "In development, not yet available. Every answer will ship with its sources and a confidence level; answers that cannot be verified will be flagged, never hidden."
     },
     "ld": {
-      "description": "A verifiable AI assistant made in Thailand. Every answer will ship with its sources and a confidence level - answers that cannot be verified are flagged, never hidden."
+      "description": "A verifiable AI assistant made in Thailand. Every answer will ship with its sources and a confidence level - answers that cannot be verified will be flagged, never hidden."
     }
   },
   "pricing": {

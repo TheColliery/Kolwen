@@ -160,7 +160,7 @@ the pointer to it.
 - The favicon and touch icon are now generated from the brand icon rather than copied. The
   generator writes both places from one call, and CI fails if either drifts, so the mark cannot
   disagree with itself.
-- The index says answers will ship with their sources and a confidence level, since nothing ships yet. The English and Thai catalogue entries for the title, the description and the structured data are in the future tense, and the built pages follow from them.
+- The index says answers will ship with their sources and a confidence level, since nothing ships yet. The English and Thai catalogue entries for the title, the description and the structured data are in the future tense, including that answers which cannot be verified will be flagged, never hidden; the built pages follow from them.
 
 ### Security
 
