@@ -34,9 +34,9 @@ The clause takes effect on the first of three events. The record carries the dat
 | The seller registers as a direct-marketing business | the owner, as a dated commit | `directMarketingRegistered.on` |
 | Annual revenue passes 1,800,000 baht | measured, then entered as a dated commit | `revenueThreshold.crossedOn` |
 
-Open, not yet ruled: whether a trigger date may lie in the future. The renderer treats any set trigger
-date that is not vetoed as in force and does not compare it with today, so a date in the future renders
-the clause at once.
+An open design question for the owner, not a legal gap: whether a trigger date may lie in the future.
+The renderer treats any set trigger date that is not vetoed as in force and does not compare it with
+today, so a date in the future renders the clause at once.
 
 ## The revenue trigger: the design (nothing is built; no billing system exists yet)
 
