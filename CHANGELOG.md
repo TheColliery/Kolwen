@@ -160,6 +160,15 @@ the pointer to it.
 - The favicon and touch icon are now generated from the brand icon rather than copied. The
   generator writes both places from one call, and CI fails if either drifts, so the mark cannot
   disagree with itself.
+### Security
+
+- The `undici` dependency is pinned to 7.30.1 by an `overrides` entry in `package.json`. The
+  `wrangler` pin brings in `miniflare`, which pins `undici` 7.29.1 exactly, and no Wrangler release
+  carries the fix yet; the latest, 4.152.0, still pins 7.29.1. The override closes three advisories
+  that `npm audit` reported for `undici` 7.0.0 to 7.30.0 (GHSA-4qv8-2p9j-2685, GHSA-f72v-6w45-q472
+  and GHSA-xjj6-f33q-929c), and the moderate findings on `miniflare` and `wrangler` that come
+  through it. The override comes out once `miniflare`'s own pin carries 7.30.1 or later. Nothing in
+  the site changes: `undici` is a development dependency, and the site ships no code that uses it.
 
 ### Added
 
