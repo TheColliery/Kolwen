@@ -160,9 +160,17 @@ the pointer to it.
 - The favicon and touch icon are now generated from the brand icon rather than copied. The
   generator writes both places from one call, and CI fails if either drifts, so the mark cannot
   disagree with itself.
+- A tracked file the script cannot read fails its own line, naming the file, and the rules that do not read that file keep running over the rest. A library the script cannot load fails the same way and names the rules that stop.
+- `scripts/lib/override-watch.mjs` reads the pin of each override's dependent in `package-lock.json` and reports the override as stale once that pin meets the override's version. A range is reported as unread. `scripts/override-watch.test.mjs` runs in CI.
+- The `sharp` override is removed from `package.json`. The Wrangler chain's `miniflare` now declares `sharp` 0.35.5 itself, so the override had no work left. The `undici` override stays.
+- A `<script>` in an SVG under `web/`, at any depth, is a finding of rule 13, because the policy admits no script in an SVG. Rule 13 reads an SVG's `<style>` for the style check, as it reads a page's.
+- The structured-data check reads its `application/ld+json` elements through the shared reader, so a tag written inside a comment is not read as one.
+
 ### Fixed
 
 - Rules 13, 16 and 17 read the bodies of comments, `<script>`, `<style>`, `<title>`, `<textarea>` and the other raw-text and RCDATA elements as text, not as markup, through one shared reader. A tag written inside one of them is no longer read as an element or a control. This closes two fail-opens: rule 17 could miss a buy control written after an `<a>` inside such a body, and rule 13 could hash the wrong body after a `<script>` or `<style>` opener inside such data. The check for plan wording, which reads visible text, now also skips comment bodies; script and style bodies were already skipped.
+- The robots `noindex` check decodes numeric character references in the `content` value before it looks for `noindex`, so `&#110;oindex` is read as `noindex`.
+- `scripts/post-deploy-check.mjs` sets its exit code and returns, instead of calling `process.exit()`, so output still waiting in a pipe is written before the process ends.
 
 ### Security
 

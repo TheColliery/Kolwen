@@ -167,16 +167,17 @@ only on a push touching `web/`, `wrangler.jsonc` or the checker, and a bump touc
 
 ### Dependency overrides
 
-`package.json` has an `overrides` block with two entries. Both packages reach the Worker's build tooling
-only through Wrangler's `miniflare`, and both are development dependencies: the Worker is static assets
-with no script, so nothing it deploys loads them. Each entry comes out once the pin it works around is fixed.
+`package.json` has an `overrides` block with one entry. The package reaches the Worker's build tooling
+only through Wrangler's `miniflare`, and it is a development dependency: the Worker is static assets
+with no script, so nothing it deploys loads it. The entry comes out once the pin it works around is fixed.
 
 | Package | Overridden to | Advisories closed | Removal condition |
 |---|---|---|---|
-| `sharp` | 0.35.5 | GHSA-wq5f-xc86-pv6w | once miniflare's own pin carries 0.35.5 or later. The miniflare that the pinned Wrangler (4.151.3) uses, 5.20261019.1-beta, already pins 0.35.5 (read 2026-10-26), so this entry is due to come out. |
 | `undici` | 7.30.1 | GHSA-4qv8-2p9j-2685, GHSA-f72v-6w45-q472, GHSA-xjj6-f33q-929c | once `miniflare`'s own pin carries 7.30.1 or later |
 
-The overrides apply to an `npm ci` install, which reads the lockfile, and not to an `npx wrangler@<version>`
+`scripts/override-watch.test.mjs` runs in CI and fails it once a dependent's pin in `package-lock.json` meets an override, because that override is then due to come out.
+
+The override applies to an `npm ci` install, which reads the lockfile, and not to an `npx wrangler@<version>`
 run (see "Local" below).
 
 ## Local: only for dev and dry runs, and only pinned
