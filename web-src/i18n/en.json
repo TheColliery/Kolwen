@@ -4,7 +4,7 @@
       "reading": "โคลเวน"
     },
     "hero": {
-      "title": "A {#hl}verifiable{/hl} AI assistant—every answer ships with its sources and a confidence level.",
+      "title": "A {#hl}verifiable{/hl} AI assistant—every answer will ship with its sources and a confidence level.",
       "sub": "Answers that can’t be verified are flagged, never hidden."
     },
     "origin": "Made in Thailand · {#th}สร้างในประเทศไทย{/th}",
@@ -16,11 +16,11 @@
     "warn": "{#b}Beware of impersonators:{/b} Kolwen has no official accounts other than the channels on this page. We will never message you asking for personal details, a one-time code, or money.",
     "meta": {
       "title": "Kolwen—verifiable AI, made in Thailand · in development",
-      "description": "Kolwen (โคลเวน) — a verifiable AI assistant made in Thailand. In development, not yet available. Answers ship with sources and a confidence level.",
+      "description": "Kolwen (โคลเวน) — a verifiable AI assistant made in Thailand. In development, not yet available. Answers will ship with sources and a confidence level.",
       "og-description": "In development, not yet available. Every answer will ship with its sources and a confidence level; answers that cannot be verified are flagged, never hidden."
     },
     "ld": {
-      "description": "A verifiable AI assistant made in Thailand. Every answer ships with its sources and a confidence level - answers that cannot be verified are flagged, never hidden."
+      "description": "A verifiable AI assistant made in Thailand. Every answer will ship with its sources and a confidence level - answers that cannot be verified are flagged, never hidden."
     }
   },
   "pricing": {
