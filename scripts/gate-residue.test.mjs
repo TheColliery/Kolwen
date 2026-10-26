@@ -174,6 +174,22 @@ test('rule 11: an indentless step sequence with a checkout and no contents is na
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('rule 11: a block scalar opened on a "- key: |" line takes the key\'s column, so the sibling keys of its step are read', () => {
+  const dir = surfaceCopy();
+  try {
+    const g = gateWith(dir, JOB('    permissions:\n      pull-requests: write\n    steps:\n      - name: |\n          Check out the code\n        uses: actions/checkout@v4\n'));
+    assert.match(g.out, /probe\.yml: job "build" declares its own permissions: block and checks the repository out, but does not state contents/, g.out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('rule 11: a line that STARTS with uses: inside a run: | body is script text, so a job without a checkout passes', () => {
+  const dir = surfaceCopy();
+  try {
+    const g = gateWith(dir, JOB('    permissions:\n      pull-requests: write\n    steps:\n      - run: |\n          cat <<EOF\n          uses: actions/checkout@v4\n          EOF\n'));
+    assert.deepEqual(probeLines(g.out), [], g.out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 // The three forms the job reader still passed (fail-closed required): each must be named at its own line, never a silent pass.
 const UNREAD_FORMS = {
   'a quoted permissions key': '    "permissions":\n      pull-requests: write\n    steps:\n      - uses: actions/checkout@v4\n',

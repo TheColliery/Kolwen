@@ -469,7 +469,8 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
         // there is not read. A step is a uses: line at a step's key indent or after a `- ` item marker.
         if (blockIndent >= 0 && (/^\s*$/.test(l) || ind > blockIndent)) { /* the body of the block scalar */ }
         else {
-          blockIndent = /:\s*[|>][-+0-9]*\s*(#.*)?$/.test(l) ? ind : -1;
+          // On a `- key: |` line the block belongs to the key, so its indent is the key's column, past the dash: the sibling keys of the step sit at that column.
+          blockIndent = /:\s*[|>][-+0-9]*\s*(#.*)?$/.test(l) ? /^\s*(-\s+)?/.exec(l)[0].length : -1;
           if (/^\s*(-\s+)?uses:\s*["']?actions\/checkout@/.test(l)) cur.checkout = true;
         }
         if (cur.indent !== ind) continue;
