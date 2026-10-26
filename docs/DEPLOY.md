@@ -2,7 +2,8 @@
 
 The site is a Cloudflare Worker that serves static assets. There is no build step and no bundler:
 `wrangler.jsonc` binds the `web/` directory and that is the whole application. `package.json`
-exists for one reason only, to pin the Wrangler version (see "Wrangler is pinned" below); it
+exists to pin the Wrangler version and, for one advisory, to override a transitive `undici` version
+(see "Wrangler is pinned" below); it
 declares no runtime dependency.
 
 ## Production: Workers Builds, on push to main
