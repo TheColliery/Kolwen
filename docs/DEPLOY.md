@@ -173,7 +173,7 @@ with no script, so nothing it deploys loads them. Each entry comes out once the 
 
 | Package | Overridden to | Advisories closed | Removal condition |
 |---|---|---|---|
-| `sharp` | 0.35.5 | GHSA-wq5f-xc86-pv6w | once `miniflare`'s own pin carries 0.35.5 or later. Its latest release, 4.20260730.0, pins 0.35.2 (read 2026-10-26) |
+| `sharp` | 0.35.5 | GHSA-wq5f-xc86-pv6w | once miniflare's own pin carries 0.35.5 or later. The miniflare that the pinned Wrangler (4.151.3) uses, 5.20261019.1-beta, already pins 0.35.5 (read 2026-10-26), so this entry is due to come out. |
 | `undici` | 7.30.1 | GHSA-4qv8-2p9j-2685, GHSA-f72v-6w45-q472, GHSA-xjj6-f33q-929c | once `miniflare`'s own pin carries 7.30.1 or later |
 
 The overrides apply to an `npm ci` install, which reads the lockfile, and not to an `npx wrangler@<version>`
@@ -242,8 +242,7 @@ edge answers a trailing-slash or `.html` source as the file says is proven only 
 
 Cloudflare's redirects page says that redirects in `_redirects` are not applied to requests that Worker code
 serves. This project has no Worker script (`wrangler.jsonc` has no `main`), so the three `/plans` redirects
-apply. A Worker script added later would stop them from applying, and the redirects would then have to be
-written into that code.
+apply. A Worker script added later would not apply them to the requests its code serves; any of these redirects such a script takes over would then have to be written into that code.
 
 The legal paths `/terms`, `/privacy` and `/refund` are served pages, and none has a redirect. What still waits on the
 lawyer is the parts a page holds, on any of three routes: a counsel-pending marker (on the passage, or on the head of the

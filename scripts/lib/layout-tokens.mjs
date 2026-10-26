@@ -91,8 +91,8 @@ export const TOKENS = {
   'line-height.body': '1.6',
   'line-height.thai': '1.65',
   // The language switch's border, which the reading theme darkens on a light ground (SC 1.4.11).
-  // The default pages keep it as it is. Computed over the page grounds (#0f0d0b dark, #fbfaf8 light) it is about 2.99:1
-  // and 2.36:1. WCAG 2.2 SC 1.4.11 asks for a 3:1 edge where the edge alone identifies the control; here the visible
+  // The default pages keep it as it is. Computed with scripts/lib/contrast.mjs over the page grounds (#0f0d0b dark, #fbfaf8 light) it is about
+  // 2.97:1 and 2.37:1. WCAG 2.2 SC 1.4.11 asks for a 3:1 edge where the edge alone identifies the control; here the visible
   // label identifies it.
   'color.switch-border': 'rgba(128, 128, 128, 0.7)',
 };

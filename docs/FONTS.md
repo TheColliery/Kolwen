@@ -15,6 +15,8 @@ download from the same release.
 | IBM Plex Sans Thai | `@ibm/plex-sans-thai` 1.1.0, github.com/IBM/plex | 1,985,960 | `sha256:d7203f43c20f9abd40487f845c48db4077d2056ea18632c8959591c6815d7fb9` |
 | IBM Plex Mono | `@ibm/plex-mono` 2.5.0, github.com/IBM/plex | 6,940,652 | `sha256:6d23f01257663d8cc49a0d64c22ced630b79e0e2a0ac08a0da86e9a38bbc481c` |
 
+GitHub publishes the Mono archive's digest; the Sans Thai asset carries none, so its digest is the one computed on fetch.
+
 The archives were fetched on 2026-10-17.
 
 ## Shipped files
