@@ -122,7 +122,7 @@ the pointer to it.
 - Rules 13 and 17 read start tags and elements through one shared bounded reader, in `scripts/lib/page-claims.mjs`. Rule 13 reads the `<script>` and `<style>` elements, the `<link>` and `<meta>` tags, and every start tag, for an inline handler or `style=` attribute. Rule 17 reads the `<a>` elements and every start tag, for a buy control, a form or a submit input. A start tag the reader cannot end is a finding that names its page. An unclosed `<script>` is a finding in rule 13, because rule 13 hashes its body; an unclosed `<style>` is one too, for the same reason. An unclosed `<a>` is a finding in rule 17, because rule 17 reads the link's text to tell a buy link. An opener with no closer costs one search, not one per opener, so the scan stays bounded. A fixed-name element (script, style, a, link or meta) is matched only when its whole tag name equals it, so `<script-x>` and `<a-b>` never stand in for it.
 - While any page has an unclosed or unread `<style>`, rule 13 skips the stale-hash check for the styles of every page. The missing-hash check still runs for every page.
 - Rule 13 finds an inline event handler or `style=` attribute as the HTML tokenizer names attributes: whatever the letter case (`ONCLICK=`), and with no white space before it (`<img/onerror=...>`). The reader also reads a quote inside an attribute name or an unquoted value as a plain character, and an end tag closes its element only when a white space, `/` or `>` follows the name, so `</a.x>` does not close an `<a>`.
-- Known limit, not yet fixed, and a fail-open: rules 13 and 17 read markup inside data the browser treats as text (a script or style body, an HTML comment, a title or a textarea), so a tag written inside one can hide a real control after it. Rule 17 can miss a control this way: an `<a>` written inside such data swallows the real link after it, and that link's role, aria-label and title are then not read. Rule 13 can hash the wrong body when a script or style opener sits inside such data, which admits a hash the browser does not match. The fix is routed to a follow-up unit that changes the shared reader.
+- Known limits, not yet fixed: `<noscript>` is read as markup, the scripting-off model its `<style>` is hashed for, although a browser with scripting on reads it as text. Character references and CDATA sections are not decoded in any body. The script-data escape states (a `<!--` inside a script) are not modelled, so a later `</script` can end the body early. An inline SVG's `<style>` and `<title>` are read as the HTML parser reads them, which differs inside `<svg>`. A raw-text body with no end is a finding at its line.
 - `PRIVACY.md` (a draft, not linked from the site) now marks seven statements about cookies, trackers
   and analytics `[pending legal review]` (the Thai twin with the file's Thai marker `[รอที่ปรึกษากฎหมาย]`):
   "This site sets no cookies at all", "no advertising cookie and no tracker", the quoted Thai and English
@@ -160,6 +160,10 @@ the pointer to it.
 - The favicon and touch icon are now generated from the brand icon rather than copied. The
   generator writes both places from one call, and CI fails if either drifts, so the mark cannot
   disagree with itself.
+### Fixed
+
+- Rules 13, 16 and 17 read the bodies of comments, `<script>`, `<style>`, `<title>`, `<textarea>` and the other raw-text and RCDATA elements as text, not as markup, through one shared reader. A tag written inside one of them is no longer read as an element or a control. This closes two fail-opens: rule 17 could miss a buy control written after an `<a>` inside such a body, and rule 13 could hash the wrong body after a `<script>` or `<style>` opener inside such data. The check for plan wording, which reads visible text, now also skips comment bodies; script and style bodies were already skipped.
+
 ### Security
 
 - The `undici` dependency is pinned to 7.30.1 by an `overrides` entry in `package.json`. The
