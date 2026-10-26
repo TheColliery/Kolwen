@@ -4,7 +4,7 @@
 // (web-src/pages/<home|pricing|notfound>.html) and the language catalogue (web-src/i18n/<bcp47>.json), and checks they are the committed pages: all seven pages are generated and none has a part
 // kept by hand (build-qc.md C-FMT-02). It also owns the SHARED BLOCKS: the header and its CSS, the footer of each language and its CSS, the rules for a reader without script and
 // the page script (the marker pairs of SYNC_BLOCKS, the link to the font manifest first and the layout tokens second) are written once in scripts/lib/legal-render.mjs (SYNC_BLOCKS) and come into every page between fixed markers, so one
-// edit reaches all seven pages in one run. It keeps the style-src and script-src hashes of web/_headers in step with the pages' inline <style> and <script> blocks, with the one hash routine
+// edit reaches all seven pages in one run. It keeps the style-src and script-src hashes of web/_headers in step with the pages' inline <style> and <script> blocks, and the <style> of every SVG under web/ (an SVG is a document the policy governs), with the one hash routine
 // surface-check uses (scripts/lib/csp-hashes.mjs), so a footer CSS edit needs no hand-typed hash. And it judges the catalogue and the templates (scripts/lib/i18n-catalogue.mjs,
 // scripts/lib/page-template.mjs): a visible string that is not a catalogue slot, a key present in one language and absent in another, a bad BCP 47 tag, a split sara am, a plain space before the
 // Thai repetition mark, joined keys.
@@ -109,8 +109,8 @@ async function main() {
   fails.push(...siteFails);
   for (const l of report) console.log(l);
 
-  // Every HTML page on disk under web/, as text (LF), in name order.
-  const webPages = () => Object.fromEntries(readdirSync(resolve(ROOT, 'web')).filter(f => f.endsWith('.html')).sort().map(f => ['web/' + f, read('web/' + f)]));
+  // Every document on disk under web/ that the policy governs, as text (LF), in name order: the HTML pages, and the SVG images, whose <style> the policy must admit by hash.
+  const webDocuments = () => Object.fromEntries(readdirSync(resolve(ROOT, 'web')).filter(f => /\.(html|svg)$/.test(f)).sort().map(f => ['web/' + f, read('web/' + f)]));
   const headersText = () => (existsSync(resolve(ROOT, HEADERS)) ? readFileSync(resolve(ROOT, HEADERS), 'utf8') : null);
 
   if (mode === '--write') {
@@ -118,7 +118,7 @@ async function main() {
     let headersNew = null;
     if (!fails.length) {
       // The hashes the pages carry now (on disk) and the ones they will carry once the render is written.
-      const disk = webPages(), after = { ...disk, ...Object.fromEntries(Object.entries(pages).map(([f, h]) => [f, lf(h)])) };
+      const disk = webDocuments(), after = { ...disk, ...Object.fromEntries(Object.entries(pages).map(([f, h]) => [f, lf(h)])) };
       const hashesOf = (set, of) => Object.fromEntries(Object.entries(set).map(([f, h]) => [f, of(h)]));
       const old = headersText();
       if (old === null) fails.push(`FAIL ${HEADERS} is missing, so its style-src hashes could not be updated`);
@@ -166,7 +166,7 @@ async function main() {
   // The style-src hashes of _headers are the hashes of the pages' inline <style> blocks, no more and no fewer.
   const headers = headersText();
   if (headers === null) fails.push(`FAIL ${HEADERS} is missing, so its style-src hashes could not be compared`);
-  else for (const p of sync.hashProblems(webPages(), headers).map(p => 'FAIL ' + p)) fails.push(p + ' (run node scripts/legal-pages.mjs --write)');
+  else for (const p of sync.hashProblems(webDocuments(), headers).map(p => 'FAIL ' + p)) fails.push(p + ' (run node scripts/legal-pages.mjs --write)');
 
   if (fails.length) { fails.forEach(f => console.log(f)); console.log(`${fails.length} problem(s)`); process.exitCode = 1; return; }
   console.log(`legal pages: ${Object.keys(pages).length} pages match the render of their sources (${SITE_FILES.length} of them from templates and the language catalogue); the shared footer is identical on all of them; the pricing page shares their style block`);

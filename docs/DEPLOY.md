@@ -2,8 +2,8 @@
 
 The site is a Cloudflare Worker that serves static assets. There is no build step and no bundler:
 `wrangler.jsonc` binds the `web/` directory and that is the whole application. `package.json`
-exists for one reason only, to pin the Wrangler version (see "Wrangler is pinned" below); it
-declares no runtime dependency.
+exists to pin the Wrangler version and, for one advisory, to override a transitive
+`undici` version (see "Wrangler is pinned" below); it declares no runtime dependency.
 
 ## Production: Workers Builds, on push to main
 
@@ -104,7 +104,7 @@ which have that shape. **Production `kolwen.com` never carries it**: `kolwen.com
 
 `web/_headers` carries one rule, on `/*`, that sets a Content-Security-Policy, a Referrer-Policy and a
 Permissions-Policy on every response. The policy has no `'unsafe-inline'`: the page's inline script
-and inline styles are admitted by `sha256-` hash, so an edit to any of them changes its hash and the
+and inline styles are admitted by `sha256-` hash, and so is the `<style>` of each SVG image under `web/`, which the policy governs as a document too, so an edit to any of them changes its hash and the
 policy must change with it. `scripts/surface-check.mjs` recomputes those hashes from the served
 HTML and fails the build if the two disagree. One origin is named in the policy because it
 cannot carry a fixed hash: the Cloudflare Web
@@ -147,7 +147,7 @@ serve two policies instead of one.
 ## Wrangler is pinned
 
 `package.json` and `package-lock.json` hold Wrangler as a devDependency at one exact version, no
-range; at the time of writing that is `4.136.3`, and the lockfile resolves to the same number.
+range, and the lockfile resolves to that same version.
 **`package.json` is the record**: a number written into a document is a claim about the past, and
 Dependabot moves this one. Cloudflare's build configuration page says Workers Builds uses the
 Wrangler version set in `package.json`. Whether its build runs an install step on a repository
@@ -181,6 +181,9 @@ npx wrangler@"$V" deploy --dry-run   # compile without publishing
 day it runs, so two people on the same task get two different tools and neither can reproduce the
 other.
 
+The `overrides` entry in `package.json` applies to an `npm ci` install, which reads the lockfile.
+It does not reach an `npx wrangler@<version>` run, which installs its own tree.
+
 **`wrangler deploy` from a laptop is not the production path** and should not be used as one. It
 uploads `web/` as it sits on disk, untracked files included, where Workers Builds deploys from a
 clone and can only ship what is committed. It has been needed once, to recover a push that
@@ -202,7 +205,7 @@ catalogue in `web-src/i18n/` (one JSON file per language; every string those pag
 `CONTRIBUTING.md` says how to change one). The blocks all seven pages share (the font manifest link, the header and its CSS, the footer of each language and its CSS, the rules for a
 reader without script, and the page script, as the marker pairs of `SYNC_BLOCKS` in `scripts/lib/legal-render.mjs` list them, the link to the font manifest and the layout tokens among them) sit in each page between fixed markers.
 `node scripts/legal-pages.mjs --write` renders the pages and also updates the `style-src` and
-`script-src` hashes in `web/_headers` (it never edits a `style-src-elem` or `script-src-elem` directive); `--check` (a CI step) fails on a page or a block that differs from its render, a marker
+`script-src` hashes in `web/_headers` (it never edits a `style-src-elem` or `script-src-elem` directive). The `style-src` hashes cover the `<style>` of each SVG under `web/` as well as the pages' inline styles; `--check` (a CI step) fails on a page or a block that differs from its render, a marker
 that is missing, doubled or out of order, marker pairs that overlap or nest, a stale hash, a `style-src-elem` that lacks one
 (a browser applies that directive to `<style>` blocks when the policy has one), or a problem in the catalogue or a template (a visible string that is not a catalogue slot, a key in one language and not the other, a language tag that is not BCP 47). `/pricing`'s buy controls are disabled "Coming soon"
 buttons, and rule 17 of the surface check refuses a live one, a Paddle script or a checkout URL on any production page; the only
