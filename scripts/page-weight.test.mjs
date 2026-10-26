@@ -367,7 +367,7 @@ test('RED PROOF: every child of this file runs with its own HOME, USERPROFILE, T
   assert.equal(spawns, 1, `a child is started in one place only, runNode (found ${spawns} call sites)`);
 });
 
-// CodeRabbit 4306008871 and reviewer U1: the inline <style> blocks are the live ones, read by the one reader rendered-text.mjs has (comments as the HTML parser ends them, scripts skipped).
+// CodeRabbit 4306008871: the inline <style> blocks are the live ones, read by the one reader rendered-text.mjs has (comments as the HTML parser ends them, scripts skipped).
 test('RED PROOF: an @import in a <style> inside an HTML comment or a script is not followed, and a live <style> after <!-->, <!---> or --!> is', () => {
   const dir = tree({
     'a.css': 'i{margin:0}', 'b.css': 'i{margin:0}', 'c.css': 'i{margin:0}', 'd.css': 'i{margin:0}', 'img.png': Buffer.alloc(300, 1),
@@ -385,7 +385,7 @@ test('RED PROOF: an @import in a <style> inside an HTML comment or a script is n
   try { assert.deepEqual(urlsOf(only(checkTree(dir))), ['/a.css', '/b.css', '/c.css', '/d.css', '/img.png', '/index.html']); } finally { gone(dir); }
 });
 
-// CodeRabbit 4306039163 and reviewer P2: markup inside a script or a style body is text, not tags, and a "<!--" there or in an attribute value opens no comment.
+// CodeRabbit 4306039163: markup inside a script or a style body is text, not tags, and a "<!--" there or in an attribute value opens no comment.
 test('RED PROOF: an <img> or a <link> written inside a script string is not an asset, and a "<!--" in a script, an attribute value or a textarea hides no later tag', () => {
   const dir = tree({
     's.css': "@font-face{font-family:'S';src:url('/f.woff2');unicode-range:U+0020-007E;}", 'f.woff2': Buffer.alloc(600, 1), 'i.png': Buffer.alloc(300, 2), 'j.png': Buffer.alloc(200, 3), 'k.png': Buffer.alloc(100, 4),
@@ -404,7 +404,7 @@ test('RED PROOF: an <img> or a <link> written inside a script string is not an a
   try { assert.deepEqual(urlsOf(only(checkTree(dir))), ['/app.js', '/f.woff2', '/i.png', '/index.html', '/j.png', '/k.png', '/s.css']); } finally { gone(dir); }
 });
 
-// Reviewer M1 of round 2: the real index with a stray quote in an unquoted value before its stylesheet link counted 6,105 bytes and 4 requests instead of 116,594 and 11, and exited 0.
+// The real index with a stray quote in an unquoted value before its stylesheet link counted 6,105 bytes and 4 requests instead of 116,594 and 11, and exited 0.
 test("RED PROOF: a stray quote in an unquoted attribute value (content=Kolwen's, content=a\"b) before the stylesheet link leaves the real index's parts and request count unchanged", () => {
   const dir = mkdtempSync(join(tmpdir(), 'page-weight-stray-'));
   try {

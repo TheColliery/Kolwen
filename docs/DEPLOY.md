@@ -167,16 +167,17 @@ only on a push touching `web/`, `wrangler.jsonc` or the checker, and a bump touc
 
 ### Dependency overrides
 
-`package.json` has an `overrides` block with two entries. Both packages reach the Worker's build tooling
-only through Wrangler's `miniflare`, and both are development dependencies: the Worker is static assets
-with no script, so nothing it deploys loads them. Each entry comes out once the pin it works around is fixed.
+`package.json` has an `overrides` block with one entry. The package reaches the Worker's build tooling
+only through Wrangler's `miniflare`, and it is a development dependency: the Worker is static assets
+with no script, so nothing it deploys loads it. The entry comes out once the pin it works around is fixed.
 
 | Package | Overridden to | Advisories closed | Removal condition |
 |---|---|---|---|
-| `sharp` | 0.35.5 | GHSA-wq5f-xc86-pv6w | once miniflare's own pin carries 0.35.5 or later. The miniflare that the pinned Wrangler (4.151.3) uses, 5.20261019.1-beta, already pins 0.35.5 (read 2026-10-26), so this entry is due to come out. |
 | `undici` | 7.30.1 | GHSA-4qv8-2p9j-2685, GHSA-f72v-6w45-q472, GHSA-xjj6-f33q-929c | once `miniflare`'s own pin carries 7.30.1 or later |
 
-The overrides apply to an `npm ci` install, which reads the lockfile, and not to an `npx wrangler@<version>`
+`scripts/override-watch.test.mjs` runs in CI and fails it once a dependent's pin in `package-lock.json` meets an override, because that override is then due to come out.
+
+The override applies to an `npm ci` install, which reads the lockfile, and not to an `npx wrangler@<version>`
 run (see "Local" below).
 
 ## Local: only for dev and dry runs, and only pinned
@@ -223,7 +224,7 @@ reader without script, and the page script, as the marker pairs of `SYNC_BLOCKS`
 that is missing, doubled or out of order, marker pairs that overlap or nest, a stale hash, a `style-src-elem` that lacks one
 (a browser applies that directive to `<style>` blocks when the policy has one), or a problem in the catalogue or a template (a visible string that is not a catalogue slot, a key in one language and not the other, a language tag that is not BCP 47). `/pricing`'s buy controls are disabled "Coming soon"
 buttons, and rule 17 of the surface check refuses a live one, a Paddle script or a checkout URL on any production page; the only
-button it lets stand without being disabled is a language switch, marked `data-lang-set="en"` or `data-lang-set="th"`.
+button it lets stand without being disabled is a language switch, marked `data-lang-set="en"` or `data-lang-set="th"`. A control written inside a comment, a script or style body, a title or a textarea is text, not a control, so rule 17 does not count it.
 Every page declares its job on `<html>` (`data-job="prose"` takes the reading theme, `data-job="default"` keeps the default theme), its sizes come from the tokens in `scripts/lib/layout-tokens.mjs`, and the `rendered` job of CI opens each page in a headless browser to check the 320 px reflow, 200% text, the Content-Security-Policy (only a violation fails it; a Permissions-Policy message is a `NOTE` line) and the reading theme (`CONTRIBUTING.md` says how to run it locally).
 
 The pages are mapped in `web-src/seams.json`: each page belongs to one group, and today there is one, the company site, served by this one Worker (this `web/` and its `web/_headers` are its zone); surface-check rule 20 holds the map against the files (`CONTRIBUTING.md` says how to add a page).

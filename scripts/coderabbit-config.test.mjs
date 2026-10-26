@@ -3,10 +3,10 @@
 //   - only schema v2 key paths (the allow-list below was read from https://coderabbit.ai/integrations/schema.v2.json on 2026-10-18);
 //   - no double quote and no backslash inside any string value (the settings editor mangles both; the quotes that delimit a scalar are not inside it);
 //   - every glob of path_instructions and path_filters matches at least one tracked file, each brace alternative on its own;
-//   - no instruction teaches the reviewer to stay quiet (the owner's law on teaching: a fact or a contract, never a suppression);
+//   - no instruction teaches CodeRabbit to stay quiet (the owner's law on teaching: a fact or a contract, never a suppression);
 //   - path_filters hide only files git marks as binary (i/-text), and every surface-check rule number an instruction or a comment line cites (in a list, or as a bare "rule N") exists in scripts/surface-check.mjs.
 // LIMIT, stated so the file does not read as a guard it is not: the suppression check is a word list. It catches the plain forms (ignore, skip, do not report, exempt ...) and NOT a paraphrase (a sentence that
-// calls a class of findings expected, by design or low priority). The real check of the teaching law is the INSPECT read of every instruction; and a citation that exists can still be a wrong claim about what the rule checks.
+// calls a class of findings expected, by design or low priority). The real check of the teaching law is a read of every instruction by a person; and a citation that exists can still be a wrong claim about what the rule checks.
 // Node builtins only. Planted-defect tests run the same checks on a changed copy of the text; the real file is never written.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -106,7 +106,7 @@ const globToRegExp = g => {
 // ── the checks ────────────────────────────────────────────────────────────────
 // The key paths schema v2 names that this file uses. `[]` marks a list item.
 const ALLOWED_KEYS = new Set(['inheritance', 'knowledge_base', 'knowledge_base.learnings', 'knowledge_base.learnings.scope', 'knowledge_base.learnings.approval_delay', 'knowledge_base.code_guidelines', 'knowledge_base.code_guidelines.enabled', 'reviews', 'reviews.profile', 'reviews.path_filters', 'reviews.path_instructions', 'reviews.path_instructions[].path', 'reviews.path_instructions[].instructions']);
-// The words of a suppression: an instruction that tells the reviewer to stay quiet, grants an exception or lowers a severity.
+// The words of a suppression: an instruction that tells CodeRabbit to stay quiet, grants an exception or lowers a severity.
 const SUPPRESSION = /\b(ignore[ds]?|skip(ped|s)?|suppress(ed|es)?|exempt(ed)?|(do not|don't|need not|never|no need to) (report|flag|raise|mention|suggest|comment)|not a finding|out of scope)\b/i;
 
 function keyPaths(node, prefix, out) {
@@ -128,7 +128,7 @@ function problemsOf(text, tracked, binary = BINARY) {
   if (doc.inheritance !== true) problems.push('inheritance: true is missing (without it this file replaces the organization settings)');
   if (doc.knowledge_base?.learnings?.scope !== 'local') problems.push('knowledge_base.learnings.scope must be local');
   if (doc.knowledge_base?.learnings?.approval_delay !== 30) problems.push('knowledge_base.learnings.approval_delay must be 30, the maximum');
-  if (doc.knowledge_base?.code_guidelines?.enabled !== false) problems.push('knowledge_base.code_guidelines.enabled must be false (the reviewer never reads the product under review as its own rule: UMB3-066)');
+  if (doc.knowledge_base?.code_guidelines?.enabled !== false) problems.push('knowledge_base.code_guidelines.enabled must be false (CodeRabbit never reads the product under review as its own rule)');
   if (doc.reviews?.profile !== 'assertive') problems.push('reviews.profile must be assertive (the measured trial)');
   for (const [where, s] of stringsOf(doc, '', [])) {
     if (s.includes('"')) problems.push(`${where}: a double quote inside a string value`);
@@ -140,12 +140,12 @@ function problemsOf(text, tracked, binary = BINARY) {
     if (typeof item.path !== 'string' || typeof item.instructions !== 'string' || !item.instructions.trim()) problems.push(`path_instructions item ${JSON.stringify(item.path)}: path and instructions are both required strings`);
     globs.push(['path_instructions', item.path]);
     if (/^hooks\//.test(item.path ?? '')) problems.push(`${item.path}: Kolwen has no agent-platform hooks, so the hooks block does not belong here`);
-    if (SUPPRESSION.test(item.instructions ?? '')) problems.push(`${item.path}: the instruction reads as a suppression (${SUPPRESSION.exec(item.instructions)[0]}): it must stay a fact or a contract and never tell the reviewer to stay quiet`);
+    if (SUPPRESSION.test(item.instructions ?? '')) problems.push(`${item.path}: the instruction reads as a suppression (${SUPPRESSION.exec(item.instructions)[0]}): it must stay a fact or a contract and never tell CodeRabbit to stay quiet`);
   }
   for (const [kind, glob] of globs) {
     for (const alt of expandBraces(glob)) if (!tracked.some(f => globToRegExp(alt).test(f))) problems.push(`${kind}: ${alt} matches no tracked file`);
   }
-  // a filter hides files from review, so it may hide only what a reviewer cannot read
+  // a filter hides files from review, so it may hide only what CodeRabbit cannot read
   for (const [kind, glob] of globs) {
     if (kind !== 'path_filters') continue;
     for (const alt of expandBraces(glob)) for (const f of tracked) if (globToRegExp(alt).test(f) && !binary.has(f)) problems.push(`path_filters: ${alt} hides ${f}, which is a text file: a filter may hide only a binary file`);
@@ -188,7 +188,7 @@ test('RED PROOF: a glob that matches no tracked file is a problem, also one alte
   assert.ok(problemsOf(filter, TRACKED).some(p => /\*\.gif.*matches no tracked file/.test(p)));
 });
 
-test('RED PROOF: an instruction that tells the reviewer to stay quiet is a problem', () => {
+test('RED PROOF: an instruction that tells CodeRabbit to stay quiet is a problem', () => {
   for (const phrase of ['Ignore this file.', 'Skip the generated pages.', 'Do not report a hand edit.', "Don't flag a long line.", 'Suppress this class.', 'Do not suggest a change here.', 'This file is exempt from review.']) {
     const planted = FILE.replace('Report a change that breaks any of these:', phrase + ' Report a change that breaks any of these:');
     assert.notEqual(planted, FILE);

@@ -23,17 +23,28 @@ function surfaceCopy() {
   for (const args of [['init', '-q'], ['add', '-A']]) assert.equal(spawnSync('git', args, { cwd: dir, env, timeout: 60000 }).status, 0, 'git ' + args[0]);
   return dir;
 }
-// One probe workflow, staged so that git lists it, then the real gate on the copy.
+// One probe workflow, staged so that git lists it, then the real gate on the copy. Returns the exit status and the output.
 function gateWith(dir, yaml) {
   mkdirSync(join(dir, '.github/workflows'), { recursive: true });
   writeFileSync(join(dir, '.github/workflows/probe.yml'), yaml);
   assert.equal(spawnSync('git', ['add', '-A'], { cwd: dir, env: childEnv(dir), timeout: 60000 }).status, 0);
   const r = spawnSync(process.execPath, ['--max-old-space-size=512', join(dir, 'scripts/surface-check.mjs')], { encoding: 'utf8', timeout: 120000, killSignal: 'SIGKILL', cwd: dir, env: childEnv(dir), maxBuffer: 64 << 20 });
   assert.equal(r.error, undefined, 'surface-check was killed: ' + (r.error && r.error.code));
-  return r.stdout + r.stderr;
+  return { status: r.status, out: r.stdout + r.stderr };
 }
 // The findings of the probe workflow only (the rest of the tree passes the gate, which the baseline test holds).
 const probeLines = out => out.split('\n').filter(l => l.includes('.github/workflows/probe.yml:'));
+
+test('gateWith returns the exit status: a probe with a finding exits 1, and a probe with none exits 0', () => {
+  const dir = surfaceCopy();
+  try {
+    const bad = gateWith(dir, 'name: probe\non: push\njobs:\n  build:\n    runs-on: ubuntu-latest\n    permissions:\n      pull-requests: write\n    steps:\n    - uses: actions/checkout@v4\n');
+    assert.equal(bad.status, 1, bad.out);
+    assert.ok(probeLines(bad.out).length > 0, bad.out);
+    const good = gateWith(dir, 'name: probe\non: push\njobs:\n  build:\n    runs-on: ubuntu-latest\n    permissions:\n      contents: read\n    steps:\n    - uses: actions/checkout@v4\n');
+    assert.equal(good.status, 0, good.out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
 
 test('baseline: the tracked tree passes surface-check, so each row below is the probe alone', () => {
   const dir = surfaceCopy();
@@ -46,7 +57,7 @@ test('baseline: the tracked tree passes surface-check, so each row below is the 
 test('a clean workflow is not a finding: a block that states contents, and an empty block, read and pass', () => {
   const dir = surfaceCopy();
   try {
-    const out = gateWith(dir, [
+    const { out } = gateWith(dir, [
       'name: probe', 'on: push', 'jobs:',
       '  reads:', '    runs-on: ubuntu-latest', '    permissions:', '      contents: read', '    steps:', '      - uses: actions/checkout@v4',
       '  empty:', '    runs-on: ubuntu-latest', '    permissions: {}', '    steps:', '      - run: true', '',
@@ -58,7 +69,7 @@ test('a clean workflow is not a finding: a block that states contents, and an em
 test('rule 11 reads a flow permissions value: "permissions: { pull-requests: write }" on a job that checks out is a finding, not a pass', () => {
   const dir = surfaceCopy();
   try {
-    const out = gateWith(dir, [
+    const { out } = gateWith(dir, [
       'name: probe', 'on: push', 'jobs:',
       '  probe:', '    runs-on: ubuntu-latest', '    permissions: { pull-requests: write }', '    steps:', '      - uses: actions/checkout@v4', '',
     ].join('\n'));
@@ -69,7 +80,7 @@ test('rule 11 reads a flow permissions value: "permissions: { pull-requests: wri
 test('rule 11 reads a permissions key with a trailing comment as a block: the members are read, and a job without contents is a finding', () => {
   const dir = surfaceCopy();
   try {
-    const out = gateWith(dir, [
+    const { out } = gateWith(dir, [
       'name: probe', 'on: push', 'jobs:',
       '  probe:', '    runs-on: ubuntu-latest', '    permissions: # least privilege', '      pull-requests: write', '    steps:', '      - uses: actions/checkout@v4', '',
     ].join('\n'));
@@ -80,7 +91,7 @@ test('rule 11 reads a permissions key with a trailing comment as a block: the me
 test('rule 11 reads a quoted uses: by stripping its quotes: "actions/checkout@v4" in quotes is a checkout, and its job without contents is a finding', () => {
   const dir = surfaceCopy();
   try {
-    const out = gateWith(dir, [
+    const { out } = gateWith(dir, [
       'name: probe', 'on: push', 'jobs:',
       '  probe:', '    runs-on: ubuntu-latest', '    permissions:', '      pull-requests: write', '    steps:', '      - uses: "actions/checkout@v4"', '',
     ].join('\n'));
@@ -91,7 +102,7 @@ test('rule 11 reads a quoted uses: by stripping its quotes: "actions/checkout@v4
 test('rule 11 does not pass an anchor or an alias for permissions: neither job is read, so both are findings', () => {
   const dir = surfaceCopy();
   try {
-    const out = gateWith(dir, [
+    const { out } = gateWith(dir, [
       'name: probe', 'on: push', 'jobs:',
       '  first:', '    runs-on: ubuntu-latest', '    permissions: &p', '      pull-requests: write', '    steps:', '      - run: true',
       '  second:', '    runs-on: ubuntu-latest', '    permissions: *p', '    steps:', '      - uses: actions/checkout@v4', '',
@@ -104,7 +115,7 @@ test('rule 11 does not pass an anchor or an alias for permissions: neither job i
 test('rule 11 names a job key with text after its colon, names that one job, and does not hand its members to the job above', () => {
   const dir = surfaceCopy();
   try {
-    const out = gateWith(dir, [
+    const { out } = gateWith(dir, [
       'name: probe', 'on: push', 'jobs:',
       '  first:', '    runs-on: ubuntu-latest', '    steps:', '      - run: true',
       '  probe: {runs-on: ubuntu-latest}', '    permissions:', '      pull-requests: write', '    steps:', '      - uses: actions/checkout@v4', '',
@@ -117,7 +128,7 @@ test('rule 11 names a job key with text after its colon, names that one job, and
 test('rule 11 reads a job key with a trailing comment as the key it is: "probe:   # the probe job" is job "probe", and its missing contents is named for that job', () => {
   const dir = surfaceCopy();
   try {
-    const out = gateWith(dir, [
+    const { out } = gateWith(dir, [
       'name: probe', 'on: push', 'jobs:',
       '  probe:   # the probe job', '    runs-on: ubuntu-latest', '    permissions:', '      pull-requests: write', '    steps:', '      - uses: actions/checkout@v4', '',
     ].join('\n'));
@@ -129,7 +140,7 @@ test('rule 11 reads a job key with a trailing comment as the key it is: "probe: 
 test('rule 11 fails closed on a quoted member key at job-member indent: "permissions": is not read, so the job cannot be passed', () => {
   const dir = surfaceCopy();
   try {
-    const out = gateWith(dir, [
+    const { out } = gateWith(dir, [
       'name: probe', 'on: push', 'jobs:',
       '  probe:', '    runs-on: ubuntu-latest', '    "permissions":', '      pull-requests: write', '    steps:', '      - uses: actions/checkout@v4', '',
     ].join('\n'));
@@ -140,7 +151,7 @@ test('rule 11 fails closed on a quoted member key at job-member indent: "permiss
 test('rule 11 fails closed on a spaced member key: "permissions :" (a space before the colon) is not read', () => {
   const dir = surfaceCopy();
   try {
-    const out = gateWith(dir, [
+    const { out } = gateWith(dir, [
       'name: probe', 'on: push', 'jobs:',
       '  probe:', '    runs-on: ubuntu-latest', '    permissions :', '      pull-requests: write', '    steps:', '      - uses: actions/checkout@v4', '',
     ].join('\n'));
@@ -151,7 +162,7 @@ test('rule 11 fails closed on a spaced member key: "permissions :" (a space befo
 test('rule 11 fails closed on a job whose value is a flow mapping on the next line', () => {
   const dir = surfaceCopy();
   try {
-    const out = gateWith(dir, [
+    const { out } = gateWith(dir, [
       'name: probe', 'on: push', 'jobs:',
       '  probe:', '    {runs-on: ubuntu-latest, permissions: {pull-requests: write}, steps: [{uses: actions/checkout@v4}]}', '',
     ].join('\n'));
@@ -162,7 +173,7 @@ test('rule 11 fails closed on a job whose value is a flow mapping on the next li
 test('rule 11 names a line inside a permissions: block that is not a key: value line, and does not pass the job', () => {
   const dir = surfaceCopy();
   try {
-    const out = gateWith(dir, [
+    const { out } = gateWith(dir, [
       'name: probe', 'on: push', 'jobs:',
       '  probe:', '    runs-on: ubuntu-latest', '    permissions:', '      "contents": read', '    steps:', '      - uses: actions/checkout@v4', '',
     ].join('\n'));
@@ -174,7 +185,7 @@ test('rule 11 names a line inside a permissions: block that is not a key: value 
 test('rule 11 names an unread permissions value and not the job it sits in: one finding per fault', () => {
   const dir = surfaceCopy();
   try {
-    const out = gateWith(dir, [
+    const { out } = gateWith(dir, [
       'name: probe', 'on: push', 'jobs:',
       '  probe:', '    runs-on: ubuntu-latest', '    permissions: { pull-requests: write }', '    steps:', '      - uses: actions/checkout@v4', '',
     ].join('\n'));
@@ -187,7 +198,7 @@ test('rule 11 names an unread permissions value and not the job it sits in: one 
 test('rule 11 reads job members at 6 spaces: a job that checks out and states no contents is a finding', () => {
   const dir = surfaceCopy();
   try {
-    const out = gateWith(dir, [
+    const { out } = gateWith(dir, [
       'name: probe', 'on: push', 'jobs:',
       '  probe:', '      runs-on: ubuntu-latest', '      permissions:', '        pull-requests: write', '      steps:', '        - uses: actions/checkout@v4', '',
     ].join('\n'));
@@ -197,7 +208,7 @@ test('rule 11 reads job members at 6 spaces: a job that checks out and states no
 test('rule 11 reads job members at 3 spaces: a job that checks out and states no contents is a finding', () => {
   const dir = surfaceCopy();
   try {
-    const out = gateWith(dir, [
+    const { out } = gateWith(dir, [
       'name: probe', 'on: push', 'jobs:',
       '  probe:', '   runs-on: ubuntu-latest', '   permissions:', '     pull-requests: write', '   steps:', '     - uses: actions/checkout@v4', '',
     ].join('\n'));
@@ -207,7 +218,7 @@ test('rule 11 reads job members at 3 spaces: a job that checks out and states no
 test('rule 11 reads a clean job at 6 spaces: a permissions block that states contents passes', () => {
   const dir = surfaceCopy();
   try {
-    const out = gateWith(dir, [
+    const { out } = gateWith(dir, [
       'name: probe', 'on: push', 'jobs:',
       '  probe:', '      runs-on: ubuntu-latest', '      permissions:', '        contents: read', '      steps:', '        - uses: actions/checkout@v4', '',
     ].join('\n'));
