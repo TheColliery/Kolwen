@@ -2,9 +2,8 @@
 
 The site is a Cloudflare Worker that serves static assets. There is no build step and no bundler:
 `wrangler.jsonc` binds the `web/` directory and that is the whole application. `package.json`
-exists to pin the Wrangler version and, for one advisory, to override a transitive `undici` version
-(see "Wrangler is pinned" below); it
-declares no runtime dependency.
+exists to pin the Wrangler version and, for one advisory, to override a transitive
+`undici` version (see "Wrangler is pinned" below); it declares no runtime dependency.
 
 ## Production: Workers Builds, on push to main
 
@@ -148,7 +147,7 @@ serve two policies instead of one.
 ## Wrangler is pinned
 
 `package.json` and `package-lock.json` hold Wrangler as a devDependency at one exact version, no
-range; at the time of writing that is `4.136.3`, and the lockfile resolves to the same number.
+range, and the lockfile resolves to that same version.
 **`package.json` is the record**: a number written into a document is a claim about the past, and
 Dependabot moves this one. Cloudflare's build configuration page says Workers Builds uses the
 Wrangler version set in `package.json`. Whether its build runs an install step on a repository
@@ -181,6 +180,9 @@ npx wrangler@"$V" deploy --dry-run   # compile without publishing
 **Always pin the version.** An unpinned `npx wrangler` silently takes whatever is newest on the
 day it runs, so two people on the same task get two different tools and neither can reproduce the
 other.
+
+The `overrides` entry in `package.json` applies to an `npm ci` install, which reads the lockfile.
+It does not reach an `npx wrangler@<version>` run, which installs its own tree.
 
 **`wrangler deploy` from a laptop is not the production path** and should not be used as one. It
 uploads `web/` as it sits on disk, untracked files included, where Workers Builds deploys from a
