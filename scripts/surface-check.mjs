@@ -18,9 +18,10 @@ const note = (f, msg) => fail.push(`${f}: ${msg}`);
 
 // A tracked file the gate cannot read (deleted from the disk, or without read permission) is named here and left out of the list, so the rules after it still run.
 // Before this, the first bare read threw and the whole gate stopped with a stack trace.
+const unreadable = []; // tracked files the disk does not hold, so no rule reads them
 const tracked = execSync('git ls-files', { encoding: 'utf8' }).split('\n').filter(Boolean).filter(f => {
   try { readFileSync(f); return true; }
-  catch (e) { note(f, `could not be read (${e.code || e.message}), so the rules that read it do not check it`); return false; }
+  catch (e) { unreadable.push(f); note(f, `could not be read (${e.code || e.message}), so the rules that read it do not check it`); return false; }
 });
 
 // Binary only. SVG is TEXT — hand-editable XML, tracked, and served at kolwen.com/favicon.svg,
@@ -704,8 +705,11 @@ const CSP_STATS = { scripts: 0, styles: 0 };
   try { reader = await import(pathToFileURL(resolve('scripts/lib/page-claims.mjs')).href); }
   catch (e) { note('scripts/lib/page-claims.mjs', 'could not be loaded, so rule 13 could not read the tags of the pages (' + (e.code || 'import failed') + ')'); }
   // A page with an unclosed <style> keeps its style hashes unchecked: the hash routine (scripts/lib/csp-hashes.mjs) scans to the end from such an opener, so it is not run on that page,
-  // and then the stale-hash check for styles is not run either (a hash of an unread page would read as stale).
-  let styleIncomplete = false;
+  // and then the stale-hash check for styles is not run either (a hash of an unread page would read as stale). The same holds when a page or a reader this check
+  // needs cannot be read at all: its hashes are unjudged, so no stale-hash line and no empty-check advice is given for them, and the advice would name a cause that is not there.
+  const unreadWeb = unreadable.some(f => f.startsWith('web/') && f.endsWith('.html'));
+  let styleIncomplete = !reader || !hashes || unreadWeb;
+  let scriptIncomplete = !reader || !hashes || unreadWeb;
   for (const f of htmlFiles) {
     if (!reader) break;
     const s = read(f).replace(/\r\n/g, '\n');
@@ -716,6 +720,7 @@ const CSP_STATS = { scripts: 0, styles: 0 };
     // The <script> elements: a code block is hashed, a data block is not, and an element with no closer is a finding.
     const scripts = reader.elementsOf(s, /<(script)\b/gi);
     unreadNote(scripts.unread, '<script> tag(s)');
+    if (scripts.unread.length || scripts.unclosed.length) scriptIncomplete = true;
     hiddenNote(scripts.hidden);
     if (scripts.unclosed.length) note(f, `has ${scripts.unclosed.length} <script> element(s) with no closer (first at line ${lineAt(scripts.unclosed[0])}), so rule 13 cannot read their bodies`);
     for (const e of scripts.elements) {
@@ -768,8 +773,8 @@ const CSP_STATS = { scripts: 0, styles: 0 };
     if (scripts.unread.length) note(f, `has ${scripts.unread.length} <script> tag(s) the reader cannot read to their end (first at line ${lineAt(scripts.unread[0])})`);
     if (scripts.tags.length) note(f, `has ${scripts.tags.length} <script> element(s), first at line ${lineAt(scripts.tags[0].index)}, which the policy admits in no SVG`);
   }
-  if (CSP_STATS.scripts === 0) note('web/index.html', 'has no inline script for rule 13 to hash, so this CHECK is now empty, not the CSP proven exact. If the page\'s script was removed on purpose, remove its hash from web/_headers and ask the maintainer to retire the script half of rule 13');
-  if (CSP_STATS.styles === 0) note('web/index.html', 'has no inline style for rule 13 to hash, so this CHECK is now empty for styles, not the CSP proven exact');
+  if (CSP_STATS.scripts === 0 && !scriptIncomplete) note('web/index.html', 'has no inline script for rule 13 to hash, so this CHECK is now empty, not the CSP proven exact. If the page\'s script was removed on purpose, remove its hash from web/_headers and ask the maintainer to retire the script half of rule 13');
+  if (CSP_STATS.styles === 0 && !styleIncomplete) note('web/index.html', 'has no inline style for rule 13 to hash, so this CHECK is now empty for styles, not the CSP proven exact');
 
   let lib = null;
   try { lib = await import(pathToFileURL(resolve('scripts/lib/headers-file.mjs')).href); }
@@ -822,7 +827,7 @@ const CSP_STATS = { scripts: 0, styles: 0 };
           const have = new Set(toks.filter(t => /^'sha256-/.test(t)));
           for (const t of toks) if (/^'sha(?:384|512)-/.test(t)) note(HEADERS, `line ${line}: ${dir} uses ${t.slice(0, 11)}…, which rule 13 does not recompute; use sha256`);
           for (const h of want[kind]) if (!have.has(h)) note(HEADERS, `line ${line}: ${dir} does not admit the inline ${kind} whose hash is ${h} — the browser will refuse it`);
-          for (const h of have) if (!want[kind].has(h) && !(kind === 'style' && styleIncomplete)) note(HEADERS, `line ${line}: ${dir} admits ${h}, which matches no inline ${kind} in the served HTML${kind === 'style' ? ' or SVG' : ''} (a stale hash)`);
+          for (const h of have) if (!want[kind].has(h) && !(kind === 'style' ? styleIncomplete : scriptIncomplete)) note(HEADERS, `line ${line}: ${dir} admits ${h}, which matches no inline ${kind} in the served HTML${kind === 'style' ? ' or SVG' : ''} (a stale hash)`);
           for (const o of origins[kind]) if (!toks.map(t => t.toLowerCase()).includes(o)) note(HEADERS, `line ${line}: the HTML loads a ${kind === 'style' ? 'stylesheet' : 'script'} from ${o}, which ${dir} does not name`);
         }
       }

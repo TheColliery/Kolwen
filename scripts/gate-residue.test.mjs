@@ -102,6 +102,42 @@ test('a broken legal-state library names itself (the legal-state rule says it co
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+// ── a page or a reader the gate cannot read silences the advice that would call its hashes stale or empty ──────────────────────────────────
+
+test('an unreadable web page gives no stale-hash line and no empty-check advice: the hashes of a page it cannot read are not judged', () => {
+  const dir = surfaceCopy();
+  try {
+    rmSync(join(dir, 'web/index.html')); // still in the index: git lists it, the disk does not hold it
+    const r = surface(dir);
+    assert.notEqual(r.status, 0, r.out);
+    assert.match(r.out, /web\/index\.html[^\n]*could not be read/, r.out);
+    assert.doesNotMatch(r.out, /a stale hash/, r.out);
+    assert.doesNotMatch(r.out, /has no inline (script|style) for rule 13 to hash/, r.out);
+    assert.doesNotMatch(r.out, /remove its hash from web\/_headers/, r.out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('a broken page-claims library gives no empty-check advice: the reader did not load, so nothing was removed', () => {
+  const dir = surfaceCopy();
+  try {
+    breakLibrary(dir, 'scripts/lib/page-claims.mjs');
+    const r = surface(dir);
+    assert.match(r.out, /scripts\/lib\/page-claims\.mjs[^\n]*could not be loaded/, r.out);
+    assert.doesNotMatch(r.out, /has no inline (script|style) for rule 13 to hash/, r.out);
+    assert.doesNotMatch(r.out, /remove its hash from web\/_headers/, r.out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('a broken csp-hashes library gives no empty-check advice either: no hash was computed to be empty', () => {
+  const dir = surfaceCopy();
+  try {
+    breakLibrary(dir, 'scripts/lib/csp-hashes.mjs');
+    const r = surface(dir);
+    assert.match(r.out, /scripts\/lib\/csp-hashes\.mjs[^\n]*could not be loaded/, r.out);
+    assert.doesNotMatch(r.out, /has no inline (script|style) for rule 13 to hash/, r.out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 // ── post-deploy-check: the exit code is set, never by exit(), so a pipe keeps the report ─────────────────────────────────────────────────
 
 test('post-deploy-check.mjs sets process.exitCode and never calls process.exit (a pipe is asynchronous on POSIX)', () => {
