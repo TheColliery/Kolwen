@@ -1,4 +1,4 @@
-// Tests for surface-check rules 15 (the dropped "no trackers" claim, LWK-273) and 16 (no robots noindex on a production page, LWK-271), and for the readers behind them (scripts/lib/page-claims.mjs).
+// Tests for surface-check rules 15 (the dropped "no trackers" claim) and 16 (no robots noindex on a production page), and for the readers behind them (scripts/lib/page-claims.mjs).
 //
 // Each rule owes three things, and this file is where they are held:
 //   1. RED-FIRST: the rule FIRES on the dirty input (the reviewer's mutant I1, a noindex meta on the home page; the page set at the parent of 94b9415, which says "no trackers"). The gate tests run
@@ -304,8 +304,8 @@ test('the readers finish on bulk input that gives them nothing to match: untermi
 });
 
 // The unterminated-tag half uses 4,000 tags, not 40,000: at 40,000 the whole gate took about 76 s on this box (measured 2026-10-24), and that cost is NOT in rules 15 and 16. Rule 13's `<meta ... http-equiv` test and
-// rule 17's TAG pattern each scan from every `<meta` to the end of the page when no `>` closes it, so the gate is quadratic in that input. Those two patterns are not bounded here. A follow-up gives them the
-// bounded tag reader of scripts/lib/page-claims.mjs. The readers themselves are checked for linear time by the child test above: it runs N = 50,000 of each shape under a 512 MB heap cap and a 60 s SIGKILL,
+// rule 17's TAG pattern each scanned from every `<meta` to the end of the page when no `>` closed it, so the gate was quadratic in that input. Both now read their tags with the bounded reader of
+// scripts/lib/page-claims.mjs, and the gate rows further down hold them. The readers themselves are checked for linear time by the child test above: it runs N = 50,000 of each shape under a 512 MB heap cap and a 60 s SIGKILL,
 // and asserts that the child finished, with no timing assert.
 // The passage half is a time criterion, chosen by its margin: 8,000 passages under a 60 s kill. Measured on the box of 2026-10-24, the fixed rule took about 8 s and the rule as it stood at 7aefb8b, quadratic
 // in the passages, took about 238 s, so the kill sits about seven times above the first and about four times below the second, and either margin survives a runner that is several times slower or a little faster.
@@ -332,3 +332,203 @@ test('RED PROOF at the gate: surface-check finishes on a page of 4,000 untermina
     assert.equal(named >= 8000, true, `every hit is named: ${named} of 8000 named; status ${b.status}; output ${b.out.length} characters; other lines ${JSON.stringify(others)}; the output's last 300 characters ${JSON.stringify(b.out.slice(-300))}`);
   } finally { rmSync(dir2, { recursive: true, force: true }); }
 });
+
+// ── CLASS B: an opener with no closer costs a bounded scan ─────────────────────────────────────────────
+// Each gate row appends BULK_N openers with no closer to a page and runs surface-check in a child under a heap cap (512 MB) and a kill timer (60 s). The row asserts that the child
+// FINISHED: not killed and no signal, and that it exits with a finding. No time is asserted, so the row cannot pass on a fast box and fail on a slow one, and a quadratic rule is killed.
+// The rows that cannot be isolated are not here: rule 17's visible-text strip (rule 17a) and rule 5 read the same openers and are not changed here (a follow-up gives them the same reader).
+const BULK_N = 200000;
+const bulkGate = (dir, unit) => {
+  edit(dir, 'web/index.html', s => s.replace('</body>', unit.repeat(BULK_N) + '</body>'));
+  return spawnSync(process.execPath, ['--max-old-space-size=512', join(dir, 'scripts/surface-check.mjs')], { encoding: 'utf8', timeout: 60000, killSignal: 'SIGKILL', cwd: dir, env: childEnv(dir), maxBuffer: 64 << 20 });
+};
+const finishedNamed = (r, label, msgs) => {
+  assert.equal(r.error, undefined, label + ': surface-check was killed by the 60 s timer, so it did not finish: ' + (r.error && r.error.code));
+  assert.equal(r.signal, null, label + ': killed by ' + r.signal);
+  assert.equal(r.status, 1, label + ': finished, and it must name the page: ' + (r.stdout + r.stderr).slice(0, 400));
+  for (const m of msgs) assert.match(r.stdout + r.stderr, m, label + ': the finding of its own rule is missing');
+};
+test('CLASS B gate row, rules 13 and 16: 200,000 unterminated <meta " openers finish, and rule 13 names its own unread tags', () => {
+  const dir = surfaceCopy();
+  try { finishedNamed(bulkGate(dir, '<meta "'), '<meta "', [/web\/index\.html: has \d+ <meta> tag\(s\) the reader cannot read to its end/]); } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+test('CLASS B gate row, rule 13: 200,000 unterminated <link openers finish, and rule 13 names its own unread tags', () => {
+  const dir = surfaceCopy();
+  try { finishedNamed(bulkGate(dir, '<link '), '<link ', [/web\/index\.html: has \d+ <link> tag\(s\) the reader cannot read to its end/]); } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+test('CLASS B gate row, rules 13 and 17: 200,000 unterminated <a openers finish, and each rule names its own unread tags', () => {
+  const dir = surfaceCopy();
+  try {
+    finishedNamed(bulkGate(dir, '<a '), '<a ', [
+      /web\/index\.html: has \d+ start tag\(s\) the reader cannot read to its end \(first at line \d+\), so rule 13 cannot check it/,
+      /web\/index\.html: has \d+ start tag\(s\) the reader cannot read to their end \(first at line \d+\), so the buy-control and payment checks cannot read them/,
+    ]);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+test('CLASS B gate row, rule 17: 200,000 unclosed <a> elements finish, and rule 17 names its own unclosed anchors', () => {
+  const dir = surfaceCopy();
+  try { finishedNamed(bulkGate(dir, '<a>'), '<a>', [/web\/index\.html: has \d+ <a> element\(s\) with no closer/]); } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ── the tag name and the end tag are read as the tokenizer reads them ─────────────────────────────────────
+test('rule 17 reads an end tag whose name runs on: </a.x> is not the end of <a>, so the buy link after it is still read', () => {
+  const dir = surfaceCopy();
+  try {
+    const after = edit(dir, 'web/index.html', s => s.replace('</body>', '<a href="/x">Hi</a.x>Buy now</a>\n</body>'));
+    const line = lineOf(after, after.indexOf('<a href="/x">Hi'));
+    const r = surface(dir);
+    assert.equal(r.status, 1, r.out);
+    assert.ok(r.out.includes(`web/index.html: line ${line}: has a link that reads as a buy control ("Hi Buy now")`), r.out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+test('rule 17 reads a tag name the tokenizer reads: <i.x="><button>Buy</button>"> ends at its first >, so the live button after it is read', () => {
+  const dir = surfaceCopy();
+  try {
+    const after = edit(dir, 'web/index.html', s => s.replace('</body>', '<i.x="><button>Buy</button>">t\n</body>'));
+    const line = lineOf(after, after.indexOf('<button>Buy'));
+    const r = surface(dir);
+    assert.equal(r.status, 1, r.out);
+    assert.ok(r.out.includes(`web/index.html: line ${line}: has a button that is not disabled`), r.out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ── the handler and the style attribute are read from the attributes, not from the white space before them ─────────
+// ── an element is the tokenizer's whole tag name: <script-x> is no <script>, <a-b> is no <a>, and the real element after it is read ─────────
+// Admits, in web/_headers, each inline script hash that rule 13 names as missing (the first run lists them, the second run is the verdict), so rule 13 passes and only rule 17 can speak.
+const admitScripts = dir => {
+  const first = surface(dir);
+  const hashes = [...new Set([...first.out.matchAll(/does not admit the inline script whose hash is ('sha256-[^']+')/g)].map(m => m[1]))];
+  assert.ok(hashes.length > 0, 'the first run names no missing script hash: ' + first.out);
+  edit(dir, 'web/_headers', h => h.replace(/script-src([^;\n]*)/g, (m, rest) => 'script-src' + rest + ' ' + hashes.join(' ')));
+  return surface(dir);
+};
+test('rule 17 reads the real <script> after <script-x>: <script-x> is no script, so the payment script after it is named at its own line', () => {
+  const dir = surfaceCopy();
+  try {
+    const after = edit(dir, 'web/index.html', s => s.replace('</body>', '<script-x></script-x><script>Paddle.Setup({})</script>\n</body>'));
+    const line = lineOf(after, after.indexOf('<script>Paddle'));
+    const r = admitScripts(dir);
+    assert.equal(r.status, 1, r.out);
+    assert.ok(r.out.includes(`web/index.html: line ${line}: carries a payment script`), r.out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+test('rule 13 wants no hash for <style-x>: its empty body is not an inline style, so the empty-body hash is not named, and the real <style> after it is read', async () => {
+  const { cspHash } = await import(pathToFileURL(join(ROOT, 'scripts/lib/csp-hashes.mjs')).href);
+  const dir = surfaceCopy();
+  try {
+    edit(dir, 'web/index.html', s => s.replace('</body>', '<style-x></style-x><style>.k{color:red}</style>\n</body>'));
+    const r = surface(dir);
+    assert.ok(!r.out.includes(cspHash('')), 'the empty body of <style-x> was hashed as an inline style: ' + r.out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+test('rule 17 reads the real <a> after a longer name: <a-b>, <a:b> and <a.b> are other elements, and the role, the aria-label or the text of the real link is read', () => {
+  for (const [plant, read] of [
+    ['<a-b>x</a-b><a href="/x" role="button">Go</a>', '("Go")'],
+    ['<a-b>x</a-b><a href="/x" aria-label="Buy now">Go</a>', '("Go Buy now")'],
+    ['<a:b>x</a:b><a href="/x" role="button">Go</a>', '("Go")'],
+    ['<a.b>x</a.b><a href="/x" role="button">Go</a>', '("Go")'],
+    ['<a-b>x</a-b><a href="/x">Buy now</a>', '("Buy now")'],
+  ]) {
+    const dir = surfaceCopy();
+    try {
+      const after = edit(dir, 'web/index.html', s => s.replace('</body>', plant + '\n</body>'));
+      const line = lineOf(after, after.indexOf('<a href="/x"'));
+      const r = surface(dir);
+      assert.equal(r.status, 1, plant + '\n' + r.out);
+      assert.ok(r.out.includes(`web/index.html: line ${line}: has a link that reads as a buy control ${read}`), plant + '\n' + r.out);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }
+});
+test('the reader names an element by its whole tag name: <script-x> and <a.b> are not the fixed-name element, and the all-tags name is the whole name', async () => {
+  const { elementsOf, startTagsOf } = await lib();
+  const e = elementsOf('<script-x></script-x><script>p()</script>', /<(script)\b/gi);
+  assert.deepEqual(e.elements.map(x => x.body), ['p()'], 'the real script, read to its own closer');
+  assert.deepEqual(e.unclosed, [], 'the script-x opener is no element at all');
+  assert.deepEqual(startTagsOf('<a.b><a>', /<(a)\b/gi).tags.map(t => t.text), ['<a>'], 'a.b is not an a');
+  assert.equal(startTagsOf('<a:b c>', /<([a-zA-Z][^\s/>]*)/g).tags[0].name, 'a:b', 'the name the tokenizer reads');
+});
+
+test('rule 13 finds an event handler or a style attribute the browser reads with no white space before it, and an upper-case one, and does not find one inside a quoted value', () => {
+  for (const plant of ['<a/onclick="x()">t</a>', '<a x="1"onclick="x()">t</a>', '<a ONCLICK="x()">t</a>', '<a/style="color:red">t</a>']) {
+    const dir = surfaceCopy();
+    try {
+      edit(dir, 'web/index.html', s => s.replace('</body>', plant + '\n</body>'));
+      const r = surface(dir);
+      assert.equal(r.status, 1, plant + '\n' + r.out);
+      assert.ok(r.out.includes('web/index.html: has an inline event handler or style="" attribute'), plant + '\n' + r.out);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }
+  const dir = surfaceCopy();
+  try {
+    edit(dir, 'web/index.html', s => s.replace('</body>', '<a title="a onclick=x">t</a>\n</body>'));
+    const r = surface(dir);
+    assert.ok(!r.out.includes('has an inline event handler'), 'a handler-looking text inside a quoted value is not an attribute: ' + r.out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+test('rule 13 does not pass a <script> or a <style> it cannot close: each is a finding that names its page and line, and an unclosed <style> raises no stale-hash note for the page', () => {
+  const dir = surfaceCopy();
+  try {
+    const after = edit(dir, 'web/index.html', s => s.replace('</body>', '<script>var probe = 1;\n<style>.probe{color:#000}\n</body>'));
+    const line = lineOf(after, after.indexOf('<script>var probe'));
+    const r = spawnSync(process.execPath, ['--max-old-space-size=512', join(dir, 'scripts/surface-check.mjs')], { encoding: 'utf8', timeout: 120000, killSignal: 'SIGKILL', cwd: dir, env: childEnv(dir), maxBuffer: 64 << 20 });
+    const out = r.stdout + r.stderr;
+    assert.equal(r.status, 1, out);
+    assert.ok(out.includes(`web/index.html: has 1 <script> element(s) with no closer (first at line ${line})`), out);
+    assert.ok(out.includes('web/index.html: has 1 <style> element(s) with no closer'), out);
+    assert.ok(!/web\/_headers: line \d+: style-src admits .* \(a stale hash\)/.test(out), 'no stale-hash note for the styles of a page that could not be read: ' + out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ── CLASS B: the shared reader, as unit tests ─────────────────────────────────────────────────────────────────────
+test('startTagEnd takes the index where the tag NAME ends, and a bound: a tag the bound does not end is unread, and a tag it ends reads to its real >', async () => {
+  const { startTagEnd, startTagsOf, META_MAX } = await lib();
+  assert.equal(startTagEnd('<a href="x>y">z', 2), 14, 'the > inside the quoted value does not end the tag');
+  assert.equal(startTagEnd('<a title="' + 'x'.repeat(50) + '">', 2, 20), -1, 'a bound shorter than the tag: unread');
+  const tag = '<a title="' + 'x'.repeat(50) + '">';
+  assert.equal(startTagEnd(tag, 2), tag.length, 'the default bound reads it, to the index after its >');
+  const r = startTagsOf('<a x="1"><a title="' + 'y'.repeat(META_MAX) + '">', /<(a)\b/gi);
+  assert.equal(r.tags.length, 1, 'the first tag is read');
+  assert.deepEqual(r.unread, [9], 'the long one is unread, at its opener, and nothing is passed');
+});
+
+test('elementsOf: a body is read to its own closer and is not read as tags; a closer is boundary-checked; an element with no closer is unclosed, and the openers after it are too', async () => {
+  const { elementsOf } = await lib();
+  const e = elementsOf('<script>a<a>b</script><script>c</script>', /<(script)\b/gi);
+  assert.deepEqual(e.elements.map(x => x.body), ['a<a>b', 'c'], 'the <a> inside the first body is not an element of its own');
+  assert.deepEqual(e.unclosed, [], e.unread.join());
+  // A body is not read as tags: an opener of the same name inside a body is part of that body, and the closer is the first one after it. A scan that resumes after the start tag reads the
+  // inner <script> as an element of its own, so this input has to contain one (an <a> inside a <script> body is never matched by a <(script)\b> scan).
+  const nested = elementsOf('<script>a<script>b</script>c</script>', /<(script)\b/gi);
+  assert.deepEqual(nested.elements.map(x => x.body), ['a<script>b'], 'an opener inside a body is not an element of its own');
+  const near = elementsOf('<a>one</abbr>', /<(a)\b/gi);
+  assert.deepEqual(near.elements, [], '</abbr> does not close <a>');
+  assert.deepEqual(near.unclosed, [0], 'the <a> has no closer');
+});
+
+// The reader is linear: each shape of unclosed openers finishes, alone, under a heap cap and a kill timer. One child per shape, so each has its own kill timer and a shape
+// that is slow cannot hide behind a fast one. No time is asserted. The shapes are 200,000 openers each.
+const READER_SHAPES = [
+  ['<meta "', '/<(meta)\\b/gi'], ['<link ', '/<(link)\\b/gi'], ['<a ', '/<([a-zA-Z][\\w-]*)\\b/g'], ['<a>', '/<(a)\\b/gi'],
+  ['<script>', '/<(script)\\b/gi'], ['<style>', '/<(style)\\b/gi'], ['<script "', '/<(script)\\b/gi'],
+];
+for (const [unit, re] of READER_SHAPES) {
+  test(`the reader finishes on 200,000 unclosed ${unit} openers, in a child under a 256 MB heap cap and a 60 s kill timer`, () => {
+    const dir = mkdtempSync(join(tmpdir(), 'page-claims-reader-'));
+    const unitText = unit.endsWith('"') ? unit.slice(0, -1) + String.fromCharCode(34) : unit;
+    const child = `
+      const { startTagsOf, elementsOf } = await import(${JSON.stringify(LIB)});
+      const N = 200000;
+      const re = ${re};
+      const s = ${JSON.stringify(unitText)}.repeat(N);
+      const t = startTagsOf(s, re), e = elementsOf(s, re);
+      console.log('FINISHED ' + (t.tags.length + t.unread.length + e.elements.length + e.unclosed.length + e.unread.length > 0));
+    `;
+    try {
+      const r = spawnSync(process.execPath, ['--max-old-space-size=256', '--input-type=module', '-e', child], { encoding: 'utf8', timeout: 60000, killSignal: 'SIGKILL', cwd: dir, env: childEnv(dir) });
+      assert.equal(r.error, undefined, 'the child was not killed by the timeout: ' + (r.error && r.error.message));
+      assert.equal(r.signal, null);
+      assert.equal(r.status, 0, r.stderr);
+      assert.match(r.stdout, /^FINISHED true\n?$/);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+}
