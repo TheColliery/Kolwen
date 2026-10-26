@@ -173,6 +173,48 @@ test('a valid page passes: a free-plan phrase in a comment or a script body is n
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+// ── the comment and closer forms: the abrupt comment ends, a comment closed by --!>, and an upper-case closer end their bodies ───────────────────────
+
+test('rule 17 reads the real link after <!--> , an empty comment the tokenizer closes at once', () => {
+  const dir = surfaceCopy();
+  try {
+    const after = plant(dir, `<!-->\n${BUTTON}\n<!-- x -->`);
+    const r = admitAll(dir);
+    assert.equal(r.status, 1, r.out);
+    assert.ok(r.out.includes(BUY(lineOf(after, after.indexOf(BUTTON)), '("Continue")')), r.out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('rule 17 reads the real link after <!---> , the other abrupt empty comment', () => {
+  const dir = surfaceCopy();
+  try {
+    const after = plant(dir, `<!--->\n${BUTTON}\n<!-- x -->`);
+    const r = admitAll(dir);
+    assert.equal(r.status, 1, r.out);
+    assert.ok(r.out.includes(BUY(lineOf(after, after.indexOf(BUTTON)), '("Continue")')), r.out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('rule 17 reads the real link after an upper-case </SCRIPT> ends a script body', () => {
+  const dir = surfaceCopy();
+  try {
+    const after = plant(dir, `<SCRIPT>var s = '<a href=x>';</SCRIPT>\n${BUTTON}\n<SCRIPT>var t = '</a>';</SCRIPT>`);
+    const r = admitAll(dir);
+    assert.equal(r.status, 1, r.out);
+    assert.ok(r.out.includes(BUY(lineOf(after, after.indexOf(BUTTON)), '("Continue")')), r.out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('rule 17 reads the real link after a comment closed by --!> , and an end tag inside a later comment is no end tag', () => {
+  const dir = surfaceCopy();
+  try {
+    const after = plant(dir, `<!-- x --!>\n${BUTTON}\n<!-- </a> -->`);
+    const r = admitAll(dir);
+    assert.equal(r.status, 1, r.out);
+    assert.ok(r.out.includes(BUY(lineOf(after, after.indexOf(BUTTON)), '("Continue")')), r.out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 // ── the unclosed bodies: a finding at its line, never a silent end of file ───────────────────────────────────────────────────────────
 
 test('an unclosed comment is a finding at its line: the markup after it would be hidden from the browser, so the rules say so', () => {
