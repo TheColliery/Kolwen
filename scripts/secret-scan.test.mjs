@@ -399,7 +399,7 @@ const BS = cc(92);
 // F1. A regex runs synchronously, so an in-process test timeout cannot interrupt a hung scan. The
 // scans run in a child with a hard kill. NO WALL-CLOCK ASSERTION (a slow or loaded runner would turn it red with no code change):
 // two guards that do not depend on the host's speed replace it.
-// THE DECLARED TRADE (N-1). This test used to assert a ceiling in milliseconds per shape. That
+// THE DECLARED TRADE. This test used to assert a ceiling in milliseconds per shape. That
 // assert is gone on purpose, and a reader of this file should take what replaced it as follows. MEASURED: the characters each regex
 // call reads, as a growth ratio between N/2 and N, per shape (the work guard), and whether the scan finishes inside the child's kill
 // timeout at all (the hang guard). NOT MEASURED: elapsed time of any one shape, so a slow-but-linear regression (a constant factor,
