@@ -115,7 +115,7 @@ here.
 ## Releasing
 
 Nothing has been released. When the first release lands, it follows the series release pattern:
-CHANGELOG entry, annotated tag, GitHub Release for stable tags only.
+CHANGELOG entry, annotated tag, GitHub Release for stable tags only. A first public version that is a SemVer pre-release gets one Release marked pre-release, the launch form, as the series release pattern sets out: https://github.com/TheColliery/.github/blob/main/RELEASE-PATTERN.md
 
 **A `py-v*` tag publishes to PyPI, so a tag here is an outward act—and the workflow enforces
 that it was an intentional one.** Only a SIGNED, ANNOTATED tag passes: a lightweight tag has no
