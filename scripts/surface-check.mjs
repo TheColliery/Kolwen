@@ -226,9 +226,13 @@ if (existsSync('web/index.html')) {
     const c = counted.get(t);
     if (c && c.opens !== c.closes) note('web/index.html', `unbalanced <${t}>: ${c.opens} open, ${c.closes} close`);
   }
-  const ld = s.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script\b[^>]*>/);
-  if (!ld) note('web/index.html', 'structured-data block missing');
-  else { try { JSON.parse(ld[1]); } catch (e) { note('web/index.html', 'ld+json does not parse: ' + e.message); } }
+  // The structured-data blocks are read by the shared reader, as rule 13 reads a page's scripts: a commented-out copy is no element, and only `</script`
+  // followed by a delimiter closes one. Without the library the rule has nothing to read, and the library's own note above names that.
+  if (pageClaims) {
+    const ldBlocks = pageClaims.elementsOf(s, /<(script)\b/gi).elements.filter(e => /^application\/ld\+json$/i.test(((e.tag.text.match(/\btype\s*=\s*["']?([^"'\s>]+)/i) || [])[1] || '')));
+    if (ldBlocks.length === 0) note('web/index.html', 'structured-data block missing');
+    for (const b of ldBlocks) { try { JSON.parse(b.body); } catch (e) { note('web/index.html', 'ld+json does not parse: ' + e.message); } }
+  }
   if (!/<html lang="en"(?: data-job="[a-z]+")?>/.test(s)) note('web/index.html', 'default document language is not English');
   if (!/id="doc-th"[^>]*\shidden/.test(s)) note('web/index.html', 'Thai block is not hidden by default');
   if (/id="doc-en"[^>]*\shidden/.test(s)) note('web/index.html', 'English block is hidden by default');
@@ -936,6 +940,8 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
   // The exemption covers the unread-tag finding too, not only the noindex finding. That finding exists to prove a production
   // page free of a noindex, and this page is exempt from the claim it proves: its noindex is intended, so no proof of its
   // absence is owed, and an unclosed meta tag on it changes nothing a visitor or a crawler sees.
+  // The unread-tag finding below is safe only while rule 13's file set stays a superset of this rule's pages: rule 13 reads the markup of every page
+  // this rule reads, so a page whose tags rule 13 cannot read is named there. Keep that superset when either list changes.
   const NOINDEX_META_OK = new Set(['web/404.html']);
   if (WEB_PAGES.length > 0 && PRODUCTION_PAGES.length === 0) note('web/', 'has tracked HTML pages but every one is in PREVIEW_EXEMPT, so rule 16 checked nothing — this CHECK is now empty, not the noindex meta proven absent');
   for (const f of PRODUCTION_PAGES.filter(f => !NOINDEX_META_OK.has(f))) {

@@ -215,6 +215,18 @@ test('rule 17 reads the real link after a comment closed by --!> , and an end ta
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+// ── the structured-data block is read through the shared reader: a commented-out copy is no block ───────────────────────────────────────────
+
+test('the structured-data check reads the real block after a commented-out copy: a broken block is "ld+json does not parse"', () => {
+  const dir = surfaceCopy();
+  try {
+    edit(dir, 'web/index.html', p => p.replace(/(<script type="application\/ld\+json">)([\s\S]*?)(<\/script>)/, '<!-- <script type="application/ld+json">{}</script> -->$1{"broken":$3'));
+    const r = surface(dir);
+    assert.equal(r.status, 1, r.out);
+    assert.match(r.out, /web\/index\.html: ld\+json does not parse/, r.out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 // ── the unclosed bodies: a finding at its line, never a silent end of file ───────────────────────────────────────────────────────────
 
 test('an unclosed comment is a finding at its line: the markup after it would be hidden from the browser, so the rules say so', () => {
