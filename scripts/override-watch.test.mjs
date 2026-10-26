@@ -56,3 +56,40 @@ test('a range pin is unread, never clear', () => {
   assert.deepEqual(named(stale, 'undici'), []);
   assert.equal(named(unread, 'undici').length, 1, JSON.stringify(unread));
 });
+
+// A watch that reads nothing must not read as clear. Each row takes the real lockfile and removes what the watch reads from.
+test('a dependent gone from the lockfile leaves its override unread, never clear', () => {
+  const lock = JSON.parse(lockText);
+  delete lock.packages[DEPENDENT];
+  const { stale, unread } = staleOverrides(pkgText, JSON.stringify(lock));
+  assert.deepEqual(stale, []);
+  assert.equal(named(unread, 'undici').length, 1, JSON.stringify(unread));
+  assert.match(named(unread, 'undici')[0].reason, /no entry/, JSON.stringify(unread));
+});
+
+test('a pin the dependent no longer declares leaves its override unread, never clear', () => {
+  const lock = JSON.parse(lockText);
+  delete lock.packages[DEPENDENT].dependencies.undici;
+  const { stale, unread } = staleOverrides(pkgText, JSON.stringify(lock));
+  assert.deepEqual(named(stale, 'undici'), []);
+  assert.equal(named(unread, 'undici').length, 1, JSON.stringify(unread));
+  assert.match(named(unread, 'undici')[0].reason, /does not name/, JSON.stringify(unread));
+});
+
+test('a pin the dependent declares under optionalDependencies is read as a pin', () => {
+  const lock = JSON.parse(lockText);
+  const dep = lock.packages[DEPENDENT];
+  delete dep.dependencies.undici;
+  dep.optionalDependencies = { undici: '7.30.1' };
+  const { stale } = staleOverrides(pkgText, JSON.stringify(lock));
+  assert.equal(named(stale, 'undici').length, 1, JSON.stringify(stale));
+});
+
+test('a pin the dependent declares under peerDependencies is read as a pin', () => {
+  const lock = JSON.parse(lockText);
+  const dep = lock.packages[DEPENDENT];
+  delete dep.dependencies.undici;
+  dep.peerDependencies = { undici: '7.30.1' };
+  const { stale } = staleOverrides(pkgText, JSON.stringify(lock));
+  assert.equal(named(stale, 'undici').length, 1, JSON.stringify(stale));
+});
