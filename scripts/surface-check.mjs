@@ -16,7 +16,12 @@ import { resolve, posix } from 'node:path';
 const fail = [];
 const note = (f, msg) => fail.push(`${f}: ${msg}`);
 
-const tracked = execSync('git ls-files', { encoding: 'utf8' }).split('\n').filter(Boolean);
+// A tracked file the gate cannot read (deleted from the disk, or without read permission) is named here and left out of the list, so the rules after it still run.
+// Before this, the first bare read threw and the whole gate stopped with a stack trace.
+const tracked = execSync('git ls-files', { encoding: 'utf8' }).split('\n').filter(Boolean).filter(f => {
+  try { readFileSync(f); return true; }
+  catch (e) { note(f, `could not be read (${e.code || e.message}), so the rules that read it do not check it`); return false; }
+});
 
 // Binary only. SVG is TEXT — hand-editable XML, tracked, and served at kolwen.com/favicon.svg,
 // so it is exactly the kind of file a path or a private name gets pasted into. The dot is
@@ -160,9 +165,14 @@ for (const f of tracked.filter(PUBLISHED)) {
   };
   scan(s, '');
   if (f.endsWith('.html')) {
-    let decoded = null;
-    try { decoded = (await import(pathToFileURL(resolve('scripts/lib/rendered-text.mjs')).href)).decodeEntities(s); }
-    catch (e) { note(f, `has a character reference rule 4 cannot read (${String(e.message).slice(0, 100)}), so its invisible characters are not all checked`); }
+    // The library is imported on its own: a failure to load names the library, while a reference the library refuses (an unknown name) is a finding about this page.
+    let decoded = null, decodeEntities = null;
+    try { decodeEntities = (await import(pathToFileURL(resolve('scripts/lib/rendered-text.mjs')).href)).decodeEntities; }
+    catch (e) { note(f, `scripts/lib/rendered-text.mjs could not be loaded (${String(e.message).slice(0, 100)}), so rule 4 does not read this page's character references and its invisible characters are not all checked`); }
+    if (decodeEntities) {
+      try { decoded = decodeEntities(s); }
+      catch (e) { note(f, `has a character reference rule 4 cannot read (${String(e.message).slice(0, 100)}), so its invisible characters are not all checked`); }
+    }
     if (decoded !== null && decoded !== s) scan(decoded, ' (written as a character reference)');
     // The no-break space written as a reference, read where a browser decodes it (WHATWG, character reference state): in text, a title or a textarea the legacy name `&nbsp` needs no semicolon and any
     // character may follow it; in an ATTRIBUTE VALUE a legacy name followed by a letter, a digit or `=` is not decoded (a query string `?a=1&nbspx=2` is a URL), while a numeric reference and a name with its
@@ -176,7 +186,7 @@ for (const f of tracked.filter(PUBLISHED)) {
         if (t.type === 'text' && NBSP_IN_TEXT.test(t.text)) writtenNbsp = true;
         else if (t.type === 'tag' && !t.closing) for (const v of t.attrs.values()) if (NBSP_IN_ATTRIBUTE.test(v)) writtenNbsp = true;
       }
-    } catch (e) { writtenNbsp = NBSP_IN_TEXT.test(s); note(f, `has markup rule 4 cannot walk (${String(e.message).slice(0, 100)}), so its no-break space references are read over the whole source`); }
+    } catch (e) { writtenNbsp = NBSP_IN_TEXT.test(s); note(f, `scripts/lib/html-tokens.mjs could not be loaded (${String(e.message).slice(0, 100)}), so rule 4 reads this page's no-break space references over the whole source`); }
     if (writtenNbsp) note(f, 'invisible character U+A0 written as an entity (&nbsp;); a page uses a no-break space only before the Thai repetition mark, as the character');
   } else if (f.endsWith('.md')) {
     // A Markdown file is drawn by GitHub's renderer, which decodes entity references outside code (CommonMark: only a TERMINATED reference, a name it knows or a number of at most 7 digits, 6 hex digits;
@@ -187,7 +197,7 @@ for (const f of tracked.filter(PUBLISHED)) {
     const prose = markdownProse(s);
     let writtenNbsp = false, decodeMd = m => m;
     try { decodeMd = (await import(pathToFileURL(resolve('scripts/lib/rendered-text.mjs')).href)).decodeEntities; }
-    catch (e) { note(f, `has character references rule 4 cannot read (${String(e.message).slice(0, 100)}), so its invisible characters are not all checked`); }
+    catch (e) { note(f, `scripts/lib/rendered-text.mjs could not be loaded (${String(e.message).slice(0, 100)}), so rule 4 does not read this file's character references and its invisible characters are not all checked`); }
     const decoded = prose.replace(/&(?:#[xX][0-9a-fA-F]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/g, m => {
       if (MD_NBSP.test(m)) writtenNbsp = true;
       try { return decodeMd(m); } catch { return m; }
@@ -414,8 +424,8 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
 // A job key with text after its colon (a trailing comment is not text) or a key that is not a plain name is named, and the job is still opened: its members are read with
 // it, never handed to the job above. A member line that is not a plain
 // `name:` key (a quoted or spaced key, a flow mapping) is named, and its job is not passed. A permissions value other than an empty block, `{}`, `read-all` or `write-all` (a flow mapping,
-// an anchor, an alias) is named as unread. A uses: line is read with its quotes stripped. NOT CLAIMED: the step items and the block scalars below a job's members (a `run: |` body, for
-// example) are read only for a uses: line, because a line reader cannot tell free text from structure without a YAML parser; a composite or reusable workflow step
+// an anchor, an alias) is named as unread. A uses: line is read with its quotes stripped. NOT CLAIMED: the body of a block scalar below a job's members (a `run: |` script, for
+// example) is never read for a uses: line, and a step item is read for one only when it is a `uses:` at a step's key indent or after a `- ` marker, because a line reader cannot tell free text from structure without a YAML parser; a composite or reusable workflow step
 // (`uses: ./.github/actions/x`) is never read as a checkout -- scoped to `actions/checkout@`
 // on purpose; this repo has no composite actions today.
 {
@@ -426,7 +436,7 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
   } else {
     for (const f of wfFiles) {
       const lines = read(f).split('\n');
-      let inJobs = false, cur = null;
+      let inJobs = false, cur = null, blockIndent = -1; // blockIndent: the indent of the key whose block scalar's body the reader is in, -1 outside one
       const jobs = [];
       const flush = () => { if (cur) jobs.push(cur); };
       // FAIL CLOSED, for the structure read: a plain job key with nothing after its colon, a permissions: key whose value is an empty block, {}, read-all or write-all, and a uses: of
@@ -441,6 +451,7 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
           flush();
           const name = key[1].trim(), rest = key[2].replace(/(^|\s)#.*$/, '').trim(); // a trailing comment is not text after the colon
           cur = { name, hasBlock: false, checkout: false, contents: false, unreadPerm: false, indent: 0 };
+          blockIndent = -1;
           if (rest !== '') note(f, `line ${i + 1}: job "${name}" has text after its colon, so this reader cannot read this job`);
           else if (!/^[A-Za-z0-9_.-]+$/.test(name)) note(f, `line ${i + 1}: job "${name}" is not a plain key name, so this reader cannot read its job`);
           continue;
@@ -450,7 +461,13 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
         // deeper than the members is their own content (a step item, a block scalar), read only for a uses: line.
         const ind = l.length - l.trimStart().length;
         if (!cur.indent && ind > 2) cur.indent = ind;
-        if (/uses:\s*["']?actions\/checkout@/.test(l)) cur.checkout = true;
+        // A block scalar's body (a `run: |` script, say) is text, never a step: every line indented past the key that opens it belongs to it, and a uses: line
+        // there is not read. A step is a uses: line at a step's key indent or after a `- ` item marker.
+        if (blockIndent >= 0 && (/^\s*$/.test(l) || ind > blockIndent)) { /* the body of the block scalar */ }
+        else {
+          blockIndent = /:\s*[|>][-+0-9]*\s*(#.*)?$/.test(l) ? ind : -1;
+          if (/^\s*(-\s+)?uses:\s*["']?actions\/checkout@/.test(l)) cur.checkout = true;
+        }
         if (cur.indent !== ind) continue;
         const perm = l.match(new RegExp('^' + ' '.repeat(cur.indent) + 'permissions:(.*)$'));
         if (perm) {
@@ -476,7 +493,8 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
             cur.unreadPerm = true;
           }
         }
-        if (!perm && !/^[A-Za-z0-9_-]+:/.test(l.trimStart())) { note(f, `line ${i + 1}: a line at job-member indent in job "${cur.name}" is not a plain key: value line this reader reads (a quoted or spaced key, or a flow mapping), so the job cannot be checked`); cur.unreadPerm = true; }
+        // A `- ` step item at a member's indent (the indentless form of a steps: sequence, valid YAML) is a member of the key above it, read for its uses: line.
+        if (!perm && !/^[A-Za-z0-9_-]+:/.test(l.trimStart()) && !/^-(\s|$)/.test(l.trimStart())) { note(f, `line ${i + 1}: a line at job-member indent in job "${cur.name}" is not a plain key: value line this reader reads (a quoted or spaced key, or a flow mapping), so the job cannot be checked`); cur.unreadPerm = true; }
       }
       flush();
       if (jobs.length === 0) {
@@ -655,8 +673,8 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
 // browser extension adds is not in the repo and not seen; `style-src` carrying `'unsafe-inline'` is not refused (a hash makes browsers
 // ignore it); nothing the edge injects into the response is in the repo, so nothing here can see it (the
 // post-deploy check reads the served headers, and `_headers` says what the edge adds); and whether the
-// served response really carries these headers is the post-deploy check's job, not this rule's; and an SVG's `<script>` is not read, only its `<style>` is
-// hashed (no shipped SVG carries a script: re-derive with `grep -l "<script" web/*.svg`, which must print nothing).
+// served response really carries these headers is the post-deploy check's job, not this rule's. An SVG under web/ at any depth is read for its <style> as a page is,
+// and a <script> in one is a finding of its own (the SVG loop above).
 const CSP_STATS = { scripts: 0, styles: 0 };
 {
   const HEADERS = 'web/_headers';
@@ -730,10 +748,20 @@ const CSP_STATS = { scripts: 0, styles: 0 };
     if (meta.tags.some(t => /http-equiv\s*=\s*["']?content-security-policy/i.test(t.text))) note(f, 'sets a CSP in a <meta> tag — headers are set at the host, and frame-ancestors has no meta form');
   }
   // An SVG under web/ is a document the same policy governs, so its <style> is hashed like a page's: a shipped SVG whose <style> the policy does not admit
-  // is drawn black by a browser that applies the policy to it. Its <script> is not read here (STATED LIMITS, below).
+  // is drawn black by a browser that applies the policy to it. Its <style> is read by the shared reader as a page's is: an unread or unclosed one is a finding and
+  // turns the style check off, as it does on a page. A <script> in an SVG under web/, at any depth, is a finding: the policy admits no script in an SVG.
   for (const f of tracked.filter(f => f.startsWith('web/') && f.endsWith('.svg'))) {
+    if (!reader) break;
     const s = read(f).replace(/\r\n/g, '\n');
-    for (const body of hashes ? hashes.inlineStyles(s) : []) { want.style.add(sha256(body)); CSP_STATS.styles++; }
+    const lineAt = i => s.slice(0, i).split('\n').length;
+    const styles = reader.elementsOf(s, /<(style)\b/gi);
+    if (styles.unread.length) note(f, `has ${styles.unread.length} <style> tag(s) the reader cannot read to their end (first at line ${lineAt(styles.unread[0])}), so the style check cannot read them`);
+    if (styles.unclosed.length) note(f, `has ${styles.unclosed.length} unclosed <style> element(s) (first at line ${lineAt(styles.unclosed[0])}), so rule 13 cannot read their bodies`);
+    if (styles.unread.length || styles.unclosed.length) styleIncomplete = true;
+    else if (hashes) for (const e of styles.elements) { want.style.add(sha256(e.body)); CSP_STATS.styles++; }
+    const scripts = reader.startTagsOf(s, /<(script)\b/gi);
+    if (scripts.unread.length) note(f, `has ${scripts.unread.length} <script> tag(s) the reader cannot read to their end (first at line ${lineAt(scripts.unread[0])})`);
+    if (scripts.tags.length) note(f, `has ${scripts.tags.length} <script> element(s), first at line ${lineAt(scripts.tags[0].index)}, which the policy admits in no SVG`);
   }
   if (CSP_STATS.scripts === 0) note('web/index.html', 'has no inline script for rule 13 to hash, so this CHECK is now empty, not the CSP proven exact. If the page\'s script was removed on purpose, remove its hash from web/_headers and ask the maintainer to retire the script half of rule 13');
   if (CSP_STATS.styles === 0) note('web/index.html', 'has no inline style for rule 13 to hash, so this CHECK is now empty for styles, not the CSP proven exact');
@@ -780,6 +808,8 @@ const CSP_STATS = { scripts: 0, styles: 0 };
       // the base directive when there is no -elem one, and when there is one BOTH, because the base one is what the sync keeps exact and the -elem
       // one is what the browser applies. Directives are read by name from the parsed policy, never found by a pattern in the line.
       for (const [kind, base] of [['script', 'script-src'], ['style', 'style-src']]) {
+        // Without the hash routine no hash is computed, so none can be compared: the library is named above, and an empty hash is never a finding.
+        if (!hashes) continue;
         if (!dirs.get(base) && !dirs.get(base + '-elem')) { if (want[kind].size) note(HEADERS, `line ${line}: the CSP has no ${base} (and no ${base}-elem), but the served HTML has inline ${kind}s that need admitting`); continue; }
         for (const dir of [base, base + '-elem']) {
           const toks = dirs.get(dir);
@@ -903,6 +933,9 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
   // ONE NAMED EXEMPTION: web/404.html already carries `noindex` on purpose. It answers an unmatched path with
   // HTTP 404, which search engines drop on their own, so the tag decides nothing about any page of the site. Its
   // `X-Robots-Tag` header is still refused below. Anything else carrying the tag is a finding.
+  // The exemption covers the unread-tag finding too, not only the noindex finding. That finding exists to prove a production
+  // page free of a noindex, and this page is exempt from the claim it proves: its noindex is intended, so no proof of its
+  // absence is owed, and an unclosed meta tag on it changes nothing a visitor or a crawler sees.
   const NOINDEX_META_OK = new Set(['web/404.html']);
   if (WEB_PAGES.length > 0 && PRODUCTION_PAGES.length === 0) note('web/', 'has tracked HTML pages but every one is in PREVIEW_EXEMPT, so rule 16 checked nothing — this CHECK is now empty, not the noindex meta proven absent');
   for (const f of PRODUCTION_PAGES.filter(f => !NOINDEX_META_OK.has(f))) {
