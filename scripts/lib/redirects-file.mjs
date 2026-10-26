@@ -5,6 +5,8 @@
 // one redirect per line, `[source] [destination] [status?]`, status default 302, lines starting with `#` are comments,
 // 2,000 static and 100 dynamic redirects at most, 1,000 characters per declaration; the file is parsed by Workers and
 // is never served as an asset; redirects are followed whether or not an asset matches the request.
+// The same page says they are not applied to requests that Worker code serves. This project has no
+// Worker script, so every static line here applies; docs/DEPLOY.md ("Redirects") says what a script would change.
 export const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 export function parseRedirectsFile(text) {

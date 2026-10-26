@@ -14,6 +14,8 @@
 // does); keeps the hinting; keeps every name record, then renames the family. IBM's OFL-1.1 reserves the name "Plex", and a subset is a Modified Version, which may not use a
 // Reserved Font Name as its primary font name (OFL-1.1 condition 3). So name IDs 1, 3, 4, 6, 16 and 17 say "KW Sans Thai" / "KW Mono" (PostScript form KWSansThai / KWMono),
 // and the copyright (ID 0), the trademark (7) and the licence (13, 14) records are kept unchanged. OFL.txt stays beside the files.
+// Hinting is kept until a render on Windows has been looked at. Dropping it would make the files smaller, but it changes how
+// small sizes rasterise, and no Windows render has been checked against a cut without it. The saving is not re-measured here.
 import { readFileSync, writeFileSync, readdirSync, mkdirSync, mkdtempSync, rmSync, existsSync, statSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
