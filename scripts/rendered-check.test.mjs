@@ -431,7 +431,7 @@ test('lockProfile: a profile is locked once; a second lock fails at once with on
   await again();
 });
 
-// Q-13 (the re-check of PR #59, L-1). The lock's port used to be in 49152 to 65535, which is the whole dynamic range of Windows and macOS (IANA) and overlaps Linux's client-port range, 32768 to 60999
+// The lock's port used to be in 49152 to 65535, which is the whole dynamic range of Windows and macOS (IANA) and overlaps Linux's client-port range, 32768 to 60999
 // (`/proc/sys/net/ipv4/ip_local_port_range`, read in WSL on 2026-10-20; a listener cannot take a port an outgoing connection owns, so a plain client socket could make the lock report "a program that is
 // not this check"). Measured in WSL with kw1017i-u6/ephemeral-probe.py: of 3,000 outgoing connections to a local listener, 44% were given a port inside the old range and none a port inside 16384 to 32767;
 // and a lock-style listen on the ports of 400 open outgoing connections was refused 400 times. The range is now 16384 to 32767: above the registered ports a system hands out by chance, below every default
@@ -747,7 +747,7 @@ test('findRoute on Windows: only the WSL route; the distro must exist AND the he
     assert.equal(asked.length, 0, 'WSL is not even asked: ' + named);
     assert.ok(r.why.startsWith(`KOLWEN_BROWSER names ${JSON.stringify(named)}, which`), 'the value is quoted: ' + r.why);
   }
-  // PR #62 round 1 (L-1, the same class): the value of KOLWEN_BROWSER is written into a one-line report, so a line break in it never reaches the report raw
+  // PR #62: the value of KOLWEN_BROWSER is written into a one-line report, so a line break in it never reaches the report raw
   const forgedBrowser = 'wsl' + String.fromCharCode(10) + 'rendered-check passed: 7 page(s) x 2 languages';
   const forgedRoute = findRoute({ [BROWSER_ENV]: forgedBrowser }, 'win32', { scriptsDir: SCRIPTS_ON_C, run: fakeWsl() });
   assert.equal(forgedRoute.kind, 'refused');
@@ -863,7 +863,7 @@ test('a page that is closed leaves no event handler on the connection, and a nav
 test('the WSL route starts only the System32 wsl.exe: KOLWEN_WSL_EXE no longer exists, so a renamed binary is never started', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'kolwen-test-wsl-'));
   copies.push(dir);
-  // the reviewer's witness: a copy of node.exe saved as <odd dir>/wsl.exe is NAMED wsl.exe, and the old name check let it through
+  // A copy of node.exe saved as <odd dir>/wsl.exe is NAMED wsl.exe, and the old name check let it through
   const odd = join(dir, 'odd dir');
   mkdirSync(odd);
   const renamed = join(odd, 'wsl.exe');
@@ -922,16 +922,16 @@ test('the scan for a script that starts itself refuses the ways to ask "am I the
     "if (import.meta.url.endsWith('x.mjs')) main();", "if (import.meta.url.includes('x')) main();", 'if (import.meta.url === pathToFileURL(a).href) main();', 'if (pathToFileURL(a).href !== import.meta.url) {}',
     'if (process.argv[1].endsWith("x.mjs")) main();', 'const [, self] = process.argv;', 'const self = process.argv.slice(1)[0];', 'const self = process.argv.at(-1);', "const argv = process['argv'];",
     'const { argv } = process; if (argv[1]) main();', 'const a = process.argv; if (a[1]) main();', 'if (process . argv [ 1 ]) main();',
-    // PR #58 round 1 (CodeRabbit 4309797621): a compare that reaches import.meta.url through fileURLToPath is a guard of its own, on either side
+    // CodeRabbit 4309797621, PR #58: a compare that reaches import.meta.url through fileURLToPath is a guard of its own, on either side
     'if (fileURLToPath(import.meta.url) === x) main();', 'if (x === fileURLToPath(import.meta.url)) main();', 'if (fileURLToPath( import.meta.url ) !== y) return;',
-    // the reviewer's L-3 turned round: the argument reads that remain refused ask which file is the main module
+    // The argument reads that remain refused ask which file is the main module
     'const [, self] = process.argv; const [, , a] = process.argv; const s = process.argv[1];', 'process.argv.includes(selfPath)', 'process.argv.indexOf(__filename)', 'process.argv.at(2)', 'process.argv[0]',
     'const { x, argv: a } = process;', 'const { x, y: z, argv = [] } = process;',
-    // Q-12 (the re-check of PR #58, L-1): two forms that read the script's own path passed the allow-list: an `includes` of a template that carries `${...}`, and a `slice` whose argument is an expression that
+    // Two forms that read the script's own path passed the allow-list: an `includes` of a template that carries `${...}`, and a `slice` whose argument is an expression that
     // starts with a 2 or more but is worth 1; and a third of their kind, found while closing them: an `includes` of a literal joined to a name
     'if (process.argv.includes(' + tpl('fileURLToPath(import.meta.url)') + ')) main();', 'if (process.argv.slice(2 - 1)[0] === here) main();', "process.argv.includes('--x' + here)", "process.argv.indexOf(`x` + here)",
     'process.argv.slice(3 - 2, 5)', 'process.argv.slice(2 > 1 ? 1 : 2)', 'process.argv.includes(' + tpl('here') + ', 1)',
-    // PR #62 round 1 (CodeRabbit 4322398861): an escaped delimiter does not end a literal. These are `includes('\')'` followed by `.slice(2) + here)` (a real string `')`, then an expression that joins a name to
+    // CodeRabbit 4322398861, PR #62: an escaped delimiter does not end a literal. These are `includes('\')'` followed by `.slice(2) + here)` (a real string `')`, then an expression that joins a name to
     // it), and its backtick and double-quote twins: the allow-list took the escaped quote as the end of the literal and the `)` after it as the end of the call
     "process.argv.includes('" + BS + "')'.slice(2) + here)", 'process.argv.indexOf(' + BT + BS + BT + ')' + BT + '.slice(2) + here)', 'process.argv.includes("' + BS + '")".slice(2) + here)',
     // still refused: a literal that ends in a backslash, an escaped closer that leaves the literal open, and a real interpolation after an escaped backslash
@@ -942,12 +942,12 @@ test('the scan for a script that starts itself refuses the ways to ask "am I the
     'const arg = process.argv[2];', 'const args = process.argv.slice(2);', 'for (const a of process.argv.slice(2)) {}', 'if (process.argv.length > 2) {}', 'const x = process.argv[ 3 ];',
     'const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");', "const u = new URL('lib/x.mjs', import.meta.url);", 'const t = JSON.parse(readFileSync(new URL("./a.json", import.meta.url)));',
     'if (isMainModule(import.meta.url)) main();', '// process.argv[1] is only named in this comment', '/* import.meta.main, in a block comment */ const a = 1;',
-    // PR #58 round 1 (the reviewer's L-3): reading an argument is no question about the main module
+    // Reading an argument is no question about the main module
     "if (process.argv.includes('--help')) usage();", "const web = process.argv.indexOf('--web') !== -1;", 'const [, , ...args] = process.argv;', 'const [,, first, second] = process.argv;', 'const x = process.argv[10];',
     'const rest = process.argv.slice(2).filter(a => a !== "--write");', "const w = process.argv.slice(3).includes('--write');",
     // Q-12: the literal forms that stay allowed: any quote, a template with no `${`, a second argument, a slice that ends at its start or at a comma
     "process.argv.includes(`--help`)", 'process.argv.includes("--help")', "process.argv.includes('--a', 3)", 'process.argv.slice( 2 )', 'process.argv.slice(2, 4)', 'process.argv.slice(10)', "process.argv.indexOf( '--web' ) > -1",
-    // PR #62 round 1: valid escaped literals stay allowed (the escape pair is consumed, so the literal ends where the source ends it): an escaped quote of each kind, an escaped backtick, an escaped
+    // PR #62: valid escaped literals stay allowed (the escape pair is consumed, so the literal ends where the source ends it): an escaped quote of each kind, an escaped backtick, an escaped
     // backslash, an escaped interpolation, a lone dollar sign, an escape letter, and a second argument after any of them
     "process.argv.includes('can" + BS + "'t')", 'process.argv.includes("say ' + BS + '"hi' + BS + '"")', 'process.argv.indexOf(' + BT + BS + BT + BT + ')', "process.argv.includes('a" + BS + BS + "b')",
     'process.argv.includes(' + BT + 'price ' + DOLLAR + '5' + BT + ')', 'process.argv.includes(' + BT + 'a' + BS + DOLLAR + '{b}' + BT + ')', "process.argv.includes('x" + BS + "n', 2)", "process.argv.indexOf('it" + BS + "'s', 1)",
@@ -960,7 +960,7 @@ test('the scan for a script that starts itself refuses the ways to ask "am I the
     "const RULE = '/*';\nif (import.meta.main) main();\n/* note */", "const u = 'a//b'; if (import.meta.main) main();"]) assert.ok(!readsOwnPath(src), 'a stated limit: ' + src);
 });
 
-// PR #58 round 1, the reviewer's L-4: a pattern of the helper took time cubic in the input (a `{ argv ` run with no closing brace: 6.2 s at 11,200 characters) and its comment stripper quadratic (an unclosed
+// PR #58: a pattern of the helper took time cubic in the input (a `{ argv ` run with no closing brace: 6.2 s at 11,200 characters) and its comment stripper quadratic (an unclosed
 // `/* a ` run). Not a wall-clock assertion: the helper runs in a child under a kill-timeout and a heap cap, and the test asserts that the child FINISHED.
 test('the scan helpers finish on bulk input that gives their patterns nothing to match: every input ends the child itself, never by the kill', () => {
   const lib = pathToFileURL(join(ROOT, 'scripts/lib/entry-scan.mjs')).href;
@@ -1082,7 +1082,7 @@ test('KOLWEN_FONT_HINTING: the script reads it, takes only none, slight, medium 
   assert.equal(wslLib.HINTING_ENV, 'KOLWEN_FONT_HINTING');
   for (const [env, want] of [[{}, 'none'], [{ KOLWEN_FONT_HINTING: '' }, 'none'], [{ KOLWEN_FONT_HINTING: 'full' }, 'full'], [{ KOLWEN_FONT_HINTING: 'slight' }, 'slight']]) assert.deepEqual(wslLib.fontHinting(env), { hinting: want }, JSON.stringify(env));
   for (const bad of ['Full', 'medium ', 'heavy', '1', '--no-sandbox', 'full; rm -rf x']) assert.match(wslLib.fontHinting({ KOLWEN_FONT_HINTING: bad }).why, /^KOLWEN_FONT_HINTING is .*, which is not one of none, slight, medium, full$/, bad);
-  // PR #62 round 1, the reviewer's L-1 (CWE-117, the house's log-injection MUST): a refused value is written into a line-oriented FAIL line, so it never carries a line break or any other control
+  // PR #62 (CWE-117, log injection): a refused value is written into a line-oriented FAIL line, so it never carries a line break or any other control
   // character raw. The value is quoted and its CR, LF, C0, DEL, C1, U+2028 and U+2029 are escaped; a clean value still reads as before (inside quotes).
   const F = String.fromCharCode;
   const CONTROL = new RegExp('[' + F(0) + '-' + F(0x1f) + F(0x7f) + '-' + F(0x9f) + F(0x2028, 0x2029) + ']'); // C0, DEL, C1 and the two line separators, built from code points
@@ -1152,7 +1152,7 @@ test('a lock port held by a program that is not this check is reported as that, 
   await release();
 });
 
-// PR #62 round 1 (reviewer L-2): the EACCES branch and its message are tested on every OS by an injected server whose listen fails with the code a reserving system gives; the probe test below
+// PR #62: the EACCES branch and its message are tested on every OS by an injected server whose listen fails with the code a reserving system gives; the probe test below
 // keeps the real reservation as an extra that skips visibly where the system has none
 const failingServer = code => {
   const handlers = {};
