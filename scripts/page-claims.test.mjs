@@ -242,7 +242,7 @@ test('metaTagsOf: a tag ends at the first > outside a quote, a nested <meta insi
   const c = metaTagsOf(long + '<meta name=after>');
   assert.deepEqual(c.unread, [0], 'a tag longer than the cap is unread, not silently skipped');
   assert.deepEqual(c.tags.map(t => t.text), ['<meta name=after>'], 'the tag after it is read');
-  assert.deepEqual(metaTagsOf('<metadata><meta2>'), { tags: [], unread: [] }, 'only a meta element');
+  assert.deepEqual(metaTagsOf('<metadata><meta2>'), { tags: [], unread: [], hidden: [] }, 'only a meta element');
 });
 
 test('isRobotsNoindex: the whole attribute name, the exact name value, noindex or none as a word', async () => {
