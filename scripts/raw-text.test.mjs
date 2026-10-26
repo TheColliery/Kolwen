@@ -227,6 +227,16 @@ test('the structured-data check reads the real block after a commented-out copy:
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('a </script-x> inside the structured-data body is data, not its closer: the block still parses and the gate passes', () => {
+  const dir = surfaceCopy();
+  try {
+    edit(dir, 'web/index.html', p => p.replace('<script type="application/ld+json">\n{\n', '<script type="application/ld+json">\n{\n\t"x": "</script-x>",\n'));
+    const r = surface(dir);
+    assert.equal(r.status, 0, r.out);
+    assert.doesNotMatch(r.out, /ld\+json does not parse/, r.out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 // ── the unclosed bodies: a finding at its line, never a silent end of file ───────────────────────────────────────────────────────────
 
 test('an unclosed comment is a finding at its line: the markup after it would be hidden from the browser, so the rules say so', () => {
