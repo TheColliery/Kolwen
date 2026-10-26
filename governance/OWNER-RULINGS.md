@@ -1,7 +1,7 @@
 # Owner rulings that bind Kolwen
 
 > Part of Kolwen's control-family set. This file is an index that only points. It decides nothing.
-> It is kept by the Kolwen department head. The owner's signed record is the source of every
+> It is kept by Kolwen's maintainer. The owner's signed record is the source of every
 > signature, and each row names the id of its record. The file names only signed rulings that shape
 > a public surface, and each row says where the public can see it.
 
@@ -29,14 +29,13 @@
 | The Thai phrase on the Uses page | The Thai for "metered by plan" is "วัดปริมาณการใช้งานตามแผน", the reading that carries the English meaning in full. | 2026-10-20 | BB-206 (ก) | the Uses page (not published) | none |
 | What each plan includes | The pricing page lists what each plan includes, cost-free lines only. | 2026-10-15 | BB-171 (ก) | the pricing page | none |
 | One price-change clause | One price-change clause goes into the TERMS draft, kept as recommended. | 2026-10-16 | BB-180 (2) | the TERMS draft (dark) | none |
-| Renders with the engines already on the box | The 404 page and front-page band renders use the browser engines already installed, with no download. | 2026-10-26 09:3x | BB-273 (2026-10-26) | the band renders on pull request 69 (not merged) | supersedes the download option of 2026-10-25 (BB-273 (ก)) |
 | Scope rule F-1: a free manual is not a new good | A free manual or config template bundled with the product needs no new filing. | 2026-09-02 | F-1, the project's scope rules | the public scope rules | none |
 | The publication pause beyond the filed classes | The public scope may not outgrow the pending classes 9 and 42. Adding goods needs a new filing, which the owner makes. The pause guards publication, never building. | 2026-08-25 | the project's scope rules | every public surface, announcements and registry metadata included | none |
 | No application identifier on any public surface | No identifier goes on a public surface until a release test passes. Publication is the owner's. | 2026-08-25 | the project's scope rules | every public surface | none |
 | The four coal-rank names | The four names are Peat, Lignite, Bituminous and Anthracite, with seams between them. | 2026-09-03 | owner ruling, 2026-09-03 | the Kolwen identity copy | none |
 | Heading sizes on the legal pages | The body text is 18 px. The third-level heading is 21 px, the second-level heading 24 px and the page title 30 px. | 2026-10-20 | BB-208 (ก) | the legal pages (terms, privacy, refund, changelog) | none |
-| The font files | The IBM Plex (OFL) font files may be downloaded from IBM's official release, to measure the font and cut it again. | 2026-10-20 | BB-207 (ก) | the font files served by kolwen.com | none |
-| The Uses page's four rows | The Uses page holds four rows back and uses a neutral sentence in their place. | 2026-10-20 00:5x | BB-205 (ก) and (ค) | the Uses page (not published) | none |
+| The font files' source | The fonts kolwen.com serves are cut only from IBM's official release of IBM Plex, under the SIL Open Font License. | 2026-10-20 | BB-207 (ก) | the font files served by kolwen.com | none |
+| The Uses page's four rows | The Uses page says Kolwen is available only as a cloud service for now. A use outside the filed classes appears there only after its filing is made. | 2026-10-20 00:5x | BB-205 (ก) | the Uses page (not published) | none |
 
 ## Open values
 
