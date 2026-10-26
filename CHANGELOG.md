@@ -160,6 +160,8 @@ the pointer to it.
 - The favicon and touch icon are now generated from the brand icon rather than copied. The
   generator writes both places from one call, and CI fails if either drifts, so the mark cannot
   disagree with itself.
+- CONTRIBUTING.md names the launch-form Release a first pre-release version gets, by pointer to the series release pattern.
+
 ### Security
 
 - The `undici` dependency is pinned to 7.30.1 by an `overrides` entry in `package.json`. The
