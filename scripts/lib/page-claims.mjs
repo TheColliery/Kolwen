@@ -88,13 +88,16 @@ function nameEndAt(s, from, max) {
 const DATA_ELEMENT = new Set(['script', 'style', 'xmp', 'iframe', 'noembed', 'noframes', 'title', 'textarea', 'plaintext']);
 
 // The index after the comment that starts at `i` (a `<!--`), or -1 when it never ends. An abrupt `<!-->` and `<!--->` are empty comments, as the tokenizer reads them.
-function commentEnd(s, i) {
+// A failed search from a point means no comment end follows that point, so a later opener at or past it fails without a search.
+function commentEnd(s, i, shut) {
   if (s.startsWith('<!-->', i)) return i + 5;
   if (s.startsWith('<!--->', i)) return i + 6;
+  if (i + 4 >= shut.from) return -1;
   const re = /--!?>/g;
   re.lastIndex = i + 4;
   const m = re.exec(s);
-  return m ? m.index + m[0].length : -1;
+  if (!m) { shut.from = i + 4; return -1; }
+  return m.index + m[0].length;
 }
 // The index after the bogus comment that starts at `i` (`<!` that is no comment, `<?`, or `</` before a non-letter): it ends at the next `>`, or at the end of the input.
 function bogusEnd(s, i) { const g = s.indexOf('>', i + 2); return g < 0 ? s.length : g + 1; }
@@ -122,13 +125,13 @@ function bodyEnd(s, name, from, max, shut) {
 // can blank comments and script or style bodies. The walk continues after an unclosed body and after an unread tag, so a finding never hides the markup after it.
 function walkPage(s, max) {
   const tokens = [], hidden = [], spans = [];
-  const shut = new Set();
+  const shut = new Set(), commentShut = { from: Infinity };
   let i = 0;
   for (;;) {
     i = s.indexOf('<', i);
     if (i < 0) break;
     if (s.startsWith('<!--', i)) {
-      const e = commentEnd(s, i);
+      const e = commentEnd(s, i, commentShut);
       if (e < 0) { hidden.push({ kind: 'comment', index: i }); spans.push({ kind: 'comment', start: i, end: s.length }); i += 4; }
       else { spans.push({ kind: 'comment', start: i, end: e }); i = e; }
       continue;

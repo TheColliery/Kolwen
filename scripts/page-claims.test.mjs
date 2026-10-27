@@ -543,3 +543,22 @@ for (const [unit, re] of READER_SHAPES) {
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 }
+
+// ── linear in unclosed comment openers, under a kill timeout ──────────────────────────────────────────────────────────────────────────────
+// Each `<!--` that no comment end follows scanned to the end of the input, so n unclosed openers cost n scans of up to the whole page. The child is killed at 20 s; the
+// input (200,000 openers, 800,000 characters) takes the quadratic reader far longer than that and the linear one a fraction of a second.
+test('the walk finishes on 200,000 unclosed comment openers: a failed search for a comment end is not repeated for later openers', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'page-claims-comments-'));
+  const child = `
+    const { elementsOf } = await import(${JSON.stringify(LIB)});
+    const r = elementsOf('<!--'.repeat(200000), /<(script)\b/gi);
+    console.log('FINISHED ' + r.hidden.length);
+  `;
+  try {
+    const r = spawnSync(process.execPath, ['--max-old-space-size=512', '--input-type=module', '-e', child], { encoding: 'utf8', timeout: 20000, killSignal: 'SIGKILL', cwd: dir, env: childEnv(dir) });
+    assert.equal(r.error, undefined, 'the child did not finish within its kill timeout: ' + (r.error && r.error.message));
+    assert.equal(r.signal, null);
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /^FINISHED 200000\n?$/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
