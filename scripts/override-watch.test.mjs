@@ -93,3 +93,13 @@ test('a pin the dependent declares under peerDependencies is read as a pin', () 
   const { stale } = staleOverrides(pkgText, JSON.stringify(lock));
   assert.equal(named(stale, 'undici').length, 1, JSON.stringify(stale));
 });
+
+// npm lets an optionalDependencies entry replace the same name in dependencies, so the optional pin is the one the dependent resolves.
+test('a name in both dependencies and optionalDependencies is read at the optional pin', () => {
+  const lock = JSON.parse(lockText);
+  const dep = lock.packages[DEPENDENT];
+  dep.dependencies.undici = '7.29.1';
+  dep.optionalDependencies = { undici: '7.30.1' };
+  const { stale } = staleOverrides(pkgText, JSON.stringify(lock));
+  assert.equal(named(stale, 'undici').length, 1, JSON.stringify(stale));
+});
