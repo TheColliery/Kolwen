@@ -1,7 +1,7 @@
 # Threat model
 
 This file says what this repository is, what it protects, and what a scanner
-finding about it covers. It describes the tree at `origin/main`. Where a fact
+finding about it covers. It describes the `main` branch. Where a fact
 comes from outside the tree (a Cloudflare or GitHub setting, a live response),
 the sentence says so.
 
