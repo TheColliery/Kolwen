@@ -195,6 +195,7 @@ test('rule 11: a uses: text inside a run body is not a checkout, so a job withou
   const dir = surfaceCopy();
   try {
     const g = gateWith(dir, JOB('    permissions:\n      pull-requests: write\n    steps:\n      - run: |\n          echo "uses: actions/checkout@v4"\n'));
+    assert.equal(g.status, 0, g.out);
     assert.deepEqual(probeLines(g.out), [], g.out);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
@@ -203,6 +204,7 @@ test('rule 11 control: the same job with no uses: text passes', () => {
   const dir = surfaceCopy();
   try {
     const g = gateWith(dir, JOB('    permissions:\n      pull-requests: write\n    steps:\n      - run: echo ok\n'));
+    assert.equal(g.status, 0, g.out);
     assert.deepEqual(probeLines(g.out), [], g.out);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
@@ -211,6 +213,7 @@ test('rule 11: an indentless step sequence is read, and a clean job with content
   const dir = surfaceCopy();
   try {
     const g = gateWith(dir, JOB('    permissions:\n      contents: read\n    steps:\n    - uses: actions/checkout@v4\n    - run: echo ok\n'));
+    assert.equal(g.status, 0, g.out);
     assert.deepEqual(probeLines(g.out), [], g.out);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
@@ -235,6 +238,7 @@ test('rule 11: a line that STARTS with uses: inside a run: | body is script text
   const dir = surfaceCopy();
   try {
     const g = gateWith(dir, JOB('    permissions:\n      pull-requests: write\n    steps:\n      - run: |\n          cat <<EOF\n          uses: actions/checkout@v4\n          EOF\n'));
+    assert.equal(g.status, 0, g.out);
     assert.deepEqual(probeLines(g.out), [], g.out);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
@@ -281,5 +285,18 @@ test('a <script> in an SVG under a subfolder of web/ is a finding naming that fi
     stage(dir, 'web/icons/probe.svg', '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>\n');
     const r = surface(dir);
     assert.match(r.out, /web\/icons\/probe\.svg[^\n]*<script>/, r.out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ── a tracked SVG the gate cannot read takes its style hashes with it, so the style check is not judged either ─────────────────────────
+
+test('an unreadable tracked SVG gives no stale style hash: its <style> hash is missing from the set the gate compares', () => {
+  const dir = surfaceCopy();
+  try {
+    rmSync(join(dir, 'web/band-404.svg')); // still in the index: git lists it, the disk does not hold it
+    const r = surface(dir);
+    assert.notEqual(r.status, 0, r.out);
+    assert.match(r.out, /web\/band-404\.svg[^\n]*could not be read/, r.out);
+    assert.doesNotMatch(r.out, /style-src admits .*\(a stale hash\)/, 'a style hash of the missing SVG reads as stale: ' + r.out);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

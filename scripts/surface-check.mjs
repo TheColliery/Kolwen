@@ -708,7 +708,9 @@ const CSP_STATS = { scripts: 0, styles: 0 };
   // and then the stale-hash check for styles is not run either (a hash of an unread page would read as stale). The same holds when a page or a reader this check
   // needs cannot be read at all: its hashes are unjudged, so no stale-hash line and no empty-check advice is given for them, and the advice would name a cause that is not there.
   const unreadWeb = unreadable.some(f => f.startsWith('web/') && f.endsWith('.html'));
-  let styleIncomplete = !reader || !hashes || unreadWeb;
+  // An unreadable SVG under web/ takes its <style> hash with it, so the style side is switched off by it too.
+  const unreadSvg = unreadable.some(f => f.startsWith('web/') && f.endsWith('.svg'));
+  let styleIncomplete = !reader || !hashes || unreadWeb || unreadSvg;
   let scriptIncomplete = !reader || !hashes || unreadWeb;
   for (const f of htmlFiles) {
     if (!reader) break;

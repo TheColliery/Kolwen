@@ -543,3 +543,29 @@ for (const [unit, re] of READER_SHAPES) {
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 }
+
+// ── linear in unclosed comment openers: a count of the comment-end searches, the kill timeout as the hang guard only ──────────────────────
+// Each `<!--` that no comment end follows searched to the end of the input, so n unclosed openers cost n searches. The child counts the searches of the comment-end
+// pattern (--!?>) and stops at the second one, so the verdict is the count and no clock: a walk that repeats the search fails on the count, whatever the host's speed.
+// The 60 s kill guards against a hang only; it does not decide the verdict.
+test('the walk searches for a comment end once on 200,000 unclosed comment openers, not once per opener', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'page-claims-comments-'));
+  const child = `
+    const exec = RegExp.prototype.exec;
+    let searches = 0;
+    RegExp.prototype.exec = function (s) {
+      if (this.source === '--!?>' && ++searches > 1) throw new Error('SEARCHES ' + searches + ': the walk searched for a comment end more than once');
+      return exec.call(this, s);
+    };
+    const { elementsOf } = await import(${JSON.stringify(LIB)});
+    const r = elementsOf('<!--'.repeat(200000), /<(script)\\b/gi);
+    console.log('FINISHED ' + r.hidden.length + ' SEARCHES ' + searches);
+  `;
+  try {
+    const r = spawnSync(process.execPath, ['--max-old-space-size=512', '--input-type=module', '-e', child], { encoding: 'utf8', timeout: 60000, killSignal: 'SIGKILL', cwd: dir, env: childEnv(dir) });
+    assert.equal(r.error, undefined, 'the child did not finish within its kill timeout (a hang): ' + (r.error && r.error.message));
+    assert.equal(r.signal, null);
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /^FINISHED 200000 SEARCHES 1\n?$/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

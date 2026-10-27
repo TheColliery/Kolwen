@@ -19,8 +19,9 @@ function compare(a, b) {
 export function staleOverrides(pkgText, lockText, dependent = DEPENDENT) {
   const overrides = JSON.parse(pkgText).overrides || {};
   const entry = JSON.parse(lockText).packages[dependent];
-  // The pins the dependent declares, read from every map a lockfile entry carries them in; a name in more than one takes the last map read.
-  const declared = entry ? { ...entry.peerDependencies, ...entry.optionalDependencies, ...entry.dependencies } : {};
+  // The pins the dependent declares, read from every map a lockfile entry carries them in. npm lets an optionalDependencies entry replace the same name in dependencies,
+  // so the optional pin is read last and wins.
+  const declared = entry ? { ...entry.peerDependencies, ...entry.dependencies, ...entry.optionalDependencies } : {};
   const stale = [], unread = [];
   for (const [name, override] of Object.entries(overrides)) {
     if (!entry) { unread.push({ name, override, pin: undefined, reason: `the lockfile has no entry for ${dependent}, so nothing says what it declares` }); continue; }
