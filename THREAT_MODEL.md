@@ -27,7 +27,7 @@ published from outside this tree, so its code is not here.
 | Surface | Where it is | What it does |
 |---|---|---|
 | The Worker and its pages | `wrangler.jsonc`, `web/` | Serves static files. An unmatched path gets `web/404.html`. The Worker's own `workers.dev` address is off (`workers_dev: false`). Preview URLs are on (`preview_urls: true`), so a pull request's branch can be served at a public `*.workers.dev` preview host; see the row below and the list after this table. |
-| Preview deploys | `docs/DEPLOY.md`, `web/_headers`, `wrangler.jsonc` | Cloudflare builds a pull request's branch to a public `*.workers.dev` preview host, with no access gate. `web/_headers` gives those hosts `X-Robots-Tag: noindex`. Preview hosts have no binding today. |
+| Preview deploys | `docs/DEPLOY.md`, `web/_headers`, `wrangler.jsonc` | While a Cloudflare-side setting stays on (outside this tree), Workers Builds builds a pull request's branch to a public `*.workers.dev` preview host, with no access gate. A preview sends `X-Robots-Tag: noindex` (measured once: Cloudflare's own preview header); `web/_headers` also carries a rule for those hosts, not shown to apply. Preview hosts have no binding today. |
 | Response headers and CSP | `web/_headers` | One `/*` rule carries the Content-Security-Policy, Referrer-Policy, Cross-Origin-Opener-Policy, Cross-Origin-Resource-Policy and Permissions-Policy. A rule for preview hosts sets `X-Robots-Tag: noindex`. Other rules set cache lifetimes. |
 | Redirects | `web/_redirects` | Moves old paths to current pages. |
 | Published-claim checks | `scripts/surface-check.mjs` | The numbered rules are the list of record for what the tree may claim. It runs in CI, whose `all-green` job is a required status check on `main` (a GitHub rule, outside this tree). |
@@ -51,7 +51,7 @@ published from outside this tree, so its code is not here.
   outside this tree. The Worker has no bindings today, and `wrangler.jsonc`
   says each binding must be audited before it is added.
 - Accounts and identity. They are not built.
-- Work on any branch other than `main` is not published to `kolwen.com` or to PyPI. A pull request's branch can be built by Cloudflare to a public preview URL with no access gate (`docs/DEPLOY.md`, "Previews"). A preview serves the same static files from that branch, has no binding, and gets `X-Robots-Tag: noindex` from `web/_headers`. A finding on a preview host is in scope.
+- Work on any branch other than `main` is not published to `kolwen.com` or to PyPI. A pull request's branch can be built by Cloudflare to a public preview URL with no access gate (`docs/DEPLOY.md`, "Previews"). A preview serves the same static files from that branch, has no binding, and sends `X-Robots-Tag: noindex` (Cloudflare's own preview header; `web/_headers` also carries a rule for those hosts). A finding on a preview host is in scope.
 
 ## 3. Assets, ranked
 
@@ -81,7 +81,7 @@ published from outside this tree, so its code is not here.
 - **GitHub Actions.** Runs the workflows. Workflows default to read access to
   the repository. A pull request from a fork is untrusted input. The publish
   job runs only on a `py-v*` tag or a manual run.
-- **Maintainers and their automated tools.** Their output reaches `main` through the same required status checks as any contributor's (`all-green`, which collects the CI jobs, and the CodeQL analysis), set by a GitHub branch rule outside this tree.
+- **Maintainers and their automated tools.** A contributor's change reaches `main` only through the required status checks (`all-green`, which collects the CI jobs, and the CodeQL analysis). The maintainer's admin role can bypass those checks, and does: this is a one-person repository that sometimes pushes directly to `main` (`SECURITY.md`). The rule is set on GitHub, outside this tree.
 
 ## 5. In scope for a scanner finding
 
