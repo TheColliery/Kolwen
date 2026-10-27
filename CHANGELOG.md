@@ -402,3 +402,4 @@ the pointer to it.
 - Repository gates: a surface check for the room's published claims, a byte-identity check for
   every brand asset, and a post-deploy check comparing the live site to what is committed.
 - The contributor spine: contributing guide, code of conduct, this changelog, issue templates.
+- `THREAT_MODEL.md` says what the repository is, what it protects, and what a scanner finding about it covers.
