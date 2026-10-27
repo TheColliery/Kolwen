@@ -4,7 +4,7 @@
 
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/TheColliery/Kolwen?utm_source=oss&utm_medium=github&utm_campaign=TheColliery%2FKolwen&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
-Kolwen carries TheColliery's engineering discipline—measured-not-trusted, honesty over polish, safety rails by construction—into models meant to be run by their users. None has shipped yet.
+Kolwen carries TheColliery's engineering discipline—measured-not-trusted, honesty over polish, safety rails by construction—into a service and into open weights, Kolwen Fern, meant to be run by their users. None has shipped yet.
 
 ## The family
 
@@ -38,6 +38,6 @@ Bugs and feature discussion belong in Issues.
 
 ## License
 
-Repository contents: all rights reserved—see [LICENSE](LICENSE). No Kolwen Fern model weights have been released; if and when they are, each release will carry its own license.
+Repository contents: all rights reserved—see [LICENSE](LICENSE). No model weights have been released, Kolwen Fern included; if and when they are, each release will carry its own license.
 
 Portions generated with AI assistance, reviewed by the maintainer. Copyright (c) 2026 HetCreep—see [NOTICE](NOTICE).
