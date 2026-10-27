@@ -167,6 +167,7 @@ the pointer to it.
 - The `sharp` override is removed from `package.json`. The Wrangler chain's `miniflare` now declares `sharp` 0.35.5 itself, so the override had no work left. The `undici` override stays.
 - A `<script>` in an SVG under `web/`, at any depth, is a finding of rule 13, because the policy admits no script in an SVG. Rule 13 reads an SVG's `<style>` for the style check, as it reads a page's.
 - The structured-data check reads its `application/ld+json` elements through the shared reader, so a tag written inside a comment is not read as one.
+- On a wide screen the four pricing cards sit in one row, two on a tablet and one on a phone (the breaks are at 640 and 1024 CSS pixels). On a wide screen the compare table keeps its plan headers in view while the page scrolls down; on a narrow screen its table scrolls sideways inside its box and the feature names stay in view.
 
 ### Fixed
 
