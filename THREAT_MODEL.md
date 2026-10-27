@@ -16,32 +16,30 @@ released.
 What is deployed today is a static-assets Cloudflare Worker, configured by
 `wrangler.jsonc`, that serves the pages under `web/` at `kolwen.com`. It runs no
 server code. It has no database, no form, no account, no login and no payment.
-The pages carry two script blocks in `web/index.html`: one JSON-LD data block,
-which the Content Security Policy does not govern, and one inline script, which
-the policy admits by hash. The pages load their fonts from the site itself,
+Every page carries one inline script, the same on each, which the policy admits by its one hash. `web/index.html` also carries a JSON-LD data block, which the Content Security Policy does not govern. The policy also admits Cloudflare's Web Analytics script from `static.cloudflareinsights.com`, which Cloudflare's edge adds to the pages; it is not in this tree. The pages load their fonts from the site itself,
 under `web/fonts/`.
 
-The name reservations are `py/` (the `kolwen` package on PyPI, whose source is
-an empty `py/src/kolwen/__init__.py`) and an npm name. The npm package is
+The name reservations are `py/` (the `kolwen` package on PyPI, whose only source, `py/src/kolwen/__init__.py`, holds a docstring and a version string and no code) and an npm name. The npm package is
 published from outside this tree, so its code is not here.
 
 ## 2. Surfaces
 
 | Surface | Where it is | What it does |
 |---|---|---|
-| The Worker and its pages | `wrangler.jsonc`, `web/` | Serves static files. An unmatched path gets `web/404.html`. The Worker's own `workers.dev` address is off (`workers_dev: false`). |
+| The Worker and its pages | `wrangler.jsonc`, `web/` | Serves static files. An unmatched path gets `web/404.html`. The Worker's own `workers.dev` address is off (`workers_dev: false`). Preview URLs are on (`preview_urls: true`), so a pull request's branch can be served at a public `*.workers.dev` preview host; see the row below and the list after this table. |
+| Preview deploys | `docs/DEPLOY.md`, `web/_headers`, `wrangler.jsonc` | Cloudflare builds a pull request's branch to a public `*.workers.dev` preview host, with no access gate. `web/_headers` gives those hosts `X-Robots-Tag: noindex`. Preview hosts have no binding today. |
 | Response headers and CSP | `web/_headers` | One `/*` rule carries the Content-Security-Policy, Referrer-Policy, Cross-Origin-Opener-Policy, Cross-Origin-Resource-Policy and Permissions-Policy. A rule for preview hosts sets `X-Robots-Tag: noindex`. Other rules set cache lifetimes. |
 | Redirects | `web/_redirects` | Moves old paths to current pages. |
-| Published-claim checks | `scripts/surface-check.mjs` | The numbered rules are the list of record for what the tree may claim. A required CI context. |
+| Published-claim checks | `scripts/surface-check.mjs` | The numbered rules are the list of record for what the tree may claim. It runs in CI, whose `all-green` job is a required status check on `main` (a GitHub rule, outside this tree). |
 | Secret scan | `scripts/secret-gate.mjs`, `scripts/lib/secret-scan.mjs` | Scans the tree, and with `--pre-push` the added lines, messages and tags of the commits being pushed. |
-| Page rendering | `scripts/legal-pages.mjs` | Renders the legal pages, the changelog page and the pricing page from their sources, and fails if a generated file is not the render of its source. |
+| Page rendering | `scripts/legal-pages.mjs` | Renders all seven pages under `web/` from their sources (TERMS.md, PRIVACY.md, the clause file, CHANGELOG.md, `web-src/` and its language catalogue), and fails if a generated file is not the render of its source. |
 | Post-deploy check | `scripts/post-deploy-check.mjs` | Reads the live site's headers and pages after a deploy. |
 | Hooks | `.githooks/pre-commit`, `.githooks/pre-push` | Run the secret scan and the surface check. A clone enables them with `core.hooksPath`. |
-| CI | `.github/workflows/ci.yml` | Node tests, the surface check, the secret scan, and a byte comparison of the regenerated brand images. |
+| CI | `.github/workflows/ci.yml` | Node tests, the surface check, the page render check, the page-weight budget, the rendered checks in a headless browser, the reply-language check, the decap battery, the secret scan, and a byte comparison of the regenerated brand images. |
 | Code scanning | `.github/workflows/codeql.yml`, `.github/codeql/codeql-config.yml` | CodeQL on pushes, pull requests and a schedule. |
 | Scorecard | `.github/workflows/scorecard.yml` | OpenSSF Scorecard. |
 | Markdown lint | `.github/workflows/markdownlint.yml` | Lints the Markdown files. |
-| Live check | `.github/workflows/deploy-check.yml` | Runs `post-deploy-check.mjs` against the live site on pushes to `main`. |
+| Live check | `.github/workflows/deploy-check.yml` | Runs `post-deploy-check.mjs` against the live site when a push to `main` changes `web/`, `wrangler.jsonc` or the check itself, and on demand. |
 | Dependency updates | `.github/dependabot.yml`, `.github/workflows/dependabot-auto-merge.yml` | Version updates, and automatic merge of Dependabot patch and minor bumps once CI passes. |
 | Publishing | `.github/workflows/publish-pypi.yml`, `py/pyproject.toml` | Publishes the Python package on a `py-v*` tag or a manual run, with OIDC trusted publishing. No API token is stored. |
 | Build pins | `package.json`, `package-lock.json`, `py/requirements-build.in`, `py/requirements-build.txt` | Wrangler and its `undici` override on the npm side; hatchling, hash-pinned, on the Python side. |
@@ -53,9 +51,7 @@ published from outside this tree, so its code is not here.
   outside this tree. The Worker has no bindings today, and `wrangler.jsonc`
   says each binding must be audited before it is added.
 - Accounts and identity. They are not built.
-- A request-budget breaker. It lives in a private repository, not here.
-- Work on any branch other than `main`. Nothing on another branch is deployed
-  or published, and no branch is named here.
+- Work on any branch other than `main` is not published to `kolwen.com` or to PyPI. A pull request's branch can be built by Cloudflare to a public preview URL with no access gate (`docs/DEPLOY.md`, "Previews"). A preview serves the same static files from that branch, has no binding, and gets `X-Robots-Tag: noindex` from `web/_headers`. A finding on a preview host is in scope.
 
 ## 3. Assets, ranked
 
@@ -85,8 +81,7 @@ published from outside this tree, so its code is not here.
 - **GitHub Actions.** Runs the workflows. Workflows default to read access to
   the repository. A pull request from a fork is untrusted input. The publish
   job runs only on a `py-v*` tag or a manual run.
-- **Maintainers and their automated tools.** Their output reaches `main` only
-  through the same review as any contributor's.
+- **Maintainers and their automated tools.** Their output reaches `main` through the same required status checks as any contributor's (`all-green`, which collects the CI jobs, and the CodeQL analysis), set by a GitHub branch rule outside this tree.
 
 ## 5. In scope for a scanner finding
 
@@ -98,6 +93,7 @@ published from outside this tree, so its code is not here.
 - The brand files and `brand/make-brand.mjs`.
 - The Python package name and its publish workflow.
 - The dependency pins and the lockfiles.
+- The preview hosts a pull request's branch is served at, as described in section 2.
 - Headers set outside this tree (HSTS and `X-Content-Type-Options` are set by
   Cloudflare's domain settings for kolwen.com). `scripts/post-deploy-check.mjs` checks that they are
   present on the production host.
@@ -111,14 +107,10 @@ published from outside this tree, so its code is not here.
   is no form, no session and no account. A finding that shows one exists is in
   scope.
 - **The model and its inference.** No model has been released, and nothing here
-  runs one. A future release comes with its own threat model.
-- **Secret-shaped test inputs.** `scripts/secret-scan.test.mjs` and the scanner
-  library `scripts/lib/secret-scan.mjs` hold strings shaped like secrets, so the
-  scanner's tests can check that it finds them. They are not credentials.
-- **Flaws in third-party services** (Cloudflare, GitHub, PyPI, npm). Report them
-  to the vendor.
-- **A compromised maintainer account, or physical access to a maintainer's
-  machine.** No policy in this repository addresses these.
+  runs one. A future release comes with its own threat model. A finding that shows model code, weights or an inference path in this tree is in scope.
+- **Secret-shaped test inputs.** `scripts/secret-scan.test.mjs` holds strings shaped like secrets, and `scripts/lib/secret-scan.mjs` holds the patterns that find them, so the scanner's tests can check that it works. They are not credentials. A finding that one of them is a live credential is in scope.
+- **Flaws in third-party services** (Cloudflare, GitHub, PyPI, npm). Report them to the vendor. A finding in how this tree configures or calls one of them (a workflow, `wrangler.jsonc`, `web/_headers`, the publish job) is in scope.
+- **A compromised maintainer account, or physical access to a maintainer's machine.** These are account and machine security, which a scan of this tree cannot see. A finding that a control in this tree assumes them away (for example a check that a stolen account could switch off from inside the tree) is in scope.
 
 ## 7. How findings are triaged
 
