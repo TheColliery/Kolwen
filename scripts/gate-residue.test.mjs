@@ -283,3 +283,16 @@ test('a <script> in an SVG under a subfolder of web/ is a finding naming that fi
     assert.match(r.out, /web\/icons\/probe\.svg[^\n]*<script>/, r.out);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+// ── a tracked SVG the gate cannot read takes its style hashes with it, so the style check is not judged either ─────────────────────────
+
+test('an unreadable tracked SVG gives no stale style hash: its <style> hash is missing from the set the gate compares', () => {
+  const dir = surfaceCopy();
+  try {
+    rmSync(join(dir, 'web/band-404.svg')); // still in the index: git lists it, the disk does not hold it
+    const r = surface(dir);
+    assert.notEqual(r.status, 0, r.out);
+    assert.match(r.out, /web\/band-404\.svg[^\n]*could not be read/, r.out);
+    assert.doesNotMatch(r.out, /style-src admits .*\(a stale hash\)/, 'a style hash of the missing SVG reads as stale: ' + r.out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
