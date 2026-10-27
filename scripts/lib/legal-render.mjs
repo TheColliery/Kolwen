@@ -350,13 +350,17 @@ ${fenced('site-tokens-css')}
   .card strong{color:var(--txt);font-weight:600}
   .card ul{padding-left:20px;display:flex;flex-direction:column;gap:6px}
   .card code{font-family:'KW Mono',monospace;font-size:var(--kw-font-size-4);color:var(--txt)}
-  .plans-wrap{overflow-x:auto}
+  .plans-wrap{overflow-x:auto;max-height:var(--kw-size-container-compact)}
+  @media (min-width:1024px){.plans-wrap{overflow-x:visible;max-height:none}}
   .plans{width:100%;border-collapse:collapse;font-size:var(--kw-font-size-5)}
   .plans caption{text-align:left;padding:0 0 8px;font-size:var(--kw-font-size-2);color:var(--quiet);font-family:'KW Mono',monospace}
   .plans th,.plans td{text-align:left;padding:8px var(--kw-space-cell) 8px 0;font-size:var(--kw-font-size-cell);border-bottom:1px solid var(--line);color:var(--txt2);font-weight:400;vertical-align:middle}
   .plans thead th{font-size:var(--kw-font-size-2);color:var(--quiet);font-family:'KW Mono',monospace}
   .plans tbody th{color:var(--txt);font-weight:600}
   .plans tbody th small{display:block;font-size:var(--kw-font-size-2);color:var(--quiet);font-weight:400}
+  .plans thead th{position:sticky;top:0;background:var(--card);z-index:1}
+  .plans tbody th,.plans thead th:first-child{position:sticky;left:0;background:var(--card)}
+  .plans thead th:first-child{z-index:2}
   .plans button,.pcard button{font:inherit;font-size:var(--kw-font-size-2);color:var(--quiet);background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;min-height:34px;cursor:not-allowed}
   .plans button{padding-inline:var(--kw-space-button)}
   .ch{display:flex;flex-wrap:wrap;gap:8px}
@@ -379,7 +383,11 @@ ${fenced('site-tokens-css')}
   .bill > label{font-size:var(--kw-font-size-4);color:var(--quiet);background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:8px 14px;min-height:40px;display:inline-flex;align-items:center;cursor:pointer}
   .bill > input:checked + label{color:var(--accent2);border-color:rgba(232,131,58,.55);background:rgba(232,131,58,.10)}
   .bill > input:focus-visible + label{outline:2px solid var(--accent2);outline-offset:2px}
-  .bill .pcards{flex-basis:100%;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-top:6px}
+  .bill .pcards{flex-basis:100%;display:grid;gap:14px;grid-template-columns:minmax(0,1fr);margin-top:6px}
+  @media (min-width:640px){.bill .pcards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media (min-width:1024px){.bill .pcards{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  @media (min-width:640px){.wide-card{--pw:min(var(--kw-size-container-wide),100vw - 2 * var(--kw-space-inset-inline));width:var(--pw);margin-inline:calc((100% - var(--pw)) / 2)}}
+  @media (min-width:640px){.wide-card > :not(.bill):not(.plans-wrap){max-width:calc(var(--kw-size-container-reading) - 2 * var(--kw-space-inset-inline));margin-inline:auto}}
   .bill > input[value="y"]:checked ~ .pcards .mo{display:none}
   .bill > input[value="m"]:checked ~ .pcards .yr{display:none}
   .pcard{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:16px 18px;display:flex;flex-direction:column;gap:8px}
