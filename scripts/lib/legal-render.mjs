@@ -352,7 +352,8 @@ ${fenced('site-tokens-css')}
   .card strong{color:var(--txt);font-weight:600}
   .card ul{padding-left:20px;display:flex;flex-direction:column;gap:6px}
   .card code{font-family:'KW Mono',monospace;font-size:var(--kw-font-size-4);color:var(--txt)}
-  .plans-wrap{overflow-x:auto;color-scheme:dark;scrollbar-color:var(--quiet) var(--bg2);max-height:calc(100vh - var(--kw-space-inset-block-start));max-height:calc(100svh - var(--kw-space-inset-block-start))}
+  .plans-wrap{overflow-x:auto;color-scheme:dark;max-height:calc(100vh - var(--kw-space-inset-block-start));max-height:calc(100svh - var(--kw-space-inset-block-start))}
+  @supports (scrollbar-color:auto){.plans-wrap{scrollbar-color:var(--quiet) var(--bg2)}}
   @media (min-width:1024px){.plans-wrap{overflow-x:visible;max-height:none}}
   .plans{width:100%;border-collapse:collapse;font-size:var(--kw-font-size-5)}
   .plans caption{text-align:left;padding:0 0 8px;font-size:var(--kw-font-size-2);color:var(--quiet);font-family:'KW Mono',monospace}
