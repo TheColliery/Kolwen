@@ -195,6 +195,7 @@ test('rule 11: a uses: text inside a run body is not a checkout, so a job withou
   const dir = surfaceCopy();
   try {
     const g = gateWith(dir, JOB('    permissions:\n      pull-requests: write\n    steps:\n      - run: |\n          echo "uses: actions/checkout@v4"\n'));
+    assert.equal(g.status, 0, g.out);
     assert.deepEqual(probeLines(g.out), [], g.out);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
@@ -203,6 +204,7 @@ test('rule 11 control: the same job with no uses: text passes', () => {
   const dir = surfaceCopy();
   try {
     const g = gateWith(dir, JOB('    permissions:\n      pull-requests: write\n    steps:\n      - run: echo ok\n'));
+    assert.equal(g.status, 0, g.out);
     assert.deepEqual(probeLines(g.out), [], g.out);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
@@ -211,6 +213,7 @@ test('rule 11: an indentless step sequence is read, and a clean job with content
   const dir = surfaceCopy();
   try {
     const g = gateWith(dir, JOB('    permissions:\n      contents: read\n    steps:\n    - uses: actions/checkout@v4\n    - run: echo ok\n'));
+    assert.equal(g.status, 0, g.out);
     assert.deepEqual(probeLines(g.out), [], g.out);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
@@ -235,6 +238,7 @@ test('rule 11: a line that STARTS with uses: inside a run: | body is script text
   const dir = surfaceCopy();
   try {
     const g = gateWith(dir, JOB('    permissions:\n      pull-requests: write\n    steps:\n      - run: |\n          cat <<EOF\n          uses: actions/checkout@v4\n          EOF\n'));
+    assert.equal(g.status, 0, g.out);
     assert.deepEqual(probeLines(g.out), [], g.out);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
