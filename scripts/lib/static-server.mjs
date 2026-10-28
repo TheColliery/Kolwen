@@ -7,16 +7,21 @@
 // server (a headless shell inside WSL, whose NAT cannot see the host's 127.0.0.1) is given the same answer through Fetch.fulfillRequest (scripts/lib/browser.mjs), so one piece of code decides what
 // every page is served as, whichever way it travels.
 import { createServer } from 'node:http';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { extname, join, resolve, sep } from 'node:path';
 import { parseHeadersFile } from './headers-file.mjs';
 
 const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2',
   '.json': 'application/json', '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml', '.ico': 'image/x-icon' };
 
+// The real path of a candidate, or null when it cannot be resolved (a missing file, a dangling link): such a candidate is not served.
+const realpathOrNull = p => { try { return realpathSync.native(p); } catch { return null; } };
+
 // The answer for one request target (the path and query a browser asks for): { status, headers (an object, lower-case names), body (a Buffer) }.
 export function makeResponder(webDir, { headers = true } = {}) {
   const root = resolve(webDir);
+  // The real root, once. A candidate is contained by its real path as well as its spelling: a symlink inside the root that points outside it is not served.
+  const realRoot = realpathSync.native(root);
   const rules = headers && existsSync(join(root, '_headers')) ? parseHeadersFile(readFileSync(join(root, '_headers'), 'utf8')).filter(r => r.pattern === '/*') : [];
   const extra = Object.fromEntries(rules.flatMap(r => r.headers.map(h => [h.name.toLowerCase(), h.value])));
   return target => {
@@ -27,7 +32,9 @@ export function makeResponder(webDir, { headers = true } = {}) {
       for (const c of candidates) {
         const p = resolve(root, c);
         if (!p.startsWith(root + sep) || c.startsWith('_')) continue; // inside the root, and `_headers` / `_redirects` are never served
-        if (existsSync(p) && statSync(p).isFile()) { file = p; break; }
+        const real = realpathOrNull(p);
+        if (real === null || !real.startsWith(realRoot + sep) || !statSync(real).isFile()) continue; // unresolvable or outside the real root: not served
+        file = real; break;
       }
     } catch { /* a malformed URL is a 404 */ }
     if (!file) return { status: 404, headers: { 'content-type': 'text/plain' }, body: Buffer.from('not found') };

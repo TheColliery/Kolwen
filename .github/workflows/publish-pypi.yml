@@ -138,9 +138,9 @@ jobs:
           python -m build --no-isolation
 
       # WHERE THIS PUBLISHES, decided fail-safe: ONLY a clean release tag (py-vX.Y.Z, digits
-      # only) reaches real PyPI. Everything else — a PEP 440 pre-release or .devN, a tag with
-      # a word in it, and every workflow_dispatch, where ref_name is a BRANCH and not a
-      # version at all — goes to TestPyPI.
+      # only), pushed as a tag, reaches real PyPI. Everything else — a PEP 440 pre-release or .devN,
+      # a tag with a word in it, and every workflow_dispatch, whatever ref it was started on, since
+      # the version guard reads the dispatch's input tag and not the ref — goes to TestPyPI.
       #
       # The direction matters more than the cleverness: a wrong TestPyPI upload is harmless,
       # a wrong PyPI upload is PERMANENT and can never be re-uploaded or reclaimed. The
@@ -154,8 +154,9 @@ jobs:
           # flock's dangerous-workflow rule bans. Through the environment it is data, not code.
           REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
+          EVENT: ${{ github.event_name }}
         run: |
-          if [ "$REF_TYPE" = "tag" ] && printf '%s' "$REF_NAME" | grep -Eq '^py-v[0-9]+\.[0-9]+\.[0-9]+$'; then
+          if [ "$EVENT" = "push" ] && [ "$REF_TYPE" = "tag" ] && printf '%s' "$REF_NAME" | grep -Eq '^py-v[0-9]+\.[0-9]+\.[0-9]+$'; then
             echo 'url=' >> "$GITHUB_OUTPUT"
             echo "release tag $REF_NAME -> real PyPI"
           else

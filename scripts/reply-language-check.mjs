@@ -13,6 +13,7 @@
 //
 import { readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
+import { reportField } from './lib/report-field.mjs';
 
 // ── language of a REPLY, by script range ─────────────────────────────────────
 // Deliberately script-based, not a model: a script range is deterministic, needs no network and
@@ -136,7 +137,7 @@ else if (started) {
     if (!url) { fail('no KOLWEN_CHAT_ENDPOINT set and no mode given. /chat does not exist yet; use --self-test or --scan.'); }
     else {
       const fails = await runMatrix((l, p) => endpointAdapter(url, l, p));
-      if (fails.length) fail(`reply-language FAILED against ${url}:\n  - ` + fails.map(f => `${f.lang}/${f.path} answered in ${f.got}: ${f.reply}`).join('\n  - '));
+      if (fails.length) fail(`reply-language FAILED against ${url}:\n  - ` + fails.map(f => `${f.lang}/${f.path} answered in ${f.got}: ${reportField(f.reply)}`).join('\n  - '));
       else console.log(`reply-language passed against ${url} — every path answers in the language of the message`);
     }
   }

@@ -125,6 +125,8 @@ jobs:
       # KOLWEN_CHAT_ENDPOINT the day /chat exists. Spec: docs/REPLY-LANGUAGE.md
       - run: node scripts/reply-language-check.mjs --self-test
       - run: node scripts/reply-language-check.mjs --scan
+      # The endpoint report's own test: a reply with control characters is written as one escaped field, and the finding stays on one line.
+      - run: node --test scripts/reply-language-check.test.mjs
   clone-test:
     name: never a clone (LWK-132)
     runs-on: ubuntu-latest

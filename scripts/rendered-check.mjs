@@ -36,6 +36,7 @@ import { htmlPages } from './lib/web-files.mjs';
 import { findRoute, launchBrowser, foreignCookies, EXIT_NOT_RUN_HERE, NAME_NOT_RESOLVED } from './lib/browser.mjs';
 import { READING } from './lib/layout-tokens.mjs';
 import { parseColor } from './lib/contrast.mjs';
+import { reportField } from './lib/report-field.mjs';
 
 export const ALL_CHECKS = ['reflow', 'zoom', 'csp', 'theme', 'contrast', 'lineheight', 'measure'];
 const READING_CHECKS = ['theme', 'contrast', 'lineheight', 'measure'];
@@ -267,7 +268,7 @@ export async function renderedChecks({ webDir, browser, checks = ALL_CHECKS, hea
           // a page whose switch is missing, or does not set the language, would be measured in the language it opens in, not the one asked for: say so, once
           if (got !== lang && !languageFailed.has(file + ' ' + lang)) {
             languageFailed.add(file + ' ' + lang);
-            failures.push({ ...tag, check: 'language', detail: `the language switch did not set lang="${lang}" (the page reports lang="${got}"), so the measurements of this page in ${lang} would be those of another language` });
+            failures.push({ ...tag, check: 'language', detail: `the language switch did not set lang="${lang}" (the page reports lang="${reportField(got)}"), so the measurements of this page in ${lang} would be those of another language` });
           }
           takeResourceFailures(page, tag);
         };
@@ -350,6 +351,12 @@ export async function renderedChecks({ webDir, browser, checks = ALL_CHECKS, hea
 }
 
 // ── the command line ─────────────────────────────────────────────────────────────────────────────────────────────
+// The NOTE line of a run: the browser's messages about the response headers. Each message is text this run did not write, so each enters the line escaped (lib/report-field.mjs).
+export function noteLine(notes) {
+  const texts = [...new Set(notes.map(n => reportField(n.text.slice(0, 160))))].sort();
+  return `NOTE rendered-check: the browser reported ${notes.length} message(s) about the response headers on ${new Set(notes.map(n => n.page)).size} page(s) that are not a CSP violation and do not fail this run: ${texts.join(' | ')}`;
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const take = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
@@ -375,10 +382,7 @@ async function main() {
   try {
     const { failures, measured, notes } = await renderedChecks({ webDir, browser, checks, headers: !args.includes('--no-headers') });
     for (const f of failures) console.log(`FAIL ${f.page} [${f.lang}] ${f.check}: ${f.detail}`);
-    if (notes.length) {
-      const texts = [...new Set(notes.map(n => n.text.slice(0, 160)))].sort();
-      console.log(`NOTE rendered-check: the browser reported ${notes.length} message(s) about the response headers on ${new Set(notes.map(n => n.page)).size} page(s) that are not a CSP violation and do not fail this run: ${texts.join(' | ')}`);
-    }
+    if (notes.length) console.log(noteLine(notes));
     const pages = new Set(measured.map(m => m.page)).size;
     if (failures.length) { console.error(`rendered-check FAILED: ${failures.length} finding(s) over ${pages} page(s)`); process.exitCode = 1; return; }
     console.log(`rendered-check passed: ${pages} page(s) x 2 languages, ${checks.join(' + ')} (${measured.length} measurements) in ${browser.label}`);
