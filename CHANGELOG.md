@@ -189,8 +189,9 @@ the pointer to it.
   the site changes: `undici` is a development dependency, and the site ships no code that uses it.
 - A manual run of the PyPI publish workflow now always publishes to TestPyPI, as the workflow's
   own comment already said, whatever ref it starts on.
-- The reply-language and rendered checks escape text from outside the repository before it enters
-  a report line, so a report line stays one line.
+- The reply-language and rendered checks escape the text a run did not write (a reply, a page's
+  language value as the browser reports it, a browser message) before it enters a report line, so a
+  report line stays one line.
 - The shared secret scanner's overlap check no longer grows with the square of a line's matches.
 - The local test server resolves links before it checks that a path is inside its root.
 - Added `references/DEEP-SCAN-TRIAGE-2026-10-28.md`, the record of the 2026-10-28 security scan.
