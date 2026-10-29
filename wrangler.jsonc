@@ -34,10 +34,13 @@
 	"triggers": {
 		"crons": ["*/15 * * * *"]
 	},
-	// Workers Logs (https://developers.cloudflare.com/workers/observability/logs/workers-logs/): the script logs probe results only,
-	// no body and no header. Free: 200,000 log events a day, 3 days retention.
+	// Workers Logs (https://developers.cloudflare.com/workers/observability/logs/workers-logs/): invocation_logs off, so a visitor's request is never logged; only the probe results the script writes with console.log are kept.
+	// Free: 200,000 log events a day, 3 days retention.
 	"observability": {
-		"enabled": true
+		"enabled": true,
+		"logs": {
+			"invocation_logs": false
+		}
 	},
 	// Alert mail. The binding names no destination: the recipient is the ALERT_TO secret (never in this file, the repository is public),
 	// and a send to an address that is not verified is refused by the platform (its refusal is caught in worker/index.mjs; not read on the pages).

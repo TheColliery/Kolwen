@@ -38,6 +38,8 @@ export function composeAlert(results, when) {
 // One run: probe every path, and mail one alert if any failed. Returns { sent, dark, results }.
 export async function monitor(env, { fetchImpl = fetch, now = new Date() } = {}) {
   const results = await Promise.all(PATHS.map(path => probe(path, fetchImpl)));
+  // one JSON line per probe: the only thing the logs carry (no body, no header, no visitor request)
+  for (const r of results) console.log(JSON.stringify({ probe: r.path, status: r.status, ms: r.ms, ok: r.ok, error: r.error }));
   if (results.every(r => r.ok)) return { sent: false, results };
   if (!env.ALERT_TO) {
     console.log('alert path dark: ALERT_TO is not set, so nothing was sent');
