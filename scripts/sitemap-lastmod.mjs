@@ -97,8 +97,9 @@ export function check(root, { write = false, today = new Date().toISOString().sl
         out = setLastmod(out, c.loc, today);
       }
     } catch (e) { return { problems: [...problems, `web/sitemap.xml: --write could not move a lastmod (${e.message})`], changed: [], failed, rows: rows.length }; }
-    writeFileSync(join(root, RECORD), JSON.stringify(record, null, 2) + '\n');
+    // the sitemap first: if the record write then fails, the record is stale and the next --write sees the change again and repairs both
     writeFileSync(join(root, SITEMAP), out);
+    writeFileSync(join(root, RECORD), JSON.stringify(record, null, 2) + '\n');
     return { ...check(root, { today }), changed: changed.map(c => c.loc) };
   }
   return { problems, changed: [], failed, rows: rows.length };

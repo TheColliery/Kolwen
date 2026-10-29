@@ -84,16 +84,17 @@ test('a description in single quotes is read: its change without a lastmod move 
 
 test('a record without a page is one FAIL line that names the record, and the loop still checks the other URLs', () => {
   const pricing = page({ title: 'Plans' });
+  // the bad record comes FIRST in the sitemap and the record, so a checker that stops at the first failure never reaches the home URL below
   const record = {
-    [ORIGIN + '/']: { page: 'web/index.html', sha256: contentHash(page()), lastmod: PAST },
     [ORIGIN + '/pricing']: { sha256: contentHash(pricing), lastmod: PAST }, // no page
+    [ORIGIN + '/']: { page: 'web/index.html', sha256: contentHash(page()), lastmod: PAST },
   };
-  const root = fixture({ pages: { 'index.html': page({ en: 'Changed.' }), 'pricing.html': pricing }, urls: [{ path: '/', lastmod: PAST }, { path: '/pricing', lastmod: PAST }], record });
+  const root = fixture({ pages: { 'index.html': page({ en: 'Changed.' }), 'pricing.html': pricing }, urls: [{ path: '/pricing', lastmod: PAST }, { path: '/', lastmod: PAST }], record });
   try {
     const r = run(root);
     assert.equal(r.status, 1, r.out);
     assert.match(r.out, /sitemap-content\.json: https:\/\/kolwen\.com\/pricing has no page/);
-    assert.match(r.out, /web\/index\.html: its content changed/, 'the URL after the bad record was still checked');
+    assert.match(r.out, /web\/index\.html: its content changed/, 'the home URL after the bad record was still checked');
     assert.doesNotMatch(r.out, /\n\s+at /, 'no stack trace');
     assert.match(r.out, /2 of 2 URL record\(s\) failed/);
   } finally { cleanup([root]); }
