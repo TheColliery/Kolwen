@@ -25,7 +25,7 @@ export function makeResponder(webDir, { headers = true } = {}) {
   const rules = headers && existsSync(join(root, '_headers')) ? parseHeadersFile(readFileSync(join(root, '_headers'), 'utf8')).filter(r => r.pattern === '/*') : [];
   const extra = Object.fromEntries(rules.flatMap(r => r.headers.map(h => [h.name.toLowerCase(), h.value])));
   return target => {
-    let file = null;
+    let file = null, name = null;
     try {
       const path = decodeURIComponent(new URL(target, 'http://x').pathname);
       const candidates = path === '/' ? ['index.html'] : path.endsWith('/') ? [path.slice(1) + 'index.html'] : [path.slice(1), path.slice(1) + '.html'];
@@ -34,11 +34,11 @@ export function makeResponder(webDir, { headers = true } = {}) {
         if (!p.startsWith(root + sep) || c.startsWith('_')) continue; // inside the root, and `_headers` / `_redirects` are never served
         const real = realpathOrNull(p);
         if (real === null || !real.startsWith(realRoot + sep) || !statSync(real).isFile()) continue; // unresolvable or outside the real root: not served
-        file = real; break;
+        file = real; name = c; break; // the bytes come from the real file, the type from the name the browser asked for
       }
     } catch { /* a malformed URL is a 404 */ }
     if (!file) return { status: 404, headers: { 'content-type': 'text/plain' }, body: Buffer.from('not found') };
-    return { status: 200, headers: { 'content-type': TYPES[extname(file)] ?? 'application/octet-stream', 'cache-control': 'no-store', ...extra }, body: readFileSync(file) };
+    return { status: 200, headers: { 'content-type': TYPES[extname(name)] ?? 'application/octet-stream', 'cache-control': 'no-store', ...extra }, body: readFileSync(file) };
   };
 }
 

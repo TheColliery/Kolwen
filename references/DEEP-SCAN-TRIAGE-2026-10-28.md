@@ -19,6 +19,6 @@ Advisories: whether a finding warrants a GitHub security advisory turns on who c
 | 9 | injection | `scripts/rendered-check.mjs:377` | FIXED (this change; tested on Windows and Linux) | same change as row 3 |
 | 10 | path_traversal | `scripts/lib/static-server.mjs:34` | FIXED (this change; tested on Windows, and on Linux where the file-link case also runs) | the local test server now resolves links before it checks a path is inside its root |
 | 11 | denial_of_service | `scripts/lib/woff2-cmap.mjs:69` | DEFERRED (one open fix for rows 4, 6 and 11) | same change as row 4 |
-| 12 | denial_of_service | `scripts/post-deploy-check.mjs:78` | DEFERRED (one open fix for rows 5, 7 and 12) | it reads only the operator's own site |
+| 12 | denial_of_service | `scripts/post-deploy-check.mjs:78` | DEFERRED (one open fix for rows 5, 7 and 12) | it fetches only the origin its operator passes (default `https://kolwen.com/`; the deploy-check workflow passes none) |
 
 Count: FIXED 5, DEFERRED 7, CONSIDERED 0, REJECTED 0. Advisories owed: 0.

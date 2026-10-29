@@ -18,6 +18,7 @@ import * as browserLib from './lib/browser.mjs'; // devToolsEndpoint, profilePat
 import * as wslLib from './lib/wsl-route.mjs';
 import { stripComments, readsOwnPath, startsItself } from './lib/entry-scan.mjs'; // toWslPath, decodeWslText, findWslRoute
 import { makeResponder } from './lib/static-server.mjs';
+import { reportField } from './lib/report-field.mjs';
 import { renderedChecks, urlPathOf } from './rendered-check.mjs';
 import * as checkLib from './rendered-check.mjs'; // classifyLogs
 
@@ -867,6 +868,37 @@ test('noteLine: a browser message with a line break, a carriage return or an esc
   assert.equal(line.split('\n').length, 1, 'one line');
   assert.doesNotMatch(line, /[\u0000-\u001f\u007f]/, 'no raw control character');
   assert.match(line, /Permissions-Policy header: x\\n\\r\\u001b\[0m/);
+});
+
+test('a Content-Security-Policy violation whose message carries a line break, a carriage return or an escape is one FAIL line, with no control character in it', () => {
+  const ctl = String.fromCharCode(10, 13, 27);
+  const detail = checkLib.violationDetail({ text: 'Refused to apply' + ctl + '[0m inline style' });
+  const line = checkLib.failLine({ page: 'index.html', lang: 'en', check: 'csp', detail });
+  assert.equal(line.split('\n').length, 1, 'one line');
+  assert.doesNotMatch(line, /[\x00-\x1f\x7f]/, 'no raw control character');
+  assert.match(line, /reports: Refused to apply\\n\\r\\u001b\[0m inline style/);
+});
+
+test('reportField: the line and paragraph separators, DEL and the C1 controls come back as six-character escapes; ordinary text, Thai included, comes back unchanged', () => {
+  const BS = String.fromCharCode(92);
+  for (const code of [0x2028, 0x2029, 0x7f, 0x80, 0x85, 0x9f]) {
+    const out = reportField(String.fromCharCode(code));
+    assert.equal(out, BS + 'u' + code.toString(16).padStart(4, '0'), 'U+' + code.toString(16));
+    assert.equal(out.length, 6);
+  }
+  assert.equal(reportField('ภาษาไทย ทดสอบ 123'), 'ภาษาไทย ทดสอบ 123');
+  assert.equal(reportField('a"b'), 'a' + BS + '"b');
+});
+
+test('makeResponder: a link named a.css to a file named a.txt is answered with the bytes of the file and the type of the name asked for, text/css', t => {
+  const root = mkdtempSync(join(tmpdir(), 'kolwen-test-type-'));
+  copies.push(root);
+  writeFileSync(join(root, 'a.txt'), 'body{}');
+  try { symlinkSync(join(root, 'a.txt'), join(root, 'a.css')); } catch { t.skip('this system will not make a file symlink'); return; }
+  const r = makeResponder(root, { headers: false })('/a.css');
+  assert.equal(r.status, 200);
+  assert.equal(r.headers['content-type'], 'text/css; charset=utf-8');
+  assert.equal(r.body.toString(), 'body{}');
 });
 
 test('the DevTools route answers HEAD with the headers and an empty body, and any other method with the page', () => {
