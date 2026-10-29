@@ -983,7 +983,7 @@ test('the WSL route starts only the System32 wsl.exe: KOLWEN_WSL_EXE no longer e
 // Every script that starts itself when it is run has the same guard, from scripts/lib/entry-guard.mjs: run through a
 // junction or a symlink it does what a direct run does, and an import runs nothing. The scripts run in a bare copy of scripts/ (no web/, no git), where each one ends in its own failure line and a
 // code other than 0: so a silent 0 is the guard's doing and nothing else. A script is added to this list when it starts itself, or the first test below fails.
-const SELF_RUNNING = ['address-check', 'decap-battery', 'font-subset', 'page-weight', 'rendered-check', 'reply-language-check'];
+const SELF_RUNNING = ['address-check', 'decap-battery', 'font-subset', 'page-weight', 'rendered-check', 'reply-language-check', 'sitemap-lastmod'];
 
 // The bare copy and a way to run a script of it: the folder is made here, and nothing outside it is touched.
 function bareCopy() {

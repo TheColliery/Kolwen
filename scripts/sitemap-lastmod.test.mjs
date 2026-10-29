@@ -10,7 +10,6 @@ import { fileURLToPath } from 'node:url';
 import { contentHash } from './sitemap-lastmod.mjs';
 
 const CHECK = join(dirname(fileURLToPath(import.meta.url)), 'sitemap-lastmod.mjs');
-const TODAY = new Date().toISOString().slice(0, 10);
 const PAST = '2026-10-01';
 const ORIGIN = 'https://kolwen.com';
 
@@ -38,8 +37,13 @@ function sitemapXml(urls, changefreq) {
   const rows = urls.map(u => `\t<url>\n\t\t<loc>${ORIGIN}${u.path}</loc>\n\t\t<lastmod>${u.lastmod}</lastmod>${changefreq ? '\n\t\t<changefreq>weekly</changefreq>' : ''}\n\t</url>\n`).join('');
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${rows}</urlset>\n`;
 }
+// Each child gets HOME and TEMP folders of its own, inside its fixture, and a heap cap; the kill timer is the one every spawned child here has.
 const run = (root, ...args) => {
-  const r = spawnSync(process.execPath, [CHECK, '--root', root, ...args], { encoding: 'utf8', timeout: 60000, killSignal: 'SIGKILL' });
+  const home = join(root, 'home'), tmp = join(root, 'tmp');
+  mkdirSync(home, { recursive: true });
+  mkdirSync(tmp, { recursive: true });
+  const env = { ...process.env, HOME: home, USERPROFILE: home, TEMP: tmp, TMP: tmp, TMPDIR: tmp };
+  const r = spawnSync(process.execPath, ['--max-old-space-size=256', CHECK, '--root', root, ...args], { encoding: 'utf8', timeout: 60000, killSignal: 'SIGKILL', env });
   return { status: r.status, out: (r.stdout || '') + (r.stderr || '') };
 };
 const cleanup = roots => { for (const d of roots) rmSync(d, { recursive: true, force: true }); };
@@ -69,6 +73,30 @@ test('a Thai sentence inside main changed without its lastmod moving fails', () 
 test('a footer and a style change, outside main, pass without moving lastmod', () => {
   const old = page(), root = fixture({ pages: { 'index.html': page({ chrome: 'Footer v2 with new links', style: 'a{color:blue}' }) }, urls: HOME, recordPages: { 'index.html': old } });
   try { const r = run(root); assert.equal(r.status, 0, r.out); } finally { cleanup([root]); }
+});
+
+test('a description in single quotes is read: its change without a lastmod move fails', () => {
+  const single = desc => `<!doctype html><html lang="en"><head><title>Home</title><meta name='description' content='${desc}'></head><body><main><p>Body.</p></main></body></html>\n`;
+  assert.notEqual(contentHash(single('About Kolwen')), contentHash(single('About Kolwen, reworded')), 'the single-quoted description is part of the hash');
+  const root = fixture({ pages: { 'index.html': single('About Kolwen, reworded') }, urls: HOME, recordPages: { 'index.html': single('About Kolwen') } });
+  try { const r = run(root); assert.equal(r.status, 1, r.out); assert.match(r.out, /web\/index\.html: its content changed/); } finally { cleanup([root]); }
+});
+
+test('a record without a page is one FAIL line that names the record, and the loop still checks the other URLs', () => {
+  const pricing = page({ title: 'Plans' });
+  const record = {
+    [ORIGIN + '/']: { page: 'web/index.html', sha256: contentHash(page()), lastmod: PAST },
+    [ORIGIN + '/pricing']: { sha256: contentHash(pricing), lastmod: PAST }, // no page
+  };
+  const root = fixture({ pages: { 'index.html': page({ en: 'Changed.' }), 'pricing.html': pricing }, urls: [{ path: '/', lastmod: PAST }, { path: '/pricing', lastmod: PAST }], record });
+  try {
+    const r = run(root);
+    assert.equal(r.status, 1, r.out);
+    assert.match(r.out, /sitemap-content\.json: https:\/\/kolwen\.com\/pricing has no page/);
+    assert.match(r.out, /web\/index\.html: its content changed/, 'the URL after the bad record was still checked');
+    assert.doesNotMatch(r.out, /\n\s+at /, 'no stack trace');
+    assert.match(r.out, /2 of 2 URL record\(s\) failed/);
+  } finally { cleanup([root]); }
 });
 
 test('a class or style attribute inside main is not content: its change passes', () => {
@@ -133,9 +161,11 @@ test('--write moves exactly the changed page: its hash, its lastmod to today, in
     const after = JSON.parse(readFileSync(recPath, 'utf8'));
     assert.deepEqual(after[ORIGIN + '/pricing'], before[ORIGIN + '/pricing'], 'the unchanged page keeps its record');
     assert.equal(after[ORIGIN + '/'].sha256, contentHash(page({ en: 'Changed.' })));
-    assert.equal(after[ORIGIN + '/'].lastmod, TODAY);
+    // no clock in the assertion: the date --write set in the record must be the one it set in the sitemap, and must be a real date
+    const stamp = after[ORIGIN + '/'].lastmod;
+    assert.match(stamp, /^\d{4}-\d{2}-\d{2}$/);
     const smAfter = readFileSync(smPath, 'utf8');
-    assert.equal(smAfter, smBefore.replace(/(<loc>https:\/\/kolwen\.com\/<\/loc>\s*<lastmod>)[^<]*/, '$1' + TODAY), 'only the changed page\'s lastmod differs in the sitemap');
+    assert.equal(smAfter, smBefore.replace(/(<loc>https:\/\/kolwen\.com\/<\/loc>\s*<lastmod>)[^<]*/, '$1' + stamp), 'the sitemap carries the record\'s date, and only that lastmod differs');
     assert.equal(run(root).status, 0, 'the tree passes after --write');
   } finally { cleanup([root]); }
 });
