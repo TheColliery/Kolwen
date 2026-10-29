@@ -170,6 +170,9 @@ the pointer to it.
 - On a wide screen the four pricing cards sit in one row, two on a tablet and one on a phone (the breaks are at 640 and 1024 CSS pixels). On a wide screen the compare table keeps its plan headers in view while the page scrolls down; on a narrow screen its table scrolls sideways inside its box and the feature names stay in view.
 - Below 1024 CSS pixels the compare table scrolls inside a region no taller than the screen less its top inset, so its plan headers stay in view on a short screen. The wide card takes its width from the body, so its side margins stay even when a scrollbar is shown. The pinned header row keeps a bottom rule, and the pricing page's scrollbars are dark.
 - The README names the planned open weights Kolwen Fern, a product separate from the Kolwen service. No model weights have been released.
+- The incident-response plan's ask of providers now follows the GDPR Article 33(2) term, notice
+  "without undue delay" with the information Kolwen needs; Kolwen's own 72 hours to the Office are
+  unchanged, and 72 hours returns only if counsel reads the Office's notice as binding providers.
 
 ### Fixed
 
