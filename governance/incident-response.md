@@ -3,7 +3,7 @@
 > Part of Kolwen's control-family set. **Written from day one so that a future audit COLLECTS
 > EVIDENCE rather than builds it** (owner ruling AR-10, 2026-09-06; what `AR-n` means is in
 > [the index](README.md)). Everything under "Today" is a present-tense fact with its backing
-> named; everything under "Plan" and "Drill" is not yet true.
+> named; everything under "Plan" and "Drill" is preliminary: written, not yet signed off by counsel, and not yet exercised.
 > **No certification is held or claimed** — see `ISO-MAP.md`.
 >
 > **PRELIMINARY.** The plan and the drill below are preliminary until counsel signs them, and no drill has run yet; the first runs before Kolwen first accepts a customer's personal data (B1). The plan applies from today to any incident that touches personal data Kolwen handles; its customer-data parts apply in full from the day Kolwen first accepts a customer's personal data.
@@ -24,7 +24,7 @@
 
 ## Plan
 
-*Status: draft, preliminary, not yet reviewed by counsel. It applies from the day Kolwen first accepts a customer's personal data. No certification is held or claimed; following these sources is not evidence of conformity.*
+*Status: draft, preliminary, not yet reviewed by counsel. It applies from today to any incident that touches personal data Kolwen handles; its customer-data parts apply in full from the day Kolwen first accepts a customer's personal data. No certification is held or claimed; following these sources is not evidence of conformity.*
 
 ### A1. Policy
 
