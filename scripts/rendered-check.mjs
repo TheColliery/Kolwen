@@ -36,6 +36,7 @@ import { htmlPages } from './lib/web-files.mjs';
 import { findRoute, launchBrowser, foreignCookies, EXIT_NOT_RUN_HERE, NAME_NOT_RESOLVED } from './lib/browser.mjs';
 import { READING } from './lib/layout-tokens.mjs';
 import { parseColor } from './lib/contrast.mjs';
+import { reportField } from './lib/report-field.mjs';
 
 export const ALL_CHECKS = ['reflow', 'zoom', 'csp', 'theme', 'contrast', 'lineheight', 'measure'];
 const READING_CHECKS = ['theme', 'contrast', 'lineheight', 'measure'];
@@ -220,9 +221,13 @@ export function classifyLogs(logs) {
 const jarDetail = (list, where) => {
   const by = new Map();
   for (const c of list) by.set(c.domain, [...(by.get(c.domain) ?? []), c.name]);
-  const shown = [...by.entries()].sort().slice(0, 8).map(([d, names]) => `${d} (${names.sort().slice(0, 12).join(', ')}${names.length > 12 ? ', ...' : ''})`).join('; ');
+  const shown = [...by.entries()].sort().slice(0, 8).map(([d, names]) => `${reportField(d)} (${names.sort().slice(0, 12).map(reportField).join(', ')}${names.length > 12 ? ', ...' : ''})`).join('; ');
   return `${list.length} cookie(s) outside the served 127.0.0.1 origin in ${where}: ${shown}${by.size > 8 ? '; ...' : ''}`;
 };
+// The detail of a Content-Security-Policy violation: the browser's own message, which this run did not write, escaped (lib/report-field.mjs).
+export const violationDetail = l => `the browser reports: ${reportField(l.text.slice(0, 200))}`;
+// One FAIL line of a run. The detail arrives already escaped where it was built, so the line is one line by construction.
+export const failLine = f => `FAIL ${reportField(f.page)} [${f.lang}] ${f.check}: ${f.detail}`;
 
 export async function renderedChecks({ webDir, browser, checks = ALL_CHECKS, headers = true }) {
   const failures = [], measured = [], notes = [], languageFailed = new Set(), resourceSeen = new Set();
@@ -234,7 +239,7 @@ export async function renderedChecks({ webDir, browser, checks = ALL_CHECKS, hea
       const key = `${tag.page} ${tag.lang} ${rf.url}`;
       if (resourceSeen.has(key)) continue;
       resourceSeen.add(key);
-      failures.push({ ...tag, check: 'resources', detail: `a resource was asked for by host name and could not be reached, because the browser resolves no host name: ${rf.url.slice(0, 160)}` });
+      failures.push({ ...tag, check: 'resources', detail: `a resource was asked for by host name and could not be reached, because the browser resolves no host name: ${reportField(rf.url.slice(0, 160))}` });
     }
   };
   // Every page and language is measured in a browser context of its own (see browser.mjs): off the record, so it sees nothing of the profile's default context and leaves nothing in it. Before
@@ -267,7 +272,7 @@ export async function renderedChecks({ webDir, browser, checks = ALL_CHECKS, hea
           // a page whose switch is missing, or does not set the language, would be measured in the language it opens in, not the one asked for: say so, once
           if (got !== lang && !languageFailed.has(file + ' ' + lang)) {
             languageFailed.add(file + ' ' + lang);
-            failures.push({ ...tag, check: 'language', detail: `the language switch did not set lang="${lang}" (the page reports lang="${got}"), so the measurements of this page in ${lang} would be those of another language` });
+            failures.push({ ...tag, check: 'language', detail: `the language switch did not set lang="${lang}" (the page reports lang="${reportField(got)}"), so the measurements of this page in ${lang} would be those of another language` });
           }
           takeResourceFailures(page, tag);
         };
@@ -275,7 +280,7 @@ export async function renderedChecks({ webDir, browser, checks = ALL_CHECKS, hea
           await open(320);
           const m = await page.evaluate(`(${measureReflow})()`);
           measured.push({ ...tag, check: 'reflow', ...m });
-          if (m.scrollWidth > m.clientWidth) failures.push({ ...tag, check: 'reflow', detail: `at 320 px the page scrolls sideways: scrollWidth ${m.scrollWidth} > clientWidth ${m.clientWidth}${m.over.length ? '; wider than the viewport: ' + m.over.join(', ') : ''}` });
+          if (m.scrollWidth > m.clientWidth) failures.push({ ...tag, check: 'reflow', detail: `at 320 px the page scrolls sideways: scrollWidth ${m.scrollWidth} > clientWidth ${m.clientWidth}${m.over.length ? '; wider than the viewport: ' + m.over.map(reportField).join(', ') : ''}` });
         }
         if (READING_CHECKS.some(c => checks.includes(c))) {
           // the reading theme: per colour scheme, each emulated on its own (a prose page is light for a light device and dark for a dark one)
@@ -288,20 +293,20 @@ export async function renderedChecks({ webDir, browser, checks = ALL_CHECKS, hea
             if (checks.includes('theme') && lang === 'en') {
               measured.push({ ...stag, check: 'theme', job: th.job, image: th.image, color: th.color, colorScheme: th.scheme });
               if (th.job === 'prose') {
-                if (th.image !== 'none') failures.push({ ...stag, check: 'theme', detail: `a prose page has a background image (${th.image.slice(0, 60)}): the reading theme's ground is solid` });
+                if (th.image !== 'none') failures.push({ ...stag, check: 'theme', detail: `a prose page has a background image (${reportField(th.image.slice(0, 60))}): the reading theme's ground is solid` });
                 const got = parseColor(th.color), want = parseColor(wantBg);
-                if (!got || got.r !== want.r || got.g !== want.g || got.b !== want.b) failures.push({ ...stag, check: 'theme', detail: `in the ${scheme} scheme the ground is ${th.color}, expected ${wantBg}` });
-                if (!/light/.test(th.scheme) || !/dark/.test(th.scheme)) failures.push({ ...stag, check: 'theme', detail: `color-scheme is "${th.scheme}", expected light and dark` });
+                if (!got || got.r !== want.r || got.g !== want.g || got.b !== want.b) failures.push({ ...stag, check: 'theme', detail: `in the ${scheme} scheme the ground is ${reportField(th.color)}, expected ${wantBg}` });
+                if (!/light/.test(th.scheme) || !/dark/.test(th.scheme)) failures.push({ ...stag, check: 'theme', detail: `color-scheme is "${reportField(th.scheme)}", expected light and dark` });
               } else if (th.job === 'default') {
                 if (/light/.test(th.scheme) && /dark/.test(th.scheme)) failures.push({ ...stag, check: 'theme', detail: 'a default page carries the color-scheme of the reading theme (light dark): the theme leaked into it' });
-              } else failures.push({ ...stag, check: 'theme', detail: `the page declares no job (data-job is ${th.job})` });
+              } else failures.push({ ...stag, check: 'theme', detail: `the page declares no job (data-job is ${reportField(th.job)})` });
             }
             if (th.job === 'prose') {
               if (checks.includes('contrast')) {
                 const m = await page.evaluate(`(${measureContrast})()`);
                 measured.push({ ...stag, check: 'contrast', read: m.read, worst: m.worst });
                 if (m.read < 5) failures.push({ ...stag, check: 'contrast', detail: `only ${m.read} text elements were read, so the contrast check measured too little` });
-                for (const x of m.fails) failures.push({ ...stag, check: 'contrast', detail: `under the floor in the ${scheme} scheme: ${x}${m.failCount > m.fails.length ? ` (and ${m.failCount - m.fails.length} more)` : ''}` });
+                for (const x of m.fails) failures.push({ ...stag, check: 'contrast', detail: `under the floor in the ${scheme} scheme: ${reportField(x)}${m.failCount > m.fails.length ? ` (and ${m.failCount - m.fails.length} more)` : ''}` });
               }
               if (checks.includes('measure') && scheme === 'light') {
                 const m = await page.evaluate(`(${measureLines})(${JSON.stringify(lang === 'th' ? '#doc-th' : '#doc-en')}, ${JSON.stringify(lang)})`);
@@ -316,7 +321,7 @@ export async function renderedChecks({ webDir, browser, checks = ALL_CHECKS, hea
                 const ratios = rows.map(r => r.ratio).filter(x => x !== null);
                 measured.push({ ...tag, check: 'lineheight', read: rows.length, min: Math.min(...ratios), max: Math.max(...ratios) });
                 if (rows.length < 5) failures.push({ ...tag, check: 'lineheight', detail: `only ${rows.length} text elements were read` });
-                for (const r of off.slice(0, 4)) failures.push({ ...tag, check: 'lineheight', detail: `${r.tag}${r.cls ? '.' + r.cls : ''} has a line height of ${r.ratio === null ? 'normal' : r.ratio.toFixed(3)} times its size; the ${lang === 'th' ? 'Thai text is 1.65' : 'Latin text is at least 1.5'}` });
+                for (const r of off.slice(0, 4)) failures.push({ ...tag, check: 'lineheight', detail: `${reportField(r.tag)}${r.cls ? '.' + reportField(r.cls) : ''} has a line height of ${r.ratio === null ? 'normal' : r.ratio.toFixed(3)} times its size; the ${lang === 'th' ? 'Thai text is 1.65' : 'Latin text is at least 1.5'}` });
               }
             }
           }
@@ -327,7 +332,7 @@ export async function renderedChecks({ webDir, browser, checks = ALL_CHECKS, hea
           if (checks.includes('csp')) {
             const { violations, notes: said } = classifyLogs(page.logs);
             measured.push({ ...tag, check: 'csp', violations: violations.length, notes: said.length });
-            for (const l of violations) failures.push({ ...tag, check: 'csp', detail: `the browser reports: ${l.text.slice(0, 200)}` });
+            for (const l of violations) failures.push({ ...tag, check: 'csp', detail: violationDetail(l) });
             for (const n of said) notes.push({ ...tag, kind: n.kind, text: n.text });
           }
           if (checks.includes('zoom')) {
@@ -336,7 +341,7 @@ export async function renderedChecks({ webDir, browser, checks = ALL_CHECKS, hea
             const m = await page.evaluate(`(${measureZoom})()`);
             const rootPx = await page.evaluate('parseFloat(getComputedStyle(document.documentElement).fontSize)');
             measured.push({ ...tag, check: 'zoom', rootPx, textElementsRead: m.read, issues: m.issues.length });
-            for (const issue of m.issues) failures.push({ ...tag, check: 'zoom', detail: `at 200% text: ${issue}` });
+            for (const issue of m.issues) failures.push({ ...tag, check: 'zoom', detail: `at 200% text: ${reportField(issue)}` });
             if (m.read === 0) failures.push({ ...tag, check: 'zoom', detail: 'no text element was read, so the zoom check measured nothing' });
           }
         }
@@ -345,11 +350,17 @@ export async function renderedChecks({ webDir, browser, checks = ALL_CHECKS, hea
   } finally { await closePage(); await server.close(); }
   // After every run: the profile's default context must hold no cookie from outside the served origin (Edge signs the computer's Microsoft account in there by itself unless it is told not to). Read, never cleared.
   const stray = foreignCookies(await browser.defaultCookies());
-  if (stray.length) failures.push({ page: '(browser profile)', lang: '-', check: 'cookies', detail: jarDetail(stray, `the default context of the browser profile ${browser.profile}`) });
+  if (stray.length) failures.push({ page: '(browser profile)', lang: '-', check: 'cookies', detail: jarDetail(stray, `the default context of the browser profile ${reportField(browser.profile)}`) });
   return { failures, measured, notes };
 }
 
 // ── the command line ─────────────────────────────────────────────────────────────────────────────────────────────
+// The NOTE line of a run: the browser's messages about the response headers. Each message is text this run did not write, so each enters the line escaped (lib/report-field.mjs).
+export function noteLine(notes) {
+  const texts = [...new Set(notes.map(n => reportField(n.text.slice(0, 160))))].sort();
+  return `NOTE rendered-check: the browser reported ${notes.length} message(s) about the response headers on ${new Set(notes.map(n => n.page)).size} page(s) that are not a CSP violation and do not fail this run: ${texts.join(' | ')}`;
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const take = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
@@ -374,15 +385,12 @@ async function main() {
   const browser = await launchBrowser({ route });
   try {
     const { failures, measured, notes } = await renderedChecks({ webDir, browser, checks, headers: !args.includes('--no-headers') });
-    for (const f of failures) console.log(`FAIL ${f.page} [${f.lang}] ${f.check}: ${f.detail}`);
-    if (notes.length) {
-      const texts = [...new Set(notes.map(n => n.text.slice(0, 160)))].sort();
-      console.log(`NOTE rendered-check: the browser reported ${notes.length} message(s) about the response headers on ${new Set(notes.map(n => n.page)).size} page(s) that are not a CSP violation and do not fail this run: ${texts.join(' | ')}`);
-    }
+    for (const f of failures) console.log(failLine(f));
+    if (notes.length) console.log(noteLine(notes));
     const pages = new Set(measured.map(m => m.page)).size;
     if (failures.length) { console.error(`rendered-check FAILED: ${failures.length} finding(s) over ${pages} page(s)`); process.exitCode = 1; return; }
-    console.log(`rendered-check passed: ${pages} page(s) x 2 languages, ${checks.join(' + ')} (${measured.length} measurements) in ${browser.label}`);
+    console.log(`rendered-check passed: ${pages} page(s) x 2 languages, ${checks.join(' + ')} (${measured.length} measurements) in ${reportField(browser.label)}`);
   } finally { await browser.close(); }
 }
 
-if (isMainModule(import.meta.url)) main().catch(e => { console.error('FAIL rendered-check: ' + (e && e.message ? e.message : e)); process.exitCode = 1; });
+if (isMainModule(import.meta.url)) main().catch(e => { console.error('FAIL rendered-check: ' + reportField(e && e.message ? e.message : e)); process.exitCode = 1; });

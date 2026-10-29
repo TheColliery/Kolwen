@@ -18,6 +18,7 @@ import * as browserLib from './lib/browser.mjs'; // devToolsEndpoint, profilePat
 import * as wslLib from './lib/wsl-route.mjs';
 import { stripComments, readsOwnPath, startsItself } from './lib/entry-scan.mjs'; // toWslPath, decodeWslText, findWslRoute
 import { makeResponder } from './lib/static-server.mjs';
+import { reportField } from './lib/report-field.mjs';
 import { renderedChecks, urlPathOf } from './rendered-check.mjs';
 import * as checkLib from './rendered-check.mjs'; // classifyLogs
 
@@ -815,6 +816,97 @@ test('makeResponder: header names are lower-case, so a rule of _headers that ove
   assert.equal(home.headers['content-type'], 'text/x-test', 'the rule replaces the default');
   assert.equal(home.headers['cache-control'], 'max-age=5');
   assert.equal(home.headers['x-mixed-case'], 'yes');
+});
+
+test('makeResponder: a file inside the root is answered 200 with its own bytes', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'kolwen-test-serve-'));
+  copies.push(dir);
+  writeFileSync(join(dir, 'note.txt'), 'inside');
+  const r = makeResponder(dir, { headers: false })('/note.txt');
+  assert.equal(r.status, 200);
+  assert.equal(r.body.toString(), 'inside');
+});
+
+test('makeResponder: a file link inside the root that points at a file outside it is answered 404, and the outside file is never served', t => {
+  const root = mkdtempSync(join(tmpdir(), 'kolwen-test-link-root-'));
+  const outside = mkdtempSync(join(tmpdir(), 'kolwen-test-link-out-'));
+  copies.push(root, outside);
+  writeFileSync(join(outside, 'secret.txt'), 'outside');
+  try { symlinkSync(join(outside, 'secret.txt'), join(root, 'leak.txt')); } catch { t.skip('this system will not make a file symlink'); return; }
+  const r = makeResponder(root, { headers: false })('/leak.txt');
+  assert.equal(r.status, 404);
+  assert.equal(r.body.toString(), 'not found');
+  assert.ok(!r.body.toString().includes('outside'));
+});
+
+test('makeResponder: a folder link inside the root that points at a folder outside it is answered 404 for a file in it', t => {
+  const root = mkdtempSync(join(tmpdir(), 'kolwen-test-dir-root-'));
+  const outside = mkdtempSync(join(tmpdir(), 'kolwen-test-dir-out-'));
+  copies.push(root, outside);
+  writeFileSync(join(outside, 'secret.txt'), 'outside');
+  try { symlinkSync(outside, join(root, 'linked'), 'junction'); } catch { t.skip('this system will not make a folder link or a junction'); return; } // a junction needs no privilege on Windows
+  const r = makeResponder(root, { headers: false })('/linked/secret.txt');
+  assert.equal(r.status, 404);
+  assert.equal(r.body.toString(), 'not found');
+});
+
+test('a language value with a line break, a carriage return or an escape is reported as one escaped field, with no control character in the finding', { skip: SKIP }, async () => {
+  // the value is written by the page, not by us: the page's own html lang attribute holds the three characters (a parser turns a carriage return into a line break)
+  const odd = String.fromCharCode(10, 13, 27) + '[31m';
+  const web = copyWeb(w => editPage(w, 'pricing.html', h => h.split('data-lang-set=').join('data-lang-x=').replace('<html lang="en"', '<html lang="en' + odd + '"')));
+  const lang = (await run(web, ['reflow'])).failures.filter(f => f.page === 'pricing.html' && f.check === 'language');
+  assert.equal(lang.length, 2, 'the two languages of the page, each one finding: ' + JSON.stringify(lang));
+  for (const f of lang) {
+    assert.doesNotMatch(f.detail, /[\u0000-\u001f\u007f]/, 'no raw control character in the finding');
+    assert.match(f.detail, /reports lang="en\\n\\n\\u001b\[31m"\)/, 'the value is shown escaped: ' + f.detail);
+  }
+});
+
+test('noteLine: a browser message with a line break, a carriage return or an escape stays on the one NOTE line, escaped', () => {
+  const ctl = String.fromCharCode(10, 13, 27);
+  const line = checkLib.noteLine([{ text: 'Error with Permissions-Policy header: x' + ctl + '[0m', page: 'index.html' }]);
+  assert.equal(line.split('\n').length, 1, 'one line');
+  assert.doesNotMatch(line, /[\u0000-\u001f\u007f]/, 'no raw control character');
+  assert.match(line, /Permissions-Policy header: x\\n\\r\\u001b\[0m/);
+});
+
+test('a Content-Security-Policy violation whose message carries a line break, a carriage return or an escape is one FAIL line, with no control character in it', () => {
+  const ctl = String.fromCharCode(10, 13, 27);
+  const detail = checkLib.violationDetail({ text: 'Refused to apply' + ctl + '[0m inline style' });
+  const line = checkLib.failLine({ page: 'index.html', lang: 'en', check: 'csp', detail });
+  assert.equal(line.split('\n').length, 1, 'one line');
+  assert.doesNotMatch(line, /[\x00-\x1f\x7f]/, 'no raw control character');
+  assert.match(line, /reports: Refused to apply\\n\\r\\u001b\[0m inline style/);
+});
+
+test('a page file name carrying a line break, a carriage return or an escape stays inside its one FAIL line, escaped', () => {
+  const ctl = String.fromCharCode(10, 13, 27);
+  const line = checkLib.failLine({ page: 'a' + ctl + 'FAIL forged.html', lang: 'en', check: 'reflow', detail: 'wider than the viewport' });
+  assert.equal(line.split('\n').length, 1, 'one line');
+  assert.doesNotMatch(line, /[\x00-\x1f\x7f]/, 'no raw control character');
+  assert.match(line, /^FAIL a\\n\\r\\u001bFAIL forged\.html \[en\] reflow: wider than the viewport$/);
+});
+
+test('reportField: the line and paragraph separators, DEL and the C1 controls come back as six-character escapes; ordinary text, Thai included, comes back unchanged', () => {
+  const BS = String.fromCharCode(92);
+  for (const code of [0x2028, 0x2029, 0x7f, 0x80, 0x85, 0x9f]) {
+    const out = reportField(String.fromCharCode(code));
+    assert.equal(out, BS + 'u' + code.toString(16).padStart(4, '0'), 'U+' + code.toString(16));
+    assert.equal(out.length, 6);
+  }
+  assert.equal(reportField('ภาษาไทย ทดสอบ 123'), 'ภาษาไทย ทดสอบ 123');
+  assert.equal(reportField('a"b'), 'a' + BS + '"b');
+});
+
+test('makeResponder: a link named a.css to a file named a.txt is answered with the bytes of the file and the type of the name asked for, text/css', t => {
+  const root = mkdtempSync(join(tmpdir(), 'kolwen-test-type-'));
+  copies.push(root);
+  writeFileSync(join(root, 'a.txt'), 'body{}');
+  try { symlinkSync(join(root, 'a.txt'), join(root, 'a.css')); } catch { t.skip('this system will not make a file symlink'); return; }
+  const r = makeResponder(root, { headers: false })('/a.css');
+  assert.equal(r.status, 200);
+  assert.equal(r.headers['content-type'], 'text/css; charset=utf-8');
+  assert.equal(r.body.toString(), 'body{}');
 });
 
 test('the DevTools route answers HEAD with the headers and an empty body, and any other method with the page', () => {
