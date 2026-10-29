@@ -101,9 +101,11 @@ test('a record without a page is one FAIL line that names the record, and the lo
 });
 
 test('a split script block leaves no tag and no script text in the content', () => {
-  const c = contentOf(page({ en: '<scr<script></script>ipt>alert(1)</script>' }));
-  assert.doesNotMatch(c, /</, 'no tag survives');
-  assert.doesNotMatch(c, /script\(/, 'no script text survives');
+  for (const body of ['<scr<script></script>ipt>alert(1)</script>', '<<script>script>alert(1)</script>']) {
+    const c = contentOf(page({ en: body }));
+    assert.doesNotMatch(c, /</, body + ': no tag survives');
+    assert.doesNotMatch(c, /script\(/, body + ': no script text survives');
+  }
 });
 
 test('a class or style attribute inside main is not content: its change passes', () => {
