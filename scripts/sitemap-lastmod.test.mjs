@@ -7,7 +7,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { contentHash } from './sitemap-lastmod.mjs';
+import { contentHash, contentOf } from './sitemap-lastmod.mjs';
 
 const CHECK = join(dirname(fileURLToPath(import.meta.url)), 'sitemap-lastmod.mjs');
 const PAST = '2026-10-01';
@@ -97,6 +97,12 @@ test('a record without a page is one FAIL line that names the record, and the lo
     assert.doesNotMatch(r.out, /\n\s+at /, 'no stack trace');
     assert.match(r.out, /2 of 2 URL record\(s\) failed/);
   } finally { cleanup([root]); }
+});
+
+test('a split script block leaves no tag and no script text in the content', () => {
+  const c = contentOf(page({ en: '<scr<script></script>ipt>alert(1)</script>' }));
+  assert.doesNotMatch(c, /</, 'no tag survives');
+  assert.doesNotMatch(c, /script\(/, 'no script text survives');
 });
 
 test('a class or style attribute inside main is not content: its change passes', () => {

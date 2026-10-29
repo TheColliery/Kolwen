@@ -27,7 +27,9 @@ const readOr = file => { try { return readFileSync(file, 'utf8'); } catch (e) { 
 
 // The normalized content of a page, the four parts of the rule above, one per line. The last replace leaves no < or > in the text, so no tag survives a pass that missed one.
 export function contentOf(html) {
-  const text = s => decodeEntities(s.replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, ' ').replace(/<!--[\s\S]*?-->/g, ' ').replace(/<[^>]*>/g, '').replace(/[<>]/g, '')).replace(/\s+/g, ' ').trim();
+  // one pass can leave a block that the removals exposed, so the removal repeats until the text stops changing
+  const drop = s => { let prev; do { prev = s; s = s.replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, ' ').replace(/<!--[\s\S]*?-->/g, ' '); } while (s !== prev); return s; };
+  const text = s => decodeEntities(drop(s).replace(/<[^>]*>/g, '').replace(/[<>]/g, '')).replace(/\s+/g, ' ').trim();
   const title = text((html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i) || [])[1] ?? '');
   const meta = (html.match(/<meta\b[^>]*name=(["'])description\1[^>]*>/i) || [])[0] ?? '';
   const content = meta.match(/\scontent=(?:"([^"]*)"|'([^']*)')/i);
