@@ -34,7 +34,7 @@ Communications Protection; System and Information Integrity; Supply Chain Risk M
 - The ISO/IEC 27001:2022 column uses only the Annex A numbers that [ISO-MAP.md](ISO-MAP.md) already
   carries. A dash means none is carried.
 - NIST SP 800-53 is named by family, never by control number.
-- SOC 2 is named by criterion number, with a short topic label in our words. The criteria's text and points of focus are AICPA's and are not reproduced here.
+- SOC 2 is named by criterion number, with a short topic label in our words. The criteria's text and points of focus are AICPA's and are not reproduced here. A criterion is listed only where its own subject is the row's control; one that reaches a control only through a point of focus (CC6.1 on authentication or on encryption at rest, for example) is not listed.
 - "In scope" for ISO/IEC 27017, 27018 and 27701 means the row falls within that standard's published
   scope sentence, not a clause match, because their texts are paywalled. A blank cell is outside
   that sentence.
@@ -55,8 +55,8 @@ None of these systems ships yet; Kolwen is in development. The "Evidence it leav
 | 2 | Authentication of people and API keys | sign-in, key service | the key service's tests; sign-in configuration records | — | Identification and Authentication | CC6.2 (credentials issued and removed) | in scope | in scope | in scope |
 | 3 | Audit logging, including who opened customer data | access audit log, monitoring | [`logging.md`](logging.md); append-only log records | A.8.15 | Audit and Accountability | — | in scope | in scope | in scope |
 | 4 | Incident response and breach notice | monitoring, notifications | [`incident-response.md`](incident-response.md); incident records | A.5.24 | Incident Response | CC7.3 to CC7.5 (security events, incident response, recovery); P6.3 (breach records); P6.6 (breach notice) | in scope | in scope | in scope |
-| 5 | Retention and deletion | data lifecycle | [`retention-deletion.md`](retention-deletion.md); deletion records | A.5.33, A.8.10 | Media Protection; PII Processing and Transparency | P4.2 and P4.3 (retention and disposal); C1.1 and C1.2 (confidential data retention and disposal); CC6.5 (disposal of physical assets) | in scope | in scope | in scope |
-| 6 | Data subject requests: access, erasure, export | data lifecycle | [`PRIVACY.md`](../PRIVACY.md); request and answer records | A.5.34 | PII Processing and Transparency | P5.1 and P5.2 (access and correction); P6.7 (accounting of disclosures) | | in scope | in scope |
+| 5 | Retention and deletion | data lifecycle | [`retention-deletion.md`](retention-deletion.md); deletion records | A.5.33, A.8.10 | Media Protection; PII Processing and Transparency | P4.2 and P4.3 (retention and disposal); C1.1 and C1.2 (confidential data retention and disposal) | in scope | in scope | in scope |
+| 6 | Data subject requests: access, erasure, export | data lifecycle | [`PRIVACY.md`](../PRIVACY.md); request and answer records | A.5.34 | PII Processing and Transparency | P5.1 (access) | | in scope | in scope |
 | 7 | Change management | every system | [`change-management.md`](change-management.md); CI runs and review records | A.8.32 | Configuration Management | CC8.1 (change management) | in scope | | |
 | 8 | Asset inventory | every system | [`inventory.md`](inventory.md) | A.5.9 | Configuration Management | — | in scope | | |
 | 9 | Supplier and provider management | every system that uses a provider | the supplier security assessment (planned); provider trust-page readings before a provider holds customer data | A.5.19, A.5.21 | Supply Chain Risk Management; System and Services Acquisition | CC9.2 (vendor and partner risk); P6.4 and P6.5 (vendor privacy commitments and notice) | in scope | in scope | in scope |
