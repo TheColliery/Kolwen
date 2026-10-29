@@ -879,6 +879,14 @@ test('a Content-Security-Policy violation whose message carries a line break, a 
   assert.match(line, /reports: Refused to apply\\n\\r\\u001b\[0m inline style/);
 });
 
+test('a page file name carrying a line break, a carriage return or an escape stays inside its one FAIL line, escaped', () => {
+  const ctl = String.fromCharCode(10, 13, 27);
+  const line = checkLib.failLine({ page: 'a' + ctl + 'FAIL forged.html', lang: 'en', check: 'reflow', detail: 'wider than the viewport' });
+  assert.equal(line.split('\n').length, 1, 'one line');
+  assert.doesNotMatch(line, /[\x00-\x1f\x7f]/, 'no raw control character');
+  assert.match(line, /^FAIL a\\n\\r\\u001bFAIL forged\.html \[en\] reflow: wider than the viewport$/);
+});
+
 test('reportField: the line and paragraph separators, DEL and the C1 controls come back as six-character escapes; ordinary text, Thai included, comes back unchanged', () => {
   const BS = String.fromCharCode(92);
   for (const code of [0x2028, 0x2029, 0x7f, 0x80, 0x85, 0x9f]) {

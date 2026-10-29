@@ -227,7 +227,7 @@ const jarDetail = (list, where) => {
 // The detail of a Content-Security-Policy violation: the browser's own message, which this run did not write, escaped (lib/report-field.mjs).
 export const violationDetail = l => `the browser reports: ${reportField(l.text.slice(0, 200))}`;
 // One FAIL line of a run. The detail arrives already escaped where it was built, so the line is one line by construction.
-export const failLine = f => `FAIL ${f.page} [${f.lang}] ${f.check}: ${f.detail}`;
+export const failLine = f => `FAIL ${reportField(f.page)} [${f.lang}] ${f.check}: ${f.detail}`;
 
 export async function renderedChecks({ webDir, browser, checks = ALL_CHECKS, headers = true }) {
   const failures = [], measured = [], notes = [], languageFailed = new Set(), resourceSeen = new Set();
