@@ -6,7 +6,7 @@
 > named; everything under "Plan" and "Drill" is not yet true.
 > **No certification is held or claimed** — see `ISO-MAP.md`.
 >
-> **PRELIMINARY.** The plan and the drill below are preliminary until counsel signs them, and no drill has run yet; the first runs once before launch. The plan below applies from the day Kolwen first accepts a customer's personal data; until then only the drills run.
+> **PRELIMINARY.** The plan and the drill below are preliminary until counsel signs them, and no drill has run yet; the first runs before Kolwen first accepts a customer's personal data (B1). The plan below applies from the day Kolwen first accepts a customer's personal data; until then only the drills run.
 >
 > Thailand's PDPA requires notification to the regulator within 72 hours of becoming aware, and to affected users where the risk is high; that obligation is recorded in `PRIVACY.md` and becomes operational the day personal data is processed.
 
@@ -94,7 +94,7 @@ Never one clock. Each runs from its own start. The sheet is filled in at the sta
 |---|---|---|---|---|
 | 1 | Kolwen, as controller of its own account data and logs, tells the **Thai data-protection Office** | without delay and within 72 hours "as far as can be done", unless the breach is unlikely to risk people's rights and freedoms | grounds to believe a breach occurred (A3) | PDPA s 37(4); PDPC notice ข้อ 5(3) |
 | 2 | A **provider** tells Kolwen | the provider's own term (A5) | the provider knows | the provider's agreement |
-| 3 | Kolwen, as **processor** of the content a customer sends through a service, tells that **customer** | [to be confirmed with counsel before this plan is final]; a customer that is a controller under Thai law must put 72 hours in its agreement with its processor (ข้อ 8), so the number cannot be longer than that; GDPR asks only "without undue delay" and the EDPB recommends prompt notice in phases | Kolwen knows | PDPC notice ข้อ 8; GDPR Art 33(2); EDPB paras 44 to 47 |
+| 3 | Kolwen, as **processor** of the content a customer sends through a service, tells that **customer** | [to be confirmed with counsel before this plan is final]; a customer that is a controller under Thai law must put 72 hours in its agreement with its processor (ข้อ 8), so the number is expected to be no longer than that, subject to counsel; GDPR asks only "without undue delay" and the EDPB recommends prompt notice in phases | Kolwen knows | PDPC notice ข้อ 8; GDPR Art 33(2); EDPB paras 44 to 47 |
 | 4 | Kolwen tells **the people affected** when the risk to them is high | without delay, with what they can do to protect themselves | the high-risk finding | PDPC notice ข้อ 5(4), 10; GDPR Art 34(1) |
 | 5 | **The late path** | a first notice in phases with what is known; the rest "without undue further delay" (GDPR Art 33(4)); a late notice gives its reasons; under the Thai notice a controller late for necessary reasons asks the Office to excuse it, promptly, at most 15 days after knowing (ข้อ 7) | the deadline of clock 1 passes | GDPR Art 33(1), (4); PDPC notice ข้อ 7; EDPB paras 56 to 65 |
 
