@@ -10,7 +10,7 @@ is the owner's decision; this file carries no recommendation.
 
 ## The frameworks, as read
 
-Every row was read on 2026-10-29, at the URL named.
+Every row with a URL was read on 2026-10-29, at the URL named; the ISO/IEC 27001 and 42001 row points to `ISO-MAP.md`, which states its own source.
 
 | Framework | Edition, as the page states | Where read | Public or paywalled | What was read, and what was not |
 |---|---|---|---|---|
@@ -47,7 +47,7 @@ Communications Protection; System and Information Integrity; Supply Chain Risk M
 Systems are named generically: sign-in, key service, metering, billing ledger, inference gateway,
 data lifecycle, access audit log, abuse handling, notifications, status page, monitoring.
 
-None of these systems ships yet; Kolwen is in development. The "Evidence it leaves" column names what each system will leave once it runs. Today the only evidence that exists is a linked document, and an item marked (planned) is not yet written.
+None of these systems ships yet; Kolwen is in development. The "Evidence it leaves" column names what each system will leave once it runs. For these systems, the only evidence that exists today is a linked document, and an item marked (planned) is not yet written; the repository's own CI runs and review records already exist and are not part of this table.
 
 | # | Control (ours) | Carried by | Evidence it leaves | ISO/IEC 27001:2022 | NIST SP 800-53 Rev. 5 family | SOC 2 category | ISO/IEC 27017 | ISO/IEC 27018 | ISO/IEC 27701 |
 |---|---|---|---|---|---|---|---|---|---|
