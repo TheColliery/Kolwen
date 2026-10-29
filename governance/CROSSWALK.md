@@ -63,10 +63,10 @@ None of these systems ships yet; Kolwen is in development. The "Evidence it leav
 | 10 | Risk assessment | every system | [`risk-register.md`](risk-register.md) | A.5.7 | Risk Assessment | CC3.1 to CC3.4 (objectives, risk identification, fraud, changes) | in scope | | in scope |
 | 11 | Policies | the whole service | [`policies.md`](policies.md) | A.5.1 | Planning; Program Management | CC5.3 (policies put into procedures) | in scope | | in scope |
 | 12 | Business continuity and backup | billing ledger, data lifecycle, every store | business continuity (planned) | A.5.29 | Contingency Planning | A1.2 and A1.3 (environmental protection, backup, recovery testing); CC9.1 (business disruption) | in scope | | |
-| 13 | Monitoring and availability | monitoring, status page | monitoring alert records; the public status history | — | System and Information Integrity; Assessment, Authorization and Monitoring | A1.1 (capacity); CC4.1 and CC4.2 (ongoing evaluation, deficiencies); CC7.1 and CC7.2 (change and anomaly monitoring) | in scope | | |
+| 13 | Monitoring and availability | monitoring, status page | monitoring alert records; the public status history | — | System and Information Integrity; Assessment, Authorization and Monitoring | A1.1 (capacity); CC7.1 and CC7.2 (change and anomaly monitoring) | in scope | | |
 | 14 | Awareness and training | the team | awareness and training (planned) | A.6.3 | Awareness and Training | CC1.4 (competence); CC2.2 (internal communication, security awareness) | in scope | | in scope |
 | 15 | Encryption in transit and at rest | inference gateway, every store, every provider | provider trust readings; configuration records | — | System and Communications Protection | CC6.7 (protection in transmission) | in scope | in scope | |
-| 16 | Acceptable use enforcement with due process | abuse handling | [`TERMS.md`](../TERMS.md) (the AUP section); decision and appeal records | A.5.20 | — | CC1.5 (accountability, sanctions); P8.1 (complaints and disputes) | | | |
+| 16 | Acceptable use enforcement with due process | abuse handling | [`TERMS.md`](../TERMS.md) (the AUP section); decision and appeal records | A.5.20 | — | — | | | |
 
 16 controls; carried by the 11 systems named above.
 
