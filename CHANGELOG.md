@@ -201,6 +201,9 @@ the pointer to it.
 
 - `governance/incident-response.md` now holds the incident-response plan and the first drill
   design, both marked preliminary until counsel signs them; no drill has run yet.
+- The incident-response plan's ask of providers now follows the GDPR Article 33(2) term, notice
+  "without undue delay" with the information Kolwen needs; Kolwen's own 72 hours to the Office are
+  unchanged, and 72 hours returns only if counsel reads the Office's notice as binding providers.
 - `governance/CROSSWALK.md`, the same controls mapped once to NIST SP 800-53 Rev. 5, SOC 2 and
   ISO/IEC 27017, 27018 and 27701, as read so far; FedRAMP's pages were consulted and its baselines
   are reached through the NIST families, not mapped; with what was and was not read.
