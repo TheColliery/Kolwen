@@ -198,6 +198,8 @@ the pointer to it.
 
 ### Added
 
+- `governance/incident-response.md` now holds the incident-response plan and the first drill
+  design, both marked preliminary until counsel signs them; no drill has run yet.
 - `governance/CROSSWALK.md`, the same controls mapped once to NIST SP 800-53 Rev. 5, SOC 2 and
   ISO/IEC 27017, 27018 and 27701, as read so far; FedRAMP's pages were consulted and its baselines
   are reached through the NIST families, not mapped; with what was and was not read.
