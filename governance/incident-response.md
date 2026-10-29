@@ -162,7 +162,7 @@ Each is a numbered checklist; in the register entry each step carries who did it
 6. Check the dependency pins and lock files for the component's version.
 7. If the component held a key or token, rotate it (Playbook 3, from step 2).
 8. Investigate for compromise while updating; harden, re-enable, then hunt through the logs for the component's exploit window.
-9. Record each step's time. The clocks in A6 start at the moment there are grounds to believe that personal data was breached (A3), at whatever step that comes; record that time.
+9. Record each step's time. Clock 1 starts at the moment there are grounds to believe that personal data was breached (A3), at whatever step that comes; record that time. Each other clock in A6 starts from its own trigger there.
 *Sources: NCSC (UK), "Responding to active exploitation of vulnerabilities" v2.1 (1 May 2026); NCSC (UK) blogs "Preparing for a 'vulnerability patch wave'" (1 May 2026), "Why cyber defenders need to be ready for frontier AI" (30 March 2026) and "Retaining defensive advantage in the age of frontier AI cyber capabilities" (15 April 2026); FS-ISAC Sector Risk Advisory "Preparing the Enterprise for AI-Enabled Vulnerability Discovery" (19 April 2026); Canadian Centre for Cyber Security, ITSAP.10.050 "Frontier artificial intelligence" (May 2026); Bank of England, FCA and HM Treasury joint statement (15 May 2026); European Central Bank, Banking Supervision letter SSM-2026-0301 (7 July 2026).*
 
 **Playbook 6: a fake call, message or file that asks the maintainer to run a command, share a key or change an account.**
@@ -180,7 +180,7 @@ Each is a numbered checklist; in the register entry each step carries who did it
 3. Preserve the logs before changing anything. Prompts may hold personal data, so handle them as sensitive.
 4. Contain: disable the tool or the agent, narrow its permissions, rotate the keys it used, and tighten the rate limits.
 5. Scope what the output exposed: which users, which records, which kinds of data.
-6. Set the severity (A4). The clocks in A6 start at the moment there are grounds to believe that personal data was breached (A3), at whatever step that comes; record that time.
+6. Set the severity (A4). Clock 1 starts at the moment there are grounds to believe that personal data was breached (A3), at whatever step that comes; record that time. Each other clock in A6 starts from its own trigger there.
 7. Tell the downstream stakeholders who rely on the service, as the GOVERN 2.1 line of NIST AI 600-1 asks.
 8. Recover, then review the response after the fact, as the MANAGE 4.3 line of NIST AI 600-1 asks: was each step followed, and was it effective?
 *Sources: NIST AI 100-2 E2025, "Adversarial Machine Learning: A Taxonomy and Terminology of Attacks and Mitigations" (March 2025); NIST AI 600-1, "Generative Artificial Intelligence Profile" (26 July 2024); OWASP Top 10 for LLM Applications 2025; OWASP Top 10 for Agentic Applications 2026 (Version 2026, December 2025); NCSC (UK) and partners, "Guidelines for secure AI system development" (27 November 2023); CISA and partners, "Careful Adoption of Agentic Artificial Intelligence (AI) Services" (1 May 2026).*
