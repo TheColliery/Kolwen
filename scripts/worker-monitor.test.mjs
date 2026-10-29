@@ -94,3 +94,12 @@ test('the fetch handler hands every request to the assets binding unchanged', as
   assert.equal(res.status, 404);
   assert.equal(await res.text(), '404 page');
 });
+
+test('a send that throws is caught, and its log line names the error class only, never its message', async () => {
+  const env = { ALERT_TO: 'owner@example.com', ALERT_FROM: 'info@kolwen.com', EMAIL: { send: async () => { throw new Error('refused for owner@example.com ' + SECRET); } } };
+  let out;
+  const logs = await capture(async () => { out = await monitor(env, { fetchImpl: stubFetch({ '/': new Response('x', { status: 503 }) }) }); });
+  assert.equal(out.sent, false);
+  assert.ok(logs.includes('alert send failed: Error'), logs.join('\n'));
+  assert.doesNotMatch(logs.join('\n'), new RegExp(SECRET + '|@'));
+});
