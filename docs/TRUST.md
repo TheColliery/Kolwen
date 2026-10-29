@@ -43,7 +43,7 @@ should be read as false the moment it stops matching the code.
 
 | name | purpose | region | certificates held (public URL) | DPA in place |
 |---|---|---|---|---|
-| Cloudflare | serves the static site and runs its page-check script, which mails the owner on failure; TLS termination | global edge | <https://www.cloudflare.com/trust-hub/compliance-resources/> (HTTP 200, 2026-09-06) | no |
+| Cloudflare | serves the static site and runs its page-check script, which tries to mail the owner on a failure once an alert address is set; TLS termination | global edge | <https://www.cloudflare.com/trust-hub/compliance-resources/> (HTTP 200, 2026-09-06) | no |
 | GitHub | source repository, CI, package publishing | global | <https://github.com/trust-center> (HTTP 200, 2026-09-06) | no |
 | AI model provider | none — no conversational service exists | — | — | no |
 

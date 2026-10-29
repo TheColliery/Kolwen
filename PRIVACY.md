@@ -27,9 +27,9 @@ which parts change on the day the assistant itself ships.
 
 ## What this site is
 
-Static pages, served by a Cloudflare Worker. **The Worker runs one small script of ours** (`worker/index.mjs`). It hands every request for a path with no static file to the pages, so a missing page gets the 404 page, and every 15 minutes it requests six of our own pages to check that they answer. It does not log, keep or store a visitor's request, and there is no database and no storage of visitor data on our side. Once an alert address is set, a failed check mails the owner the path, status and timing of the failed checks, with no visitor data; until then nothing is sent.
+Static pages, served by a Cloudflare Worker. **The Worker runs one small script of ours** (`worker/index.mjs`). It hands every request for a path with no static file to the pages, so a missing page gets the 404 page, and every 15 minutes it requests six of our own pages to check that they answer. It does not log, keep or store a visitor's request, and there is no database and no storage of visitor data on our side. Once an alert address is set, after a failed check the Worker tries to mail the owner the path, status and timing of the failed checks, with no visitor data (a send that fails is logged by its error class only); until then nothing is sent.
 
-*Measured: `grep -nE '^[[:space:]]*"main"' wrangler.jsonc` returns one line, `"main": "worker/index.mjs",`; the config declares a name, a compatibility date, the `assets` block, a cron trigger (`*/15 * * * *`), the `observability` block with invocation logs off, the `send_email` binding, one variable (`ALERT_FROM`) and an empty `previews` block. The alert recipient is a secret set outside the file, so the file holds no address.*
+*Measured: `grep -nE '^[[:space:]]*"main"' wrangler.jsonc` returns one line, `"main": "worker/index.mjs",`; the config declares a name, a compatibility date, the `assets` block, a cron trigger (`*/15 * * * *`), the `observability` block with invocation logs off, the `send_email` binding, one variable (`ALERT_FROM`) and an empty `previews` block. The alert recipient is a secret set outside the file, so the file holds no recipient address; its one address is the sender, the published `info@kolwen.com` in `ALERT_FROM`.*
 
 ## Cookies
 

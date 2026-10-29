@@ -29,7 +29,7 @@ published from outside this tree, so its code is not here.
 |---|---|---|
 | The Worker and its pages | `wrangler.jsonc`, `web/`, `worker/index.mjs` | Serves static files, and runs one script that hands every unmatched path to them, so an unmatched path gets `web/404.html`. The Worker's own `workers.dev` address is off (`workers_dev: false`). Preview URLs are on (`preview_urls: true`), so a pull request's branch can be served at a public `*.workers.dev` preview host; see the row below and the list after this table. |
 | Health checks and alert mail | `worker/index.mjs`, `wrangler.jsonc` | A scheduled handler, every 15 minutes, requests the six sitemap pages on `kolwen.com` and mails one alert to the owner when a check fails. Its asset is the `ALERT_TO` secret (the recipient, kept out of the tree); until it is set, nothing is sent. |
-| Preview deploys | `docs/DEPLOY.md`, `web/_headers`, `wrangler.jsonc` | While a Cloudflare-side setting stays on (outside this tree), Workers Builds builds a pull request's branch to a public `*.workers.dev` preview host, with no access gate. A preview sends `X-Robots-Tag: noindex` (measured once: Cloudflare's own preview header); `web/_headers` also carries a rule for those hosts, not shown to apply. Preview hosts have no binding today. |
+| Preview deploys | `docs/DEPLOY.md`, `web/_headers`, `wrangler.jsonc` | While a Cloudflare-side setting stays on (outside this tree), Workers Builds builds a pull request's branch to a public `*.workers.dev` preview host, with no access gate. A preview sends `X-Robots-Tag: noindex` (measured once: Cloudflare's own preview header); `web/_headers` also carries a rule for those hosts, not shown to apply. Whether a preview receives the Worker's email binding, its alert variable or secret, or runs its cron is not established at Cloudflare's pages; the static assets do apply to previews. |
 | Response headers and CSP | `web/_headers` | One `/*` rule carries the Content-Security-Policy, Referrer-Policy, Cross-Origin-Opener-Policy, Cross-Origin-Resource-Policy and Permissions-Policy. A rule for preview hosts sets `X-Robots-Tag: noindex`. Other rules set cache lifetimes. |
 | Redirects | `web/_redirects` | Moves old paths to current pages. |
 | Published-claim checks | `scripts/surface-check.mjs` | The numbered rules are the list of record for what the tree may claim. It runs in CI, whose `all-green` job is a required status check on `main` (a GitHub rule, outside this tree). |
@@ -53,7 +53,7 @@ published from outside this tree, so its code is not here.
   outside this tree. The Worker's bindings are `ASSETS`, `EMAIL` and the `ALERT_FROM` variable, with
   no payment or customer binding; `wrangler.jsonc` says each binding must be audited before it is added.
 - Accounts and identity. They are not built.
-- Work on any branch other than `main` is not published to `kolwen.com` or to PyPI. A pull request's branch can be built by Cloudflare to a public preview URL with no access gate (`docs/DEPLOY.md`, "Previews"). A preview serves the same static files from that branch, has no binding, and sends `X-Robots-Tag: noindex` (Cloudflare's own preview header; `web/_headers` also carries a rule for those hosts). A finding on a preview host is in scope.
+- Work on any branch other than `main` is not published to `kolwen.com` or to PyPI. A pull request's branch can be built by Cloudflare to a public preview URL with no access gate (`docs/DEPLOY.md`, "Previews"). A preview serves the same static files from that branch (whether it also receives the Worker's email binding, alert settings or cron is not established), and sends `X-Robots-Tag: noindex` (Cloudflare's own preview header; `web/_headers` also carries a rule for those hosts). A finding on a preview host is in scope.
 
 ## 3. Assets, ranked
 
@@ -103,8 +103,10 @@ published from outside this tree, so its code is not here.
 ## 6. Out of scope, each with its reason
 
 - **Server-side injection classes (SQL, command, template, server-side request
-  forgery).** There is no server code and no database in this tree. A finding
-  that shows such code exists is in scope.
+  forgery).** The one server script, `worker/index.mjs`, takes no input from a request: it hands
+  unmatched requests to the static assets unchanged, and its scheduled checks fetch six fixed
+  paths on one fixed origin. There is no database. A finding that shows input reaching a query,
+  a command, a template or an outbound request is in scope.
 - **Form and session handling (CSRF, session fixation, authentication).** There
   is no form, no session and no account. A finding that shows one exists is in
   scope.
