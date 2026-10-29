@@ -95,6 +95,14 @@ test('the fetch handler hands every request to the assets binding unchanged', as
   assert.equal(await res.text(), '404 page');
 });
 
+test('a page answered with an upper-case media type is a passing check: Text/HTML; charset=UTF-8 sends nothing', async () => {
+  const box = mailbox();
+  const upper = new Response('<!doctype html>', { status: 200, headers: { 'content-type': 'Text/HTML; charset=UTF-8' } });
+  const out = await monitor({ ALERT_TO: 'owner@example.com', ALERT_FROM: 'info@kolwen.com', EMAIL: box.EMAIL }, { fetchImpl: stubFetch({ '/': upper }) });
+  assert.equal(out.sent, false);
+  assert.equal(box.sent.length, 0);
+});
+
 test('a send that throws is caught, and its log line names the error class only, never its message', async () => {
   const env = { ALERT_TO: 'owner@example.com', ALERT_FROM: 'info@kolwen.com', EMAIL: { send: async () => { throw new Error('refused for owner@example.com ' + SECRET); } } };
   let out;

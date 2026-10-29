@@ -18,7 +18,8 @@ export async function probe(path, fetchImpl, origin = ORIGIN) {
   try {
     const res = await fetchImpl(origin + path, { redirect: 'manual', signal: AbortSignal.timeout(TIMEOUT_MS), headers: { 'user-agent': 'kolwen-monitor' } });
     try { await res.body?.cancel(); } catch { /* the body is never read */ }
-    const typeOk = (res.headers.get('content-type') ?? '').startsWith(HTML);
+    // the media type is compared before its parameters, trimmed and lowercased: RFC 9110 §8.3.1 makes it case-insensitive
+    const typeOk = ((res.headers.get('content-type') ?? '').split(';')[0] || '').trim().toLowerCase() === HTML;
     return { path, status: res.status, ms: Date.now() - started, typeOk, ok: res.status === 200 && typeOk };
   } catch (e) {
     return { path, status: 0, ms: Date.now() - started, typeOk: false, ok: false, error: e?.name === 'TimeoutError' ? 'timeout' : 'network error' };
