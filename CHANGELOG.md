@@ -177,6 +177,7 @@ the pointer to it.
 - The robots `noindex` check decodes numeric character references of any length in the `content` value before it looks for `noindex`, leading zeros included, so `&#110;oindex` is read as `noindex` however many zeros the reference carries.
 - `scripts/post-deploy-check.mjs` sets its exit code and returns, instead of calling `process.exit()`, so output still waiting in a pipe is written before the process ends.
 - Four review findings are fixed: the override watch reads a name listed in both `dependencies` and `optionalDependencies` at the optional pin, which npm resolves; the page reader no longer repeats a failed search for each later unclosed comment opener, so a page full of them finishes; the stale style-hash check is skipped when a tracked SVG under `web/` cannot be read; and the rule 11 probe tests assert exit 0 on a clean run.
+- The sitemap's `lastmod` dates now say when each page's content last changed, as the sitemap protocol defines it, and a check (`scripts/sitemap-lastmod.mjs`) keeps them true: a reworded sentence in a page's title, description or main text moves its date, a footer or style change does not. `changefreq` is removed from the sitemap.
 
 ### Security
 
