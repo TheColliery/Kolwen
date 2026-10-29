@@ -295,8 +295,8 @@ export async function renderedChecks({ webDir, browser, checks = ALL_CHECKS, hea
               if (th.job === 'prose') {
                 if (th.image !== 'none') failures.push({ ...stag, check: 'theme', detail: `a prose page has a background image (${reportField(th.image.slice(0, 60))}): the reading theme's ground is solid` });
                 const got = parseColor(th.color), want = parseColor(wantBg);
-                if (!got || got.r !== want.r || got.g !== want.g || got.b !== want.b) failures.push({ ...stag, check: 'theme', detail: `in the ${scheme} scheme the ground is ${th.color}, expected ${wantBg}` });
-                if (!/light/.test(th.scheme) || !/dark/.test(th.scheme)) failures.push({ ...stag, check: 'theme', detail: `color-scheme is "${th.scheme}", expected light and dark` });
+                if (!got || got.r !== want.r || got.g !== want.g || got.b !== want.b) failures.push({ ...stag, check: 'theme', detail: `in the ${scheme} scheme the ground is ${reportField(th.color)}, expected ${wantBg}` });
+                if (!/light/.test(th.scheme) || !/dark/.test(th.scheme)) failures.push({ ...stag, check: 'theme', detail: `color-scheme is "${reportField(th.scheme)}", expected light and dark` });
               } else if (th.job === 'default') {
                 if (/light/.test(th.scheme) && /dark/.test(th.scheme)) failures.push({ ...stag, check: 'theme', detail: 'a default page carries the color-scheme of the reading theme (light dark): the theme leaked into it' });
               } else failures.push({ ...stag, check: 'theme', detail: `the page declares no job (data-job is ${reportField(th.job)})` });
