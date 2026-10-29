@@ -90,13 +90,31 @@ test('a record with no sitemap URL fails', () => {
   try { const r = run(root); assert.equal(r.status, 1, r.out); assert.match(r.out, /no sitemap URL/); } finally { cleanup([root]); }
 });
 
+test('a page with no main element fails and names the page, even when its record was taken from the same page', () => {
+  // the body changed on a page with no <main>: the content rule reads nothing in the body, so the check must refuse the page rather than pass it
+  const old = page().replace(/<main[\s\S]*<\/main>/, '<div><p>Old body text.</p></div>');
+  const now = old.replace('Old body text.', 'An entirely new body.');
+  const root = fixture({ pages: { 'index.html': now }, urls: HOME, recordPages: { 'index.html': old } });
+  try { const r = run(root); assert.equal(r.status, 1, r.out); assert.match(r.out, /web\/index\.html: needs exactly one <main>/); } finally { cleanup([root]); }
+});
+
+test('a sitemap with no url rows fails, even when its record is empty', () => {
+  const root = fixture({ pages: { 'index.html': page() }, urls: [], record: {} });
+  try { const r = run(root); assert.equal(r.status, 1, r.out); assert.match(r.out, /no <url> rows/); } finally { cleanup([root]); }
+});
+
+test('a missing record file fails, even when the sitemap has no url rows', () => {
+  const root = fixture({ pages: { 'index.html': page() }, urls: [], record: null });
+  try { const r = run(root); assert.equal(r.status, 1, r.out); assert.match(r.out, /sitemap-content\.json: missing/); } finally { cleanup([root]); }
+});
+
 test('a lastmod later than today fails', () => {
   const root = fixture({ pages: { 'index.html': page() }, urls: [{ path: '/', lastmod: '2999-01-01' }] });
   try { const r = run(root); assert.equal(r.status, 1, r.out); assert.match(r.out, /later than today/); } finally { cleanup([root]); }
 });
 
 test('a lastmod that is not a real YYYY-MM-DD date fails', () => {
-  for (const bad of ['29-10-2026', '2026-02-30']) {
+  for (const bad of ['29-10-2026', '2026-02-30', '2026-13-01']) {
     const root = fixture({ pages: { 'index.html': page() }, urls: [{ path: '/', lastmod: bad }] });
     try { const r = run(root); assert.equal(r.status, 1, bad + ': ' + r.out); assert.match(r.out, /YYYY-MM-DD/); } finally { cleanup([root]); }
   }

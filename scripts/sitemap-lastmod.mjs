@@ -2,7 +2,7 @@
 //
 // WHAT COUNTS AS A CONTENT CHANGE (the rule the record is kept by; contentOf() implements exactly this):
 //   - the page's <title>, its <meta name="description"> content, and the TEXT inside its <main>...</main>, in both languages;
-//   - tags stripped, character references decoded (lib/rendered-text.mjs, the house decoder), whitespace collapsed to single spaces;
+//   - tags stripped, character references decoded (lib/rendered-text.mjs, the shared decoder), whitespace collapsed to single spaces;
 //   - NOT content: anything outside <main> except the title and the description (the shared header and footer, <head> styles and scripts, fonts), tag names, class and style attributes.
 // So a pure style or shared-chrome change does not move lastmod; a reworded sentence in either language does.
 //
@@ -10,7 +10,7 @@
 // a lastmod is not a real YYYY-MM-DD date or is later than today (UTC); or the sitemap carries a <changefreq> (optional, and "weekly" is a claim these pages do not keep).
 // THE RECORD is scripts/lib/sitemap-content.json (never served): per sitemap URL, the page file, the sha256 of its normalized content, and the lastmod.
 // --write moves, for each page whose content hash changed, the record's hash and lastmod and the sitemap's lastmod to today's UTC date, and nothing else.
-// --root <dir> runs the check on another tree (the tests use it). Zero dependencies: node builtins and the house decoder only.
+// --root <dir> runs the check on another tree (the tests use it). Zero dependencies: node builtins and the shared decoder only.
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -32,7 +32,7 @@ export function contentOf(html) {
 }
 export const contentHash = html => createHash('sha256').update(contentOf(html), 'utf8').digest('hex');
 
-const isRealDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s) && new Date(s + 'T00:00:00Z').toISOString().slice(0, 10) === s;
+const isRealDate = s => { if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false; const t = new Date(s + 'T00:00:00Z'); return !Number.isNaN(t.getTime()) && t.toISOString().slice(0, 10) === s; };
 const sitemapRows = xml => [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map(m => ({
   loc: (m[1].match(/<loc>\s*([^<\s]+)\s*<\/loc>/) || [])[1],
   lastmod: (m[1].match(/<lastmod>([^<]*)<\/lastmod>/) || [])[1],
@@ -60,7 +60,9 @@ export function check(root, { write = false, today = new Date().toISOString().sl
     else if (row.lastmod > today) problems.push(`web/sitemap.xml: ${row.loc} lastmod ${row.lastmod} is later than today (UTC) ${today}; set the date its content last changed`);
     const file = join(root, rec.page);
     if (!existsSync(file)) { problems.push(`${RECORD}: ${row.loc} names ${rec.page}, which does not exist`); continue; }
-    const hash = contentHash(readFileSync(file, 'utf8'));
+    const html = readFileSync(file, 'utf8');
+    if ((html.match(/<main\b/gi) || []).length !== 1 || (html.match(/<\/main>/gi) || []).length !== 1) { problems.push(`${rec.page}: needs exactly one <main>...</main>; the content rule reads the text inside it`); continue; }
+    const hash = contentHash(html);
     if (hash !== rec.sha256) {
       if (write) { changed.push({ loc: row.loc, hash }); continue; }
       problems.push(`${rec.page}: its content changed and its record was not updated; run: node scripts/sitemap-lastmod.mjs --write`);
@@ -69,6 +71,8 @@ export function check(root, { write = false, today = new Date().toISOString().sl
     if (row.lastmod !== rec.lastmod) problems.push(`web/sitemap.xml: ${row.loc} lastmod ${row.lastmod} differs from its record ${rec.lastmod}; set it to the record's date (if the content changed, run: node scripts/sitemap-lastmod.mjs --write)`);
   }
   for (const loc of Object.keys(record)) if (!seen.has(loc)) problems.push(`${RECORD}: ${loc} has no sitemap URL; remove the record or add the URL to web/sitemap.xml`);
+  if (!seen.size) problems.push('web/sitemap.xml: no <url> rows; the check has nothing to read');
+  if (!existsSync(recPath)) problems.push(`${RECORD}: missing; it holds each page's content hash and lastmod`);
   if (write && changed.length) {
     let out = xml;
     for (const c of changed) {
