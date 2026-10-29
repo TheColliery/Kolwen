@@ -28,7 +28,7 @@
 
 ### A1. Policy
 
-Kolwen keeps a written, tested way to find out that something has gone wrong with its systems or with personal data it holds, to contain it, to tell the people and the authorities the law says to tell, to recover, and to learn from it. The maintainer approves this policy and reviews it after every drill, after every real incident and when a provider, a system or the law changes.
+Kolwen keeps a written way to find out that something has gone wrong with its systems or with personal data it holds, to contain it, to tell the people and the authorities the law says to tell, to recover, and to learn from it; the drills below test it, the first before Kolwen first accepts a customer's personal data. The maintainer approves this policy and reviews it after every drill, after every real incident and when a provider, a system or the law changes.
 
 - **Scope:** every system and every provider that holds or touches personal data of customers or visitors, and the repository, CI and release path that ship the service.
 - **Definitions:** an *event* is anything that might be a security problem; an *incident* is an event that meets the criteria in A3; a *personal data breach* is a breach of security measures that causes loss, unauthorized access, use, change, correction or disclosure of personal data, whether intended or not (PDPC notice B.E. 2565, ข้อ 3), of one of three kinds: confidentiality, integrity or availability (ข้อ 4).
@@ -98,7 +98,7 @@ Never one clock. Each runs from its own start. The sheet is filled in at the sta
 | 4 | Kolwen tells **the people affected** when the risk to them is high | without delay, with what they can do to protect themselves | the high-risk finding | PDPC notice ข้อ 5(4), 10; GDPR Art 34(1) |
 | 5 | **The late path** | a first notice in phases with what is known; the rest "without undue further delay" (GDPR Art 33(4)); a late notice gives its reasons; under the Thai notice a controller late for necessary reasons asks the Office to excuse it, promptly, at most 15 days after knowing (ข้อ 7) | the deadline of clock 1 passes | GDPR Art 33(1), (4); PDPC notice ข้อ 7; EDPB paras 56 to 65 |
 
-The controller and processor roles named in this section and in the notice templates (A8) are provisional and await counsel's review, as [`PRIVACY.md`](../PRIVACY.md) marks them.
+The controller and processor roles named in this section and in the notice templates (A8) are provisional and await counsel's review, as [`PRIVACY.md`](../PRIVACY.md) marks them. Whether clock 1 and the provider rule in A5 cover visitors' personal data that Kolwen's providers handle outside Kolwen's own logs is also a point for counsel.
 
 Clock 1 is run as the shortest clock for every market Kolwen sells in: no market read so far sets less than 72 hours; the remaining markets are being confirmed with counsel. A notice to the Office does not excuse duties under other laws (ข้อ 7).
 
