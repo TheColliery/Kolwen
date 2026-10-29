@@ -6,7 +6,7 @@
 > named; everything under "Plan" and "Drill" is not yet true.
 > **No certification is held or claimed** — see `ISO-MAP.md`.
 >
-> **PRELIMINARY.** The plan and the drill below are preliminary until counsel signs them, and no drill has run yet; the first runs before Kolwen first accepts a customer's personal data (B1). The plan below applies from the day Kolwen first accepts a customer's personal data; until then only the drills run.
+> **PRELIMINARY.** The plan and the drill below are preliminary until counsel signs them, and no drill has run yet; the first runs before Kolwen first accepts a customer's personal data (B1). The plan applies from today to any incident that touches personal data Kolwen handles; its customer-data parts apply in full from the day Kolwen first accepts a customer's personal data.
 >
 > Thailand's PDPA requires notification to the regulator within 72 hours of becoming aware, and to affected users where the risk is high; that obligation is recorded in `PRIVACY.md` and becomes operational the day personal data is processed.
 
@@ -45,7 +45,7 @@ Kolwen is a one-person project (see `SECURITY.md`): one person holds several rol
 | Decision-maker and sender | the maintainer | approves the policy; decides containment steps that take a service offline or rotate every credential; **sends every outward notice** (to an authority, a customer, the public); nothing leaves without this person's decision |
 | Incident lead, one per incident | the maintainer, unless the register entry names a stand-in | runs the checklist, starts the clock sheet, keeps the register entry, assigns work |
 | Technical responder | the maintainer | may disconnect, disable, revoke and shut down any Kolwen system or credential to contain an incident |
-| Outside counsel | a lawyer engaged for data-protection questions | reads the clock and the notice wording; never signs or sends for Kolwen |
+| Outside counsel | a lawyer engaged for data-protection questions | reads the clock and the notice wording, and signs off this plan and the drill design; never signs or sends a notice for Kolwen |
 | Provider contacts | listed per provider in A5 | tell Kolwen what happened on their side |
 
 There is no backup for the maintainer today; `SECURITY.md` says so. A stand-in is named in the register entry whenever one is used. *Sources: NIST SP 800-61 Rev. 3 GV.RR-02 R1, R2 and RS.MA-01 C1; NIST SP 800-53 IR-8 "Explicitly designates responsibility".*
@@ -97,6 +97,8 @@ Never one clock. Each runs from its own start. The sheet is filled in at the sta
 | 3 | Kolwen, as **processor** of the content a customer sends through a service, tells that **customer** | [to be confirmed with counsel before this plan is final]; a customer that is a controller under Thai law must put 72 hours in its agreement with its processor (ข้อ 8), so the number is expected to be no longer than that, subject to counsel; GDPR asks only "without undue delay" and the EDPB recommends prompt notice in phases | Kolwen knows | PDPC notice ข้อ 8; GDPR Art 33(2); EDPB paras 44 to 47 |
 | 4 | Kolwen tells **the people affected** when the risk to them is high | without delay, with what they can do to protect themselves | the high-risk finding | PDPC notice ข้อ 5(4), 10; GDPR Art 34(1) |
 | 5 | **The late path** | a first notice in phases with what is known; the rest "without undue further delay" (GDPR Art 33(4)); a late notice gives its reasons; under the Thai notice a controller late for necessary reasons asks the Office to excuse it, promptly, at most 15 days after knowing (ข้อ 7) | the deadline of clock 1 passes | GDPR Art 33(1), (4); PDPC notice ข้อ 7; EDPB paras 56 to 65 |
+
+The controller and processor roles named in this section and in the notice templates (A8) are provisional and await counsel's review, as [`PRIVACY.md`](../PRIVACY.md) marks them.
 
 Clock 1 is run as the shortest clock for every market Kolwen sells in: no market read so far sets less than 72 hours; the remaining markets are being confirmed with counsel. A notice to the Office does not excuse duties under other laws (ข้อ 7).
 
@@ -192,7 +194,7 @@ Recovery starts when the incident lead says so, on stated criteria, and checks: 
 | define resources and management support | A2; B (the drill is the maintainer's time) |
 | address the sharing of incident information | A11 |
 | be reviewed and approved by a named role; designate responsibility | A1, A2 |
-| be distributed, updated after incidents, drills or change, and protected from unauthorized change | A1; this file is in a repository: every change is a reviewed commit |
+| be distributed, updated after incidents, drills or change, and protected from unauthorized change | A1; this file is in a repository: every change is a commit, checked by the required status checks, which the maintainer's admin role can bypass ([`SECURITY.md`](../SECURITY.md)) |
 
 *Source: NIST SP 800-53 Rev. 5.2.0 IR-8 (catalog of 2026-10-22).*
 
