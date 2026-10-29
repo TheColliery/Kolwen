@@ -33,9 +33,9 @@ Kolwen keeps a written way to find out that something has gone wrong with its sy
 - **Scope:** every system and every provider that holds or touches personal data of customers or visitors, and the repository, CI and release path that ship the service.
 - **Definitions:** an *event* is anything that might be a security problem; an *incident* is an event that meets the criteria in A3; a *personal data breach* is a breach of security measures that causes loss, unauthorized access, use, change, correction or disclosure of personal data, whether intended or not (PDPC notice B.E. 2565, ข้อ 3), of one of three kinds: confidentiality, integrity or availability (ข้อ 4).
 - **Measures of the plan itself:** time from first alert to the recorded awareness time; time from awareness to each notice; the share of drill findings closed by their date (B4).
-- **Updates and access:** update by default; hold a new open-source component or model for a controlled delay before it is adopted, so that detection can run first; MFA on every administrative interface and cloud console.
+- **Updates and access:** update by default; hold a new open-source component or model for a controlled delay before it is adopted, so that detection can run first.
 
-*Sources: NIST SP 800-61 Rev. 3 (April 2025) section 2.3 and GV.PO R1; NIST SP 800-53 Rev. 5.2.0 IR-1 and IR-8.; NCSC (UK) blogs "Preparing for a 'vulnerability patch wave'" (1 May 2026), "Why cyber defenders need to be ready for frontier AI" (30 March 2026) and "Retaining defensive advantage in the age of frontier AI cyber capabilities" (15 April 2026); FS-ISAC Sector Risk Advisory "Preparing the Enterprise for AI-Enabled Vulnerability Discovery" (19 April 2026).*
+*Sources: NIST SP 800-61 Rev. 3 (April 2025) section 2.3 and GV.PO R1; NIST SP 800-53 Rev. 5.2.0 IR-1 and IR-8; NCSC (UK) blogs "Preparing for a 'vulnerability patch wave'" (1 May 2026), "Why cyber defenders need to be ready for frontier AI" (30 March 2026) and "Retaining defensive advantage in the age of frontier AI cyber capabilities" (15 April 2026); FS-ISAC Sector Risk Advisory "Preparing the Enterprise for AI-Enabled Vulnerability Discovery" (19 April 2026).*
 
 ### A2. Roles and authority
 
@@ -107,7 +107,7 @@ The controller and processor roles named in this section and in the notice templ
 
 Clock 1 is run as the shortest clock for every market Kolwen sells in: no market read so far sets less than 72 hours; the remaining markets are being confirmed with counsel. A notice to the Office does not excuse duties under other laws (ข้อ 7).
 
-No source adds a clock: a serious-incident duty to the EU AI Office binds providers of general-purpose AI models with systemic risk (the EU General-Purpose AI Code of Practice, 10 July 2025), and if counsel reads Kolwen into that class it becomes a sixth clock.
+No source adds a clock: a serious-incident duty to the EU AI Office applies to providers of general-purpose AI models with systemic risk (as the EU General-Purpose AI Code of Practice, 10 July 2025, describes it), and if counsel reads Kolwen into that class it becomes a sixth clock.
 
 ### A7. Playbooks
 
@@ -159,7 +159,7 @@ Each is a numbered checklist; in the register entry each step carries who did it
 3. Read the advisory and any provider patch notice. Do not run published exploit code unless an expert has assessed that it contains no backdoor or other malicious behaviour.
 4. Where no fix exists yet, isolate the component or disable it.
 5. Update external-facing systems first, then internal ones; within each, update the systems that are not business-critical first, through accelerated rings.
-6. Check the dependency pins and lock files for the component's version, and check that the update did not change a provider's behaviour.
+6. Check the dependency pins and lock files for the component's version.
 7. If the component held a key or token, rotate it (Playbook 3, from step 2).
 8. Investigate for compromise while updating; harden, re-enable, then hunt through the logs for the component's exploit window.
 9. Record each step's time; start the clocks in A6 if personal data is involved.
@@ -281,7 +281,7 @@ There is no calendar. A drill runs when one of these happens:
 1. once, before Kolwen first accepts a customer's personal data;
 2. each time a new provider will hold customer data (the provider's own breach term is re-read at its pages at the same time);
 3. each time a new sensitive system is born (an inference gateway, an access log, a data lifecycle, abuse handling);
-   A new sensitive system's birth picks this topic up: abuse handling for misuse of the service, the inference gateway for attacks on the service itself, and its study visit reads the then-current OWASP lists and NIST taxonomy.
+   A new sensitive system's birth picks this topic up (abuse handling for misuse of the service, the inference gateway for attacks on the service itself), and its study visit reads the then-current OWASP lists and NIST taxonomy.
 4. after every real incident, whether Kolwen's own or one at a provider Kolwen uses (a short drill of the lesson, within the review of the incident);
 5. one drill in any year in which none of the above occurred.
 
