@@ -33,8 +33,9 @@ Kolwen keeps a written way to find out that something has gone wrong with its sy
 - **Scope:** every system and every provider that holds or touches personal data of customers or visitors, and the repository, CI and release path that ship the service.
 - **Definitions:** an *event* is anything that might be a security problem; an *incident* is an event that meets the criteria in A3; a *personal data breach* is a breach of security measures that causes loss, unauthorized access, use, change, correction or disclosure of personal data, whether intended or not (PDPC notice B.E. 2565, ข้อ 3), of one of three kinds: confidentiality, integrity or availability (ข้อ 4).
 - **Measures of the plan itself:** time from first alert to the recorded awareness time; time from awareness to each notice; the share of drill findings closed by their date (B4).
+- **Updates and access:** update by default; hold a new open-source component or model for a controlled delay before it is adopted, so that detection can run first; MFA on every administrative interface and cloud console.
 
-*Sources: NIST SP 800-61 Rev. 3 (April 2025) section 2.3 and GV.PO R1; NIST SP 800-53 Rev. 5.2.0 IR-1 and IR-8.*
+*Sources: NIST SP 800-61 Rev. 3 (April 2025) section 2.3 and GV.PO R1; NIST SP 800-53 Rev. 5.2.0 IR-1 and IR-8.; NCSC (UK) blogs "Preparing for a 'vulnerability patch wave'" (1 May 2026), "Why cyber defenders need to be ready for frontier AI" (30 March 2026) and "Retaining defensive advantage in the age of frontier AI cyber capabilities" (15 April 2026); FS-ISAC Sector Risk Advisory "Preparing the Enterprise for AI-Enabled Vulnerability Discovery" (19 April 2026).*
 
 ### A2. Roles and authority
 
@@ -49,6 +50,8 @@ Kolwen is a one-person project (see `SECURITY.md`): one person holds several rol
 | Provider contacts | listed per provider in A5 | tell Kolwen what happened on their side |
 
 There is no backup for the maintainer today; `SECURITY.md` says so. A stand-in is named in the register entry whenever one is used. *Sources: NIST SP 800-61 Rev. 3 GV.RR-02 R1, R2 and RS.MA-01 C1; NIST SP 800-53 IR-8 "Explicitly designates responsibility".*
+
+AI tools may help with analysis and drafting in a response. They hold no authority to contain, notify or send anything; their output is checked; and a person can intervene in, or switch off, any automated action. *Sources: Canadian Centre for Cyber Security, ITSAP.10.050 "Frontier artificial intelligence" (May 2026).*
 
 ### A3. What counts as an incident, and when the clock starts
 
@@ -84,6 +87,8 @@ Kolwen asks every provider that will hold customer data for a signed data-proces
 | **Paddle**: merchant of record for sales; holds the buyer's name, e-mail, payment and tax data as its own controller | Master Services Agreement clause 14.2 "each party acts as an independent Controller"; Data Sharing Addendum clause 9.1: each party must "inform the other party of any material Personal Data Breach relevant to the Shared Personal Data"; no hours. (Its separate processor addendum, for Retain and Metrics, which Kolwen does not use, says "without undue delay".) | planned | recorded here when the account exists |
 | **A model provider** (none chosen): would hold customer conversation content | none exists until one is chosen; before any customer content reaches one, its agreement is read at its own pages and its notice term entered here (published provider terms today range from "without undue delay" to "within 48 hours") | planned | recorded when chosen |
 
+At each drill, re-read how each provider handles accelerated vulnerability disclosure and patching. *Sources: European Central Bank, Banking Supervision letter SSM-2026-0301 (7 July 2026); Bank of England, FCA and HM Treasury joint statement (15 May 2026).*
+
 For each provider the register entry for an incident records the provider's own incident contact, the time Kolwen was told, what the provider said, and what Kolwen may ask of it. A provider is not Kolwen's incident team: its notice starts Kolwen's own work (A7, playbook 1). *Sources: NIST SP 800-61 Rev. 3 GV.SC-05 R1, GV.SC-08, section 2.2 (shared responsibility); ISO/IEC 27035-4:2024 (coordination between organizations; page and abstract read).*
 
 ### A6. The five clocks, kept apart
@@ -101,6 +106,8 @@ Never one clock. Each runs from its own start. The sheet is filled in at the sta
 The controller and processor roles named in this section and in the notice templates (A8) are provisional and await counsel's review, as [`PRIVACY.md`](../PRIVACY.md) marks them. Whether clock 1 and the provider rule in A5 cover visitors' personal data that Kolwen's providers handle outside Kolwen's own logs is also a point for counsel.
 
 Clock 1 is run as the shortest clock for every market Kolwen sells in: no market read so far sets less than 72 hours; the remaining markets are being confirmed with counsel. A notice to the Office does not excuse duties under other laws (ข้อ 7).
+
+No source adds a clock: a serious-incident duty to the EU AI Office binds providers of general-purpose AI models with systemic risk (the EU General-Purpose AI Code of Practice, 10 July 2025), and if counsel reads Kolwen into that class it becomes a sixth clock.
 
 ### A7. Playbooks
 
@@ -146,6 +153,38 @@ Each is a numbered checklist; in the register entry each step carries who did it
 
 *Sources: NIST SP 800-61 Rev. 3 RS.MA to RS.MI, RC.RP; CISA Cybersecurity Incident and Vulnerability Response Playbooks (November 2021); ISO/IEC 27035-3:2020 (abstract); the PDPC Office's guide v1.0 (15 December B.E. 2565), examples 2, 4, 7.*
 
+**Playbook 5: a critical vulnerability with a short exploit window (a dependency, a provider, the platform).**
+1. Write down the time the advisory was read, the component and its version, and who read it.
+2. Triage: is it critical, does Kolwen run it, is it being exploited, and can it be reached from outside? Set the severity (A4).
+3. Read the advisory and any provider patch notice. Do not run published exploit code unless an expert has assessed that it contains no backdoor or other malicious behaviour.
+4. Where no fix exists yet, isolate the component or disable it.
+5. Update external-facing systems first, then internal ones; within each, update the systems that are not business-critical first, through accelerated rings.
+6. Check the dependency pins and lock files for the component's version, and check that the update did not change a provider's behaviour.
+7. If the component held a key or token, rotate it (Playbook 3, from step 2).
+8. Investigate for compromise while updating; harden, re-enable, then hunt through the logs for the component's exploit window.
+9. Record each step's time; start the clocks in A6 if personal data is involved.
+*Sources: NCSC (UK), "Responding to active exploitation of vulnerabilities" v2.1 (1 May 2026); NCSC (UK) blogs "Preparing for a 'vulnerability patch wave'" (1 May 2026), "Why cyber defenders need to be ready for frontier AI" (30 March 2026) and "Retaining defensive advantage in the age of frontier AI cyber capabilities" (15 April 2026); FS-ISAC Sector Risk Advisory "Preparing the Enterprise for AI-Enabled Vulnerability Discovery" (19 April 2026); Canadian Centre for Cyber Security, ITSAP.10.050 "Frontier artificial intelligence" (May 2026); Bank of England, FCA and HM Treasury joint statement (15 May 2026); European Central Bank, Banking Supervision letter SSM-2026-0301 (7 July 2026).*
+
+**Playbook 6: a fake call, message or file that asks the maintainer to run a command, share a key or change an account.**
+1. Write down the time and the channel it came through, and keep the original.
+2. Verify out of band: call back on a number already known to belong to the requester, or use a channel already in use. Never use a number, link or address that the message itself gave.
+3. Run no command, change no account and open no file on the request of the message or call.
+4. Share no key or credential on a call. If a secret was shared, it is Playbook 3 from step 1.
+5. Check whether anything was done; if an account or file was touched, treat it as Playbook 2 from step 2.
+6. Record it in the register even when nothing was lost.
+*Sources: Canadian Centre for Cyber Security, ITSAP.10.050 "Frontier artificial intelligence" (May 2026).*
+
+**Playbook 7: an attack on Kolwen's AI service itself (prompt injection, tool or agent misuse, extraction, abuse of keys and quota)** (to check against ISO/IEC 27090 when bought)
+1. Write down the time and how it was found: a report, a log, or an output.
+2. Verify the facts: which input, which tool or agent, and which output.
+3. Contain: disable the tool or the agent, narrow its permissions, rotate the keys it used, and tighten the rate limits.
+4. Preserve the logs. Prompts may hold personal data, so handle them as sensitive.
+5. Scope what the output exposed: which users, which records, which kinds of data.
+6. Set the severity (A4). If personal data is involved, start the clocks in A6.
+7. Tell the downstream stakeholders who rely on the service, as the GOVERN 2.1 line of NIST AI 600-1 asks.
+8. Recover, then review the response after the fact, as the MANAGE 4.3 line of NIST AI 600-1 asks: was each step followed, and was it effective?
+*Sources: NIST AI 100-2 E2025, "Adversarial Machine Learning: A Taxonomy and Terminology of Attacks and Mitigations" (March 2025); NIST AI 600-1, "Generative Artificial Intelligence Profile" (26 July 2024); OWASP Top 10 for LLM Applications 2025; OWASP Top 10 for Agentic Applications 2026 (Version 2026, December 2025); NCSC (UK) and partners, "Guidelines for secure AI system development" (27 November 2023); CISA and partners, "Careful Adoption of Agentic Artificial Intelligence (AI) Services" (1 May 2026).*
+
 ### A8. Notices drafted in advance
 
 Templates with blanks. The maintainer sends; each is read by counsel before the plan is final. The Office's notice is prepared in Thai as well [to be confirmed with counsel before this plan is final]. The Office's electronic channel is [to be confirmed with counsel before this plan is final]; until then the notice goes in writing, which the notice allows (ข้อ 6).
@@ -166,9 +205,9 @@ Templates with blanks. The maintainer sends; each is read by counsel before the 
 
 ### A9. The breach register
 
-One register of every breach, notified or not, kept by the incident lead, readable only by those authorized (NIST SP 800-61 Rev. 3 RS.AN-06 R1). Each entry: id; times (first report, awareness, each decision, each notice, end of recovery); source of the report; the kinds and numbers of people and records; the facts, effects and remedial action; the severity and its changes; the clock sheet; for each notice sent its text and the time; for each notice not sent its reason; the provider's contact and what it said; the after-action report and its improvement items. It is kept for the period counsel advises [to be confirmed with counsel before this plan is final].
+One register of every breach, notified or not, kept by the incident lead, readable only by those authorized (NIST SP 800-61 Rev. 3 RS.AN-06 R1). Each entry: id; times (first report, awareness, each decision, each notice, end of recovery); source of the report; the kinds and numbers of people and records; the facts, effects and remedial action; the severity and its changes; the clock sheet; for each notice sent its text and the time; for each notice not sent its reason; the provider's contact and what it said; the incident class, named by the OWASP or NIST AI 100-2 class name where one fits (to check against ISO/IEC 27090 when bought); the after-action report and its improvement items. It is kept for the period counsel advises [to be confirmed with counsel before this plan is final].
 
-*Sources: GDPR Art 33(5); EDPB paras 121 to 126; NIST SP 800-53 IR-5.*
+*Sources: GDPR Art 33(5); EDPB paras 121 to 126; NIST SP 800-53 IR-5; NIST AI 100-2 E2025, "Adversarial Machine Learning: A Taxonomy and Terminology of Attacks and Mitigations" (March 2025); NIST AI 600-1, "Generative Artificial Intelligence Profile" (26 July 2024); OWASP Top 10 for LLM Applications 2025; OWASP Top 10 for Agentic Applications 2026 (Version 2026, December 2025).*
 
 ### A10. Recovery and the after-action report
 
@@ -181,6 +220,7 @@ Recovery starts when the incident lead says so, on stated criteria, and checks: 
 - **Evidence.** What is collected, how long it is kept and who may see it follows Kolwen's retention rules; collected incident data is evidence even where no one will be prosecuted (NIST SP 800-61 Rev. 3 RS.AN-07). Deleting is narrow: named items, never a wide sweep.
 - **Information sharing.** Voluntary: Kolwen may share indicators with other providers or a sector body when it helps others; nothing is required today.
 - **Media.** Only the maintainer speaks; the holding line is A8(v).
+- **AI service output.** Harmful or leaking output from Kolwen's AI service is a reportable event, through the same channels as any report (OWASP Top 10 for LLM Applications 2025; NIST AI 600-1). (to check against ISO/IEC 27090 when bought)
 
 ### A12. The plan against NIST SP 800-53 IR-8
 
@@ -213,6 +253,21 @@ Recovery starts when the incident lead says so, on stated criteria, and checks: 
 | PDPA B.E. 2562, ss 37(4), 40 | MDES unofficial translation | https://mdes.go.th/law/detail/1905-Personal-Data-Protection-Act--B-E--2562--2019- |
 | PDPC notice on criteria and procedures for personal data breach notification B.E. 2565 | Royal Gazette vol. 139, special part 292 ง, 15 December B.E. 2565 | https://www.mdes.go.th/law/detail/6336 |
 | PDPC Office, guide to risk assessment and notification v1.0 | 15 December B.E. 2565 (guidance, not law) | the Office's guide on the same site |
+| ECB Banking Supervision letter SSM-2026-0301 | 7 July 2026, to significant institutions | https://www.bankingsupervision.europa.eu/press/letterstobanks/shared/pdf/2026/ssm.2026_letter_on_AI_enabled_cybersecurity_threats.en.pdf |
+| Bank of England, FCA and HM Treasury joint statement | 15 May 2026 | not yet recorded |
+| HKMA circular "Strengthening Cyber Resilience amid Artificial Intelligence-Empowered Cyber Threats" | 2 June 2026 | not yet recorded |
+| Canadian Centre for Cyber Security, ITSAP.10.050 "Frontier artificial intelligence" | May 2026 (modified 29 May 2026) | not yet recorded |
+| NCSC (UK), "Responding to active exploitation of vulnerabilities" | v2.1, 1 May 2026 | not yet recorded |
+| NCSC (UK) blogs: "Preparing for a 'vulnerability patch wave'" (1 May 2026); "Why cyber defenders need to be ready for frontier AI" (30 March 2026); "Retaining defensive advantage in the age of frontier AI cyber capabilities" (15 April 2026) | the three blog pages | not yet recorded |
+| FS-ISAC Sector Risk Advisory "Preparing the Enterprise for AI-Enabled Vulnerability Discovery" | 19 April 2026 | not yet recorded |
+| NIST AI 100-2 E2025, "Adversarial Machine Learning: A Taxonomy and Terminology of Attacks and Mitigations" | March 2025 (03/24/25 Final) | https://csrc.nist.gov/pubs/ai/100/2/e2025/final |
+| NIST AI 600-1, "Generative Artificial Intelligence Profile" | 26 July 2024 (page updated 8 April 2026) | not yet recorded |
+| OWASP Top 10 for LLM Applications | 2025 | https://genai.owasp.org/llm-top-10/ |
+| OWASP Top 10 for Agentic Applications | 2026 (Version 2026, December 2025) | not yet recorded |
+| NCSC (UK) and partners, "Guidelines for secure AI system development" | 27 November 2023 | not yet recorded |
+| CISA and partners, "Careful Adoption of Agentic Artificial Intelligence (AI) Services" | 1 May 2026 | not yet recorded |
+| OWASP GenAI Red Teaming Manual | Version 1.0, 20 October 2026 | not yet recorded |
+| EU General-Purpose AI Code of Practice | published 10 July 2025 | not yet recorded |
 
 International standards and guides come first; Thai law is the local layer on top. The Thai notice is quoted in the section where it applies; its text was read in the Gazette's own pages.
 
@@ -226,6 +281,7 @@ There is no calendar. A drill runs when one of these happens:
 1. once, before Kolwen first accepts a customer's personal data;
 2. each time a new provider will hold customer data (the provider's own breach term is re-read at its pages at the same time);
 3. each time a new sensitive system is born (an inference gateway, an access log, a data lifecycle, abuse handling);
+   A new sensitive system's birth picks this topic up: abuse handling for misuse of the service, the inference gateway for attacks on the service itself, and its study visit reads the then-current OWASP lists and NIST taxonomy.
 4. after every real incident, whether Kolwen's own or one at a provider Kolwen uses (a short drill of the lesson, within the review of the incident);
 5. one drill in any year in which none of the above occurred.
 
@@ -267,6 +323,17 @@ Backups: restore a backup to a test system on a schedule the maintainer sets, ch
 - *T+60 hours:* the facts are still incomplete and clock 1 ends in 12 hours. Questions: what goes to the Office now, in phases; what reasons are given for what is missing?
 
 **Criteria (set in advance, scored by the evaluator):** the awareness time is written; the clock sheet is started and correct for each clock; the severity is set with a reason; the Office notice is complete as to what is known and marked as phase 1; the notice to people is in plain language, names what to do, and avoids the compromised channel; the register entry is complete; the decisions not to notify, if any, carry reasons.
+
+**Queue after the first drill.** Each scenario runs on a B1 event.
+- a1: a critical vulnerability in a component Kolwen runs is exploited in the wild within hours of disclosure (Playbook 5).
+- a2: a fake video call asks the maintainer to run "troubleshooting" commands, and a provider key leaks (Playbook 6, then Playbook 3).
+- a3: an attacker tries to read the incident notes while the response runs, so the response moves to a channel the attacker cannot read. This is a design test, not a cited fact.
+- b1: a prompt injected through user content makes the service return another user's data (Playbook 7; the clocks in A6). (to check against ISO/IEC 27090 when bought)
+- b2: an agent with a broad key is steered into a destructive tool call (Playbook 7). (to check against ISO/IEC 27090 when bought)
+- b3: a stolen provider key drains the quota (Playbook 7; Playbook 3). (to check against ISO/IEC 27090 when bought)
+- c1: a third party reports that Kolwen's service is writing scam scripts for a fraud ring. This is a drill only; its procedures belong to the abuse-handling system's own design.
+
+*Sources: European Central Bank, Banking Supervision letter SSM-2026-0301 (7 July 2026), its exercise paragraph; HKMA circular "Strengthening Cyber Resilience amid Artificial Intelligence-Empowered Cyber Threats" (2 June 2026); OWASP GenAI Red Teaming Manual, Version 1.0 (20 October 2026).*
 
 ### B6. The drill checklist
 
