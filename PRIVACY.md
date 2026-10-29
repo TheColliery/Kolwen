@@ -27,11 +27,9 @@ which parts change on the day the assistant itself ships.
 
 ## What this site is
 
-Static pages, served by a Cloudflare Worker. **The Worker runs no code of ours**—it is
-configured with an assets directory and nothing else, with no `main` entry point, so there is no
-request handler, no logging, and no storage on our side.
+Static pages, served by a Cloudflare Worker. **The Worker runs one small script of ours** (`worker/index.mjs`). It hands every request for a path with no static file to the pages, so a missing page gets the 404 page, and every 15 minutes it requests six of our own pages to check that they answer. It does not log, keep or store a visitor's request, and there is no database and no storage of visitor data on our side. When a check fails, the owner is mailed the path, status and timing of the failed checks, with no visitor data.
 
-*Measured: `grep -nE '^[[:space:]]*"main"' wrangler.jsonc` returns nothing; the config declares a name, a compatibility date, the `assets` block and an empty `previews` block, and no binding, variable or secret.*
+*Measured: `grep -nE '^[[:space:]]*"main"' wrangler.jsonc` returns one line, `"main": "worker/index.mjs",`; the config declares a name, a compatibility date, the `assets` block, a cron trigger (`*/15 * * * *`), the `observability` block with invocation logs off, the `send_email` binding, one variable (`ALERT_FROM`) and an empty `previews` block. The alert recipient is a secret set outside the file, so the file holds no address.*
 
 ## Cookies
 
@@ -87,7 +85,7 @@ number.
 > บันทึกไว้ และบังคับใช้ด้วยกลไกการลบ มาตรา 23(3) มาตรา 37(3) และมาตรา 39(4) กำหนดให้ต้องระบุ
 > บันทึก และบังคับใช้ระยะเวลาการเก็บ และไม่มีกฎหมายฉบับใดกำหนดตัวเลขไว้
 
-**Worker logs.** Today the Worker runs no code of ours and logs nothing (see "What this site is"). When the
+**Worker logs.** Today the Worker logs one kind of line: the result of each of its own page checks, with the path, status, timing and error class, never a visitor's request (see "What this site is"). Invocation logs are switched off in `wrangler.jsonc`. When the
 Worker first runs code of ours (an API, a payment-provider webhook or a chat endpoint) with Workers Logs switched on, Cloudflare Workers
 Logs will record each request. Switching it on is Cloudflare's setting, and the page says "All newly created Workers
 will come with the observability setting enabled by default". Cloudflare's documentation (https://developers.cloudflare.com/workers/observability/logs/workers-logs/,
@@ -154,7 +152,7 @@ configuration outside this repository.** Not measurable here; returned rather th
 - [pending legal review] No advertising and no ad networks. The only counter on this page is the Cloudflare
   Web Analytics described above.
 - No account, no sign-up, and nothing to log in to.
-- Kolwen's own systems—the site and its Worker—collect and store nothing, so there is nothing
+- Kolwen's own systems—the site and its Worker—collect and store nothing about a visitor, so there is nothing
   there to sell or share. **Two parties outside those systems do handle data, as this notice
   already says:** Cloudflare handles every request; and the mailbox behind the contact address holds what you send to it. What each
   retains cannot be measured from this repository.
@@ -254,7 +252,7 @@ launch has to answer before this document can describe it:
     period, consent-flow copy, or DPO appointment, all of which remain unwritten per this
     section's own header until Kolwen actually ships a conversational feature.**
 
-Until those are decided and written, this page describes a static site only. **Do not extend it by
+Until those are decided and written, this page describes the static site, the one script described above, and nothing else. **Do not extend it by
 inference.**
 
 ## Changes
