@@ -15,6 +15,7 @@ audit later gathers evidence instead of commissioning work.
 | `retention-deletion.md` | what is kept, for how long, and how it goes away |
 | `change-management.md` | how a change reaches production |
 | `ISO-MAP.md` | those files mapped to ISO/IEC 27001:2022 and ISO/IEC 42001:2023 control numbers |
+| `CROSSWALK.md` | the same controls mapped to the other market frameworks |
 | `OWNER-RULINGS.md` | the signed owner rulings that bind Kolwen, as an index that points to the owner's sheet |
 
 **An `AR-n` tag** in these files labels one owner ruling in the maintainer's own decision log, which is not published; the date beside the tag is the public reference.

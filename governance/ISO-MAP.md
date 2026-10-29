@@ -16,6 +16,8 @@ control and clause NUMBERS below are taken from the standards' publicly listed t
 on the ISO catalogue; **the control TEXT is not quoted, because it is not public.** A number here
 is a pointer to look up, never a claim that its requirement is met.
 
+The same controls mapped to the other market frameworks: [CROSSWALK.md](CROSSWALK.md).
+
 | document | 27001:2022 Annex A | 42001:2023 clause | document exists / planned |
 |---|---|---|---|
 | `policies.md` | A.5.1 | 5.2 | exists |
