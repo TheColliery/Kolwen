@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -106,6 +106,27 @@ test('a split script block leaves no tag and no script text in the content', () 
     assert.doesNotMatch(c, /</, body + ': no tag survives');
     assert.doesNotMatch(c, /script\(/, body + ': no script text survives');
   }
+  // the payload here sits inside a script element, so it is not content
+  assert.doesNotMatch(contentOf(page({ en: '<<script>script>alert(1)</script>' })), /alert\(1\)/, 'a payload inside a script element is not content');
+});
+
+test('a literal greater-than sign in page text is content: 3 > 2 changed to 3 2 without a lastmod move fails', () => {
+  const root = fixture({ pages: { 'index.html': page({ en: '3 2' }) }, urls: HOME, recordPages: { 'index.html': page({ en: '3 > 2' }) } });
+  try { const r = run(root); assert.equal(r.status, 1, r.out); assert.match(r.out, /web\/index\.html: its content changed/); } finally { cleanup([root]); }
+});
+
+test('--write names a failed write as one FAIL line with no stack trace', t => {
+  const root = fixture({ pages: { 'index.html': page({ en: 'Changed.' }) }, urls: HOME, recordPages: { 'index.html': page() } });
+  const recPath = join(root, 'scripts', 'lib', 'sitemap-content.json');
+  try {
+    chmodSync(recPath, 0o444); // read-only: the read works, the write is refused
+    const r = run(root, '--write');
+    if (r.status === 0) { t.skip('this system writes a read-only file'); return; }
+    assert.equal(r.status, 1, r.out);
+    assert.equal(r.out.split('\n').filter(l => l.includes('FAIL sitemap-lastmod')).length, 1, r.out);
+    assert.match(r.out, /sitemap-content\.json: --write could not write it/);
+    assert.doesNotMatch(r.out, /\n\s+at /, 'no stack trace');
+  } finally { chmodSync(recPath, 0o644); cleanup([root]); }
 });
 
 test('a class or style attribute inside main is not content: its change passes', () => {

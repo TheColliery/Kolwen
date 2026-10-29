@@ -25,11 +25,11 @@ const SITEMAP = join('web', 'sitemap.xml');
 // The text of a file, or null when it does not exist. Read and catch, never check first: nothing can change the file between a check and the read.
 const readOr = file => { try { return readFileSync(file, 'utf8'); } catch (e) { if (e.code === 'ENOENT') return null; throw e; } };
 
-// The normalized content of a page, the four parts of the rule above, one per line. The last replace leaves no < or > in the text, so no tag survives a pass that missed one.
+// The normalized content of a page, the four parts of the rule above, one per line. The last replace leaves no < in the text, so no tag survives a pass that missed one; a > is text.
 export function contentOf(html) {
   // a removal can expose a new script, style, comment or tag, so every removal repeats until the text stops changing
   const strip = s => { let prev; do { prev = s; s = s.replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, ' ').replace(/<!--[\s\S]*?-->/g, ' ').replace(/<[^>]*>/g, ''); } while (s !== prev); return s; };
-  const text = s => decodeEntities(strip(s).replace(/[<>]/g, '')).replace(/\s+/g, ' ').trim();
+  const text = s => decodeEntities(strip(s).replace(/</g, '')).replace(/\s+/g, ' ').trim();
   const title = text((html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i) || [])[1] ?? '');
   const meta = (html.match(/<meta\b[^>]*name=(["'])description\1[^>]*>/i) || [])[0] ?? '';
   const content = meta.match(/\scontent=(?:"([^"]*)"|'([^']*)')/i);
@@ -90,16 +90,18 @@ export function check(root, { write = false, today = new Date().toISOString().sl
   for (const loc of Object.keys(record ?? {})) if (!seen.has(loc)) problems.push(`${RECORD}: ${loc} has no sitemap URL; remove the record or add the URL to web/sitemap.xml`);
   if (!seen.size) problems.push('web/sitemap.xml: no <url> rows; the check has nothing to read');
   if (write && changed.length) {
+    // a failed write is one named problem that counts the URLs it would have moved, never an exception out of the CLI
+    const failedWrite = problem => ({ problems: [...problems, problem], changed: [], failed: failed + changed.length, rows: rows.length });
     let out = xml;
     try {
       for (const c of changed) {
         record[c.loc] = { ...record[c.loc], sha256: c.hash, lastmod: today };
         out = setLastmod(out, c.loc, today);
       }
-    } catch (e) { return { problems: [...problems, `web/sitemap.xml: --write could not move a lastmod (${e.message})`], changed: [], failed, rows: rows.length }; }
+    } catch (e) { return failedWrite(`web/sitemap.xml: --write could not move a lastmod (${e.message})`); }
     // the sitemap first: if the record write then fails, the record is stale and the next --write sees the change again and repairs both
-    writeFileSync(join(root, SITEMAP), out);
-    writeFileSync(join(root, RECORD), JSON.stringify(record, null, 2) + '\n');
+    try { writeFileSync(join(root, SITEMAP), out); } catch (e) { return failedWrite(`web/sitemap.xml: --write could not write it (${e.message})`); }
+    try { writeFileSync(join(root, RECORD), JSON.stringify(record, null, 2) + '\n'); } catch (e) { return failedWrite(`${RECORD}: --write could not write it (${e.message}); the next --write repairs it`); }
     return { ...check(root, { today }), changed: changed.map(c => c.loc) };
   }
   return { problems, changed: [], failed, rows: rows.length };
