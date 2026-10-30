@@ -32,7 +32,7 @@ export function composeAlert(results, when) {
   const lines = failed.map(r => `${r.path}: ${r.error ?? `HTTP ${r.status}`}, ${r.ms} ms${r.typeOk ? '' : ', content type not text/html'}`);
   return {
     subject: `Kolwen: ${failed.length} of ${results.length} page checks failed`,
-    text: [`${failed.length} of ${results.length} page checks failed at ${when.toISOString()} (UTC).`, ...lines, '', 'Only the paths, status codes and timings above are recorded; no response body or header is included.'].join('\n'),
+    text: [`${failed.length} of ${results.length} page checks failed at ${when.toISOString()} (UTC).`, ...lines, '', 'Only the paths, the HTTP status or error, the timings and the content-type result above are recorded; no response body or header is included.'].join('\n'),
   };
 }
 
