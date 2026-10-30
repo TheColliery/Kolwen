@@ -459,6 +459,48 @@ export const SCRIPT = `(function () {
     });
   }
   for (var i = 0; i < buttons.length; i++) bind(buttons[i]);
+
+  // The status page is the one page with a [data-status] element. It reads /status.json, the last health check the Worker stored, and writes the state, the time and one row per
+  // probed page as text: the numbers, paths and times come from the data, and every word on the page comes from the catalogue. Without the fetch the page keeps its unavailable line.
+  if (document.querySelector('[data-status]')) {
+    fetch('/status.json', { cache: 'no-store' })
+      .then(function (res) { if (!res.ok) throw new Error('status ' + res.status); return res.json(); })
+      .then(showStatus)
+      .catch(function () { /* the page keeps its unavailable line */ });
+  }
+
+  function showStatus(data) {
+    var state = 'none';
+    if (data.checked) state = data.probes.every(function (p) { return p.ok; }) ? 'ok' : 'failing';
+    var lines = document.querySelectorAll('[data-state]');
+    for (var i = 0; i < lines.length; i++) lines[i].hidden = lines[i].getAttribute('data-state') !== state;
+    if (!data.checked) return;
+    var times = document.querySelectorAll('[data-fill="checked"]');
+    for (var j = 0; j < times.length; j++) { times[j].textContent = data.checked; times[j].setAttribute('datetime', data.checked); }
+    var lists = document.querySelectorAll('[data-fill="probes"]');
+    for (var k = 0; k < lists.length; k++) {
+      lists[k].textContent = '';
+      for (var m = 0; m < data.probes.length; m++) lists[k].appendChild(probeRow(data.probes[m]));
+    }
+  }
+
+  function probeRow(p) {
+    var li = document.createElement('li');
+    var path = document.createElement('span');
+    path.className = 'path';
+    path.textContent = p.path;
+    var code = document.createElement('span');
+    code.textContent = p.status ? String(p.status) : '-';
+    var ms = document.createElement('span');
+    ms.textContent = p.ms + ' ms';
+    var mark = document.createElement('span');
+    mark.textContent = p.ok ? 'OK' : 'FAIL';
+    li.appendChild(path);
+    li.appendChild(code);
+    li.appendChild(ms);
+    li.appendChild(mark);
+    return li;
+  }
 })();`;
 
 // `job` is the page's declaration of what it is for (layout-tokens.mjs, THE READING THEME): a prose page is read top to bottom and takes the reading theme, and says so on <html> and in its theme-color.
@@ -515,14 +557,15 @@ function docHtml(lang, title, body, draft = true, note = '') {
 ${pageNoteHtml(lang)}`;
 }
 
-// ── 5c. The three site pages, from their templates and the language catalogue ──────────────────────────────────
-// Home, pricing and the 404 page are templates (web-src/pages/<group>.html) whose slots are filled from web-src/i18n/<tag>.json, and the shared blocks come in whole as {{block:name}}, so the
-// seven pages are all generated and none has a part that is kept by hand (build-qc.md C-FMT-02). The group is the top-level key of the catalogue that the page reads (with `shared`): a page that
-// moves to another domain keeps its strings.
+// ── 5c. The four site pages, from their templates and the language catalogue ──────────────────────────────────
+// Home, pricing, the 404 page and the status page are templates (web-src/pages/<group>.html) whose slots are filled from web-src/i18n/<tag>.json, and the shared blocks come in whole as
+// {{block:name}}, so these pages are all generated and none has a part that is kept by hand (build-qc.md C-FMT-02). The group is the top-level key of the catalogue that the page reads (with `shared`): a page that
+// moves to another domain keeps its strings. The status page is unannounced (no link, not in the sitemap; it carries no noindex, which surface-check rule 16 refuses on a production page); its one script is web/status.js, a same-origin file that reads /status.json.
 export const SITE_PAGES = [
   { group: 'home', template: 'web-src/pages/home.html', file: 'web/index.html' },
   { group: 'pricing', template: 'web-src/pages/pricing.html', file: 'web/pricing.html' },
   { group: 'notfound', template: 'web-src/pages/notfound.html', file: 'web/404.html' },
+  { group: 'status', template: 'web-src/pages/status.html', file: 'web/status.html' },
 ];
 // templates: { group: source }, messages: { lang: { key: value } }. Returns { pages: { 'web/index.html': html, ... }, problems: [line] }.
 // The shared blocks (the header, the footers, the page script's strings) read their strings through t(), which reads the module's loaded catalogue; withCatalogue puts the caller's `messages` in place

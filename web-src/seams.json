@@ -31,7 +31,7 @@
   },
   "groups": {
     "company": {
-      "role": "the company site: home, pricing, legal pages, changelog",
+      "role": "the company site: home, pricing, legal pages, changelog, and the status page, which is not announced",
       "host": "kolwen.com",
       "state": "live",
       "zone": "company",
@@ -42,7 +42,8 @@
         "/privacy",
         "/refund",
         "/changelog",
-        "/404"
+        "/404",
+        "/status"
       ]
     }
   }

@@ -181,8 +181,8 @@ test('the page generator refuses a page that declares no job, or an unknown one'
   assert.ok(!shell({ ...page, job: 'default' }).includes('name="color-scheme"'));
 });
 
-test('the built pages declare the jobs they are meant to have: the legal pages and the changelog are prose, the home, pricing and 404 pages are the default', () => {
-  const want = { 'terms.html': 'prose', 'privacy.html': 'prose', 'refund.html': 'prose', 'changelog.html': 'prose', 'index.html': 'default', 'pricing.html': 'default', '404.html': 'default' };
+test('the built pages declare the jobs they are meant to have: the legal pages and the changelog are prose, the home, pricing, 404 and status pages are the default', () => {
+  const want = { 'terms.html': 'prose', 'privacy.html': 'prose', 'refund.html': 'prose', 'changelog.html': 'prose', 'index.html': 'default', 'pricing.html': 'default', '404.html': 'default', 'status.html': 'default' };
   const pages = htmlPages(WEB);
   assert.deepEqual([...pages].sort(), Object.keys(want).sort(), 'every page is judged, none left out');
   for (const f of pages) {

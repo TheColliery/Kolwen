@@ -224,6 +224,48 @@ a{color:var(--amber)}
     });
   }
   for (var i = 0; i < buttons.length; i++) bind(buttons[i]);
+
+  // The status page is the one page with a [data-status] element. It reads /status.json, the last health check the Worker stored, and writes the state, the time and one row per
+  // probed page as text: the numbers, paths and times come from the data, and every word on the page comes from the catalogue. Without the fetch the page keeps its unavailable line.
+  if (document.querySelector('[data-status]')) {
+    fetch('/status.json', { cache: 'no-store' })
+      .then(function (res) { if (!res.ok) throw new Error('status ' + res.status); return res.json(); })
+      .then(showStatus)
+      .catch(function () { /* the page keeps its unavailable line */ });
+  }
+
+  function showStatus(data) {
+    var state = 'none';
+    if (data.checked) state = data.probes.every(function (p) { return p.ok; }) ? 'ok' : 'failing';
+    var lines = document.querySelectorAll('[data-state]');
+    for (var i = 0; i < lines.length; i++) lines[i].hidden = lines[i].getAttribute('data-state') !== state;
+    if (!data.checked) return;
+    var times = document.querySelectorAll('[data-fill="checked"]');
+    for (var j = 0; j < times.length; j++) { times[j].textContent = data.checked; times[j].setAttribute('datetime', data.checked); }
+    var lists = document.querySelectorAll('[data-fill="probes"]');
+    for (var k = 0; k < lists.length; k++) {
+      lists[k].textContent = '';
+      for (var m = 0; m < data.probes.length; m++) lists[k].appendChild(probeRow(data.probes[m]));
+    }
+  }
+
+  function probeRow(p) {
+    var li = document.createElement('li');
+    var path = document.createElement('span');
+    path.className = 'path';
+    path.textContent = p.path;
+    var code = document.createElement('span');
+    code.textContent = p.status ? String(p.status) : '-';
+    var ms = document.createElement('span');
+    ms.textContent = p.ms + ' ms';
+    var mark = document.createElement('span');
+    mark.textContent = p.ok ? 'OK' : 'FAIL';
+    li.appendChild(path);
+    li.appendChild(code);
+    li.appendChild(ms);
+    li.appendChild(mark);
+    return li;
+  }
 })();
 /* site-script:end */
 </script>

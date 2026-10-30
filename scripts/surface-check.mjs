@@ -286,6 +286,8 @@ const SHIPPED = new Set([
   // be served as a static asset" — shipped but never fetchable, which post-deploy-check must
   // also know.
   'web/404.html', 'web/_headers',
+  // The status page: unannounced (no link, not in the sitemap), a PRODUCTION page read by the rules that read every page. Its URL is live, so it is declared by name here.
+  'web/status.html',
   // `_redirects` is parsed by Workers and not served either (same docs page family); rule 18 holds its lines.
   'web/_redirects',
   // The pricing page (first published as /plans): a PRODUCTION page (US prices, every buy button disabled), read by the rules that read every page.
