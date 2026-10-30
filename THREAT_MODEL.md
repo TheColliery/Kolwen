@@ -103,9 +103,9 @@ published from outside this tree, so its code is not here.
 ## 6. Out of scope, each with its reason
 
 - **Server-side injection classes (SQL, command, template, server-side request
-  forgery).** The one server script, `worker/index.mjs`, takes no input from a request: it hands
-  unmatched requests to the static assets unchanged, and its scheduled checks fetch six fixed
-  paths on one fixed origin. There is no database. A finding that shows input reaching a query,
+  forgery).** The one server script, `worker/index.mjs`, receives each request that matches no
+  static file and passes it unchanged to the static assets (`env.ASSETS.fetch`); only its
+  scheduled checks fetch, and they fetch six fixed paths on one fixed origin. There is no database. A finding that shows input reaching a query,
   a command, a template or an outbound request is in scope.
 - **Form and session handling (CSRF, session fixation, authentication).** There
   is no form, no session and no account. A finding that shows one exists is in
