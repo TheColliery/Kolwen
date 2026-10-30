@@ -254,20 +254,20 @@ Recovery starts when the incident lead says so, on stated criteria, and checks: 
 | PDPC notice on criteria and procedures for personal data breach notification B.E. 2565 | Royal Gazette vol. 139, special part 292 ง, 15 December B.E. 2565 | https://www.mdes.go.th/law/detail/6336 |
 | PDPC Office, guide to risk assessment and notification v1.0 | 15 December B.E. 2565 (guidance, not law) | the Office's guide on the same site |
 | ECB Banking Supervision letter SSM-2026-0301 | 7 July 2026, to significant institutions | https://www.bankingsupervision.europa.eu/press/letterstobanks/shared/pdf/2026/ssm.2026_letter_on_AI_enabled_cybersecurity_threats.en.pdf |
-| Bank of England, FCA and HM Treasury joint statement | 15 May 2026 | not yet recorded |
-| HKMA circular "Strengthening Cyber Resilience amid Artificial Intelligence-Empowered Cyber Threats" | 2 June 2026 | not yet recorded |
-| Canadian Centre for Cyber Security, ITSAP.10.050 "Frontier artificial intelligence" | May 2026 (modified 29 May 2026) | not yet recorded |
-| NCSC (UK), "Responding to active exploitation of vulnerabilities" | v2.1, 1 May 2026 | not yet recorded |
-| NCSC (UK) blogs: "Preparing for a 'vulnerability patch wave'" (1 May 2026); "Why cyber defenders need to be ready for frontier AI" (30 March 2026); "Retaining defensive advantage in the age of frontier AI cyber capabilities" (15 April 2026) | the three blog pages | not yet recorded |
-| FS-ISAC Sector Risk Advisory "Preparing the Enterprise for AI-Enabled Vulnerability Discovery" | 19 April 2026 | not yet recorded |
+| Bank of England, FCA and HM Treasury joint statement | 15 May 2026 | https://www.bankofengland.co.uk/news/2026/may/boe-fca-and-hm-treasury-joint-statement-on-frontier-ai-models-and-cyber-resilience |
+| HKMA circular "Strengthening Cyber Resilience amid Artificial Intelligence-Empowered Cyber Threats" | 2 June 2026 | https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20260529-8-EN/20260529-8-EN.pdf |
+| Canadian Centre for Cyber Security, ITSAP.10.050 "Frontier artificial intelligence" | May 2026 (modified 29 May 2026) | https://www.cyber.gc.ca/en/guidance/frontier-artificial-intelligence |
+| NCSC (UK), "Responding to active exploitation of vulnerabilities" | v2.1, 1 May 2026 | https://www.ncsc.gov.uk/collection/vulnerability-management/guidance/responding-to-active-exploitation |
+| NCSC (UK) blogs: "Preparing for a 'vulnerability patch wave'" (1 May 2026); "Why cyber defenders need to be ready for frontier AI" (30 March 2026); "Retaining defensive advantage in the age of frontier AI cyber capabilities" (15 April 2026) | the three blog pages | https://www.ncsc.gov.uk/blogs/prepare-for-vulnerability-patch-wave; https://www.ncsc.gov.uk/blogs/why-cyber-defenders-need-to-be-ready-for-frontier-ai; https://www.ncsc.gov.uk/blogs/retaining-defensive-advantage-in-the-age-of-frontier-ai-cyber-capabilities |
+| FS-ISAC Sector Risk Advisory "Preparing the Enterprise for AI-Enabled Vulnerability Discovery" | 19 April 2026 | https://www.fsisac.com/hubfs/Knowledge/AI/SectorRiskAdvisory_PreparingtheEnterpriseforAI-EnabledVulnerabilityDiscovery.pdf |
 | NIST AI 100-2 E2025, "Adversarial Machine Learning: A Taxonomy and Terminology of Attacks and Mitigations" | March 2025 (03/24/25 Final) | https://csrc.nist.gov/pubs/ai/100/2/e2025/final |
-| NIST AI 600-1, "Generative Artificial Intelligence Profile" | 26 July 2024 (page updated 8 April 2026) | not yet recorded |
+| NIST AI 600-1, "Generative Artificial Intelligence Profile" | 26 July 2024 (page updated 8 April 2026) | https://www.nist.gov/publications/artificial-intelligence-risk-management-framework-generative-artificial-intelligence |
 | OWASP Top 10 for LLM Applications | 2025 | https://genai.owasp.org/llm-top-10/ |
-| OWASP Top 10 for Agentic Applications | 2026 (Version 2026, December 2025) | not yet recorded |
-| NCSC (UK) and partners, "Guidelines for secure AI system development" | 27 November 2023 | not yet recorded |
-| CISA and partners, "Careful Adoption of Agentic Artificial Intelligence (AI) Services" | 1 May 2026 | not yet recorded |
-| OWASP GenAI Red Teaming Manual | Version 1.0, 20 October 2026 | not yet recorded |
-| EU General-Purpose AI Code of Practice | published 10 July 2025 | not yet recorded |
+| OWASP Top 10 for Agentic Applications | 2026 (Version 2026, December 2025) | https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/ |
+| NCSC (UK) and partners, "Guidelines for secure AI system development" | 27 November 2023 | https://www.ncsc.gov.uk/collection/guidelines-secure-ai-system-development |
+| CISA and partners, "Careful Adoption of Agentic Artificial Intelligence (AI) Services" | 1 May 2026 | https://www.cisa.gov/news-events/news/cisa-us-and-international-partners-release-guide-secure-adoption-agentic-ai |
+| OWASP GenAI Red Teaming Manual | Version 1.0, 20 October 2026 | https://genai.owasp.org/resource/genai-red-teaming-manual-version-1-0/ |
+| EU General-Purpose AI Code of Practice | published 10 July 2025 | https://digital-strategy.ec.europa.eu/en/policies/contents-code-gpai |
 
 International standards and guides come first; Thai law is the local layer on top. The Thai notice is quoted in the section where it applies; its text was read in the Gazette's own pages.
 
