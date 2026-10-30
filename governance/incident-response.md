@@ -37,7 +37,7 @@ Kolwen keeps a written way to find out that something has gone wrong with its sy
 - **Backup plane:** the backup systems are administered apart from production; no production server, client or agent may change its own backup configuration; standard accounts use multi-factor authentication, admin accounts are used only for admin, and external access is by VPN only.
 - **Copies:** at least three copies, on two media or two providers, one offsite, and at least one copy that is offline or immutable and that the production administrator cannot delete. Cloud backup clients hold no live credentials while idle. A snapshot is not a backup: "if the source data is unavailable, the snapshots will not be usable as well."
 
-*Sources: NIST SP 800-61 Rev. 3 (April 2025) section 2.3 and GV.PO R1; NIST SP 800-53 Rev. 5.2.0 IR-1 and IR-8; NCSC (UK) blogs "Preparing for a 'vulnerability patch wave'" (1 May 2026), "Why cyber defenders need to be ready for frontier AI" (30 March 2026) and "Retaining defensive advantage in the age of frontier AI cyber capabilities" (15 April 2026); FS-ISAC Sector Risk Advisory "Preparing the Enterprise for AI-Enabled Vulnerability Discovery" (19 April 2026); NIST SP 800-209 (October 2020), DP-SS-R4; NIST IR 8374 Rev. 1 (June 2026); NCSC (UK) "Offline backups in an online world" (13 August 2019) and "Mitigating malware and ransomware attacks" (v3.0, 13 February 2020); ENISA Threat Landscape for Ransomware Attacks (July 2022); US-CERT "Data Backup Options" (2012).*
+*Sources: NIST SP 800-61 Rev. 3 (April 2025) section 2.3 and GV.PO R1; NIST SP 800-53 Rev. 5.2.0 IR-1 and IR-8; NCSC (UK) blogs "Preparing for a 'vulnerability patch wave'" (1 May 2026), "Why cyber defenders need to be ready for frontier AI" (30 March 2026) and "Retaining defensive advantage in the age of frontier AI cyber capabilities" (15 April 2026); FS-ISAC Sector Risk Advisory "Preparing the Enterprise for AI-Enabled Vulnerability Discovery" (19 April 2026); NIST SP 800-209 (October 2020), DP-SS-R4 and its passage on snapshots; NIST IR 8374 Rev. 1 (June 2026); NCSC (UK) "Offline backups in an online world" (13 August 2019) and "Mitigating malware and ransomware attacks" (v3.0, 13 February 2020); ENISA Threat Landscape for Ransomware Attacks (July 2022); US-CERT "Data Backup Options" (2012).*
 
 ### A2. Roles and authority
 
@@ -63,7 +63,7 @@ An event becomes an incident when the maintainer, after the first check below, h
 
 **The clock.** The 72 hours run from the moment there are grounds to believe a breach really occurred, not from the first alert (ข้อ 5(3); PDPA s 37(4); GDPR Art 33(1); EDPB para 31). The maintainer writes that moment down in the register at once. A provider's notice is treated as the moment Kolwen is told; whether the Thai notice treats Kolwen as aware at that moment, or only after Kolwen's own check, is [to be confirmed with counsel before this plan is final]. Until counsel answers, the plan runs the shorter reading: the clock starts when the provider's notice is read.
 
-**Encrypted or wiped data.** Data that is encrypted, or wiped, is an availability breach where it is not in a ready-to-use state as normal (PDPC notice B.E. 2565, ข้อ 4(3)), even when a backup restores it. Whether it must be notified is a separate question, decided on the risk (ข้อ 5(3); PDPA s 37(4)). Where Kolwen will claim that no notice to the Office is needed, the exemption file (A8(vi)) is written at once, with its proof: the exfiltration check and the restore log. With exfiltration, or with no usable backup, the breach is notifiable on clock 1 (Playbook 8, step 5; Playbook 4, step 4). This reading is preliminary and for counsel [to be confirmed with counsel before this plan is final].
+**Encrypted or wiped data.** Data that is encrypted, or wiped, is an availability breach where it is not in a ready-to-use state as normal (PDPC notice B.E. 2565, ข้อ 4(3)), even when a backup restores it. Whether it must be notified is a separate question, decided on the risk (ข้อ 5(3); PDPA s 37(4)). Where Kolwen will claim that no notice to the Office is needed, the exemption file (A8(vi)) is written at once, with its proof: the exfiltration check and the restore log. With no usable backup, the Office's own example treats the breach as notifiable on clock 1 (Playbook 4, step 4); with exfiltration it is a second breach (Playbook 8, step 5), and its notice is decided on the risk like any other. This reading is preliminary and for counsel [to be confirmed with counsel before this plan is final].
 
 *Sources: PDPC notice B.E. 2565 (Royal Gazette vol. 139, special part 292 ง, 15 December B.E. 2565) ข้อ 5; PDPA B.E. 2562 s 37(4); EDPB Guidelines 9/2022 v2.0 paras 31, 34, 44; NIST SP 800-61 Rev. 3 DE.AE-08; PDPC notice B.E. 2565 ข้อ 4(3).*
 
@@ -299,7 +299,7 @@ Recovery starts when the incident lead says so, on stated criteria, and checks: 
 | NCSC (UK), "Offline backups in an online world" | 13 August 2019 | https://www.ncsc.gov.uk/blog-post/offline-backups-in-an-online-world |
 | ENISA, Threat Landscape for Ransomware Attacks | July 2022 | https://www.enisa.europa.eu/sites/default/files/publications/ENISA%20Threat%20Landscape%20for%20Ransomware%20Attacks.pdf |
 | US-CERT (Carnegie Mellon), "Data Backup Options" | 2012 | https://www.cisa.gov/sites/default/files/publications/data_backup_options.pdf |
-| PDPC notice on erasure, destruction and de-identification B.E. 2567 | Royal Gazette vol. 141, special part 217 ง, 13 August B.E. 2567 | the Gazette's own page (the URL is not recorded in the research) |
+| PDPC notice on erasure, destruction and de-identification B.E. 2567 | Royal Gazette vol. 141, special part 217 ง, 13 August B.E. 2567 | the Royal Gazette's own pages (URL not yet recorded) |
 
 International standards and guides come first; Thai law is the local layer on top. The Thai notice is quoted in the section where it applies; its text was read in the Gazette's own pages.
 
@@ -369,7 +369,7 @@ Backups: restore a backup to a test system on a schedule the maintainer sets, ch
 - d1: ransomware reaches the backup host, and the copies held there are encrypted (Playbook 8).
 - d2: a destructive agent deletes a storage bucket (Playbook 8; Playbook 7).
 
-*Sources: European Central Bank, Banking Supervision letter SSM-2026-0301 (7 July 2026), its exercise paragraph; HKMA circular "Strengthening Cyber Resilience amid Artificial Intelligence-Empowered Cyber Threats" (2 June 2026); OWASP GenAI Red Teaming Manual, Version 1.0 (20 October 2026).*
+*Sources: European Central Bank, Banking Supervision letter SSM-2026-0301 (7 July 2026), its exercise paragraph; HKMA circular "Strengthening Cyber Resilience amid Artificial Intelligence-Empowered Cyber Threats" (2 June 2026); OWASP GenAI Red Teaming Manual, Version 1.0 (20 October 2026); for d1 and d2, NIST IR 8374 Rev. 1 (June 2026), NIST SP 800-209 (October 2020) and CISA Cross-Sector Cybersecurity Performance Goals 2.0 (December 2025), goal 3.O.*
 
 ### B6. The drill checklist
 
