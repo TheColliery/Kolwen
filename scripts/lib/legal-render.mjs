@@ -560,7 +560,7 @@ ${pageNoteHtml(lang)}`;
 // ── 5c. The four site pages, from their templates and the language catalogue ──────────────────────────────────
 // Home, pricing, the 404 page and the status page are templates (web-src/pages/<group>.html) whose slots are filled from web-src/i18n/<tag>.json, and the shared blocks come in whole as
 // {{block:name}}, so these pages are all generated and none has a part that is kept by hand (build-qc.md C-FMT-02). The group is the top-level key of the catalogue that the page reads (with `shared`): a page that
-// moves to another domain keeps its strings. The status page is unannounced (no link, not in the sitemap; it carries no noindex, which surface-check rule 16 refuses on a production page); its one script is web/status.js, a same-origin file that reads /status.json.
+// moves to another domain keeps its strings. The status page is unannounced (no link, not in the sitemap; it carries no noindex, which surface-check rule 16 refuses on a production page); its reading of /status.json is part of the shared inline page script, which runs it only on a page with [data-status].
 export const SITE_PAGES = [
   { group: 'home', template: 'web-src/pages/home.html', file: 'web/index.html' },
   { group: 'pricing', template: 'web-src/pages/pricing.html', file: 'web/pricing.html' },
