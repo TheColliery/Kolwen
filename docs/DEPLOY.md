@@ -269,7 +269,7 @@ changes the script's `fetch` handler re-reads this section and Cloudflare's curr
 
 ## The status record and subscriptions
 
-The status record is one object in a Workers KV namespace, bound as `STATUS`. The binding is not in `wrangler.jsonc` yet, so nothing is stored and `/status.json` answers that no check has run yet. The owner or the maintainer creates the namespace first:
+The status record is one object in a Workers KV namespace, bound as `STATUS`. The binding is not in `wrangler.jsonc` yet, so nothing is stored and `/status.json` answers that no stored check result is available yet. The owner or the maintainer creates the namespace first:
 
 ```
 npx wrangler kv namespace create STATUS
