@@ -49,8 +49,8 @@
 	],
 	// The status record: one object under the key `state`, written once per scheduled run (the last run's time, each page's path, status, timing and result, and which result
 	// the owner was last told of; no personal data). GET /status.json serves it publicly. The maintainer created the namespace through the Cloudflare API; the id is not a secret
-	// (it grants no access by itself; reading or writing the namespace needs an API token for the account). Preview audit: the record is public data already, so a preview that reads it exposes nothing new. Whether a preview runs the cron is
-	// not stated on Cloudflare's pages (see `previews` below), and a preview's write would land in this same namespace and be overwritten by production's next run, after that run has read it.
+	// (it grants no access by itself; reading or writing the namespace needs an API token for the account). Preview audit: the record is public data already, so a preview that reads it exposes nothing new. A preview never writes it:
+	// Cloudflare's Previews resources page says the scheduler does not call a Preview's scheduled() handler, and previews bind a namespace of their own (see `previews` below).
 	"kv_namespaces": [
 		{ "binding": "STATUS", "id": "5590bbcdccde496ba7e9c8ef1dd51f7b" }
 	],
@@ -59,10 +59,14 @@
 		"ALERT_FROM": "info@kolwen.com"
 	},
 	// Workers Previews (LWK-198): public by owner ruling, 2026-09-23, with no Cloudflare Access.
-	// Still EMPTY. The script, the cron, the ALERT_FROM var, the EMAIL binding and the STATUS KV namespace are top-level, so they are the production
-	// settings. Whether a preview deployment runs the cron, or receives these settings or the ALERT_TO secret, is NOT stated on the
-	// Cloudflare pages read on 2026-10-30 (Workers Builds, Previews); until it is, ALERT_TO is the guard: with it unset a preview
-	// that runs the cron sends nothing. Every binding added here is audited first: a preview's service bindings call the bound
+	// Previews do not inherit the top-level (production) settings, and "Cron Triggers target production": the scheduler does not call a Preview's
+	// scheduled() handler (Cloudflare's Previews configuration and resources pages, read 2026-10-30). So a preview has no cron, no EMAIL binding,
+	// no ALERT_FROM var and no ALERT_TO secret. Its one binding is STATUS, on a separate namespace (kolwen-status-preview, created by the maintainer
+	// through the Cloudflare API), so a preview's /status.json reads a record of its own and never production's. Every binding added here is audited first: a preview's service bindings call the bound
 	// Worker's PRODUCTION deployment, and nothing payment- or customer-facing may be reachable from a preview.
-	"previews": {}
+	"previews": {
+		"kv_namespaces": [
+			{ "binding": "STATUS", "id": "cdf17189811f4cd6a4311839c24cc019" }
+		]
+	}
 }
