@@ -275,6 +275,6 @@ The status record is one object in a Workers KV namespace, bound as `STATUS`. Th
 npx wrangler kv namespace create STATUS
 ```
 
-The `id` it returns then goes into `wrangler.jsonc` as `"kv_namespaces": [{ "binding": "STATUS", "id": "<id>" }]`, in a change that is reviewed like any other.
+The `id` it returns then goes into `wrangler.jsonc` as `"kv_namespaces": [{ "binding": "STATUS", "id": "<id>" }]`, in a change that is reviewed like any other. Bind `STATUS` before the `ALERT_TO` secret is set; without the record every failing run is mailed.
 
 Subscriptions are built and switched off. `/subscribe` answers 404 while `SUBSCRIBE` is not `"on"` or the `SUBSCRIBERS` store is not bound, which is the state today. `SUBSCRIBE` stays off until the custody requirements for subscriber addresses are met and the Workers Paid plan is bought.
