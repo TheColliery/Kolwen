@@ -213,6 +213,8 @@ the pointer to it.
   and it is not yet announced: it has no link and is not in the sitemap. Until a
   state store is bound it says that no stored check result is available yet. Its reading is part of the one inline
   page script that every page carries, guarded so that only a page with `data-status` runs it.
+- The status record is bound to a Workers KV namespace, so `/status.json` serves the last stored
+  check after the first scheduled run; alert mail stays switched off.
 - `governance/CROSSWALK.md`, the same controls mapped once to NIST SP 800-53 Rev. 5, SOC 2 and
   ISO/IEC 27017, 27018 and 27701, as read so far; FedRAMP's pages were consulted and its baselines
   are reached through the NIST families, not mapped; with what was and was not read.

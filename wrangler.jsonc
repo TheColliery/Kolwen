@@ -47,12 +47,19 @@
 	"send_email": [
 		{ "name": "EMAIL", "remote": true }
 	],
+	// The status record: one object under the key `state`, written once per scheduled run (the last run's time, each page's path, status, timing and result, and which result
+	// the owner was last told of; no personal data). GET /status.json serves it publicly. The maintainer created the namespace through the Cloudflare API; the id is not a secret
+	// (it grants no access by itself; reading or writing the namespace needs an API token for the account). Preview audit: the record is public data already, so a preview that reads it exposes nothing new. Whether a preview runs the cron is
+	// not stated on Cloudflare's pages (see `previews` below), and a preview's write would land in this same namespace and be overwritten by production's next run, after that run has read it.
+	"kv_namespaces": [
+		{ "binding": "STATUS", "id": "5590bbcdccde496ba7e9c8ef1dd51f7b" }
+	],
 	"vars": {
 		// The sender: an address on kolwen.com, allowed once kolwen.com is onboarded for Email Service (the owner's step).
 		"ALERT_FROM": "info@kolwen.com"
 	},
 	// Workers Previews (LWK-198): public by owner ruling, 2026-09-23, with no Cloudflare Access.
-	// Still EMPTY. The script, the cron, the ALERT_FROM var and the EMAIL binding are top-level, so they are the production
+	// Still EMPTY. The script, the cron, the ALERT_FROM var, the EMAIL binding and the STATUS KV namespace are top-level, so they are the production
 	// settings. Whether a preview deployment runs the cron, or receives these settings or the ALERT_TO secret, is NOT stated on the
 	// Cloudflare pages read on 2026-10-30 (Workers Builds, Previews); until it is, ALERT_TO is the guard: with it unset a preview
 	// that runs the cron sends nothing. Every binding added here is audited first: a preview's service bindings call the bound
