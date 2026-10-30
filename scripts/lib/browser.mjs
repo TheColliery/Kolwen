@@ -378,7 +378,8 @@ export async function startNative({ spawnChild, freePort: pick = freePort, probe
     let endpoint = null;
     const started = Date.now();
     while (!seen.exited && Date.now() - started < deadlineMs) {
-      const version = await probeVersion(port, Math.min(PROBE_MS, deadlineMs - (Date.now() - started)));
+      const remainingMs = Math.max(0, deadlineMs - (Date.now() - started));
+      const version = await probeVersion(port, Math.min(PROBE_MS, remainingMs));
       if (version) { endpoint = devToolsEndpoint(version.webSocketDebuggerUrl, port); break; }
       await wait(Math.min(stepMs, Math.max(0, deadlineMs - (Date.now() - started))));
     }
