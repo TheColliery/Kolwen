@@ -34,8 +34,10 @@ Kolwen keeps a written way to find out that something has gone wrong with its sy
 - **Definitions:** an *event* is anything that might be a security problem; an *incident* is an event that meets the criteria in A3; a *personal data breach* is a breach of security measures that causes loss, unauthorized access, use, change, correction or disclosure of personal data, whether intended or not (PDPC notice B.E. 2565, ข้อ 3), of one of three kinds: confidentiality, integrity or availability (ข้อ 4).
 - **Measures of the plan itself:** time from first alert to the recorded awareness time; time from awareness to each notice; the share of drill findings closed by their date (B4).
 - **Updates and access:** update by default; hold a new open-source component or model for a controlled delay before it is adopted, so that detection can run first.
+- **Backup plane:** the backup systems are administered apart from production; no production server, client or agent may change its own backup configuration; standard accounts use multi-factor authentication, admin accounts are used only for admin, and external access is by VPN only.
+- **Copies:** at least three copies, on two media or two providers, one offsite, and at least one copy that is offline or immutable and that the production administrator cannot delete. Cloud backup clients hold no live credentials while idle. A snapshot is not a backup: "if the source data is unavailable, the snapshots will not be usable as well."
 
-*Sources: NIST SP 800-61 Rev. 3 (April 2025) section 2.3 and GV.PO R1; NIST SP 800-53 Rev. 5.2.0 IR-1 and IR-8; NCSC (UK) blogs "Preparing for a 'vulnerability patch wave'" (1 May 2026), "Why cyber defenders need to be ready for frontier AI" (30 March 2026) and "Retaining defensive advantage in the age of frontier AI cyber capabilities" (15 April 2026); FS-ISAC Sector Risk Advisory "Preparing the Enterprise for AI-Enabled Vulnerability Discovery" (19 April 2026).*
+*Sources: NIST SP 800-61 Rev. 3 (April 2025) section 2.3 and GV.PO R1; NIST SP 800-53 Rev. 5.2.0 IR-1 and IR-8; NCSC (UK) blogs "Preparing for a 'vulnerability patch wave'" (1 May 2026), "Why cyber defenders need to be ready for frontier AI" (30 March 2026) and "Retaining defensive advantage in the age of frontier AI cyber capabilities" (15 April 2026); FS-ISAC Sector Risk Advisory "Preparing the Enterprise for AI-Enabled Vulnerability Discovery" (19 April 2026); NIST SP 800-209 (October 2020), DP-SS-R4 and its passage on snapshots; NIST IR 8374 Rev. 1 (June 2026); NCSC (UK) "Offline backups in an online world" (13 August 2019) and "Mitigating malware and ransomware attacks" (v3.0, 13 February 2020); ENISA Threat Landscape for Ransomware Attacks (July 2022); US-CERT "Data Backup Options" (2012).*
 
 ### A2. Roles and authority
 
@@ -49,7 +51,7 @@ Kolwen is a one-person project (see `SECURITY.md`): one person holds several rol
 | Outside counsel | a lawyer engaged for data-protection questions | reads the clock and the notice wording, and signs off this plan and the drill design; never signs or sends a notice for Kolwen |
 | Provider contacts | listed per provider in A5 | tell Kolwen what happened on their side |
 
-There is no backup for the maintainer today; `SECURITY.md` says so. A stand-in is named in the register entry whenever one is used. *Sources: NIST SP 800-61 Rev. 3 GV.RR-02 R1, R2 and RS.MA-01 C1; NIST SP 800-53 IR-8 "Explicitly designates responsibility".*
+There is no backup for the maintainer today; `SECURITY.md` says so. A stand-in is named in the register entry whenever one is used. The backup plane's administrator is a separate account from production's. *Sources: NIST SP 800-61 Rev. 3 GV.RR-02 R1, R2 and RS.MA-01 C1; NIST SP 800-53 IR-8 "Explicitly designates responsibility"; NIST SP 800-209 (October 2020), DP-SS-R4.*
 
 AI tools may help with analysis and drafting in a response. They hold no authority to contain, notify or send anything; their output is checked; and a person can intervene in, or switch off, any automated action. *Sources: Canadian Centre for Cyber Security, ITSAP.10.050 "Frontier artificial intelligence" (May 2026).*
 
@@ -61,7 +63,9 @@ An event becomes an incident when the maintainer, after the first check below, h
 
 **The clock.** The 72 hours run from the moment there are grounds to believe a breach really occurred, not from the first alert (ข้อ 5(3); PDPA s 37(4); GDPR Art 33(1); EDPB para 31). The maintainer writes that moment down in the register at once. A provider's notice is treated as the moment Kolwen is told; whether the Thai notice treats Kolwen as aware at that moment, or only after Kolwen's own check, is [to be confirmed with counsel before this plan is final]. Until counsel answers, the plan runs the shorter reading: the clock starts when the provider's notice is read.
 
-*Sources: PDPC notice B.E. 2565 (Royal Gazette vol. 139, special part 292 ง, 15 December B.E. 2565) ข้อ 5; PDPA B.E. 2562 s 37(4); EDPB Guidelines 9/2022 v2.0 paras 31, 34, 44; NIST SP 800-61 Rev. 3 DE.AE-08.*
+**Encrypted or wiped data.** Data that is encrypted, or wiped, is an availability breach where it is not in a ready-to-use state as normal (PDPC notice B.E. 2565, ข้อ 4(3)), even when a backup restores it. Whether it must be notified is a separate question, decided on the risk (ข้อ 5(3); PDPA s 37(4)). Where Kolwen will claim that no notice to the Office is needed, the exemption file (A8(vi)) is written at once, with its proof: the exfiltration check and the restore log. With no usable backup, the Office's own example treats the breach as notifiable on clock 1 (Playbook 4, step 4); with exfiltration it is a second breach (Playbook 8, step 5), and its notice is decided on the risk like any other. This reading is preliminary and for counsel [to be confirmed with counsel before this plan is final].
+
+*Sources: PDPC notice B.E. 2565 (Royal Gazette vol. 139, special part 292 ง, 15 December B.E. 2565) ข้อ 5; PDPA B.E. 2562 s 37(4); EDPB Guidelines 9/2022 v2.0 paras 31, 34, 44; NIST SP 800-61 Rev. 3 DE.AE-08; PDPC notice B.E. 2565 ข้อ 4(3).*
 
 ### A4. Severity
 
@@ -97,7 +101,7 @@ Never one clock. Each runs from its own start. The sheet is filled in at the sta
 
 | # | Who tells whom | Time | Starts when | Source |
 |---|---|---|---|---|
-| 1 | Kolwen, as controller of its own account data and logs, tells the **Thai data-protection Office** | without delay and within 72 hours "as far as can be done", unless the breach is unlikely to risk people's rights and freedoms | grounds to believe a breach occurred (A3) | PDPA s 37(4); PDPC notice ข้อ 5(3) |
+| 1 | Kolwen, as controller of its own account data and logs, tells the **Thai data-protection Office** | without delay and within 72 hours "as far as can be done", unless the breach is unlikely to risk people's rights and freedoms | grounds to believe a breach occurred (A3) | PDPA s 37(4); PDPC notice ข้อ 5(3); the encrypted-data reading in A3 |
 | 2 | A **provider** tells Kolwen | the provider's own term (A5) | the provider knows | the provider's agreement |
 | 3 | Kolwen, as **processor** of the content a customer sends through a service, tells that **customer** | [to be confirmed with counsel before this plan is final]; a customer that is a controller under Thai law must put 72 hours in its agreement with its processor (ข้อ 8), so the number is expected to be no longer than that, subject to counsel; GDPR asks only "without undue delay" and the EDPB recommends prompt notice in phases | Kolwen knows | PDPC notice ข้อ 8; GDPR Art 33(2); EDPB paras 44 to 47 |
 | 4 | Kolwen tells **the people affected** when the risk to them is high | without delay, with what they can do to protect themselves | the high-risk finding | PDPC notice ข้อ 5(4), 10; GDPR Art 34(1) |
@@ -185,6 +189,19 @@ Each is a numbered checklist; in the register entry each step carries who did it
 8. Recover, then review the response after the fact, as the MANAGE 4.3 line of NIST AI 600-1 asks: was each step followed, and was it effective?
 *Sources: NIST AI 100-2 E2025, "Adversarial Machine Learning: A Taxonomy and Terminology of Attacks and Mitigations" (March 2025); NIST AI 600-1, "Generative Artificial Intelligence Profile" (26 July 2024); OWASP Top 10 for LLM Applications 2025; OWASP Top 10 for Agentic Applications 2026 (Version 2026, December 2025); NCSC (UK) and partners, "Guidelines for secure AI system development" (27 November 2023); CISA and partners, "Careful Adoption of Agentic Artificial Intelligence (AI) Services" (1 May 2026).*
 
+**Playbook 8: ransomware or a destructive event (encrypted, wiped or deleted data; a wiper; a destructive insider or agent).**
+1. Write down the time it was found, how it was found, and what is unavailable or changed.
+2. Verify the facts (A3). Isolate the affected systems at once, and use the out-of-band channel in A11 for every message about the event.
+3. Preserve the deployed state and the logs before changing anything.
+4. Look for tools that impair backups (for example vssadmin, wbadmin and bcdedit), and record what was found.
+5. Scope the event and check for exfiltration: data copied out is a second breach, handled as Playbook 2.
+6. Check the backups for integrity and for dropper malware before restoring. "Care must be taken to identify such dropper malware before rebuilding from backups to prevent continuing compromises."
+7. Restore in priority order from the offline or immutable copy (A1).
+8. Harden before reconnecting.
+9. Record each decision and each restore time. Clock 1 starts at the moment there are grounds to believe that personal data was breached (A3), at whatever step that comes; record that time. Each other clock in A6 starts from its own trigger there. The availability reading of an encrypted-then-restored store is at the end of A3. A plain loss with no attacker is Playbook 4, and is not handled here.
+
+*Sources: NIST IR 8374 Rev. 1, "Ransomware Risk Management: A CSF 2.0 Community Profile" (June 2026); NIST SP 800-184, Guide for Cybersecurity Event Recovery (December 2016); NIST SP 800-61 Rev. 3 (April 2025); CISA #StopRansomware Guide (September 2023, the web page read).*
+
 ### A8. Notices drafted in advance
 
 Templates with blanks. The maintainer sends; each is read by counsel before the plan is final. The Office's notice is prepared in Thai as well [to be confirmed with counsel before this plan is final]. The Office's electronic channel is [to be confirmed with counsel before this plan is final]; until then the notice goes in writing, which the notice allows (ข้อ 6).
@@ -199,7 +216,7 @@ Templates with blanks. The maintainer sends; each is read by counsel before the 
 
 **(v) Media holding line.** One paragraph, approved by the maintainer: that an incident is being handled, what is known, what people should do, where updates will appear. No speculation about cause or number.
 
-**(vi) The exemption file (ข้อ 9).** Where Kolwen will claim that no notice to the Office is needed, it records at once the proof: for example data that cannot identify a person, or data not in a usable state because of adequate technical measures such as encryption, with the key intact. A decision not to notify is written down with its reason (EDPB para 125).
+**(vi) The exemption file (ข้อ 9).** Where Kolwen will claim that no notice to the Office is needed, it records at once the proof: for example data that cannot identify a person, or data not in a usable state because of adequate technical measures such as encryption, with the key intact. A decision not to notify is written down with its reason (EDPB para 125). For encrypted data restored from a copy, the proof is the exfiltration check and the restore log (A3).
 
 *Sources: PDPC notice B.E. 2565 ข้อ 6, 7, 9, 10, 11; GDPR Arts 33(3), 34(2); EDPB Guidelines 9/2022 v2.0 paras 85 to 92, 125; NIST SP 800-61 Rev. 3 RS.CO-02.*
 
@@ -213,6 +230,10 @@ One register of every breach, notified or not, kept by the incident lead, readab
 
 Recovery starts when the incident lead says so, on stated criteria, and checks: backups are created, protected, kept and tested; restoration assets are checked for compromise and integrity before use; restored systems are checked and watched; the end of recovery is declared. The after-action report records the incident, the response and recovery actions, and what was learned (NIST SP 800-61 Rev. 3 RC.RP-03, RC.RP-05, RC.RP-06 R1, PR.DS-11). It names improvement items with an owner and a date (B4). Business continuity and incident response are kept in step; a change in one reviews the other.
 
+**Backup inventory and recovery catalog.** Every maintained backup is listed with its media, keys, configuration and retention, and each copy is catalogued with its anti-malware scan result; obsolete snapshots are removed. *Sources: NIST SP 800-209 (October 2020), DP-SS-R1, R3(c) and R11; CISA Cross-Sector Cybersecurity Performance Goals 2.0 (December 2025), goal 3.O.*
+
+**Backup retention and erasure.** Backup retention is set against the deletion rule. An erasure on a data subject's request "must cover" the copies or backups too (PDPC notice B.E. 2567, ข้อ 3 para 2); where data cannot be deleted in time, such as data kept in a backup until it is overwritten, ข้อ 4 requires it to be kept in a form that makes it difficult to collect, use or disclose. A locked copy therefore needs a short lock window, or per-customer keys that can be destroyed. That consequence is an inference, not a source's, and is for counsel [to be confirmed with counsel before this plan is final]. CISA's #StopRansomware Guide (September 2023) says: "Use immutable storage with caution as it does not meet compliance criteria for certain regulations and misconfiguration can impose significant cost." *Sources: PDPC notice B.E. 2567 on erasure, destruction and de-identification (Royal Gazette vol. 141, special part 217 ง, 13 August B.E. 2567), ข้อ 3 and ข้อ 4; CISA #StopRansomware Guide (September 2023).*
+
 ### A11. Reports in, evidence, sharing, media
 
 - **Reports in.** Anyone can tell Kolwen of a problem through the channels in `## Today` (private vulnerability reporting; `security@kolwen.com`; `/.well-known/security.txt`). A report is taken seriously, read, and answered; the register records the time it was received (NIST SP 800-61 Rev. 3 RS.MA-02 R2).
@@ -221,6 +242,7 @@ Recovery starts when the incident lead says so, on stated criteria, and checks: 
 - **Information sharing.** Voluntary: Kolwen may share indicators with other providers or a sector body when it helps others; nothing is required today.
 - **Media.** Only the maintainer speaks; the holding line is A8(v).
 - **AI service output.** Harmful or leaking output from Kolwen's AI service is a reportable event, through the same channels as any report (OWASP Top 10 for LLM Applications 2025; NIST AI 600-1). (to check against ISO/IEC 27090 when bought)
+- **Out-of-band channel.** A channel plan for when the normal channels are down or watched: "a strategy for out of band communications should normal business communication channels be disrupted by the ransomware event" (NIST IR 8374 Rev. 1, June 2026). An offline copy of this plan is kept where the responder can reach it with the normal channels gone: "Ensure a hard copy of the plan and an offline version is available." (CISA #StopRansomware Guide, September 2023). Playbook 6 and queue scenario a3 already touch out-of-band channels.
 
 ### A12. The plan against NIST SP 800-53 IR-8
 
@@ -268,6 +290,16 @@ Recovery starts when the incident lead says so, on stated criteria, and checks: 
 | CISA and partners, "Careful Adoption of Agentic Artificial Intelligence (AI) Services" | 1 May 2026 | https://www.cisa.gov/news-events/news/cisa-us-and-international-partners-release-guide-secure-adoption-agentic-ai |
 | OWASP GenAI Red Teaming Manual | Version 1.0, 20 October 2026 | https://genai.owasp.org/resource/genai-red-teaming-manual-version-1-0/ |
 | EU General-Purpose AI Code of Practice | published 10 July 2025 | https://digital-strategy.ec.europa.eu/en/policies/contents-code-gpai |
+| NIST IR 8374 Rev. 1, "Ransomware Risk Management: A CSF 2.0 Community Profile" | June 2026 (final 11 June 2026) | https://csrc.nist.gov/pubs/ir/8374/r1/final |
+| NIST SP 800-184, Guide for Cybersecurity Event Recovery | December 2016 | https://csrc.nist.gov/pubs/sp/800/184/final |
+| NIST SP 800-209, Security Guidelines for Storage Infrastructure | October 2020 | https://csrc.nist.gov/pubs/sp/800/209/final |
+| CISA #StopRansomware Guide | September 2023; the web page read, not the PDF | https://www.cisa.gov/stopransomware/ransomware-guide |
+| CISA Cross-Sector Cybersecurity Performance Goals, Version 2.0 | December 2025 | https://www.cisa.gov/sites/default/files/2025-12/CPG_Report_2.0_508c.pdf |
+| NCSC (UK), "Mitigating malware and ransomware attacks" | v3.0, 13 February 2020 (reviewed 9 September 2021) | https://www.ncsc.gov.uk/guidance/mitigating-malware-and-ransomware-attacks |
+| NCSC (UK), "Offline backups in an online world" | 13 August 2019 | https://www.ncsc.gov.uk/blog-post/offline-backups-in-an-online-world |
+| ENISA, Threat Landscape for Ransomware Attacks | July 2022 | https://www.enisa.europa.eu/sites/default/files/publications/ENISA%20Threat%20Landscape%20for%20Ransomware%20Attacks.pdf |
+| US-CERT (Carnegie Mellon), "Data Backup Options" | 2012 | https://www.cisa.gov/sites/default/files/publications/data_backup_options.pdf |
+| PDPC notice on erasure, destruction and de-identification B.E. 2567 | Royal Gazette vol. 141, special part 217 ง, 13 August B.E. 2567 | the Royal Gazette's own pages (URL not yet recorded) |
 
 International standards and guides come first; Thai law is the local layer on top. The Thai notice is quoted in the section where it applies; its text was read in the Gazette's own pages.
 
@@ -302,6 +334,8 @@ Each drill leaves a record (B6) and changes to the plan (B4).
 
 Backups: restore a backup to a test system on a schedule the maintainer sets, check the restored data, and record the time it took and what failed (NIST SP 800-84, section 6; NIST SP 800-61 Rev. 3 PR.DS-11).
 
+**Restore drill.** The drill restores from the offline or immutable copy to a test system, checks the integrity of what it restores, times it against a target the maintainer sets, and records failures. It runs at least once a year (CISA Cross-Sector Cybersecurity Performance Goals 2.0, goal 3.O, December 2025) and at least monthly for critical data (NIST SP 800-209, DP-SS-R3(b)). NIST SP 800-184 asks that recovery capabilities be validated by tests and exercises.
+
 ### B4. After the drill: hotwash, report, improvement items
 
 1. **Hotwash**, straight after: what went well; which role was unclear; was the plan followed and was it enough; which policy or procedure should change; which training or tool is missing; which indicator should be watched (CISA playbooks, post-incident questions).
@@ -332,8 +366,10 @@ Backups: restore a backup to a test system on a schedule the maintainer sets, ch
 - b2: an agent with a broad key is steered into a destructive tool call (Playbook 7). (to check against ISO/IEC 27090 when bought)
 - b3: a stolen provider key drains the quota (Playbook 7; Playbook 3). (to check against ISO/IEC 27090 when bought)
 - c1: a third party reports that Kolwen's service is writing scam scripts for a fraud ring. This is a drill only; its procedures belong to the abuse-handling system's own design.
+- d1: ransomware reaches the backup host, and the copies held there are encrypted (Playbook 8).
+- d2: a destructive agent deletes a storage bucket (Playbook 8; Playbook 7).
 
-*Sources: European Central Bank, Banking Supervision letter SSM-2026-0301 (7 July 2026), its exercise paragraph; HKMA circular "Strengthening Cyber Resilience amid Artificial Intelligence-Empowered Cyber Threats" (2 June 2026); OWASP GenAI Red Teaming Manual, Version 1.0 (20 October 2026).*
+*Sources: European Central Bank, Banking Supervision letter SSM-2026-0301 (7 July 2026), its exercise paragraph; HKMA circular "Strengthening Cyber Resilience amid Artificial Intelligence-Empowered Cyber Threats" (2 June 2026); OWASP GenAI Red Teaming Manual, Version 1.0 (20 October 2026); for d1 and d2, NIST IR 8374 Rev. 1 (June 2026), NIST SP 800-209 (October 2020) and CISA Cross-Sector Cybersecurity Performance Goals 2.0 (December 2025), goal 3.O.*
 
 ### B6. The drill checklist
 
