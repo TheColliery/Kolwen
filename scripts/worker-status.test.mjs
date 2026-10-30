@@ -27,7 +27,8 @@ const form = email => new Request('https://kolwen.com/subscribe', { method: 'POS
 
 test('the stored state holds the time and, per probe, only path, status, time and ok', () => {
   const state = buildState(results(['/pricing']), new Date('2026-10-30T04:00:00Z'));
-  assert.deepEqual(Object.keys(state).sort(), ['checked', 'probes']);
+  assert.deepEqual(Object.keys(state).sort(), ['checked', 'notified', 'probes']);
+  assert.equal(state.notified, 'ok', 'the default: the owner was last told all OK');
   assert.equal(state.checked, '2026-10-30T04:00:00.000Z');
   for (const p of state.probes) assert.deepEqual(Object.keys(p).sort(), ['ms', 'ok', 'path', 'status']);
 });
@@ -60,21 +61,45 @@ test('a recovery sends one note, and a run after it sends nothing', async () => 
   assert.match(box.sent[1].subject, /pass again/);
 });
 
+test('a send that throws is not counted as sent: the next run, still finding the result failing, sends the alert', async () => {
+  const box = mailbox(), store = kv();
+  let down = true;
+  const EMAIL = { send: async msg => { if (down) throw new Error('send refused'); box.sent.push(msg); } };
+  const env = { ALERT_TO: 'owner@example.com', ALERT_FROM: 'info@kolwen.com', EMAIL, STATUS: store };
+  await monitor(env, { fetchImpl: fetchWith(new Set(['/'])) });
+  assert.equal(box.sent.length, 0, 'run 1: the send threw, nothing was sent');
+  down = false;
+  await monitor(env, { fetchImpl: fetchWith(new Set(['/'])) });
+  assert.equal(box.sent.length, 1, 'run 2: the failure is alerted once the send works');
+});
+
+test('a failure seen while ALERT_TO is unset is alerted by the first run after it is set, while the result is still failing', async () => {
+  const box = mailbox(), store = kv();
+  const env = { ALERT_FROM: 'info@kolwen.com', EMAIL: box.EMAIL, STATUS: store };
+  await monitor(env, { fetchImpl: fetchWith(new Set(['/'])) });
+  assert.equal(box.sent.length, 0, 'run 1: no address, nothing sent');
+  env.ALERT_TO = 'owner@example.com';
+  await monitor(env, { fetchImpl: fetchWith(new Set(['/'])) });
+  assert.equal(box.sent.length, 1, 'run 2: the alert is sent');
+});
+
 test('each run writes the state once, and what it writes holds only the allowed fields', async () => {
   const box = mailbox(), store = kv();
   const env = { ALERT_TO: 'owner@example.com', ALERT_FROM: 'info@kolwen.com', EMAIL: box.EMAIL, STATUS: store };
   await monitor(env, { fetchImpl: fetchWith(new Set(['/terms'])) });
   assert.equal(store.ops.filter(([op]) => op === 'put').length, 1, 'one write for the run');
   const saved = JSON.parse(store.m.get('state'));
-  assert.deepEqual(Object.keys(saved).sort(), ['checked', 'probes']);
+  assert.deepEqual(Object.keys(saved).sort(), ['checked', 'notified', 'probes']);
   for (const p of saved.probes) assert.deepEqual(Object.keys(p).sort(), ['ms', 'ok', 'path', 'status']);
 });
 
-test('/status.json answers "no check has run yet" when the store is empty, and the stored state after a run', async () => {
+test('/status.json answers "No stored check result is available yet." when the store is empty, and the stored state after a run', async () => {
   const store = kv(), env = { STATUS: store };
   const empty = await statusResponse(env);
   assert.equal(empty.status, 200);
-  assert.equal((await empty.json()).checked, null);
+  const emptyBody = await empty.json();
+  assert.equal(emptyBody.checked, null);
+  assert.equal(emptyBody.message, 'No stored check result is available yet.');
   await monitor({ STATUS: store, EMAIL: mailbox().EMAIL }, { fetchImpl: fetchWith() });
   const after = await worker.fetch(new Request('https://kolwen.com/status.json'), env);
   const body = await after.json();

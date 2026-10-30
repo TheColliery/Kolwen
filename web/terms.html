@@ -451,11 +451,18 @@
     var lists = document.querySelectorAll('[data-fill="probes"]');
     for (var k = 0; k < lists.length; k++) {
       lists[k].textContent = '';
-      for (var m = 0; m < data.probes.length; m++) lists[k].appendChild(probeRow(data.probes[m]));
+      var labels = marks(lists[k]);
+      for (var m = 0; m < data.probes.length; m++) lists[k].appendChild(probeRow(data.probes[m], labels));
     }
   }
 
-  function probeRow(p) {
+  // A row's OK and FAIL labels come from the language section that holds its list, so a Thai row says ผ่าน or ไม่ผ่าน.
+  function marks(list) {
+    var lang = list.closest('[lang]');
+    return { ok: lang.querySelector('[data-mark="ok"]').textContent, fail: lang.querySelector('[data-mark="fail"]').textContent };
+  }
+
+  function probeRow(p, labels) {
     var li = document.createElement('li');
     var path = document.createElement('span');
     path.className = 'path';
@@ -465,7 +472,7 @@
     var ms = document.createElement('span');
     ms.textContent = p.ms + ' ms';
     var mark = document.createElement('span');
-    mark.textContent = p.ok ? 'OK' : 'FAIL';
+    mark.textContent = p.ok ? labels.ok : labels.fail;
     li.appendChild(path);
     li.appendChild(code);
     li.appendChild(ms);

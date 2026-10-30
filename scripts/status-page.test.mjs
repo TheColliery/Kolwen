@@ -35,6 +35,9 @@ test('the status page fetches /status.json and nothing else', () => {
 
 test('the "no check yet" line is in both languages', () => {
   const html = read('web/status.html');
-  assert.match(html, /No check has run yet\./, 'English');
-  assert.match(html, /ยังไม่มีการตรวจสอบ/, 'Thai');
+  assert.match(html, /No stored check result is available yet\./, 'English');
+  assert.match(html, /ยังไม่มีผลการตรวจที่บันทึกไว้/, 'Thai');
+  // the row labels are each language's own: OK and FAIL in the English section, ผ่าน and ไม่ผ่าน in the Thai one
+  assert.match(html, /<div id="doc-en"[\s\S]*data-mark="fail" hidden>FAIL</, 'English row label');
+  assert.match(html, /<div class="th" id="doc-th"[\s\S]*data-mark="fail" hidden>ไม่ผ่าน</, 'Thai row label');
 });

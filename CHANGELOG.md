@@ -210,7 +210,7 @@ the pointer to it.
 - `web/status.html`, a status page that shows the last health check of the six sitemap pages, read
   from `/status.json`. It is generated from `web-src/pages/status.html` like the other site pages,
   and it is not yet announced: it has no link and is not in the sitemap. Until a
-  state store is bound it says that no check has run yet. Its reading is part of the one inline
+  state store is bound it says that no stored check result is available yet. Its reading is part of the one inline
   page script that every page carries, guarded so that only a page with `data-status` runs it.
 - `governance/CROSSWALK.md`, the same controls mapped once to NIST SP 800-53 Rev. 5, SOC 2 and
   ISO/IEC 27017, 27018 and 27701, as read so far; FedRAMP's pages were consulted and its baselines

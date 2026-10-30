@@ -4,7 +4,7 @@
 // against Free's 1,000 writes), and mails an alert only when the result changes: all-OK to failing, and one recovery note from failing back to all-OK.
 // Rules kept here: a probe reads no response body; the state, the alert and the log lines hold only paths, status codes, timings, ok flags and the UTC time (never a body,
 // a header, an IP, an address or a secret); with ALERT_TO unset nothing is sent and the log line holds no address.
-// The change rule compares this run with the stored state; the 15-minute schedule bounds the rate, and a failing run that cannot write the state alerts on every run.
+// The change rule compares this run with the last result the owner was told about (notified), which moves only after a send succeeds; the 15-minute schedule bounds the rate. With STATUS unbound nothing is remembered, so a failing run alerts on every run.
 // shortcut: whether a cron or a secret reaches a preview deployment is not on the Cloudflare pages read for this file; the ALERT_TO secret is the guard until a preview setting is read.
 // shortcut: KV is eventually consistent; the window is not on the pages read, so /status.json can lag a run by that window.
 
@@ -29,9 +29,9 @@ export async function probe(path, fetchImpl, origin = ORIGIN) {
   }
 }
 
-// The state this run leaves in STATUS: the time, and per probe only its path, status, time and ok.
-export function buildState(results, when) {
-  return { checked: when.toISOString(), probes: results.map(({ path, status, ms, ok }) => ({ path, status, ms, ok })) };
+// The state this run leaves in STATUS: the time, the last result the owner was told about (notified), and per probe only its path, status, time and ok.
+export function buildState(results, when, notified = 'ok') {
+  return { checked: when.toISOString(), notified, probes: results.map(({ path, status, ms, ok }) => ({ path, status, ms, ok })) };
 }
 
 // What changed since the stored state: 'failing' (all OK before, a failure now), 'recovered' (a failure before, all OK now), or null. No stored state counts as all OK.
@@ -66,35 +66,42 @@ async function readState(env) {
   try { return JSON.parse(await env.STATUS.get(STATE_KEY)) ?? null; } catch { return null; }
 }
 
-// One run: probe every path, store the state once, and mail one alert when the result changed. Returns { sent, dark, results }.
+// The last result the owner was told about, in the shape transition() judges: no record, or a record from before `notified`, counts as told all OK.
+const toldState = prev => ({ probes: [{ ok: (prev?.notified ?? 'ok') !== 'failing' }] });
+
+// One run: probe every path, mail one alert when the result differs from the last one the owner was told about, and store the state once. `notified` moves only after a
+// send succeeds, so a failed send, or a failure seen while ALERT_TO is unset, is alerted by the next run that still finds it. Returns { sent, dark, results }.
 export async function monitor(env, { fetchImpl = fetch, now = new Date() } = {}) {
   const results = await Promise.all(PATHS.map(path => probe(path, fetchImpl)));
   // one JSON line per probe: the logs carry only these (no body, no header, no visitor request)
   for (const r of results) console.log(JSON.stringify({ probe: r.path, status: r.status, ms: r.ms, ok: r.ok, error: r.error }));
   const prev = await readState(env);
-  if (env.STATUS) {
-    try { await env.STATUS.put(STATE_KEY, JSON.stringify(buildState(results, now))); } catch (e) { console.log(`state write failed: ${e?.name ?? 'error'}`); }
-  }
-  const change = transition(prev, results);
-  if (!change) return { sent: false, results };
-  if (!env.ALERT_TO) {
+  const change = transition(toldState(prev), results);
+  let notified = prev?.notified ?? 'ok', sent = false, dark = false;
+  if (change && !env.ALERT_TO) {
     console.log('alert path dark: ALERT_TO is not set, so nothing was sent');
-    return { sent: false, dark: true, results };
+    dark = true;
+  } else if (change) {
+    const { subject, text } = change === 'failing' ? composeAlert(results, now) : composeRecovery(results, now);
+    try {
+      await env.EMAIL.send({ to: env.ALERT_TO, from: env.ALERT_FROM, subject, text });
+      console.log('alert sent');
+      sent = true;
+      notified = change === 'failing' ? 'failing' : 'ok';
+    } catch (e) {
+      console.log(`alert send failed: ${e?.name ?? 'error'}`);
+    }
   }
-  const { subject, text } = change === 'failing' ? composeAlert(results, now) : composeRecovery(results, now);
-  try {
-    await env.EMAIL.send({ to: env.ALERT_TO, from: env.ALERT_FROM, subject, text });
-    console.log('alert sent');
-    return { sent: true, results };
-  } catch (e) {
-    console.log(`alert send failed: ${e?.name ?? 'error'}`);
-    return { sent: false, results };
+  // one write per run, after the send, so it carries the outcome of the send
+  if (env.STATUS) {
+    try { await env.STATUS.put(STATE_KEY, JSON.stringify(buildState(results, now, notified))); } catch (e) { console.log(`state write failed: ${e?.name ?? 'error'}`); }
   }
+  return { sent, dark, results };
 }
 
-// GET /status.json: the stored state, or a plain line when no check has run yet.
+// GET /status.json: the stored state, or a plain line when no stored check result is available yet.
 export async function statusResponse(env) {
-  const state = (await readState(env)) ?? { checked: null, message: 'no check has run yet' };
+  const state = (await readState(env)) ?? { checked: null, message: 'No stored check result is available yet.' };
   return new Response(JSON.stringify(state), { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex' } });
 }
 

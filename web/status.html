@@ -140,20 +140,24 @@ a{color:var(--amber)}
   <h1>Status</h1>
   <p>Kolwen checks its public pages every 15 minutes. The last check is shown here.</p>
   <p class="line" data-state="unavailable">The status could not be loaded. Try again later.</p>
-  <p class="line" data-state="none" hidden>No check has run yet.</p>
+  <p class="line" data-state="none" hidden>No stored check result is available yet.</p>
   <p class="line" data-state="ok" hidden>The public pages answered as expected at the last check. <time data-fill="checked"></time></p>
   <p class="line" data-state="failing" hidden>At least one public page did not answer as expected at the last check. <time data-fill="checked"></time></p>
   <h2>Pages checked</h2>
+  <span data-mark="ok" hidden>OK</span>
+  <span data-mark="fail" hidden>FAIL</span>
   <ul class="probes" data-fill="probes"></ul>
   </div>
   <div class="th" id="doc-th" lang="th" hidden>
   <h1>สถานะ</h1>
   <p>Kolwen ตรวจหน้าสาธารณะทุก 15 นาที ผลการตรวจล่าสุดแสดงที่นี่</p>
   <p class="line" data-state="unavailable">โหลดสถานะไม่ได้ ลองใหม่ภายหลัง</p>
-  <p class="line" data-state="none" hidden>ยังไม่มีการตรวจสอบ</p>
+  <p class="line" data-state="none" hidden>ยังไม่มีผลการตรวจที่บันทึกไว้</p>
   <p class="line" data-state="ok" hidden>หน้าสาธารณะตอบตามที่คาดไว้ในการตรวจล่าสุด <time data-fill="checked"></time></p>
   <p class="line" data-state="failing" hidden>มีอย่างน้อยหนึ่งหน้าสาธารณะที่ตอบไม่ตรงตามที่คาดไว้ในการตรวจล่าสุด <time data-fill="checked"></time></p>
   <h2>หน้าที่ตรวจ</h2>
+  <span data-mark="ok" hidden>ผ่าน</span>
+  <span data-mark="fail" hidden>ไม่ผ่าน</span>
   <ul class="probes" data-fill="probes"></ul>
   </div>
 </main>
@@ -257,11 +261,18 @@ a{color:var(--amber)}
     var lists = document.querySelectorAll('[data-fill="probes"]');
     for (var k = 0; k < lists.length; k++) {
       lists[k].textContent = '';
-      for (var m = 0; m < data.probes.length; m++) lists[k].appendChild(probeRow(data.probes[m]));
+      var labels = marks(lists[k]);
+      for (var m = 0; m < data.probes.length; m++) lists[k].appendChild(probeRow(data.probes[m], labels));
     }
   }
 
-  function probeRow(p) {
+  // A row's OK and FAIL labels come from the language section that holds its list, so a Thai row says ผ่าน or ไม่ผ่าน.
+  function marks(list) {
+    var lang = list.closest('[lang]');
+    return { ok: lang.querySelector('[data-mark="ok"]').textContent, fail: lang.querySelector('[data-mark="fail"]').textContent };
+  }
+
+  function probeRow(p, labels) {
     var li = document.createElement('li');
     var path = document.createElement('span');
     path.className = 'path';
@@ -271,7 +282,7 @@ a{color:var(--amber)}
     var ms = document.createElement('span');
     ms.textContent = p.ms + ' ms';
     var mark = document.createElement('span');
-    mark.textContent = p.ok ? 'OK' : 'FAIL';
+    mark.textContent = p.ok ? labels.ok : labels.fail;
     li.appendChild(path);
     li.appendChild(code);
     li.appendChild(ms);

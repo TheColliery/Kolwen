@@ -42,6 +42,8 @@ a{color:var(--amber)}
   <p class="line" data-state="ok" hidden>{{status.ok}} <time data-fill="checked"></time></p>
   <p class="line" data-state="failing" hidden>{{status.failing}} <time data-fill="checked"></time></p>
   <h2>{{status.probes}}</h2>
+  <span data-mark="ok" hidden>{{status.markok}}</span>
+  <span data-mark="fail" hidden>{{status.markfail}}</span>
   <ul class="probes" data-fill="probes"></ul>
 {{/lang}}
   </div>
@@ -54,6 +56,8 @@ a{color:var(--amber)}
   <p class="line" data-state="ok" hidden>{{status.ok}} <time data-fill="checked"></time></p>
   <p class="line" data-state="failing" hidden>{{status.failing}} <time data-fill="checked"></time></p>
   <h2>{{status.probes}}</h2>
+  <span data-mark="ok" hidden>{{status.markok}}</span>
+  <span data-mark="fail" hidden>{{status.markfail}}</span>
   <ul class="probes" data-fill="probes"></ul>
 {{/lang}}
   </div>
