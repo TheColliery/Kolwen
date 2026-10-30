@@ -15,8 +15,8 @@ released.
 
 What is deployed today is a static-assets Cloudflare Worker, configured by
 `wrangler.jsonc`, that serves the pages under `web/` at `kolwen.com`. It runs one
-small script of ours (`worker/index.mjs`): it hands every unmatched path to the pages, and every
-15 minutes it probes six of them. It has no database, no form, no account, no login and no payment.
+small script of ours (`worker/index.mjs`): it hands every unmatched path to the pages, except `/status.json` and `/subscribe`, which it answers itself, and every
+15 minutes it probes six of them. It has no database, no form, no account, no login and no payment. Its one stored record, the status record, is not bound yet, so nothing is stored today.
 Every page carries one inline script, the same on each, which the policy admits by its one hash. `web/index.html` also carries a JSON-LD data block, which the Content Security Policy does not govern. The policy also admits Cloudflare's Web Analytics script from `static.cloudflareinsights.com`, which Cloudflare's edge adds to the pages; it is not in this tree. The pages load their fonts from the site itself,
 under `web/fonts/`.
 
@@ -27,8 +27,9 @@ published from outside this tree, so its code is not here.
 
 | Surface | Where it is | What it does |
 |---|---|---|
-| The Worker and its pages | `wrangler.jsonc`, `web/`, `worker/index.mjs` | Serves static files, and runs one script that hands every unmatched path to them, so an unmatched path gets `web/404.html`. The Worker's own `workers.dev` address is off (`workers_dev: false`). Preview URLs are on (`preview_urls: true`), so a pull request's branch can be served at a public `*.workers.dev` preview host; see the row below and the list after this table. |
-| Health checks and alert mail | `worker/index.mjs`, `wrangler.jsonc` | A scheduled handler, every 15 minutes, requests the six sitemap pages on `kolwen.com` and mails one alert to the owner when a check fails. Its asset is the `ALERT_TO` secret (the recipient, kept out of the tree); until it is set, nothing is sent. |
+| The Worker and its pages | `wrangler.jsonc`, `web/`, `worker/index.mjs` | Serves static files, and runs one script that hands every unmatched path to them, so an unmatched path gets `web/404.html`; the script answers `/status.json` and `/subscribe` itself. The Worker's own `workers.dev` address is off (`workers_dev: false`). Preview URLs are on (`preview_urls: true`), so a pull request's branch can be served at a public `*.workers.dev` preview host; see the row below and the list after this table. |
+| Health checks and alert mail | `worker/index.mjs`, `wrangler.jsonc` | A scheduled handler, every 15 minutes, requests the six sitemap pages on `kolwen.com` and mails one alert to the owner when the result of the checks changes from all passing to a failure, and a recovery note when they pass again (a failure that goes on is not mailed again). Its asset is the `ALERT_TO` secret (the recipient, kept out of the tree); until it is set, nothing is sent. |
+| Status record and subscribe route | `worker/index.mjs`, `web/status.html`, `wrangler.jsonc` | `GET /status.json` returns the status record (the last run's time, and each page's path, status, timing and result; no visitor data), or an answer that no check has run yet. The record would sit in the `STATUS` KV namespace, which is not bound yet, so nothing is stored and that answer is what every request gets today. `/subscribe` answers 404 for every method while `SUBSCRIBE` is not `"on"` or the `SUBSCRIBERS` store is unbound, which is the state today: no address can be stored and no mail goes to a subscriber. What an attacker can reach today is those two answers only. |
 | Preview deploys | `docs/DEPLOY.md`, `web/_headers`, `wrangler.jsonc` | While a Cloudflare-side setting stays on (outside this tree), Workers Builds builds a pull request's branch to a public `*.workers.dev` preview host, with no access gate. A preview sends `X-Robots-Tag: noindex` (measured once: Cloudflare's own preview header); `web/_headers` also carries a rule for those hosts, not shown to apply. Whether a preview receives the Worker's email binding, its alert variable or secret, or runs its cron is not established at Cloudflare's pages; the static assets do apply to previews. |
 | Response headers and CSP | `web/_headers` | One `/*` rule carries the Content-Security-Policy, Referrer-Policy, Cross-Origin-Opener-Policy, Cross-Origin-Resource-Policy and Permissions-Policy. A rule for preview hosts sets `X-Robots-Tag: noindex`. Other rules set cache lifetimes. |
 | Redirects | `web/_redirects` | Moves old paths to current pages. |
@@ -104,8 +105,8 @@ published from outside this tree, so its code is not here.
 
 - **Server-side injection classes (SQL, command, template, server-side request
   forgery).** The one server script, `worker/index.mjs`, receives each request that matches no
-  static file and passes it unchanged to the static assets (`env.ASSETS.fetch`); only its
-  scheduled checks fetch, and they fetch six fixed paths on one fixed origin. There is no database. A finding that shows input reaching a query,
+  static file and passes it unchanged to the static assets (`env.ASSETS.fetch`), except `GET /status.json` (answered from the status record) and `/subscribe` (answered 404 while switched off, with no store touched); only its
+  scheduled checks fetch, and they fetch six fixed paths on one fixed origin. There is no database; the only record it writes is the status record (the row above). A finding that shows input reaching a query,
   a command, a template or an outbound request is in scope.
 - **Form and session handling (CSRF, session fixation, authentication).** There
   is no form, no session and no account. A finding that shows one exists is in
