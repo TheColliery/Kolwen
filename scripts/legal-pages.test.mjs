@@ -220,8 +220,8 @@ test('the same inputs give the same pages', () => {
 });
 
 // ── the CLI, against a throwaway copy of the tree ──────────────────────────────────────────────
-const FILES = ['web/band-404.svg', 'web/band-home.svg', 'scripts/legal-pages.mjs','scripts/lib/legal-render.mjs', 'scripts/lib/layout-tokens.mjs', 'scripts/lib/legal-page-text.mjs', 'scripts/lib/legal-state.mjs', 'scripts/lib/legal-holds.json', 'TERMS.md', 'PRIVACY.md', 'legal/thai-7day-clause.md', 'legal/legal-state.json', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/pricing.html', 'CHANGELOG.md', 'web/changelog.html', 'web/index.html', 'web/404.html', 'web/_headers', 'scripts/lib/headers-file.mjs', 'scripts/lib/page-sync.mjs', 'scripts/lib/csp-hashes.mjs', 'scripts/lib/page-claims.mjs',
-  'scripts/lib/i18n-catalogue.mjs', 'scripts/lib/page-template.mjs', 'scripts/lib/html-tokens.mjs', 'scripts/lib/rendered-text.mjs', 'scripts/lib/web-files.mjs', 'scripts/lib/html-entities.json', 'web-src/i18n/en.json', 'web-src/i18n/th.json', 'web-src/pages/home.html', 'web-src/pages/pricing.html', 'web-src/pages/notfound.html', 'scripts/lib/controller-slot.mjs', 'legal/controller.json'];
+const FILES = ['web/band-404.svg', 'web/band-home.svg', 'scripts/legal-pages.mjs','scripts/lib/legal-render.mjs', 'scripts/lib/layout-tokens.mjs', 'scripts/lib/legal-page-text.mjs', 'scripts/lib/legal-state.mjs', 'scripts/lib/legal-holds.json', 'TERMS.md', 'PRIVACY.md', 'legal/thai-7day-clause.md', 'legal/legal-state.json', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/pricing.html', 'CHANGELOG.md', 'web/changelog.html', 'web/index.html', 'web/404.html', 'web/status.html', 'web/_headers', 'scripts/lib/headers-file.mjs', 'scripts/lib/page-sync.mjs', 'scripts/lib/csp-hashes.mjs', 'scripts/lib/page-claims.mjs',
+  'scripts/lib/i18n-catalogue.mjs', 'scripts/lib/page-template.mjs', 'scripts/lib/html-tokens.mjs', 'scripts/lib/rendered-text.mjs', 'scripts/lib/web-files.mjs', 'scripts/lib/html-entities.json', 'web-src/i18n/en.json', 'web-src/i18n/th.json', 'web-src/pages/home.html', 'web-src/pages/pricing.html', 'web-src/pages/notfound.html', 'web-src/pages/status.html', 'scripts/lib/controller-slot.mjs', 'legal/controller.json'];
 function copyTree() {
   const dir = mkdtempSync(join(tmpdir(), 'legal-pages-'));
   for (const f of FILES) { mkdirSync(dirname(join(dir, f)), { recursive: true }); writeFileSync(join(dir, f), readFileSync(join(ROOT, f))); }
@@ -235,7 +235,7 @@ const edit = (dir, f, fn) => writeFileSync(join(dir, f), fn(readFileSync(join(di
 
 test('--check passes on the committed pages', () => {
   const dir = copyTree();
-  try { const r = check(dir); assert.equal(r.status, 0, r.stdout + r.stderr); assert.match(r.stdout, /7 pages match/); } finally { rmSync(dir, { recursive: true, force: true }); }
+  try { const r = check(dir); assert.equal(r.status, 0, r.stdout + r.stderr); assert.match(r.stdout, /8 pages match/); } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('--check fails, naming the page, when one word of a statement in a source changes; --write puts it right', () => {
@@ -304,8 +304,8 @@ test('every generated page holds the shared footer, English then Thai, byte for 
   for (const [file, html] of Object.entries(pages)) assert.deepEqual(footersOf(html), [siteFooterHtml('en'), siteFooterHtml('th')], file);
 });
 
-test('the three template pages hold the same two footer blocks and carry the footer rules in a style block', () => {
-  for (const file of ['web/index.html', 'web/pricing.html', 'web/404.html']) {
+test('the four template pages hold the same two footer blocks and carry the footer rules in a style block', () => {
+  for (const file of TEMPLATE_PAGES) {
     const html = read(file);
     assert.deepEqual(footersOf(html), [siteFooterHtml('en'), siteFooterHtml('th')], file);
     assert.ok((html.match(/<style>[\s\S]*?<\/style>/g) || []).some(b => b.includes(FOOTER_CSS)), file + ' has the footer rules');
@@ -395,8 +395,8 @@ test('the CLI child runs with HOME, USERPROFILE and the temp variables inside th
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-// ── the shared blocks: --write generates the three template pages with them between fixed markers, and --check names the block that drifted ──────────
-const TEMPLATE_PAGES = ['web/index.html', 'web/pricing.html', 'web/404.html'];
+// ── the shared blocks: --write generates the four template pages with them between fixed markers, and --check names the block that drifted ──────────
+const TEMPLATE_PAGES = ['web/index.html', 'web/pricing.html', 'web/404.html', 'web/status.html'];
 const WATCHED = [...TEMPLATE_PAGES, 'web/_headers', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html'];
 const mk = (name, css) => (css ? { name, begin: `/* ${name}:begin */`, end: `/* ${name}:end */` } : { name, begin: `<!-- ${name}:begin -->`, end: `<!-- ${name}:end -->` });
 const MARK = { fonts: mk('site-fonts'), tokens: mk('site-tokens-css', true), hcss: mk('site-header-css', true), css: mk('site-footer-css', true), ncss: mk('site-noscript-css', true), header: mk('site-header'), en: mk('site-footer:en'), th: mk('site-footer:th'), script: mk('site-script', true) };
@@ -407,7 +407,7 @@ const sameBytes = (a, b) => Object.keys(a).every(f => Buffer.compare(a[f], b[f])
 // The comments of _headers talk about style-src too, so the directive is read from the one indented policy line.
 const styleSrcLine = text => /^[ \t]+Content-Security-Policy:[^\r\n]*/m.exec(text)[0].split(';').map(d => d.trim()).find(d => d.split(/\s+/)[0] === 'style-src');
 const sortedStyleSrc = text => styleSrcLine(text).split(/\s+/).filter(t => t.startsWith("'sha256-")).sort();
-const FOOTER_ANCHOR = { 'web/index.html': ['<a href="/terms">Terms</a>', '<a href="/terms">Terms </a>'], 'web/pricing.html': ['<a href="/privacy">ความเป็นส่วนตัว</a>', '<a href="/privacy">ความเป็นส่วนตัว </a>'], 'web/404.html': ['<a href="/changelog">Changelog</a>', '<a href="/changelogs">Changelog</a>'] };
+const FOOTER_ANCHOR = { 'web/index.html': ['<a href="/terms">Terms</a>', '<a href="/terms">Terms </a>'], 'web/pricing.html': ['<a href="/privacy">ความเป็นส่วนตัว</a>', '<a href="/privacy">ความเป็นส่วนตัว </a>'], 'web/404.html': ['<a href="/changelog">Changelog</a>', '<a href="/changelogs">Changelog</a>'], 'web/status.html': ['<a href="/terms">Terms</a>', '<a href="/terms">Terms </a>'] };
 
 test('reEscape turns any text into a regex that matches exactly that text, backslash included', () => {
   const every = '\\^$.*+?()[]{}|/-';
@@ -434,10 +434,10 @@ test('the sync markers are named once, in the lib, and are the ones the pages ca
   for (const m of Object.values(MARK)) assert.ok(!cli.includes(m.name), 'the CLI does not retype ' + m.name);
 });
 
-test('every one of the seven pages carries every marker pair exactly once, and the header pair holds the header', () => {
+test('every one of the eight pages carries every marker pair exactly once, and the header pair holds the header', () => {
   const pages = { ...renderPages(inputs()).pages };
   for (const f of TEMPLATE_PAGES) pages[f] = read(f);
-  assert.equal(Object.keys(pages).length, 7);
+  assert.equal(Object.keys(pages).length, 8);
   for (const [f, html] of Object.entries(pages)) {
     for (const k of Object.keys(MARK)) assert.equal(count(html, MARK[k].begin) + count(html, MARK[k].end), 2, f + ' ' + k);
     assert.ok(html.includes(MARK.header.begin + '\n' + lib.siteHeaderHtml() + '\n' + MARK.header.end), f + ' the header pair holds the header');
@@ -512,7 +512,7 @@ test('a hand edit of a site page, in a CRLF page or an LF page, is undone by --w
       try {
         const orig = readFileSync(join(dir, f));
         const [from, to] = FOOTER_ANCHOR[f];
-        edit(dir, f, x => { const y = lf(x).replace(from, to).replace('<main>', '<main><!-- keep-me-7f3a -->'); return eol === 'crlf' ? y.replace(/\n/g, '\r\n') : y; });
+        edit(dir, f, x => { const y = lf(x).replace(from, to).replace(/<main[^>]*>/, m => m + '<!-- keep-me-7f3a -->'); return eol === 'crlf' ? y.replace(/\n/g, '\r\n') : y; });
         assert.ok(readFileSync(join(dir, f), 'utf8').includes('keep-me-7f3a'));
         const c = check(dir);
         assert.equal(c.status, 1, c.stdout + c.stderr);
@@ -553,7 +553,7 @@ test('a hand edit of a footer rule makes --check fail on the page and on the has
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('an edited footer rule in the lib is carried to all seven pages by one --write, and to the style-src hashes of _headers', async () => {
+test('an edited footer rule in the lib is carried to all eight pages by one --write, and to the style-src hashes of _headers', async () => {
   const { inlineStyles, cspHash } = await import(new URL('./lib/csp-hashes.mjs', import.meta.url));
   const dir = copyTree();
   try {
@@ -568,8 +568,8 @@ test('an edited footer rule in the lib is carried to all seven pages by one --wr
     assert.match(w.stdout, /wrote web\/_headers/);
     for (const f of [...TEMPLATE_PAGES, 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html']) assert.ok(readFileSync(join(dir, f), 'utf8').includes('text-decoration-thickness:3px'), f);
     const headers = readFileSync(join(dir, 'web/_headers'), 'utf8');
-    const want = new Set(['web/index.html', 'web/pricing.html', 'web/404.html', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html', 'web/band-404.svg', 'web/band-home.svg'].flatMap(f => inlineStyles(readFileSync(join(dir, f), 'utf8')).map(cspHash)));
-    assert.deepEqual(sortedStyleSrc(headers), [...want].sort(), 'style-src admits exactly the hashes of the seven pages and the two SVG images');
+    const want = new Set(['web/index.html', 'web/pricing.html', 'web/404.html', 'web/status.html', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html', 'web/band-404.svg', 'web/band-home.svg'].flatMap(f => inlineStyles(readFileSync(join(dir, f), 'utf8')).map(cspHash)));
+    assert.deepEqual(sortedStyleSrc(headers), [...want].sort(), 'style-src admits exactly the hashes of the eight pages and the two SVG images');
     assert.equal(headers.split(/\r?\n/).filter((l, i) => l !== headersBefore.split(/\r?\n/)[i]).length, 1, 'one line of _headers changed: the CSP line');
     assert.equal(check(dir).status, 0);
     assert.equal(check(dir, '--write').status, 0);
@@ -624,9 +624,9 @@ for (const [what, f, k, fn, re] of CROSS) {
 // ── the style-src directive is found by its NAME at the start of a directive, and the EFFECTIVE directive is judged ──────────
 const cspLine = text => /^[ \t]+Content-Security-Policy:[^\r\n]*/m.exec(text)[0];
 const directive = (line, name) => line.split(';').map(d => d.trim()).find(d => d === name || d.startsWith(name + ' '));
-const SEVEN = ['web/index.html', 'web/pricing.html', 'web/404.html', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html'];
-// The documents the policy governs: the seven pages and the two SVG images, whose <style> the policy admits by hash.
-const pagesOf = () => Object.fromEntries([...SEVEN, 'web/band-404.svg', 'web/band-home.svg'].map(f => [f, read(f)]));
+const EIGHT = ['web/index.html', 'web/pricing.html', 'web/404.html', 'web/status.html', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html'];
+// The documents the policy governs: the eight pages and the two SVG images, whose <style> the policy admits by hash.
+const pagesOf = () => Object.fromEntries([...EIGHT, 'web/band-404.svg', 'web/band-home.svg'].map(f => [f, read(f)]));
 // The committed _headers with extra directives put in front of the real style-src directive (in the CSP line only: the comments mention style-src too).
 const withBefore = (extra, text = read('web/_headers')) => text.replace(cspLine(text), line => line.replace('style-src ', () => extra + ' style-src '));
 const hashesIn = text => styleSrcLine(text).split(/\s+/).filter(t => t.startsWith("'sha256-"));
@@ -746,12 +746,12 @@ test('surface-check rule 13 judges style-src-elem and script-src-elem, the direc
 });
 
 // ── the header, the footer as a zone of its own, the grid, the switch ──────────────────────────────────────────────────────────
-// All seven pages as text: the four rendered from their Markdown sources and the three template pages (the committed files, read from disk).
-const sevenPages = () => { const pages = { ...renderPages(inputs()).pages }; for (const f of TEMPLATE_PAGES) pages[f] = read(f); return pages; };
+// All eight pages as text: the four rendered from their Markdown sources and the four template pages (the committed files, read from disk).
+const eightPages = () => { const pages = { ...renderPages(inputs()).pages }; for (const f of TEMPLATE_PAGES) pages[f] = read(f); return pages; };
 const mainOf = html => html.slice(html.indexOf('<main'), html.indexOf('</main>') + 7);
 
 test('the header is on every page with its three items, one per language, and no language bar is left anywhere', () => {
-  for (const [f, html] of Object.entries(sevenPages())) {
+  for (const [f, html] of Object.entries(eightPages())) {
     assert.equal(count(html, '<header'), 1, f + ' has one header');
     const header = html.slice(html.indexOf('<header'), html.indexOf('</header>'));
     assert.equal(count(header, '<nav '), 2, f + ': one labelled nav per language');
@@ -770,7 +770,7 @@ test('the header is on every page with its three items, one per language, and no
 });
 
 test('the footer and the header are outside main on every page, so their width does not depend on the page column', () => {
-  for (const [f, html] of Object.entries(sevenPages())) {
+  for (const [f, html] of Object.entries(eightPages())) {
     const main = mainOf(html);
     assert.ok(!main.includes('<footer') && !main.includes('<header'), f + ': nothing of the shared blocks is inside main');
     const after = html.slice(html.indexOf('</main>'));
@@ -785,7 +785,7 @@ test('the footer grid is 2 columns below 640px, 3 from 640px and 5 from 1024px, 
   assert.match(FOOTER_CSS, /\.site-footer \.fgroups\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/, 'the base is 2 columns');
   assert.equal(count(FOOTER_CSS, '@media'), 2, 'no other media query');
   assert.ok(!/@media/.test(HEADER_CSS), 'the header has no width breakpoint: it wraps');
-  for (const [f, html] of Object.entries(sevenPages())) assert.ok(css(html).includes(FOOTER_CSS), f + ' carries the same rules');
+  for (const [f, html] of Object.entries(eightPages())) assert.ok(css(html).includes(FOOTER_CSS), f + ' carries the same rules');
 });
 
 test('reflow at 320px, structurally: every track may shrink to zero, every link may break anywhere, the header row wraps, and no rule gives the header or the footer a width of its own', () => {
@@ -822,7 +822,7 @@ test("the switch keeps its storage key and its behaviour: one key 'kolwen-lang',
   assert.ok(!/cookie|sessionStorage|indexedDB/.test(lib.SCRIPT.split('\n').filter(l => !l.trim().startsWith('//')).join('\n')), 'no other storage in the code (a comment may name the cookie it avoids)');
   assert.match(lib.SCRIPT, /if \(saved === 'th' \|\| saved === 'en'\) apply\(saved, false\);/, 'the saved language is applied without being saved again');
   assert.match(lib.SCRIPT, /var lang = button\.getAttribute\('data-lang-set'\);[\s\S]*?apply\(lang, true\)/, 'a click applies the language and saves it');
-  for (const [f, html] of Object.entries(sevenPages())) {
+  for (const [f, html] of Object.entries(eightPages())) {
     const scripts = [...html.matchAll(/<script>\n([\s\S]*?)\n<\/script>/g)].map(m => m[1]);
     assert.equal(scripts.length, 1, f + ' has one page script');
     assert.equal(scripts[0], MARK.script.begin + '\n' + lib.SCRIPT + '\n' + MARK.script.end, f + ' carries the shared script between its markers');
@@ -839,7 +839,7 @@ test('a reader without script gets no switch and sees the Thai document, header 
   assert.match(lib.NOSCRIPT_STYLE, /\.site-footer\[lang="th"\]\{display:block !important\}/);
   assert.match(lib.HEADER_CSS, /html\[lang="th"\] \.site-header nav\[lang="en"\]\{display:none\}/);
   assert.match(lib.FOOTER_CSS, /html\[lang="th"\] \.site-footer\[lang="en"\]\{display:none\}/);
-  for (const [f, html] of Object.entries(sevenPages())) assert.match(html, /<html lang="en"(?: data-job="[a-z]+")?>/, f + ': English until the script says otherwise');
+  for (const [f, html] of Object.entries(eightPages())) assert.match(html, /<html lang="en"(?: data-job="[a-z]+")?>/, f + ': English until the script says otherwise');
 });
 
 // ── the footer's gaps: llms.txt under Code, the switch in the bottom bar, the contact addresses ──────────────────────────────────
@@ -1037,7 +1037,7 @@ test('surface-check rule 17 allows a live button only when it is exactly a switc
   const dir = surfaceCopy();
   try {
     const base = surface(dir);
-    assert.equal(base.status, 0, 'the committed tree passes, the real switch buttons on all seven pages included: ' + base.stdout + base.stderr);
+    assert.equal(base.status, 0, 'the committed tree passes, the real switch buttons on all eight pages included: ' + base.stdout + base.stderr);
     const page = join(dir, 'web/pricing.html'), real = readFileSync(page, 'utf8');
     const REAL = '<button type="button" data-lang-set="en" lang="en" aria-pressed="true">English</button>';
     assert.ok(real.includes(REAL), 'the page holds the real switch button');
@@ -1193,7 +1193,7 @@ test('every footer text colour measures at least 4.5:1 on every page background 
     ['web/404.html link (dark)', ratio(varIn(darkM[1], 'ink'), bgDark)], ['web/404.html label and copyright (dark)', ratio(dimDark, bgDark)]);
   if (process.env.PRINT_CONTRAST) for (const [name, r] of rows) console.log('CONTRAST ' + r.toFixed(2) + ':1 ' + name);
   for (const [name, r] of rows) assert.ok(r >= 4.5, name + ' measures ' + r.toFixed(2) + ':1');
-  assert.ok(rows.length >= 23, 'the sample covers seven pages, two backgrounds on the dark ones, and the 404 page in two schemes for its links and for its paragraphs');
+  assert.ok(rows.length >= 23, 'the sample covers eight pages, two backgrounds on the dark ones, and the 404 page in two schemes for its links and for its paragraphs');
 });
 
 // ── the controller name slot (card BB-214 (a): the privacy page alone names the data controller, the brand Kolwen with the owner's own name) ─────────────────────────────────────────────────────────
@@ -1279,8 +1279,8 @@ test('every other source refuses the slot, with a value or without one', () => {
   assert.deepEqual(slotLib.slotProblems('web-src/pages/home.html', 'plain'), []);
 });
 
-test('a site template that carries the slot fails the build (home, pricing and the 404 page each)', () => {
-  for (const page of ['home', 'pricing', 'notfound']) {
+test('a site template that carries the slot fails the build (home, pricing, the 404 page and the status page each)', () => {
+  for (const page of ['home', 'pricing', 'notfound', 'status']) {
     const dir = copyTree();
     try {
       edit(dir, `web-src/pages/${page}.html`, s => s.replace('</main>', `<p>${SLOT}</p></main>`));

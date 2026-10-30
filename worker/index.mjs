@@ -1,15 +1,18 @@
-// Kolwen's Worker. fetch hands every request to the ASSETS binding unchanged: a request that matches no asset is answered with web/404.html exactly as before this file
-// existed (run_worker_first stays off, so only unmatched paths reach this function). scheduled runs every 15 minutes (triggers.crons in wrangler.jsonc): it probes the six
-// sitemap pages on kolwen.com and mails one alert when any probe fails.
-// Rules kept here: a probe reads no response body; an alert carries only paths, status codes, timings and the UTC time, never a body, a header, an address or a secret;
-// with ALERT_TO unset nothing is sent and the one log line holds no address; nothing here remembers an earlier alert, so the 15-minute schedule is the only limit on how
-// often one goes out (the status page unit adds deduplication).
+// Kolwen's Worker. fetch hands every request to the ASSETS binding unchanged, with three exceptions: GET /status.json answers from the stored state (binding STATUS,
+// when it exists), and /subscribe answers 404 unless SUBSCRIBE is "on" (binding SUBSCRIBERS). Only unmatched paths reach this function (run_worker_first stays off).
+// scheduled runs every 15 minutes (triggers.crons in wrangler.jsonc): it probes the six sitemap pages on kolwen.com, writes ONE state object to STATUS (96 a day
+// against Free's 1,000 writes), and mails an alert only when the result changes: all-OK to failing, and one recovery note from failing back to all-OK.
+// Rules kept here: a probe reads no response body; the state, the alert and the log lines hold only paths, status codes, timings, ok flags and the UTC time (never a body,
+// a header, an IP, an address or a secret); with ALERT_TO unset nothing is sent and the log line holds no address.
+// The change rule compares this run with the last result the owner was told about (notified), which moves only after a send succeeds; the 15-minute schedule bounds the rate. With STATUS unbound nothing is remembered, so a failing run alerts on every run.
 // shortcut: whether a cron or a secret reaches a preview deployment is not on the Cloudflare pages read for this file; the ALERT_TO secret is the guard until a preview setting is read.
+// shortcut: KV is eventually consistent; the window is not on the pages read, so /status.json can lag a run by that window.
 
 export const PATHS = ['/', '/pricing', '/terms', '/privacy', '/refund', '/changelog'];
 const ORIGIN = 'https://kolwen.com';
 const TIMEOUT_MS = 10_000;
 const HTML = 'text/html';
+const STATE_KEY = 'state';
 
 // One probe: the path, the status, the time taken, whether the content type is text/html, and ok (200 and text/html). A timeout or a network failure is named
 // by its class only, never by its message.
@@ -26,38 +29,113 @@ export async function probe(path, fetchImpl, origin = ORIGIN) {
   }
 }
 
+// The state this run leaves in STATUS: the time, the last result the owner was told about (notified), and per probe only its path, status, time and ok.
+export function buildState(results, when, notified = 'ok') {
+  return { checked: when.toISOString(), notified, probes: results.map(({ path, status, ms, ok }) => ({ path, status, ms, ok })) };
+}
+
+// What changed since the stored state: 'failing' (all OK before, a failure now), 'recovered' (a failure before, all OK now), or null. No stored state counts as all OK.
+export function transition(prev, results) {
+  const wasOk = prev ? prev.probes.every(p => p.ok) : true;
+  const nowOk = results.every(r => r.ok);
+  if (wasOk && !nowOk) return 'failing';
+  if (prev && !wasOk && nowOk) return 'recovered';
+  return null;
+}
+
 // The alert, from the probe results only. Each line names a path, what it answered and how long it took.
 export function composeAlert(results, when) {
   const failed = results.filter(r => !r.ok);
   const lines = failed.map(r => `${r.path}: ${r.error ?? `HTTP ${r.status}`}, ${r.ms} ms${r.typeOk ? '' : ', content type not text/html'}`);
   return {
     subject: `Kolwen: ${failed.length} of ${results.length} page checks failed`,
-    text: [`${failed.length} of ${results.length} page checks failed at ${when.toISOString()} (UTC).`, ...lines, '', 'Only the paths, the HTTP status or error, the timings and the content-type result above are recorded; no response body or header is included.'].join('\n'),
+    text: [`${failed.length} of ${results.length} page checks failed at ${when.toISOString()} (UTC).`, ...lines, '', 'The probe details above contain only the paths, the HTTP status or error, the timings and the content-type result; no response body or response header is included.'].join('\n'),
   };
 }
 
-// One run: probe every path, and mail one alert if any failed. Returns { sent, dark, results }.
+// The recovery note: all checks pass again. It holds the count and the UTC time, nothing else.
+export function composeRecovery(results, when) {
+  return {
+    subject: `Kolwen: all ${results.length} page checks pass again`,
+    text: `All ${results.length} page checks passed again at ${when.toISOString()} (UTC). The count and the time above are all this note holds; no response body or response header is included.`,
+  };
+}
+
+async function readState(env) {
+  if (!env.STATUS) return null;
+  try { return JSON.parse(await env.STATUS.get(STATE_KEY)) ?? null; } catch { return null; }
+}
+
+// The last result the owner was told about, in the shape transition() judges: no record, or a record from before `notified`, counts as told all OK.
+const toldState = prev => ({ probes: [{ ok: (prev?.notified ?? 'ok') !== 'failing' }] });
+
+// One run: probe every path, mail one alert when the result differs from the last one the owner was told about, and store the state once. `notified` moves only after a
+// send succeeds, so a failed send, or a failure seen while ALERT_TO is unset, is alerted by the next run that still finds it. Returns { sent, dark, results }.
 export async function monitor(env, { fetchImpl = fetch, now = new Date() } = {}) {
   const results = await Promise.all(PATHS.map(path => probe(path, fetchImpl)));
-  // one JSON line per probe: the only thing the logs carry (no body, no header, no visitor request)
+  // one JSON line per probe: the logs carry only these (no body, no header, no visitor request)
   for (const r of results) console.log(JSON.stringify({ probe: r.path, status: r.status, ms: r.ms, ok: r.ok, error: r.error }));
-  if (results.every(r => r.ok)) return { sent: false, results };
-  if (!env.ALERT_TO) {
+  const prev = await readState(env);
+  const change = transition(toldState(prev), results);
+  let notified = prev?.notified ?? 'ok', sent = false, dark = false;
+  if (change && !env.ALERT_TO) {
     console.log('alert path dark: ALERT_TO is not set, so nothing was sent');
-    return { sent: false, dark: true, results };
+    dark = true;
+  } else if (change) {
+    const { subject, text } = change === 'failing' ? composeAlert(results, now) : composeRecovery(results, now);
+    try {
+      await env.EMAIL.send({ to: env.ALERT_TO, from: env.ALERT_FROM, subject, text });
+      console.log('alert sent');
+      sent = true;
+      notified = change === 'failing' ? 'failing' : 'ok';
+    } catch (e) {
+      console.log(`alert send failed: ${e?.name ?? 'error'}`);
+    }
   }
-  const { subject, text } = composeAlert(results, now);
-  try {
-    await env.EMAIL.send({ to: env.ALERT_TO, from: env.ALERT_FROM, subject, text });
-    console.log('alert sent');
-    return { sent: true, results };
-  } catch (e) {
-    console.log(`alert send failed: ${e?.name ?? 'error'}`);
-    return { sent: false, results };
+  // one write per run, after the send, so it carries the outcome of the send
+  if (env.STATUS) {
+    try { await env.STATUS.put(STATE_KEY, JSON.stringify(buildState(results, now, notified))); } catch (e) { console.log(`state write failed: ${e?.name ?? 'error'}`); }
   }
+  return { sent, dark, results };
+}
+
+// GET /status.json: the stored state, or a plain line when no stored check result is available yet.
+export async function statusResponse(env) {
+  const state = (await readState(env)) ?? { checked: null, message: 'No stored check result is available yet.' };
+  return new Response(JSON.stringify(state), { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex' } });
+}
+
+const text = (body, status = 200) => new Response(body, { status, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
+const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const TOKEN_SHAPE = /^[0-9a-f]{48}$/;
+
+// /subscribe, switched off by default: while SUBSCRIBE is not "on" both methods answer 404 and the store is not touched. Returns null for any other path.
+// A subscriber is stored under a random token as { email, verified: false, created }; no mail is sent in this build.
+export async function handleSubscription(request, env) {
+  const url = new URL(request.url);
+  if (url.pathname !== '/subscribe') return null;
+  const off = env.SUBSCRIBE !== 'on' || !env.SUBSCRIBERS;
+  if (off) return new Response('not found', { status: 404 });
+  if (request.method === 'POST') {
+    const email = String((await request.formData().catch(() => null))?.get('email') ?? '').trim();
+    if (!EMAIL_SHAPE.test(email)) return text('enter an email address', 400);
+    const token = [...crypto.getRandomValues(new Uint8Array(24))].map(b => b.toString(16).padStart(2, '0')).join('');
+    await env.SUBSCRIBERS.put(token, JSON.stringify({ email, verified: false, created: new Date().toISOString() }));
+    return text('subscribed; no confirmation mail is sent in this build');
+  }
+  if (request.method === 'DELETE') {
+    const token = url.searchParams.get('token') ?? '';
+    if (!TOKEN_SHAPE.test(token)) return text('bad token', 400);
+    await env.SUBSCRIBERS.delete(token);
+    return text('removed');
+  }
+  return new Response('not found', { status: 404 });
 }
 
 export default {
-  fetch: (request, env) => env.ASSETS.fetch(request),
+  fetch: async (request, env) => {
+    if (request.method === 'GET' && new URL(request.url).pathname === '/status.json') return statusResponse(env);
+    return (await handleSubscription(request, env)) ?? env.ASSETS.fetch(request);
+  },
   scheduled: (_event, env, ctx) => ctx.waitUntil(monitor(env)),
 };

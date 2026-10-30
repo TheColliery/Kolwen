@@ -140,6 +140,20 @@
       "title": "Not found — Kolwen"
     }
   },
+  "status": {
+    "title": "Status",
+    "intro": "Kolwen checks its public pages every 15 minutes. The last check is shown here.",
+    "none": "No stored check result is available yet.",
+    "markok": "OK",
+    "markfail": "FAIL",
+    "ok": "The public pages answered as expected at the last check.",
+    "failing": "At least one public page did not answer as expected at the last check.",
+    "unavailable": "The status could not be loaded. Try again later.",
+    "probes": "Pages checked",
+    "meta": {
+      "title": "Status — Kolwen"
+    }
+  },
   "shared": {
     "brand": "Kolwen",
     "header": {

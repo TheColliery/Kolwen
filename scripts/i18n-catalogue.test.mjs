@@ -30,9 +30,9 @@ test('the catalogue is one file per language, en and th at least (a third is che
   for (const f of ['en.json', 'th.json']) assert.ok(Object.keys(files()).includes(f), f + ' is present');
   for (const [name, b] of Object.entries(files())) {
     const top = Object.keys(JSON.parse(b.toString('utf8'))).sort();
-    assert.deepEqual(top, ['home', 'notfound', 'pricing', 'shared'], name + ': keyed by page (home, pricing, notfound) plus shared, never by domain');
+    assert.deepEqual(top, ['home', 'notfound', 'pricing', 'shared', 'status'], name + ': keyed by page (home, pricing, notfound, status) plus shared, never by domain');
   }
-  assert.deepEqual(SITE_PAGES.map(p => p.group), ['home', 'pricing', 'notfound']);
+  assert.deepEqual(SITE_PAGES.map(p => p.group), ['home', 'pricing', 'notfound', 'status']);
   const n = { en: Object.keys(CAT.messages.en).length, th: Object.keys(CAT.messages.th).length };
   assert.equal(n.en, n.th, 'one key set');
   assert.ok(n.en > 100 && n.en < 400, 'keys per file: ' + n.en);
@@ -50,10 +50,10 @@ function usedKeysOfShared() {
   return seen;
 }
 
-test('(a) the three pages are rendered from the templates and the catalogue, and the committed pages are that render, byte for byte', () => {
+test('(a) the four pages are rendered from the templates and the catalogue, and the committed pages are that render, byte for byte', () => {
   const { pages, problems } = renderSitePages({ templates: TEMPLATES, messages: CAT.messages });
   assert.deepEqual(problems, []);
-  assert.deepEqual(Object.keys(pages).sort(), ['web/404.html', 'web/index.html', 'web/pricing.html']);
+  assert.deepEqual(Object.keys(pages).sort(), ['web/404.html', 'web/index.html', 'web/pricing.html', 'web/status.html']);
   for (const [file, html] of Object.entries(pages)) assert.equal(html, read(file), file + ' is the render of its template');
 });
 
@@ -106,7 +106,7 @@ test('(b) the exemption is the empty value and nothing else: a space-only alt an
   assert.ok(strayStrings(page('<button type="button" aria-label="">Go</button>'), MARK).stray.some(s => /aria-label=""/.test(s)));
 });
 
-test('(b) every visible string of the three pages comes from the catalogue: each stretch of text in a value carries a mark, and no visible text or attribute lacks it', () => {
+test('(b) every visible string of the four pages comes from the catalogue: each stretch of text in a value carries a mark, and no visible text or attribute lacks it', () => {
   const MARK = '§';
   // a mark at the end of every stretch of text of a value (the text between its markup tags), so a piece of text the page shows that is not from a value has none
   const mark = v => parseValue(v).map(t => (t.kind === 'text' ? t.text + MARK : `{${t.kind === 'open' ? '#' : '/'}${t.name}}`)).join('');
@@ -320,7 +320,7 @@ test('the render is a pure function of the templates, the catalogue and the shar
 // ── the CLI, against a throwaway copy of the tree ────────────────────────────────────────────────────────────────
 const TREE = ['scripts/legal-pages.mjs', 'scripts/lib/legal-render.mjs', 'scripts/lib/layout-tokens.mjs', 'scripts/lib/legal-page-text.mjs', 'scripts/lib/legal-state.mjs', 'scripts/lib/legal-holds.json', 'scripts/lib/headers-file.mjs', 'scripts/lib/page-sync.mjs', 'scripts/lib/csp-hashes.mjs', 'scripts/lib/page-claims.mjs',
   'scripts/lib/i18n-catalogue.mjs', 'scripts/lib/page-template.mjs', 'scripts/lib/html-tokens.mjs', 'scripts/lib/rendered-text.mjs', 'scripts/lib/web-files.mjs', 'scripts/lib/html-entities.json', 'TERMS.md', 'PRIVACY.md', 'legal/thai-7day-clause.md', 'legal/legal-state.json', 'legal/controller.json', 'scripts/lib/controller-slot.mjs', 'CHANGELOG.md', 'web/_headers',
-  'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html', 'web/index.html', 'web/pricing.html', 'web/404.html', 'web/band-404.svg', 'web/band-home.svg', 'web-src/i18n/en.json', 'web-src/i18n/th.json', ...SITE_PAGES.map(p => p.template)];
+  'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html', 'web/index.html', 'web/pricing.html', 'web/404.html', 'web/status.html', 'web/band-404.svg', 'web/band-home.svg', 'web-src/i18n/en.json', 'web-src/i18n/th.json', ...SITE_PAGES.map(p => p.template)];
 function copyTree() {
   const dir = mkdtempSync(join(tmpdir(), 'i18n-catalogue-'));
   for (const f of TREE) { mkdirSync(dirname(join(dir, f)), { recursive: true }); writeFileSync(join(dir, f), readFileSync(join(ROOT, f))); }
@@ -335,8 +335,8 @@ test('the CLI: --check passes on the committed tree; a hand edit of a generated 
   try {
     const r = run(dir);
     assert.equal(r.status, 0, r.stdout + r.stderr);
-    assert.match(r.stdout, /7 pages match/);
-    for (const f of ['web/index.html', 'web/pricing.html', 'web/404.html']) {
+    assert.match(r.stdout, /8 pages match/);
+    for (const f of ['web/index.html', 'web/pricing.html', 'web/404.html', 'web/status.html']) {
       const before = readFileSync(join(dir, f), 'utf8');
       edit(dir, f, s => s.replace('</main>', '<p>hand edit</p></main>'));
       const bad = run(dir);

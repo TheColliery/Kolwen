@@ -262,7 +262,19 @@ both did—and crawlers indexed nonexistent pages as real ones. Measured again 2
 the live site: `/wp-admin` and `/en/pricing` answer 404, and `/` answers 200.
 
 **This section describes the 404 handling, which the script's `fetch` hands back to the assets
-unchanged; it does not describe the script's scheduled health checks.** The 2026-09-21 measurement
+unchanged, except `/status.json` and `/subscribe`; it does not describe the script's scheduled health checks or the status record.** The 2026-09-21 measurement
 predates `worker/index.mjs`, so the pass-through is not yet measured on the live site. Whoever
 changes the script's `fetch` handler re-reads this section and Cloudflare's current
 `not_found_handling` documentation rather than trusting it.
+
+## The status record and subscriptions
+
+The status record is one object in a Workers KV namespace, bound as `STATUS`. The binding is not in `wrangler.jsonc` yet, so nothing is stored and `/status.json` answers that no stored check result is available yet. The owner or the maintainer creates the namespace first:
+
+```
+npx wrangler kv namespace create STATUS
+```
+
+The `id` it returns then goes into `wrangler.jsonc` as `"kv_namespaces": [{ "binding": "STATUS", "id": "<id>" }]`, in a change that is reviewed like any other. Bind `STATUS` before the `ALERT_TO` secret is set; without the record every failing run is mailed.
+
+Subscriptions are built and switched off. `/subscribe` answers 404 while `SUBSCRIBE` is not `"on"` or the `SUBSCRIBERS` store is not bound, which is the state today. `SUBSCRIBE` stays off until the custody requirements for subscriber addresses are met and the Workers Paid plan is bought.

@@ -1,6 +1,6 @@
 // The language catalogue: web-src/i18n/<bcp47>.json, one file per language, the single home of every string the site's own pages show (build-qc.md C-I18N-17).
 //
-// SHAPE. A file is a JSON object whose top-level keys are the PAGE names (home, pricing, notfound) plus one shared group (the header, the footer, the page note), never a domain: a page that
+// SHAPE. A file is a JSON object whose top-level keys are the PAGE names (home, pricing, notfound, status) plus one shared group (the header, the footer, the page note), never a domain: a page that
 // moves to another domain keeps its strings (design note R1.3). Keys are lowercase ASCII (letters, digits, hyphens), nested as objects; the flat dot-path (`home.hero.title`) is the key the
 // templates and the code read. A value is a whole sentence, never a fragment to be joined: a part of it that needs markup carries MessageFormat 2 markup, `{#hl}verifiable{/hl}`, and the
 // names of the markup (MARKUP below) are the one table that turns them into tags. A value with a variable part would carry a named placeholder `{name}`; no value needs one in step 1, so none is

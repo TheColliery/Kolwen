@@ -87,6 +87,19 @@ test('the composer never includes a value from a response header or body', async
   assert.match(text, /2026-10-30T03:15:00\.000Z/, 'the time is UTC');
 });
 
+test('scheduled hands its monitor run to ctx.waitUntil, and the handed run fetches every probe path', async () => {
+  const realFetch = globalThis.fetch;
+  const asked = [];
+  globalThis.fetch = async url => { asked.push(new URL(url).pathname); return new Response('', { status: 200, headers: HTML }); };
+  try {
+    let handed;
+    worker.scheduled({}, {}, { waitUntil: p => { handed = p; } });
+    assert.ok(handed instanceof Promise, 'the run is handed to ctx.waitUntil');
+    await handed;
+    assert.deepEqual(asked.sort(), [...PATHS].sort(), 'the handed run probed every path');
+  } finally { globalThis.fetch = realFetch; }
+});
+
 test('the fetch handler hands every request to the assets binding unchanged', async () => {
   const req = new Request('https://kolwen.com/nope');
   const env = { ASSETS: { fetch: async r => (r === req ? new Response('404 page', { status: 404 }) : new Response('wrong request')) } };

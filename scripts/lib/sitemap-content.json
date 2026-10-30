@@ -16,7 +16,7 @@
   },
   "https://kolwen.com/privacy": {
     "page": "web/privacy.html",
-    "sha256": "753c91836f55559b90e10e57eb2d4d28ec848743a78fc36fc455aeff7c2f6eb3",
+    "sha256": "dd4e65ff783bd4a3eb17812ed629c9dc384cd5709e0c0edc58999b0e94e77090",
     "lastmod": "2026-10-30"
   },
   "https://kolwen.com/refund": {
@@ -26,7 +26,7 @@
   },
   "https://kolwen.com/changelog": {
     "page": "web/changelog.html",
-    "sha256": "7412d2a5fe5f463fb88dbe196fadf0d888843267284dcf4b243d8a938b13c210",
-    "lastmod": "2026-10-29"
+    "sha256": "18bf283b581a487c5e70872b01acf8bf373c039df6213db79e2dbfe47a80e881",
+    "lastmod": "2026-10-30"
   }
 }
