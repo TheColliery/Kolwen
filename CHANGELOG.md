@@ -206,6 +206,7 @@ the pointer to it.
   design, both marked preliminary until counsel signs them; no drill has run yet.
 - The plan adds playbooks and drill scenarios for AI-enabled attacks, drawn from final published guidance only; it marks the rows that a newer ISO standard on AI security threats may change, and it stays preliminary.
 - The incident-response plan adds a ransomware and destructive-event playbook, the backup copy rule and the separation of the backup plane, a backup inventory and recovery catalog with retention set against erasure, a timed restore drill, an out-of-band channel plan, and a preliminary reading of an encrypted-then-restored store; all of it stays preliminary until counsel signs.
+- The plan asks for two factors on every backup-plane administrator, adds the severity assessment and a clean-data check to the exemption file for restored data, and records that ISO/IEC 27090 is bought when a real-world AI attack needs tracing against it, with MITRE ATLAS and OWASP carrying the patterns until then; all of it stays preliminary until counsel signs.
 - Health checks of the site's six sitemap pages every 15 minutes, with alert mail to the maintainer
   that stays switched off until a verified address is set; visitor requests are not logged.
 - `web/status.html`, a status page that shows the last health check of the six sitemap pages, read
