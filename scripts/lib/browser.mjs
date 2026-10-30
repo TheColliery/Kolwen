@@ -5,9 +5,10 @@
 // (global since Node 22.4) carries the protocol. Zero npm dependencies. The rendered checks (scripts/rendered-check.mjs) use it.
 //
 // EVERY CHILD IS BOUNDED. The browser is started with a V8 heap cap for each renderer (--js-flags=--max-old-space-size) and with a kill timer that stops it whatever it is doing; every protocol
-// command has its own deadline. The native route starts the browser at most twice (startNative): a start that answers nothing on its DevTools port in 15 s while its child is still alive
-// is killed, and the browser is started once more on a fresh port, on the same profile; a child that exits is not retried. The browser's stderr is read, and the last 300 characters of it
-// end a failed start's error line, control characters as spaces. Limit, stated: one retry hides a browser that is slow on one start in 50, but not one that never starts.
+// command has its own deadline. The native route starts the browser at most twice (startNative). Each attempt has a deadline of `tries * stepMs` (15 s at the defaults), shared by its probes:
+// each probe gets only the time left, never more than one second. An attempt that answers nothing by its deadline while its child lives is killed: SIGTERM, then after the settle wait a
+// SIGKILL, and its exit is confirmed for a bounded time before the next start. A child still alive after that fails the start, and no second browser is started on that profile. A child that
+// exits is not retried. The browser's stderr is read, and the latest non-empty tail (the last 300 characters, control characters as spaces) ends a failed start's error line. Limit, stated: one retry hides a browser that is now and then slow to start, but not one that never starts; the stderr tail is what names the cause.
 //
 // THE PAGES TRAVEL BY THE SAME ROUTE AS THE BROWSER. browser.serve(webDir) gives the origin the pages are loaded from. On the native route that is a real HTTP server on 127.0.0.1 (static-server.mjs).
 // On the WSL route nothing listens: a server on Windows 127.0.0.1 is not reachable from the distro (NAT), and the distro has no Node to run one, so the browser is told to ask the DevTools channel
@@ -150,7 +151,7 @@ export function devToolsEndpoint(url, port) {
 }
 
 // What the browser on `port` says about itself, or null while it does not answer.
-const versionOf = port => fetch(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(1000) }).then(r => r.json()).catch(() => null);
+const versionOf = (port, timeoutMs = 1000) => fetch(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(timeoutMs) }).then(r => r.json()).catch(() => null);
 
 // The lock of a profile. Its port is a function of the profile's path (FNV-1a, into 16384 to 32767), so every run on one profile contends for the same port. The lock is a server this process
 // keeps listening: the operating system takes it back when the process ends, however it ends. Resolves to the function that gives it up; a profile that is locked already is "in use by another run".
@@ -356,32 +357,45 @@ const STDERR_KEEP = 2000, SAID_CUT = 300;
 const CONTROL = new RegExp('[' + String.fromCharCode(0) + '-' + String.fromCharCode(0x1f) + String.fromCharCode(0x7f) + '-' + String.fromCharCode(0x9f) + ']+', 'g');
 const saidTail = tail => { const s = tail.slice(-SAID_CUT).replace(CONTROL, ' ').replace(/ +/g, ' ').trim(); return s ? ` (the browser said: ${s})` : ''; };
 
-// The native start (exported so the test can run it on fake children). Each attempt spawns the browser on a fresh port and waits for its DevTools port: `tries` probes, `stepMs`
-// apart. An attempt that answers nothing while its child lives is given up: the child is killed and waited on (at most `settleMs`), and the next attempt starts on a fresh port. A child
-// that exits is not retried (the profile is in use, or the spawn failed). The last attempt that answers nothing fails the start. spawnChild(port) returns the child; its kill timer and
-// cleanup belong to the caller, which stops every child still alive. Returns { endpoint, child }.
-export async function startNative({ spawnChild, freePort: pick = freePort, probeVersion = versionOf, profile = '', attempts = 2, tries = 150, stepMs = 100, settleMs = 5000 } = {}) {
+const PROBE_MS = 1000; // one probe never waits longer than this, whatever time the attempt has left
+const waitFor = async (done, ms, step) => { for (let t = 0; !done() && t < ms; t += step) await wait(step); };
+
+// The native start (exported so the test can run it on fake children). Each attempt spawns the browser on a fresh port and waits for its DevTools port until its deadline,
+// `tries * stepMs`; its probes share that time and each gets only the time left. An attempt that answers nothing while its child lives is given up: the child is killed and its exit
+// confirmed (`settleMs`, then `forceMs` after a SIGKILL) before the next attempt starts on a fresh port. A child that exits is not retried, and a child that will not exit fails the start
+// without a second spawn. The last attempt that answers nothing fails the start. spawnChild(port) returns the child; its kill timer and cleanup belong to the caller, which stops every
+// child still alive. Returns { endpoint, child }.
+export async function startNative({ spawnChild, freePort: pick = freePort, probeVersion = versionOf, profile = '', attempts = 2, tries = 150, stepMs = 100, settleMs = 5000, forceMs = 5000 } = {}) {
+  const deadlineMs = tries * stepMs;
+  let words = ''; // the latest non-empty stderr tail, across the starts
   for (let attempt = 1; ; attempt++) {
     const port = await pick();
     const child = spawnChild(port);
     const seen = { exited: false, error: null, tail: '' };
     child.on('exit', () => { seen.exited = true; });
     child.on('error', e => { seen.error = e; seen.exited = true; });
-    if (child.stderr) child.stderr.on('data', chunk => { seen.tail = (seen.tail + String(chunk)).slice(-STDERR_KEEP); });
+    if (child.stderr) { child.stderr.on('data', chunk => { seen.tail = (seen.tail + String(chunk)).slice(-STDERR_KEEP); }); child.stderr.on('error', () => { /* the tail is a diagnostic: a broken pipe ends it, never the run */ }); }
     let endpoint = null;
-    for (let i = 0; i < tries && !seen.exited; i++) {
-      const version = await probeVersion(port);
+    const started = Date.now();
+    while (!seen.exited && Date.now() - started < deadlineMs) {
+      const remainingMs = Math.max(0, deadlineMs - (Date.now() - started));
+      const version = await probeVersion(port, Math.min(PROBE_MS, remainingMs));
       if (version) { endpoint = devToolsEndpoint(version.webSocketDebuggerUrl, port); break; }
-      await wait(stepMs);
+      await wait(Math.min(stepMs, Math.max(0, deadlineMs - (Date.now() - started))));
     }
-    const said = saidTail(seen.tail);
+    if (saidTail(seen.tail)) words = seen.tail; // a later start that says nothing does not erase the words of an earlier one
+    const said = saidTail(words);
     if (seen.error) throw new Error(`the browser could not be started (${seen.error.code ?? seen.error.message})${said}`);
     if (endpoint) return { endpoint, child };
     // a second Chromium started on a profile that is open hands over to the first and exits at once: that is the same "in use" as the lock, seen from the other side of a race
     if (seen.exited) throw new Error(`the browser profile ${profile} is in use by another run, or the browser exited before it answered on its DevTools port${said}`);
     if (attempt >= attempts) throw new Error(`the browser answered nothing on its DevTools port in ${Math.round(tries * stepMs / 1000)} s, on both of ${attempts} starts${said}`);
     child.kill();
-    for (let i = 0; i < settleMs / stepMs && !seen.exited; i++) await wait(stepMs);
+    await waitFor(() => seen.exited, settleMs, stepMs);
+    // the forced step: SIGKILL on POSIX; on Windows child.kill() already terminates, so this is the same call there
+    if (!seen.exited) child.kill('SIGKILL');
+    await waitFor(() => seen.exited, forceMs, stepMs);
+    if (!seen.exited) throw new Error(`the browser on port ${port} did not exit after a forced kill, so no second start was made on its profile${said}`);
   }
 }
 
