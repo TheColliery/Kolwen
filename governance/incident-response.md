@@ -317,7 +317,7 @@ Recovery starts when the incident lead says so, on stated criteria, and checks: 
 | Cursor, "Security notice — malicious version of Anthropic.claude-code (2.1.312 and 2.1.313) identified in the Cursor VS Code Extension Marketplace" | 29 October 2026, updated 30 October 2026 | https://cursor.com/blog/claude-code-extension-security-notice |
 | Codecov, security update on its Bash Uploader | 15 April 2021 | https://about.codecov.io/security-update/ |
 | CISA, alert on the supply chain compromise of the npm ecosystem | 23 September 2025 | https://www.cisa.gov/news-events/alerts/2025/09/23/widespread-supply-chain-compromise-impacting-npm-ecosystem |
-| Regulation (EU) 2024/2847 (Cyber Resilience Act) | Official Journal L, 20 November 2024; reporting obligations apply from 11 September 2026 | the Official Journal text |
+| Regulation (EU) 2024/2847 (Cyber Resilience Act) | Official Journal L, 20 November 2024; reporting obligations apply from 11 September 2026 | the Official Journal text (URL not yet recorded); the dates of application as the Commission's page gives them, https://digital-strategy.ec.europa.eu/en/policies/cyber-resilience-act |
 
 International standards and guides come first; Thai law is the local layer on top. The Thai notice is quoted in the section where it applies; its text was read in the Gazette's own pages.
 
