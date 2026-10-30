@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 // Renders web/terms.html, web/privacy.html and web/refund.html from TERMS.md, PRIVACY.md and legal/thai-7day-clause.md, and
-// web/changelog.html from the repository's own CHANGELOG.md (every passage shown as written, no hold), and web/index.html, web/pricing.html and web/404.html from their templates
-// (web-src/pages/<home|pricing|notfound>.html) and the language catalogue (web-src/i18n/<bcp47>.json), and checks they are the committed pages: all seven pages are generated and none has a part
+// web/changelog.html from the repository's own CHANGELOG.md (every passage shown as written, no hold), and web/index.html, web/pricing.html, web/404.html and web/status.html from their templates
+// (web-src/pages/<home|pricing|notfound|status>.html) and the language catalogue (web-src/i18n/<bcp47>.json), and checks they are the committed pages: all eight pages are generated and none has a part
 // kept by hand (build-qc.md C-FMT-02). It also owns the SHARED BLOCKS: the header and its CSS, the footer of each language and its CSS, the rules for a reader without script and
 // the page script (the marker pairs of SYNC_BLOCKS, the link to the font manifest first and the layout tokens second) are written once in scripts/lib/legal-render.mjs (SYNC_BLOCKS) and come into every page between fixed markers, so one
-// edit reaches all seven pages in one run. It keeps the style-src and script-src hashes of web/_headers in step with the pages' inline <style> and <script> blocks, and the <style> of every SVG under web/ (an SVG is a document the policy governs), with the one hash routine
+// edit reaches all eight pages in one run. It keeps the style-src and script-src hashes of web/_headers in step with the pages' inline <style> and <script> blocks, and the <style> of every SVG under web/ (an SVG is a document the policy governs), with the one hash routine
 // surface-check uses (scripts/lib/csp-hashes.mjs), so a footer CSS edit needs no hand-typed hash. And it judges the catalogue and the templates (scripts/lib/i18n-catalogue.mjs,
 // scripts/lib/page-template.mjs): a visible string that is not a catalogue slot, a key present in one language and absent in another, a bad BCP 47 tag, a split sara am, a plain space before the
 // Thai repetition mark, joined keys.
 //
-//   node scripts/legal-pages.mjs --write    render the seven pages into web/ (the default) and update the style-src and script-src hashes in web/_headers (never a -elem directive). A catalogue,
+//   node scripts/legal-pages.mjs --write    render the eight pages into web/ (the default) and update the style-src and script-src hashes in web/_headers (never a -elem directive). A catalogue,
 //                                           template or marker problem makes it refuse: exit 1, loud, nothing written anywhere.
 //   node scripts/legal-pages.mjs --check    render in memory; exit 1 with a named difference if a committed page differs, or if the catalogue or a template has a problem, or
 //                                           web/pricing.html does not carry the same style block, a shared block of a site page differs from the shared one or has a marker missing,

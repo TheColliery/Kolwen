@@ -21,8 +21,10 @@ import { makeResponder } from './lib/static-server.mjs';
 import { reportField } from './lib/report-field.mjs';
 import { renderedChecks, urlPathOf } from './rendered-check.mjs';
 import * as checkLib from './rendered-check.mjs'; // classifyLogs
+import { htmlPages } from './lib/web-files.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const PAGE_COUNT = htmlPages(join(ROOT, 'web')).length; // the pages renderedChecks walks: the same list, never a typed number
 const CI = process.env.CI === 'true';
 const route = findRoute();
 const USABLE = route.kind === 'native' || route.kind === 'wsl';
@@ -58,7 +60,7 @@ test('the built pages pass all three checks, in both languages, under their real
   const { failures, measured } = await run(join(ROOT, 'web'), ['reflow', 'zoom', 'csp'], true);
   assert.deepEqual(failures, []);
   const pages = new Set(measured.map(m => m.page));
-  assert.ok(pages.size >= 7, 'every page was measured: ' + pages.size);
+  assert.equal(pages.size, PAGE_COUNT, 'every page was measured: ' + pages.size);
   assert.equal(measured.filter(m => m.check === 'reflow').length, pages.size * 2, 'one reflow measurement per page and language');
   for (const m of measured.filter(m => m.check === 'zoom')) {
     assert.equal(m.rootPx, 32, `${m.page} [${m.lang}] was measured at a root font size of 200% of 16 px`);
@@ -146,10 +148,10 @@ test('a Permissions-Policy message alone does not fail the csp check and is repo
   assert.deepEqual(r.failures, [], 'no csp failure for a Permissions-Policy message: ' + JSON.stringify(r.failures));
   // only the planted name is counted: the runner's Chrome also reports the real _headers features it does not know ('bluetooth', 'web-share'), so a page carries more notes than the planted one
   const mine = r.notes.filter(n => /Unrecognized feature: 'kolwen-no-such-feature'/.test(n.text));
-  assert.equal(mine.length, 14, 'one note for the planted name per page and language (7 pages x 2): ' + mine.length);
+  assert.equal(mine.length, PAGE_COUNT * 2, 'one note for the planted name per page and language (' + PAGE_COUNT + ' pages x 2): ' + mine.length);
   assert.ok(mine.every(n => n.kind === 'permissions-policy'), JSON.stringify(mine[0]));
   const csp = r.measured.filter(m => m.check === 'csp');
-  assert.equal(csp.length, 14, 'a csp measurement for every page and language');
+  assert.equal(csp.length, PAGE_COUNT * 2, 'a csp measurement for every page and language');
   assert.ok(csp.every(m => m.violations === 0 && m.notes >= 1), JSON.stringify(csp.find(m => m.violations !== 0 || m.notes < 1)));
   const both = copyWeb(w => { planted(w); editPage(w, 'index.html', h => h.replace('</head>', '<style>body{outline:0}</style></head>')); });
   const hit = where((await run(both, ['csp'], true)).failures, 'index.html', 'csp');
@@ -656,7 +658,7 @@ test('the jar check: a cookie from outside the served origin fails the run, in t
   const wrapped = { ...browser, newPage: async () => { const p = await browser.newPage(), real = p.cookies; return Object.assign(p, { cookies: async () => [...(await real()), { name: 'kwctxbad', domain: '.bing.com' }] }); } };
   const r2 = await renderedChecks({ webDir: copyWeb(), browser: wrapped, checks: ['reflow'], headers: false });
   const pages = r2.failures.filter(f => f.check === 'cookies');
-  assert.equal(pages.length, 14, 'one per page and language (7 x 2): ' + pages.length);
+  assert.equal(pages.length, PAGE_COUNT * 2, 'one per page and language (' + PAGE_COUNT + ' x 2): ' + pages.length);
   assert.ok(pages.every(f => f.detail === '1 cookie(s) outside the served 127.0.0.1 origin in the browser context of this page: .bing.com (kwctxbad)'), pages[0].detail);
 });
 
@@ -749,7 +751,7 @@ test('findRoute on Windows: only the WSL route; the distro must exist AND the he
     assert.ok(r.why.startsWith(`KOLWEN_BROWSER names ${JSON.stringify(named)}, which`), 'the value is quoted: ' + r.why);
   }
   // PR #62: the value of KOLWEN_BROWSER is written into a one-line report, so a line break in it never reaches the report raw
-  const forgedBrowser = 'wsl' + String.fromCharCode(10) + 'rendered-check passed: 7 page(s) x 2 languages';
+  const forgedBrowser = 'wsl' + String.fromCharCode(10) + 'rendered-check passed: 8 page(s) x 2 languages';
   const forgedRoute = findRoute({ [BROWSER_ENV]: forgedBrowser }, 'win32', { scriptsDir: SCRIPTS_ON_C, run: fakeWsl() });
   assert.equal(forgedRoute.kind, 'refused');
   assert.equal(forgedRoute.why.split('\n').length, 1, 'one line: ' + JSON.stringify(forgedRoute.why));
@@ -1178,7 +1180,7 @@ test('KOLWEN_FONT_HINTING: the script reads it, takes only none, slight, medium 
   // character raw. The value is quoted and its CR, LF, C0, DEL, C1, U+2028 and U+2029 are escaped; a clean value still reads as before (inside quotes).
   const F = String.fromCharCode;
   const CONTROL = new RegExp('[' + F(0) + '-' + F(0x1f) + F(0x7f) + '-' + F(0x9f) + F(0x2028, 0x2029) + ']'); // C0, DEL, C1 and the two line separators, built from code points
-  const forged = 'x' + F(10) + 'rendered-check passed: 7 page(s) x 2 languages (88 measurements) in WSL Ubuntu, font hinting none';
+  const forged = 'x' + F(10) + 'rendered-check passed: 8 page(s) x 2 languages (96 measurements) in WSL Ubuntu, font hinting none';
   for (const [label, bad] of [['LF', forged], ['CR', 'x' + F(13) + 'y'], ['CRLF', 'x' + F(13, 10) + 'y'], ['NUL', 'x' + F(0) + 'y'], ['ESC', 'x' + F(27) + '[2Ky'], ['DEL', 'x' + F(0x7f) + 'y'], ['C1 NEL', 'x' + F(0x85) + 'y'], ['U+2028', 'x' + F(0x2028) + 'y'], ['U+2029', 'x' + F(0x2029) + 'y'], ['lone surrogate', 'x' + F(0xd800) + 'y']]) {
     const why = wslLib.fontHinting({ KOLWEN_FONT_HINTING: bad }).why;
     assert.ok(why && !CONTROL.test(why), label + ': no raw control character in ' + JSON.stringify(why));
