@@ -75,8 +75,16 @@ test('(d) the stderr tail reaches a failed start as one line with the browser\'s
 test('(f) a probe that takes its whole timeout on every call ends each attempt by the deadline, not after tries probes; each timeout it is given is within the deadline', async () => {
   const h = harness();
   const given = [];
-  const slowProbe = (port, timeoutMs) => { given.push(timeoutMs); return new Promise(r => setTimeout(() => r(null), Math.max(0, timeoutMs))); };
-  await assert.rejects(startNative({ ...h.opts, probeVersion: slowProbe }));
+  // a controlled clock: each probe takes 5 ms of it, past the 3 ms deadline, so every attempt makes exactly one probe whatever the scheduler does
+  const realNow = Date.now;
+  let clock = 1000;
+  Date.now = () => clock;
+  const slowProbe = (port, timeoutMs) => { given.push(timeoutMs); clock += 5; return Promise.resolve(null); };
+  try {
+    await assert.rejects(startNative({ ...h.opts, probeVersion: slowProbe }));
+  } finally {
+    Date.now = realNow;
+  }
   assert.equal(given.length, 2, 'one probe per attempt: the first probe uses up the 3 ms deadline, so tries (3 per attempt) is not reached: ' + given.length);
   assert.ok(given.every(t => t >= 0 && t <= 3), 'every timeout is between 0 and the 3 ms deadline: ' + JSON.stringify(given));
 });
