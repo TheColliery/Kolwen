@@ -5,7 +5,9 @@
 // (global since Node 22.4) carries the protocol. Zero npm dependencies. The rendered checks (scripts/rendered-check.mjs) use it.
 //
 // EVERY CHILD IS BOUNDED. The browser is started with a V8 heap cap for each renderer (--js-flags=--max-old-space-size) and with a kill timer that stops it whatever it is doing; every protocol
-// command has its own deadline.
+// command has its own deadline. The native route starts the browser at most twice (startNative): a start that answers nothing on its DevTools port in 15 s while its child is still alive
+// is killed, and the browser is started once more on a fresh port, on the same profile; a child that exits is not retried. The browser's stderr is read, and the last 300 characters of it
+// end a failed start's error line, control characters as spaces. Limit, stated: one retry hides a browser that is slow on one start in 50, but not one that never starts.
 //
 // THE PAGES TRAVEL BY THE SAME ROUTE AS THE BROWSER. browser.serve(webDir) gives the origin the pages are loaded from. On the native route that is a real HTTP server on 127.0.0.1 (static-server.mjs).
 // On the WSL route nothing listens: a server on Windows 127.0.0.1 is not reachable from the distro (NAT), and the distro has no Node to run one, so the browser is told to ask the DevTools channel
@@ -349,40 +351,72 @@ export async function launchBrowser({ route, binary, lifetimeMs = 300000, comman
   return launchNative(r.binary, { lifetimeMs, commandTimeoutMs, ci });
 }
 
+// The browser's own words, for a failed start's line: the last 300 characters of what it wrote to stderr, every control character a space, runs of spaces made one. Nothing said, nothing added.
+const STDERR_KEEP = 2000, SAID_CUT = 300;
+const CONTROL = new RegExp('[' + String.fromCharCode(0) + '-' + String.fromCharCode(0x1f) + String.fromCharCode(0x7f) + '-' + String.fromCharCode(0x9f) + ']+', 'g');
+const saidTail = tail => { const s = tail.slice(-SAID_CUT).replace(CONTROL, ' ').replace(/ +/g, ' ').trim(); return s ? ` (the browser said: ${s})` : ''; };
+
+// The native start (exported so the test can run it on fake children). Each attempt spawns the browser on a fresh port and waits for its DevTools port: `tries` probes, `stepMs`
+// apart. An attempt that answers nothing while its child lives is given up: the child is killed and waited on (at most `settleMs`), and the next attempt starts on a fresh port. A child
+// that exits is not retried (the profile is in use, or the spawn failed). The last attempt that answers nothing fails the start. spawnChild(port) returns the child; its kill timer and
+// cleanup belong to the caller, which stops every child still alive. Returns { endpoint, child }.
+export async function startNative({ spawnChild, freePort: pick = freePort, probeVersion = versionOf, profile = '', attempts = 2, tries = 150, stepMs = 100, settleMs = 5000 } = {}) {
+  for (let attempt = 1; ; attempt++) {
+    const port = await pick();
+    const child = spawnChild(port);
+    const seen = { exited: false, error: null, tail: '' };
+    child.on('exit', () => { seen.exited = true; });
+    child.on('error', e => { seen.error = e; seen.exited = true; });
+    if (child.stderr) child.stderr.on('data', chunk => { seen.tail = (seen.tail + String(chunk)).slice(-STDERR_KEEP); });
+    let endpoint = null;
+    for (let i = 0; i < tries && !seen.exited; i++) {
+      const version = await probeVersion(port);
+      if (version) { endpoint = devToolsEndpoint(version.webSocketDebuggerUrl, port); break; }
+      await wait(stepMs);
+    }
+    const said = saidTail(seen.tail);
+    if (seen.error) throw new Error(`the browser could not be started (${seen.error.code ?? seen.error.message})${said}`);
+    if (endpoint) return { endpoint, child };
+    // a second Chromium started on a profile that is open hands over to the first and exits at once: that is the same "in use" as the lock, seen from the other side of a race
+    if (seen.exited) throw new Error(`the browser profile ${profile} is in use by another run, or the browser exited before it answered on its DevTools port${said}`);
+    if (attempt >= attempts) throw new Error(`the browser answered nothing on its DevTools port in ${Math.round(tries * stepMs / 1000)} s, on both of ${attempts} starts${said}`);
+    child.kill();
+    for (let i = 0; i < settleMs / stepMs && !seen.exited; i++) await wait(stepMs);
+  }
+}
+
 // The native route: the one profile, its lock, a child process of this script.
 async function launchNative(binary, { lifetimeMs, commandTimeoutMs, ci }) {
   const profile = profilePath();
   prepareProfile(profile); // before anything is started: a link, or a folder this code did not make, is refused here
   const release = await lockProfile(profile); // before anything is started: a profile that another run has open fails here, in one line
-  let child = null, exited = false, killer = null, spawnError = null;
+  const children = []; // every child this run started: each has its own kill timer, and the cleanup stops whichever is still alive
   const cleanup = async () => {
-    clearTimeout(killer);
-    if (child && !exited) child.kill();
-    for (let i = 0; i < 50 && child && !exited; i++) await wait(100); // let the browser be gone before the profile is given up for the next run
+    for (const c of children) clearTimeout(c.killer);
+    for (const c of children) if (!c.exited) c.child.kill();
+    for (let i = 0; i < 50 && children.some(c => !c.exited); i++) await wait(100); // let the browser be gone before the profile is given up for the next run
     await release();
   };
-  try {
-    const port = await freePort();
+  const spawnChild = port => {
     const args = ['--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, ...COMMON_ARGS,
       '--disable-features=msImplicitSignin', // Edge signs the computer's Microsoft account in by itself at start without it (see NO SIGN-IN above); Chrome and Chromium ignore the name
       ...(ci ? ['--no-sandbox'] : []), 'about:blank'];
     // the browser's own HOME and TEMP are the profile, so what it writes outside --user-data-dir lands in the one folder, not in the user's
     const env = { ...process.env, HOME: profile, TEMP: profile, TMP: profile, TMPDIR: profile, XDG_CONFIG_HOME: profile, XDG_CACHE_HOME: profile };
-    child = spawn(binary, args, { stdio: 'ignore', windowsHide: true, env });
-    child.on('exit', () => { exited = true; });
-    child.on('error', e => { spawnError = e; exited = true; });
-    killer = setTimeout(() => { if (!exited) child.kill(); }, lifetimeMs);
-    killer.unref();
-    let endpoint = null;
-    for (let i = 0; i < 150 && !exited; i++) {
-      const version = await versionOf(port);
-      if (version) { endpoint = devToolsEndpoint(version.webSocketDebuggerUrl, port); break; }
-      await wait(100);
-    }
-    if (spawnError) throw new Error(`the browser could not be started (${spawnError.code ?? spawnError.message})`);
-    // a second Chromium started on a profile that is open hands over to the first and exits at once: that is the same "in use" as the lock, seen from the other side of a race
-    if (!endpoint) throw new Error(exited ? `the browser profile ${profile} is in use by another run, or the browser exited before it answered on its DevTools port` : 'the browser answered nothing on its DevTools port in 15 s');
-    return { ...(await drive({ endpoint, profile, label: binary, commandTimeoutMs, isExited: () => exited, cleanup, channel: false })), binary };
+    // stdout is ignored; stderr is read, so the browser's own words can reach a failed start's line (startNative)
+    const child = spawn(binary, args, { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true, env });
+    const c = { child, exited: false, killer: null };
+    c.killer = setTimeout(() => { if (!c.exited) child.kill(); }, lifetimeMs);
+    c.killer.unref();
+    child.on('exit', () => { c.exited = true; });
+    child.on('error', () => { c.exited = true; });
+    children.push(c);
+    return child;
+  };
+  try {
+    const { endpoint, child } = await startNative({ spawnChild, profile });
+    const live = children.find(c => c.child === child);
+    return { ...(await drive({ endpoint, profile, label: binary, commandTimeoutMs, isExited: () => live.exited, cleanup, channel: false })), binary };
   } catch (e) { await cleanup(); throw e; }
 }
 
