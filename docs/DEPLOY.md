@@ -269,12 +269,6 @@ changes the script's `fetch` handler re-reads this section and Cloudflare's curr
 
 ## The status record and subscriptions
 
-The status record is one object in a Workers KV namespace, bound as `STATUS`. The binding is not in `wrangler.jsonc` yet, so nothing is stored and `/status.json` answers that no stored check result is available yet. The owner or the maintainer creates the namespace first:
-
-```
-npx wrangler kv namespace create STATUS
-```
-
-The `id` it returns then goes into `wrangler.jsonc` as `"kv_namespaces": [{ "binding": "STATUS", "id": "<id>" }]`, in a change that is reviewed like any other. Bind `STATUS` before the `ALERT_TO` secret is set; without the record every failing run is mailed.
+The status record is one object in a Workers KV namespace, bound as `STATUS` in `wrangler.jsonc`. The maintainer created the namespace through the Cloudflare API; its id is public, because it is useless without an account token. The scheduled run writes the record, and `/status.json` serves the stored result after the first scheduled run; until then it answers that no stored check result is available yet. `STATUS` is bound before the `ALERT_TO` secret is set, because without the record every failing run is mailed. `STATUS` is bound now and `ALERT_TO` is still unset, so no alert is sent.
 
 Subscriptions are built and switched off. `/subscribe` answers 404 while `SUBSCRIBE` is not `"on"` or the `SUBSCRIBERS` store is not bound, which is the state today. `SUBSCRIBE` stays off until the custody requirements for subscriber addresses are met and the Workers Paid plan is bought.

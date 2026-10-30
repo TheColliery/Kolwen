@@ -9,7 +9,7 @@
 ## Today
 
 **Assets:** one public GitHub repository · one Cloudflare Worker serving static pages at
-kolwen.com, with one script that checks those pages every 15 minutes and answers `/status.json` from a status record (its KV namespace is not yet created) · reserved package names on PyPI and npm · the brand assets, all generated from one
+kolwen.com, with one script that checks those pages every 15 minutes and answers `/status.json` from a status record (its KV namespace is created and bound) · reserved package names on PyPI and npm · the brand assets, all generated from one
 script · a filed Thai trade-mark application (the number is held privately).
 
 **No customer data of any kind exists.** No accounts, no database, no conversation store.
