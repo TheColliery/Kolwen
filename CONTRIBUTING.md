@@ -70,7 +70,7 @@ The repository also ships a `pre-commit` and a `pre-push` hook in `.githooks/` t
 ## Supported platforms
 
 Nothing is downloadable yet, so there is no runtime platform claim to make. The site is a
-Cloudflare Worker serving static assets; the tooling is Node 22+ on any OS. When the model ships,
+Cloudflare Worker serving static assets and running one small script; the tooling is Node 22+ on any OS. When the model ships,
 the README's own compatibility statement is the one that binds—do not restate a different claim
 here.
 

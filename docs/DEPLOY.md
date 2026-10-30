@@ -1,7 +1,7 @@
 # Deploying kolwen.com
 
-The site is a Cloudflare Worker that serves static assets. There is no build step and no bundler:
-`wrangler.jsonc` binds the `web/` directory and that is the whole application. `package.json`
+The site is a Cloudflare Worker that serves static assets and runs one small script. There is no build step and no bundler:
+`wrangler.jsonc` binds the `web/` directory, the script in `worker/index.mjs`, a Cron Trigger, the `send_email` binding and one variable, and that is the whole application. `package.json`
 exists to pin the Wrangler version and, for one advisory, to override a transitive
 `undici` version (see "Wrangler is pinned" below); it declares no runtime dependency.
 
@@ -56,8 +56,10 @@ built from the branch. The URL has the shape `<preview-name>-kolwen.<subdomain>.
 
 - **Previews are public, with no access gate.** Owner ruling, 2026-09-23: there is no Cloudflare
   Access in front of them, so anyone holding a preview URL can load it. What they load is the
-  same static files, from the branch. The Worker has no binding, variable or secret, so a preview
-  reaches nothing that is not already on the public page. A binding is added to `wrangler.jsonc`
+  same static files, from the branch. The Worker's bindings are `ASSETS`, `EMAIL` and the `ALERT_FROM`
+  variable, and its `ALERT_TO` secret is set outside the tree; the Cloudflare pages read on 2026-10-30
+  do not say whether a preview runs the Cron Trigger or receives these settings, so the preview's
+  reach beyond the public page is not established. A binding is added to `wrangler.jsonc`
   only after that is checked again, because a preview's service binding calls the bound Worker's
   *production* deployment.
 - **Observed live, in part.** A preview of this branch was measured on 2026-09-25; the
@@ -168,8 +170,8 @@ only on a push touching `web/`, `wrangler.jsonc` or the checker, and a bump touc
 ### Dependency overrides
 
 `package.json` has an `overrides` block with one entry. The package reaches the Worker's build tooling
-only through Wrangler's `miniflare`, and it is a development dependency: the Worker is static assets
-with no script, so nothing it deploys loads it. The entry comes out once the pin it works around is fixed.
+only through Wrangler's `miniflare`, and it is a development dependency: the deployed code is static
+assets and `worker/index.mjs`, which imports nothing from the package, so nothing it deploys loads it. The entry comes out once the pin it works around is fixed.
 
 | Package | Overridden to | Advisories closed | Removal condition |
 |---|---|---|---|
@@ -259,6 +261,8 @@ with the home page for every wrong URL—measured 2026-09-03, when `/wp-admin` a
 both did—and crawlers indexed nonexistent pages as real ones. Measured again 2026-09-21 against
 the live site: `/wp-admin` and `/en/pricing` answer 404, and `/` answers 200.
 
-**This section describes a Worker with no script.** Whoever adds `/chat` gives this Worker a
-script, and re-reads this section and Cloudflare's current `not_found_handling` documentation
-rather than trusting it.
+**This section describes the 404 handling, which the script's `fetch` hands back to the assets
+unchanged; it does not describe the script's scheduled health checks.** The 2026-09-21 measurement
+predates `worker/index.mjs`, so the pass-through is not yet measured on the live site. Whoever
+changes the script's `fetch` handler re-reads this section and Cloudflare's current
+`not_found_handling` documentation rather than trusting it.
