@@ -12,16 +12,23 @@ const read = f => readFileSync(join(ROOT, f), 'utf8');
 const NOINDEX = /<meta name="robots" content="noindex">/;
 
 // Every spelling a link can take: any quotes or none, any case, a trailing slash, .html, the full origin, a query or a fragment,
-// a character reference in the value (decoded as the browser decodes an attribute value), and a relative path (resolved as the
-// browser resolves it, against a page of the site). Each href is resolved to a path before it is compared.
+// a character reference in the value (decoded as the browser decodes an attribute value; an unknown named reference is kept as
+// written), a percent-encoded path (decoded before it is compared), and a relative path (resolved as the browser resolves it,
+// against a page of the site). Each href is resolved to a path before it is compared.
 const LINK_HREF = /\shref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/gi;
 const SITE = 'https://kolwen.com/index.html';
-const hrefsIn = text => [...text.matchAll(LINK_HREF)].map(m => decodeAttribute(m[1] ?? m[2] ?? m[3]));
+// decodeAttribute throws on a named reference it does not know, so such a reference is held back as text and comes out as written.
+const decodeHref = s => decodeAttribute(s.replace(/&([a-z][a-z0-9]*);/gi, (m, name) => {
+  try { decodeAttribute(m); return m; } catch { return '&amp;' + name + ';'; }
+}));
+const hrefsIn = text => [...text.matchAll(LINK_HREF)].map(m => decodeHref(m[1] ?? m[2] ?? m[3]));
 const resolvesTo = (href, target, base = SITE) => {
   let u;
   try { u = new URL(href.trim(), base); } catch { return false; }
   if (u.hostname !== 'kolwen.com' && u.hostname !== 'www.kolwen.com') return false;
-  return u.pathname.replace(/\/+$/, '').replace(/\.html$/i, '').toLowerCase() === target;
+  let path;
+  try { path = decodeURIComponent(u.pathname); } catch { return false; }
+  return path.replace(/\/+$/, '').replace(/\.html$/i, '').toLowerCase() === target;
 };
 const linksTo = (text, target) => hrefsIn(text).filter(h => resolvesTo(h, target));
 
@@ -55,6 +62,17 @@ test('the no-link check decodes character references in an href and resolves a r
   assert.deepEqual(missed.filter(s => linksTo(s, '/subprocessors').length !== 1), [], 'spellings of a link to the page that the check misses');
   const passed = ['<a href="../subprocessors-old">x</a>', '<a href="&#x2f;subprocessors-old">x</a>'];
   assert.deepEqual(passed.filter(s => linksTo(s, '/subprocessors').length !== 0), [], 'spellings that do not link to the page that the check reports');
+});
+
+test('the no-link check keeps an unknown reference as written and decodes the path before it compares', () => {
+  // an unrelated href with an unknown named reference is no link to the page, and the check does not fail on it
+  const unrelated = '<a href="https://example.com/?x=1&campaign;">x</a>';
+  assert.doesNotThrow(() => linksTo(unrelated, '/subprocessors'));
+  assert.deepEqual(linksTo(unrelated, '/subprocessors'), []);
+  // a percent-encoded path is the path it encodes
+  assert.equal(linksTo('<a href="/sub%70rocessors">x</a>', '/subprocessors').length, 1);
+  // a malformed escape is not a match, and is not an error
+  assert.deepEqual(linksTo('<a href="/%E0%A4%A">x</a>', '/subprocessors'), []);
 });
 
 test('the subprocessor page is read as prose, and loads nothing from another origin', () => {
