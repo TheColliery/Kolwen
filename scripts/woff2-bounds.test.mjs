@@ -14,6 +14,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const READER = pathToFileURL(join(ROOT, 'scripts', 'lib', 'woff2-cmap.mjs')).href;
 const TAG_INDEX = { cmap: 0, name: 5 }; // WOFF2 section 5.1: the known-table index of each tag used here
 const HEAP_MB = 256, KILL_MS = 30000;
+const sandboxEnv = dir => ({ HOME: dir, USERPROFILE: dir, TEMP: dir, TMP: dir, TMPDIR: dir });
 
 // A UIntBase128 (WOFF2 section 6.1): big-endian groups of seven bits, the high bit set on every byte but the last.
 function uint128(n) {
@@ -75,7 +76,7 @@ const b = readFileSync(process.env.KW_FONT);
 try { const r = ${call}; console.log('OK ' + (r instanceof Set ? r.size : r.length)); }
 catch (e) { console.log('ERR ' + String(e.message).split(/[\\r\\n]/)[0]); process.exitCode = 3; }
 `);
-    return spawnSync(process.execPath, [`--max-old-space-size=${HEAP_MB}`, script], { env: { ...process.env, KW_FONT: file }, encoding: 'utf8', timeout: KILL_MS, killSignal: 'SIGKILL' });
+    return spawnSync(process.execPath, [`--max-old-space-size=${HEAP_MB}`, script], { env: { ...process.env, KW_FONT: file, ...sandboxEnv(dir) }, encoding: 'utf8', timeout: KILL_MS, killSignal: 'SIGKILL' });
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 
@@ -129,4 +130,16 @@ test('F-1 a font that declares a table past the fixed ceiling is refused before 
 test('(c) an odd-length UTF-16 name record is refused with one line, not a generic RangeError', () => {
   const font = woff2({ tables: [{ tag: 'name', data: nameWithRecords(1, 3) }] });
   refuses('m.woff2Names(b)', font, /^ERR woff2: a UTF-16 name record has an odd length \(3\)/, 'a 3-byte UTF-16 record');
+});
+
+test('CR-1 many encoding records pointing at a format 4 subtable of reversed segments are refused with one line', () => {
+  // one reversed segment (start 0x20 after end 0x10) under 2000 encoding records that all point at it: the reader adds no visits for a reversed segment, so nothing bounds the records
+  const records = 2000, sub = Buffer.alloc(24);
+  sub.writeUInt16BE(4, 0); sub.writeUInt16BE(24, 2); sub.writeUInt16BE(2, 6); // format 4, length 24, segCountX2 2: one segment
+  sub.writeUInt16BE(0x10, 14); sub.writeUInt16BE(0x20, 18); sub.writeUInt16BE(0, 20); sub.writeUInt16BE(0, 22); // endCode, startCode, idDelta, idRangeOffset
+  const head = Buffer.alloc(4 + 8 * records);
+  head.writeUInt16BE(0, 0); head.writeUInt16BE(records, 2);
+  for (let i = 0; i < records; i++) { const r = 4 + i * 8; head.writeUInt16BE(3, r); head.writeUInt16BE(1, r + 2); head.writeUInt32BE(head.length, r + 4); }
+  const font = woff2({ tables: [{ tag: 'cmap', data: Buffer.concat([head, sub]) }] });
+  refuses('m.woff2Cmap(b)', font, /^ERR woff2: a format 4 cmap segment runs backwards/, 'reversed segments under many records');
 });

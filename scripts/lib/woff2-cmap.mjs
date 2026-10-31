@@ -73,7 +73,8 @@ export function woff2Cmap(buf) {
       const end = off + 14, start = end + segs * 2 + 2, delta = start + segs * 2, range = delta + segs * 2;
       for (let s = 0; s < segs; s++) {
         const e = t.readUInt16BE(end + s * 2), b = t.readUInt16BE(start + s * 2), d = t.readUInt16BE(delta + s * 2), r = t.readUInt16BE(range + s * 2);
-        visit(Math.max(0, e - b + 1));
+        if (b > e) fail('a format 4 cmap segment runs backwards');
+        visit(e - b + 1);
         for (let c = b; c <= e && c !== 0xffff; c++) {
           let gid;
           if (r === 0) gid = (c + d) & 0xffff;

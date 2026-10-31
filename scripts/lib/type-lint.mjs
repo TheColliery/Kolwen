@@ -61,8 +61,9 @@ const EXPAND_MAX = 1 << 16;
 const CUT_MARK = '(a cut expansion)'; // not a name: marks an expansion the bound cut
 const CUT_WHY = 'a custom-property expansion passed 65536 characters and was cut';
 const memos = new WeakMap();
+const MEMO_MAX = 1 << 22; // the characters the memo keeps across names: past it a name is stored as its cut, so the memo's size stays bounded (CR-2)
 function expand(value, defs) {
-  if (!memos.has(defs)) memos.set(defs, new Map());
+  if (!memos.has(defs)) memos.set(defs, { map: new Map(), kept: 0 });
   return expandWith(value, defs, memos.get(defs), 0);
 }
 function expandWith(value, defs, memo, depth) {
@@ -72,8 +73,13 @@ function expandWith(value, defs, memo, depth) {
     if (cut) return '';
     let rep;
     if (defs.has(name) && depth < 8) {
-      if (!memo.has(name)) memo.set(name, expandWith(defs.get(name), defs, memo, depth + 1));
-      const r = memo.get(name);
+      if (!memo.map.has(name)) {
+        let r = expandWith(defs.get(name), defs, memo, depth + 1);
+        if (memo.kept + r.value.length > MEMO_MAX) r = { value: '', missing: [CUT_MARK] }; // past the memo's bound: stored as its cut, so nothing is recomputed per reference
+        else memo.kept += r.value.length;
+        memo.map.set(name, r);
+      }
+      const r = memo.map.get(name);
       for (const m of r.missing) missing.add(m);
       rep = r.value;
     } else if (fallback !== undefined) {

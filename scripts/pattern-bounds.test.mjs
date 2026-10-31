@@ -26,15 +26,20 @@ const CF_INJECT_LEGACY = /<script\b[^>]*>(?:(?!<\/script>)[\s\S])*?(?:\/cdn-cgi\
 const legacyStrip = t => { let prev; do { prev = t; t = t.replace(CF_INJECT_LEGACY, ''); } while (t !== prev); return t; };
 
 // Runs `source` in a child with a heap cap and a kill timeout. The child prints one line: OK and what it computed, or ERR and the message (exit 3).
+// Each child gets its own sandbox directory as its home and temp folders: one per call, removed after the assertions (a narrow delete of that one directory).
+const sandboxEnv = dir => ({ HOME: dir, USERPROFILE: dir, TEMP: dir, TMP: dir, TMPDIR: dir });
 function inChild(body, env = {}, heapMb = HEAP_MB) {
-  const r = spawnSync(process.execPath, [`--max-old-space-size=${heapMb}`, '--input-type=module', '-e', body], { env: { ...process.env, ...env }, encoding: 'utf8', timeout: KILL_MS, killSignal: 'SIGKILL' });
-  assert.equal(r.signal, null, 'the child was killed, so the code ran away (' + r.signal + ')');
-  assert.equal(r.status, 0, 'the child failed: ' + JSON.stringify(r.stdout) + ' ' + JSON.stringify(r.stderr.slice(0, 300)));
-  return r.stdout.trim();
+  const sandbox = mkdtempSync(join(tmpdir(), 'pattern-bounds-sandbox-'));
+  try {
+    const r = spawnSync(process.execPath, [`--max-old-space-size=${heapMb}`, '--input-type=module', '-e', body], { env: { ...process.env, ...env, ...sandboxEnv(sandbox) }, encoding: 'utf8', timeout: KILL_MS, killSignal: 'SIGKILL' });
+    assert.equal(r.signal, null, 'the child was killed, so the code ran away (' + r.signal + ')');
+    assert.equal(r.status, 0, 'the child failed: ' + JSON.stringify(r.stdout) + ' ' + JSON.stringify(r.stderr.slice(0, 300)));
+    return r.stdout.trim();
+  } finally { rmSync(sandbox, { recursive: true, force: true }); }
 }
 
 const PATTERNS = ['/*', '/fonts/thai/*.woff2', '/blog/:slug', '/index.html', '/*.svg', '/a/*/b/*', ':x', '*', '/', '', '/:a/:b', '/a*c', '/a/*', '/*/*/*', '/x/:y/*.css', '/a?b', '/a/*/:b'];
-const PATHS = ['/', '/fonts/thai/kw.0123.woff2', '/fonts/thai/OFL.txt', '/blog/x', '/blog/x/y', '/indexxhtml', '/index.html', '/favicon.svg', '/a/b/c/d/b/e', 'x', 'a\nb', '/a/c', '/abc', '/a/q/r', '', '/a/b', '/x/yy/q.css', '/a?b', '/a/bc/d/c', '/a/b/'];
+const PATHS = ['/', '/fonts/thai/kw.0123.woff2', '/fonts/thai/OFL.txt', '/blog/x', '/blog/x/y', '/indexxhtml', '/index.html', '/favicon.svg', '/a/b/c/d/b/e', 'x', 'a\nb', 'a\rb', 'a\u2028b', 'a\u2029b', 'a b', '/a/c', '/abc', '/a/q/r', '', '/a/b', '/x/yy/q.css', '/a?b', '/a/bc/d/c', '/a/b/'];
 
 test('K-16 (1) a pattern of many splats against a path it does not match is matched in time linear in the path', () => {
   // the path holds the pattern's last character, so the old matcher's search goes on; it backtracks through every way twenty `.*` can split the path and never finishes
@@ -109,5 +114,22 @@ import { fontSizeProblems } from ${JSON.stringify(url(['scripts', 'lib', 'type-l
 const problems = fontSizeProblems([readFileSync(process.env.CSS_FILE, 'utf8')]);
 console.log('OK ' + problems.some(p => /passed 65536 characters and was cut/.test(p.why)));`, { CSS_FILE: file }, 1024);
     assert.equal(out, 'OK true', 'the lint completes and says the expansion was cut');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('CR-2 many definitions each naming a near-cap value are cut once the memo holds its bound, and the lint says so', () => {
+  // --big is 60000 characters and each of 100 definitions names it once: each expansion is under the per-expansion cap, but together they would keep 6 M characters in the memo
+  const defs = [`--big:${'x'.repeat(60000)}`], uses = [];
+  for (let i = 0; i < 100; i++) { defs.push(`--n${i}:var(--big)`); uses.push(`p.c${i}{font-size:var(--n${i})}`); }
+  const css = `:root{${defs.join(';')}}${uses.join('')}`;
+  const dir = mkdtempSync(join(tmpdir(), 'pattern-bounds-memo-'));
+  try {
+    const file = join(dir, 'memo.css');
+    writeFileSync(file, css);
+    const out = inChild(`import { readFileSync } from 'node:fs';
+import { fontSizeProblems } from ${JSON.stringify(url(['scripts', 'lib', 'type-lint.mjs']))};
+const problems = fontSizeProblems([readFileSync(process.env.CSS_FILE, 'utf8')]);
+console.log('OK ' + problems.some(p => /passed 65536 characters and was cut/.test(p.why)));`, { CSS_FILE: file }, 1024);
+    assert.equal(out, 'OK true', 'the lint reports the cut once the memo holds its bound');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

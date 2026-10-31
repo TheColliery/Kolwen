@@ -130,7 +130,7 @@ const ONE_YEAR = 31536000;
 // Does a `_headers` path pattern match a request path? A `*` splat matches any run of characters (not a line break, as `.` never matched one), a `:name` placeholder one path
 // segment, everything else literally. A dynamic programme over the pattern's tokens and the path's positions (K-16): each token turns the positions the match can have reached into
 // the next set in one sweep, so the cost is linear in the path for each token. The regex this replaces, one greedy `.*` per splat, backtracks through every split of the path.
-const LINE_BREAK = new Set(['\n', '\r', ' ', ' ']);
+const LINE_BREAK = new Set(['\n', '\r', '\u2028', '\u2029']);
 // stop[p]: the first index at or after p holding a character that ends the run (the path's length when none), so a run from p may end at any index up to stop[p].
 function runStops(path, ends) {
   const stop = new Int32Array(path.length + 1);
