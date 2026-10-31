@@ -90,6 +90,9 @@ Kolwen asks every provider that will hold customer data for a signed data-proces
 | **Cloudflare**: serves the static site, terminates TLS, routes the published mail addresses, and tries to send the health-check alerts, on a change of result once the status record is bound (on every failing run until then), to one verified owner address once that is set; no customer data today | Customer DPA (Version 6.4, effective 3 April 2026) clause 3.1(e): "without undue delay notify the Customer upon becoming aware of any breach of security"; no fixed hours | live | from its trust pages and the account dashboard |
 | **Paddle**: merchant of record for sales; holds the buyer's name, e-mail, payment and tax data as its own controller | Master Services Agreement clause 14.2 "each party acts as an independent Controller"; Data Sharing Addendum clause 9.1: each party must "inform the other party of any material Personal Data Breach relevant to the Shared Personal Data"; no hours. (Its separate processor addendum, for Retain and Metrics, which Kolwen does not use, says "without undue delay".) | planned | recorded here when the account exists |
 | **A model provider** (none chosen): would hold customer conversation content | none exists until one is chosen; before any customer content reaches one, its agreement is read at its own pages and its notice term entered here (published provider terms today range from "without undue delay" to "within 48 hours") | planned | recorded when chosen |
+| **An e-mail-sending provider** (not yet named): would send Kolwen's mail to customers, so would hold their e-mail addresses and the content of that mail | its agreement is read at its own pages and its notice term entered here before the first customer e-mail goes through it; Kolwen's own step to tell it of a breach on Kolwen's side is Playbook 2, step 4 | planned | recorded when named |
+
+On the day the first customer e-mail goes through the e-mail-sending provider, the provider is named in [`PRIVACY.md`](../PRIVACY.md) and in this plan together, and Kolwen publishes one public list of the providers that process customer data for it, each with its purpose, where the data is kept, and the basis for any transfer abroad.
 
 At each drill, re-read how each provider handles accelerated vulnerability disclosure and patching. *Sources: European Central Bank, Banking Supervision letter SSM-2026-0301 (7 July 2026); Bank of England, FCA and HM Treasury joint statement (15 May 2026).*
 
@@ -133,12 +136,13 @@ Each is a numbered checklist; in the register entry each step carries who did it
 1. Record the time of the first report and how it came (A11).
 2. Verify the facts (A3); if the facts are not yet clear, keep investigating and write down why.
 3. Contain: disable the affected component or account; revoke and rotate credentials; preserve logs and the deployed commit before changing anything.
-4. Declare the incident and start the clock sheet at the grounds-to-believe time.
-5. Scope: which people, which records, which kinds of data (confidentiality, integrity, availability); look beyond the first target for the same activity elsewhere.
-6. Set the severity; decide clocks 1, 3, 4; draft and send notices (A8).
-7. Eradicate: remove the cause and the entry points; fix the flaw.
-8. Recover: restore from a tested backup; check it for compromise; verify; declare the end of recovery on stated criteria.
-9. Conclude with the after-action report.
+4. If the breach touches mail Kolwen sends through an e-mail-sending provider (the sending credentials, the list of addresses, or the content of mail sent or queued), tell that provider at once through its security contact, so it can stop misuse of Kolwen's sending account on its side, and record the time Kolwen told it in the register (A9). Kolwen owes this step from its own duty to contain a breach across every provider that holds customer data (A1, A5), whatever that provider's own terms say.
+5. Declare the incident and start the clock sheet at the grounds-to-believe time.
+6. Scope: which people, which records, which kinds of data (confidentiality, integrity, availability); look beyond the first target for the same activity elsewhere.
+7. Set the severity; decide clocks 1, 3, 4; draft and send notices (A8).
+8. Eradicate: remove the cause and the entry points; fix the flaw.
+9. Recover: restore from a tested backup; check it for compromise; verify; declare the end of recovery on stated criteria.
+10. Conclude with the after-action report.
 
 **Playbook 3: a leaked key or secret.**
 1. Treat any key that appeared in a public place, a log, a ticket or a message as compromised from the time it was exposed.
