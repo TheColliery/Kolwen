@@ -3,6 +3,13 @@
 // table in directory order. The cmap table is never transformed (only glyf and loca are, by default), so its bytes in the stream are the plain cmap table.
 import { brotliDecompressSync } from 'node:zlib';
 
+// THE BOUNDS (K-15). A font's own sizes are not trusted: the brotli output is capped at the sizes its directory declares, a cmap may visit no more code points in total than
+// eight copies of Unicode's range, and the name records may hold no more than MAX_NAME_BYTES bytes. A violation throws one line that names the bound; nothing is allocated past it.
+const MAX_CODE_POINTS = 0x110000;
+const CMAP_VISITS = MAX_CODE_POINTS * 8;
+const MAX_NAME_BYTES = 1 << 20;
+const fail = msg => { throw new Error('woff2: ' + msg); };
+
 // The 63 table tags a directory flag byte can name (WOFF2 §5.1 "Known Table Tags"), by index.
 const KNOWN = ['cmap', 'head', 'hhea', 'hmtx', 'maxp', 'name', 'OS/2', 'post', 'cvt ', 'fpgm', 'glyf', 'loca', 'prep', 'CFF ', 'VORG', 'EBDT', 'EBLC', 'gasp', 'hdmx', 'kern', 'LTSH', 'PCLT', 'VDMX', 'vhea', 'vmtx', 'BASE', 'GDEF', 'GPOS', 'GSUB', 'EBSC', 'JSTF', 'MATH', 'CBDT', 'CBLC', 'COLR', 'CPAL', 'SVG ', 'sbix', 'acnt', 'avar', 'bdat', 'bloc', 'bsln', 'cvar', 'fdsc', 'feat', 'fmtx', 'fvar', 'gvar', 'hsty', 'just', 'lcar', 'mort', 'morx', 'opbd', 'prop', 'trak', 'Zapf', 'Silf', 'Glat', 'Gloc', 'Feat', 'Sill'];
 
@@ -34,9 +41,17 @@ export function woff2Table(buf, wanted) {
     const stored = transformed ? base128(buf, at) : orig;
     dir.push({ tag, stored });
   }
-  const data = brotliDecompressSync(buf.subarray(at.p, at.p + compressed));
+  if (at.p + compressed > buf.length) fail('the brotli stream runs past the end of the file');
+  const declared = dir.reduce((n, t) => n + t.stored, 0);
+  let data;
+  try { data = brotliDecompressSync(buf.subarray(at.p, at.p + compressed), { maxOutputLength: Math.max(1, declared) }); }
+  catch (e) { fail('the brotli stream does not decode to the sizes its table directory declares (' + (e.code || 'corrupt') + ')'); }
   let off = 0;
-  for (const t of dir) { if (t.tag === wanted) return data.subarray(off, off + t.stored); off += t.stored; }
+  for (const t of dir) {
+    if (off + t.stored > data.length) fail('table ' + JSON.stringify(t.tag) + ' runs past the end of the decompressed tables');
+    if (t.tag === wanted) return data.subarray(off, off + t.stored);
+    off += t.stored;
+  }
   throw new Error('woff2: no ' + wanted + ' table');
 }
 
@@ -45,6 +60,8 @@ export function woff2Cmap(buf) {
   const t = woff2Table(buf, 'cmap');
   const out = new Set();
   const n = t.readUInt16BE(2);
+  let visits = 0;
+  const visit = count => { visits += count; if (visits > CMAP_VISITS) fail('the cmap visits more code points than its subtables may map'); };
   for (let i = 0; i < n; i++) {
     const platform = t.readUInt16BE(4 + i * 8), enc = t.readUInt16BE(6 + i * 8), off = t.readUInt32BE(8 + i * 8);
     if (!(platform === 0 || (platform === 3 && (enc === 1 || enc === 10)))) continue;
@@ -54,6 +71,7 @@ export function woff2Cmap(buf) {
       const end = off + 14, start = end + segs * 2 + 2, delta = start + segs * 2, range = delta + segs * 2;
       for (let s = 0; s < segs; s++) {
         const e = t.readUInt16BE(end + s * 2), b = t.readUInt16BE(start + s * 2), d = t.readUInt16BE(delta + s * 2), r = t.readUInt16BE(range + s * 2);
+        visit(Math.max(0, e - b + 1));
         for (let c = b; c <= e && c !== 0xffff; c++) {
           let gid;
           if (r === 0) gid = (c + d) & 0xffff;
@@ -63,8 +81,11 @@ export function woff2Cmap(buf) {
       }
     } else if (format === 12) {
       const groups = t.readUInt32BE(off + 12);
+      if (off + 16 + groups * 12 > t.length) fail('a format 12 cmap declares more groups than its table holds');
       for (let g = 0; g < groups; g++) {
         const b = t.readUInt32BE(off + 16 + g * 12), e = t.readUInt32BE(off + 20 + g * 12), gid = t.readUInt32BE(off + 24 + g * 12);
+        if (b > e || e > 0x10ffff) fail('a format 12 cmap group runs from ' + b + ' to ' + e + ', outside the code points or backwards');
+        visit(e - b + 1);
         // each character maps to gid + (c - b), so a group that starts at glyph 0 leaves only its first character on .notdef
         for (let c = b; c <= e; c++) if (gid + (c - b) !== 0) out.add(c);
       }
@@ -77,8 +98,13 @@ export function woff2Cmap(buf) {
 export function woff2Names(buf) {
   const t = woff2Table(buf, 'name');
   const count = t.readUInt16BE(2), base = t.readUInt16BE(4), out = [];
+  if (6 + count * 12 > t.length) fail('the name table declares more records than it holds');
+  let bytes = 0;
   for (let i = 0; i < count; i++) {
     const r = 6 + i * 12, platform = t.readUInt16BE(r), id = t.readUInt16BE(r + 6), len = t.readUInt16BE(r + 8), off = t.readUInt16BE(r + 10);
+    if (base + off + len > t.length) fail('a name record runs past the end of the name table');
+    bytes += len;
+    if (bytes > MAX_NAME_BYTES) fail('the name records hold more than ' + MAX_NAME_BYTES + ' bytes');
     const raw = t.subarray(base + off, base + off + len);
     if (platform === 3 || platform === 0) out.push({ id, platform, text: Buffer.from(raw).swap16().toString('utf16le') });
     else out.push({ id, platform, text: raw.toString('latin1') });
