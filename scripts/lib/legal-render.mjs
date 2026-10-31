@@ -567,12 +567,14 @@ ${pageNoteHtml(lang)}`;
 // ── 5c. The four site pages, from their templates and the language catalogue ──────────────────────────────────
 // Home, pricing, the 404 page and the status page are templates (web-src/pages/<group>.html) whose slots are filled from web-src/i18n/<tag>.json, and the shared blocks come in whole as
 // {{block:name}}, so these pages are all generated and none has a part that is kept by hand (build-qc.md C-FMT-02). The group is the top-level key of the catalogue that the page reads (with `shared`): a page that
-// moves to another domain keeps its strings. The status page is unannounced (no link, not in the sitemap; it carries no noindex, which surface-check rule 16 refuses on a production page); its reading of /status.json is part of the shared inline page script, which runs it only on a page with [data-status].
+// moves to another domain keeps its strings. The status page is unannounced (no link, not in the sitemap; it carries no noindex, which surface-check rule 16 refuses on a production page). The subprocessor page (UMB3-143) is unannounced the same way; it carries the one noindex that rule 16 exempts by name; its reading of /status.json is part of the shared inline page script, which runs it only on a page with [data-status].
 export const SITE_PAGES = [
   { group: 'home', template: 'web-src/pages/home.html', file: 'web/index.html' },
   { group: 'pricing', template: 'web-src/pages/pricing.html', file: 'web/pricing.html' },
   { group: 'notfound', template: 'web-src/pages/notfound.html', file: 'web/404.html' },
   { group: 'status', template: 'web-src/pages/status.html', file: 'web/status.html' },
+  // The subprocessor page (UMB3-143): prose, unannounced; its noindex is exempted by name in surface-check rule 16.
+  { group: 'subprocessors', template: 'web-src/pages/subprocessors.html', file: 'web/subprocessors.html' },
 ];
 // templates: { group: source }, messages: { lang: { key: value } }. Returns { pages: { 'web/index.html': html, ... }, problems: [line] }.
 // The shared blocks (the header, the footers, the page script's strings) read their strings through t(), which reads the module's loaded catalogue; withCatalogue puts the caller's `messages` in place
@@ -583,7 +585,7 @@ export function renderSitePages({ templates, messages }) {
     const blocks = Object.fromEntries(SYNC_BLOCKS.map(b => [b.name, () => fenced(b.name)]));
     for (const p of SITE_PAGES) {
       if (typeof templates[p.group] !== 'string') { problems.push(`${p.template} is missing`); continue; }
-      try { pages[p.file] = renderTemplate(templates[p.group], { messages, blocks, raw: { style: STYLE, script: pageScriptHtml() } }); } catch (e) { problems.push(`${p.template}: ${e.message}`); }
+      try { pages[p.file] = renderTemplate(templates[p.group], { messages, blocks, raw: { style: STYLE, script: pageScriptHtml(), reading: readingMeta() } }); } catch (e) { problems.push(`${p.template}: ${e.message}`); }
     }
     return { pages, problems };
   });

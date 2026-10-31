@@ -43,7 +43,8 @@
         "/refund",
         "/changelog",
         "/404",
-        "/status"
+        "/status",
+        "/subprocessors"
       ]
     }
   }

@@ -154,6 +154,71 @@
       "title": "Status — Kolwen"
     }
   },
+  "subprocessors": {
+    "meta": {
+      "title": "Subprocessors — Kolwen"
+    },
+    "title": "Subprocessors",
+    "intro": "These are the providers that process personal data of Kolwen's customers on Kolwen's behalf: what each one does, where it processes the data, the basis for any transfer abroad, and the data processing agreement it is under. Each row takes effect on the day that row's provider first holds a customer's data. Until then the row says so.",
+    "columns": {
+      "provider": "Provider",
+      "purpose": "Purpose",
+      "data": "Personal data",
+      "where": "Where it is processed",
+      "basis": "Transfer basis",
+      "dpa": "Data processing agreement",
+      "from": "From"
+    },
+    "row1": {
+      "provider": "Cloudflare",
+      "purpose": "Serving the site and the service: hosting, Workers and their storage, and logs.",
+      "data": "Requests made to the site, as Cloudflare handles them to serve it.",
+      "where": "Cloudflare's network, and sub-processors outside the European Economic Area, Switzerland and the United Kingdom, in countries the agreement does not name.",
+      "basis": "EU Standard Contractual Clauses (Module Two and Module Three); the UK Addendum; the Swiss addendum; the EU-U.S. Data Privacy Framework where Cloudflare is certified under it.",
+      "dpa": "Customer DPA, Version 6.4, effective 3 April 2026.",
+      "from": "from the day it first holds customer data."
+    },
+    "row2": {
+      "provider": "Supabase",
+      "purpose": "Account sign-in, and the service's database.",
+      "data": "Account identity (name and e-mail address) and password hashes.",
+      "where": "The project's region, chosen when the account is created, from the regions Supabase lists.",
+      "basis": "EU Standard Contractual Clauses (Module Two and Module Three), with the UK and Swiss addenda, where data leaves the EEA, the United Kingdom or Switzerland.",
+      "dpa": "Data Processing Agreement, Version 1, 1 August 2026; accepted before the account holds customer data.",
+      "from": "from the day it first holds customer data."
+    },
+    "row3": {
+      "provider": "Paddle",
+      "purpose": "Merchant of record for purchases: payment and tax. Paddle acts as its own controller for purchase data.",
+      "data": "The buyer's name, e-mail address, and payment and tax data.",
+      "where": "Paddle's controller entities in the United Kingdom, the United States, Ireland and Canada; its processors anywhere in the world.",
+      "basis": "EU Standard Contractual Clauses (Module One, controller to controller), and the UK Approved Addendum, for transfers from the United Kingdom or the EEA to countries without an adequacy decision.",
+      "dpa": "None as a processor: Paddle acts as its own controller under its Data Sharing Addendum.",
+      "from": "from the day it first holds customer data."
+    },
+    "row4": {
+      "provider": "An e-mail-sending provider (named on the day its row takes effect).",
+      "purpose": "Sending Kolwen's service e-mail.",
+      "data": "E-mail address and message content.",
+      "where": "stated when named.",
+      "basis": "stated when named.",
+      "dpa": "stated when named.",
+      "from": "from the day it first holds customer data."
+    },
+    "row5": {
+      "provider": "An off-provider backup store (named on the day its row takes effect).",
+      "purpose": "Encrypted backup copies of account and billing records.",
+      "data": "As held in those records, encrypted.",
+      "where": "stated when named.",
+      "basis": "stated when named.",
+      "dpa": "stated when named.",
+      "from": "from the day it first holds customer data."
+    },
+    "changes": {
+      "title": "Changes",
+      "line": "31 October 2026: this list was created."
+    }
+  },
   "shared": {
     "brand": "Kolwen",
     "header": {

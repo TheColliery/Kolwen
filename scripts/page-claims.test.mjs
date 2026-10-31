@@ -55,18 +55,19 @@ test('rule 16 fires on a robots noindex meta on the home page, and fails surface
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('rule 16 reads EVERY production page: the meta planted in each page but the 404 is named by that page, and the 404 page keeps its one named exemption', () => {
+test('rule 16 reads EVERY production page: the meta planted in each page but the 404 is named by that page, and the 404 page and the subprocessor page keep their named exemptions', () => {
   const dir = surfaceCopy();
   try {
     const pages = pagesOf(dir);
     assert.ok(pages.length >= 7, 'the tracked pages: ' + pages.join(', '));
     assert.match(readFileSync(join(dir, 'web/404.html'), 'utf8'), /name="robots"[^>]*noindex|noindex[^>]*name="robots"/i, 'the 404 page carries its own noindex, so the exemption is exercised');
     const planted = {};
-    for (const f of pages.filter(f => f !== 'web/404.html')) { const after = edit(dir, f, s => s.replace('</head>', META_I1 + '\n</head>')); planted[f] = lineOf(after, after.indexOf(META_I1)); }
+    for (const f of pages.filter(f => f !== 'web/404.html' && f !== 'web/subprocessors.html')) { const after = edit(dir, f, s => s.replace('</head>', META_I1 + '\n</head>')); planted[f] = lineOf(after, after.indexOf(META_I1)); }
     const r = surface(dir);
     assert.equal(r.status, 1, r.out);
     for (const [f, line] of Object.entries(planted)) assert.ok(r.out.includes(`${f}: line ${line}: carries a robots noindex meta tag`), f + '\n' + r.out);
     assert.ok(!r.out.includes('web/404.html: line'), 'the 404 page is not named');
+    assert.ok(!r.out.includes('web/subprocessors.html: line'), 'the subprocessor page is exempt by name, so it is not named');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
