@@ -434,7 +434,7 @@ test('the sync markers are named once, in the lib, and are the ones the pages ca
   for (const m of Object.values(MARK)) assert.ok(!cli.includes(m.name), 'the CLI does not retype ' + m.name);
 });
 
-test('every one of the eight pages carries every marker pair exactly once, and the header pair holds the header', () => {
+test('every one of the nine pages carries every marker pair exactly once, and the header pair holds the header', () => {
   const pages = { ...renderPages(inputs()).pages };
   for (const f of TEMPLATE_PAGES) pages[f] = read(f);
   assert.equal(Object.keys(pages).length, 9);
@@ -553,7 +553,7 @@ test('a hand edit of a footer rule makes --check fail on the page and on the has
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('an edited footer rule in the lib is carried to all eight pages by one --write, and to the style-src hashes of _headers', async () => {
+test('an edited footer rule in the lib is carried to all nine pages by one --write, and to the style-src hashes of _headers', async () => {
   const { inlineStyles, cspHash } = await import(new URL('./lib/csp-hashes.mjs', import.meta.url));
   const dir = copyTree();
   try {
@@ -569,7 +569,7 @@ test('an edited footer rule in the lib is carried to all eight pages by one --wr
     for (const f of [...TEMPLATE_PAGES, 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html']) assert.ok(readFileSync(join(dir, f), 'utf8').includes('text-decoration-thickness:3px'), f);
     const headers = readFileSync(join(dir, 'web/_headers'), 'utf8');
     const want = new Set(['web/index.html', 'web/pricing.html', 'web/404.html', 'web/status.html', 'web/subprocessors.html', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html', 'web/band-404.svg', 'web/band-home.svg'].flatMap(f => inlineStyles(readFileSync(join(dir, f), 'utf8')).map(cspHash)));
-    assert.deepEqual(sortedStyleSrc(headers), [...want].sort(), 'style-src admits exactly the hashes of the eight pages and the two SVG images');
+    assert.deepEqual(sortedStyleSrc(headers), [...want].sort(), 'style-src admits exactly the hashes of the nine pages and the two SVG images');
     assert.equal(headers.split(/\r?\n/).filter((l, i) => l !== headersBefore.split(/\r?\n/)[i]).length, 1, 'one line of _headers changed: the CSP line');
     assert.equal(check(dir).status, 0);
     assert.equal(check(dir, '--write').status, 0);
@@ -625,7 +625,7 @@ for (const [what, f, k, fn, re] of CROSS) {
 const cspLine = text => /^[ \t]+Content-Security-Policy:[^\r\n]*/m.exec(text)[0];
 const directive = (line, name) => line.split(';').map(d => d.trim()).find(d => d === name || d.startsWith(name + ' '));
 const NINE = ['web/index.html', 'web/pricing.html', 'web/404.html', 'web/status.html', 'web/subprocessors.html', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html'];
-// The documents the policy governs: the eight pages and the two SVG images, whose <style> the policy admits by hash.
+// The documents the policy governs: the nine pages and the two SVG images, whose <style> the policy admits by hash.
 const pagesOf = () => Object.fromEntries([...NINE, 'web/band-404.svg', 'web/band-home.svg'].map(f => [f, read(f)]));
 // The committed _headers with extra directives put in front of the real style-src directive (in the CSP line only: the comments mention style-src too).
 const withBefore = (extra, text = read('web/_headers')) => text.replace(cspLine(text), line => line.replace('style-src ', () => extra + ' style-src '));
@@ -746,7 +746,7 @@ test('surface-check rule 13 judges style-src-elem and script-src-elem, the direc
 });
 
 // ── the header, the footer as a zone of its own, the grid, the switch ──────────────────────────────────────────────────────────
-// All eight pages as text: the four rendered from their Markdown sources and the four template pages (the committed files, read from disk).
+// All nine pages as text: the four rendered from their Markdown sources and the five template pages (the committed files, read from disk).
 const eightPages = () => { const pages = { ...renderPages(inputs()).pages }; for (const f of TEMPLATE_PAGES) pages[f] = read(f); return pages; };
 const mainOf = html => html.slice(html.indexOf('<main'), html.indexOf('</main>') + 7);
 
@@ -1037,7 +1037,7 @@ test('surface-check rule 17 allows a live button only when it is exactly a switc
   const dir = surfaceCopy();
   try {
     const base = surface(dir);
-    assert.equal(base.status, 0, 'the committed tree passes, the real switch buttons on all eight pages included: ' + base.stdout + base.stderr);
+    assert.equal(base.status, 0, 'the committed tree passes, the real switch buttons on all nine pages included: ' + base.stdout + base.stderr);
     const page = join(dir, 'web/pricing.html'), real = readFileSync(page, 'utf8');
     const REAL = '<button type="button" data-lang-set="en" lang="en" aria-pressed="true">English</button>';
     assert.ok(real.includes(REAL), 'the page holds the real switch button');
@@ -1193,7 +1193,7 @@ test('every footer text colour measures at least 4.5:1 on every page background 
     ['web/404.html link (dark)', ratio(varIn(darkM[1], 'ink'), bgDark)], ['web/404.html label and copyright (dark)', ratio(dimDark, bgDark)]);
   if (process.env.PRINT_CONTRAST) for (const [name, r] of rows) console.log('CONTRAST ' + r.toFixed(2) + ':1 ' + name);
   for (const [name, r] of rows) assert.ok(r >= 4.5, name + ' measures ' + r.toFixed(2) + ':1');
-  assert.ok(rows.length >= 23, 'the sample covers eight pages, two backgrounds on the dark ones, and the 404 page in two schemes for its links and for its paragraphs');
+  assert.ok(rows.length >= 23, 'the sample covers nine pages, two backgrounds on the dark ones, and the 404 page in two schemes for its links and for its paragraphs');
 });
 
 // ── the controller name slot (card BB-214 (a): the privacy page alone names the data controller, the brand Kolwen with the owner's own name) ─────────────────────────────────────────────────────────
