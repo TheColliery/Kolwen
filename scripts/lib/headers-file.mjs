@@ -127,10 +127,42 @@ export function notFoundVerdict(hostname, bodyIsOurPage, headers, declared) {
 export const FONT_CACHE_CONTROL = 'public, max-age=31536000, immutable';
 const ONE_YEAR = 31536000;
 
-// Does a `_headers` path pattern match a request path? A `*` splat matches any run of characters (slashes too), a `:name` placeholder one path segment, everything else literally.
+// Does a `_headers` path pattern match a request path? A `*` splat matches any run of characters (not a line break, as `.` never matched one), a `:name` placeholder one path
+// segment, everything else literally. A dynamic programme over the pattern's tokens and the path's positions (K-16): each token turns the positions the match can have reached into
+// the next set in one sweep, so the cost is linear in the path for each token. The regex this replaces, one greedy `.*` per splat, backtracks through every split of the path.
+const LINE_BREAK = new Set(['\n', '\r', '\u2028', '\u2029']);
+// stop[p]: the first index at or after p holding a character that ends the run (the path's length when none), so a run from p may end at any index up to stop[p].
+function runStops(path, ends) {
+  const stop = new Int32Array(path.length + 1);
+  stop[path.length] = path.length;
+  for (let p = path.length - 1; p >= 0; p--) stop[p] = ends(path[p]) ? p : stop[p + 1];
+  return stop;
+}
 export function patternMatches(pattern, path) {
-  const re = pattern.split(/(\*|:[A-Za-z]\w*)/).map(part => (part === '*' ? '.*' : /^:[A-Za-z]/.test(part) ? '[^/]+' : part.replace(/[.+?^${}()|[\]\\]/g, '\\$&'))).join('');
-  return new RegExp('^' + re + '$').test(path);
+  path = String(path);
+  const n = path.length;
+  const tokens = pattern.split(/(\*|:[A-Za-z]\w*)/).filter(part => part !== '').map(part => (part === '*' ? { run: 'splat' } : /^:[A-Za-z]/.test(part) ? { run: 'segment' } : { text: part }));
+  const stops = { splat: runStops(path, c => LINE_BREAK.has(c)), segment: runStops(path, c => c === '/') };
+  let reached = new Uint8Array(n + 1);
+  reached[0] = 1;
+  for (const t of tokens) {
+    const next = new Uint8Array(n + 1);
+    if (t.text !== undefined) {
+      for (let p = 0; p <= n; p++) if (reached[p] && path.startsWith(t.text, p)) next[p + t.text.length] = 1;
+    } else {
+      // a splat may be empty, a placeholder takes one character at least; the ends reached from successive positions never decrease, so one sweep covers them
+      const stop = stops[t.run], least = t.run === 'splat' ? 0 : 1;
+      let covered = -1;
+      for (let p = 0; p <= n; p++) {
+        if (!reached[p]) continue;
+        const hi = stop[p];
+        for (let q = Math.max(p + least, covered + 1); q <= hi; q++) next[q] = 1;
+        covered = Math.max(covered, hi);
+      }
+    }
+    reached = next;
+  }
+  return reached[n] === 1;
 }
 
 // The directives of a Cache-Control value: [{ name (lower case), arg (unquoted; null when there is none), bad }]. The value splits on commas outside quotes. The grammar of RFC 9111 section 5.2 is
