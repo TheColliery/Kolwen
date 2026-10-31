@@ -55,15 +55,29 @@ function calls(value, fn) {
 }
 
 // A value with every var(--x) replaced by the definition of --x (or its fallback). Returns { value, missing: [names] }.
-function expand(value, defs, depth = 0) {
-  const missing = [];
+// K-16: each definition is expanded once per definitions map (a memo), so a chain whose definitions each name the one before it many times costs the chain's size, not its
+// fan-out; the chain stays bounded at depth 8, as before; and an expansion past EXPAND_MAX characters is cut there, its name reported missing, so no value grows past the bound.
+const EXPAND_MAX = 1 << 16;
+const memos = new WeakMap();
+function expand(value, defs) {
+  if (!memos.has(defs)) memos.set(defs, new Map());
+  return expandWith(value, defs, memos.get(defs), 0);
+}
+function expandWith(value, defs, memo, depth) {
+  const missing = new Set(); // names, once each: a name reached through many references is still one name
   const out = value.replace(/var\(\s*(--[^\s,)]+)\s*(?:,([^)]*))?\)/g, (all, name, fallback) => {
-    if (defs.has(name) && depth < 8) { const r = expand(defs.get(name), defs, depth + 1); missing.push(...r.missing); return r.value; }
+    if (defs.has(name) && depth < 8) {
+      if (!memo.has(name)) memo.set(name, expandWith(defs.get(name), defs, memo, depth + 1));
+      const r = memo.get(name);
+      for (const m of r.missing) missing.add(m);
+      return r.value;
+    }
     if (fallback !== undefined) return fallback;
-    missing.push(name);
+    missing.add(name);
     return '';
   });
-  return { value: out, missing };
+  if (out.length > EXPAND_MAX) { missing.add('(expansion over ' + EXPAND_MAX + ' characters)'); return { value: out.slice(0, EXPAND_MAX), missing: [...missing] }; }
+  return { value: out, missing: [...missing] };
 }
 
 // The size part of a `font` shorthand value: the first top-level token that is not a style, a weight or a variant word, before any `/line-height`.
