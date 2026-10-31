@@ -133,3 +133,21 @@ console.log('OK ' + problems.some(p => /passed 65536 characters and was cut/.tes
     assert.equal(out, 'OK true', 'the lint reports the cut once the memo holds its bound');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('K-24 many aliases of a definition with many unresolved names are cut once the memo counts their missing-name lists, and the lint says so', () => {
+  // --base holds 4000 unresolved names; 200 aliases each name it, and each alias keeps its own copy of the 4000 names: values stay empty, so only the names can fill the memo
+  const names = Array.from({ length: 4000 }, (_, i) => `var(--u${i})`).join(' ');
+  const defs = [`--base:${names}`], uses = [];
+  for (let i = 0; i < 200; i++) { defs.push(`--a${i}:var(--base)`); uses.push(`p.c${i}{font-size:var(--a${i})}`); }
+  const css = `:root{${defs.join(';')}}${uses.join('')}`;
+  const dir = mkdtempSync(join(tmpdir(), 'pattern-bounds-missing-'));
+  try {
+    const file = join(dir, 'missing.css');
+    writeFileSync(file, css);
+    const out = inChild(`import { readFileSync } from 'node:fs';
+import { fontSizeProblems } from ${JSON.stringify(url(['scripts', 'lib', 'type-lint.mjs']))};
+const problems = fontSizeProblems([readFileSync(process.env.CSS_FILE, 'utf8')]);
+console.log('OK ' + problems.some(p => /passed 65536 characters and was cut/.test(p.why)));`, { CSS_FILE: file }, 1024);
+    assert.equal(out, 'OK true', 'the lint reports the cut once the memo counts the missing names');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

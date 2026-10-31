@@ -74,7 +74,7 @@ function runReader(call, font) {
 const m = await import(${JSON.stringify(READER)});
 const b = readFileSync(process.env.KW_FONT);
 try { const r = ${call}; console.log('OK ' + (r instanceof Set ? r.size : r.length)); }
-catch (e) { console.log('ERR ' + String(e.message).split(/[\\r\\n]/)[0]); process.exitCode = 3; }
+catch (e) { console.log('ERR ' + String(e.message)); process.exitCode = 3; }
 `);
     return spawnSync(process.execPath, [`--max-old-space-size=${HEAP_MB}`, script], { env: { ...process.env, KW_FONT: file, ...sandboxEnv(dir) }, encoding: 'utf8', timeout: KILL_MS, killSignal: 'SIGKILL' });
   } finally { rmSync(dir, { recursive: true, force: true }); }
@@ -86,7 +86,7 @@ function refuses(call, font, pattern, why) {
   assert.equal(r.signal, null, why + ': the reader was killed, so it ran away (' + r.signal + ')');
   assert.equal(r.status, 3, why + ': the reader did not refuse the font: ' + JSON.stringify(r.stdout));
   assert.match(r.stdout, pattern);
-  assert.equal(r.stdout.trim().split('\n').length, 1, why + ': one line: ' + JSON.stringify(r.stdout));
+  assert.equal(r.stdout, r.stdout.split(String.fromCharCode(10))[0] + String.fromCharCode(10), why + ': one line, nothing after it: ' + JSON.stringify(r.stdout));
 }
 
 test('K-15 (1) a table that runs past the bytes its brotli stream inflates to is refused, not read short', () => {
@@ -133,7 +133,7 @@ test('(c) an odd-length UTF-16 name record is refused with one line, not a gener
 });
 
 test('CR-1 many encoding records pointing at a format 4 subtable of reversed segments are refused with one line', () => {
-  // one reversed segment (start 0x20 after end 0x10) under 2000 encoding records that all point at it: the reader adds no visits for a reversed segment, so nothing bounds the records
+  // one reversed segment (start 0x20 after end 0x10) under 2000 encoding records that all point at it: the reader added no visits for a reversed segment, so nothing bounded the records
   const records = 2000, sub = Buffer.alloc(24);
   sub.writeUInt16BE(4, 0); sub.writeUInt16BE(24, 2); sub.writeUInt16BE(2, 6); // format 4, length 24, segCountX2 2: one segment
   sub.writeUInt16BE(0x10, 14); sub.writeUInt16BE(0x20, 18); sub.writeUInt16BE(0, 20); sub.writeUInt16BE(0, 22); // endCode, startCode, idDelta, idRangeOffset
@@ -142,4 +142,10 @@ test('CR-1 many encoding records pointing at a format 4 subtable of reversed seg
   for (let i = 0; i < records; i++) { const r = 4 + i * 8; head.writeUInt16BE(3, r); head.writeUInt16BE(1, r + 2); head.writeUInt32BE(head.length, r + 4); }
   const font = woff2({ tables: [{ tag: 'cmap', data: Buffer.concat([head, sub]) }] });
   refuses('m.woff2Cmap(b)', font, /^ERR woff2: a format 4 cmap segment runs backwards/, 'reversed segments under many records');
+});
+
+test('the one-line check reads the whole refusal: a refusal whose message holds a second line fails the witness', () => {
+  // the witness must be able to go red: a two-line refusal is an assertion failure, not a pass
+  const font = woff2({ tables: [{ tag: 'cmap', data: cmapWithGroups([[0x41, 0x41, 1]]) }] });
+  assert.throws(() => refuses(`(() => { throw new Error('one' + String.fromCharCode(10) + 'two'); })()`, font, /^ERR one/, 'a two-line refusal'), { name: 'AssertionError' });
 });
