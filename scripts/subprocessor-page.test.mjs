@@ -5,19 +5,23 @@ import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { decodeAttribute } from './lib/rendered-text.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = f => readFileSync(join(ROOT, f), 'utf8');
 const NOINDEX = /<meta name="robots" content="noindex">/;
 
-// Every spelling a link can take: any quotes or none, any case, a trailing slash, .html, the full origin, a query or a fragment. Each href is resolved to a path before it is compared.
+// Every spelling a link can take: any quotes or none, any case, a trailing slash, .html, the full origin, a query or a fragment,
+// a character reference in the value (decoded as the browser decodes an attribute value), and a relative path (resolved as the
+// browser resolves it, against a page of the site). Each href is resolved to a path before it is compared.
 const LINK_HREF = /\shref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/gi;
-const hrefsIn = text => [...text.matchAll(LINK_HREF)].map(m => m[1] ?? m[2] ?? m[3]);
-const resolvesTo = (href, target) => {
-  let h = href.trim().replace(/^(?:https?:)?\/\/(?:www\.)?kolwen\.com(?=\/|$)/i, '');
-  h = h.replace(/[?#].*$/, '');
-  if (!h.startsWith('/') && !/^[a-z][a-z0-9+.-]*:/i.test(h)) h = '/' + h.replace(/^\.\//, '');
-  return h.replace(/\/+$/, '').replace(/\.html$/i, '').toLowerCase() === target;
+const SITE = 'https://kolwen.com/index.html';
+const hrefsIn = text => [...text.matchAll(LINK_HREF)].map(m => decodeAttribute(m[1] ?? m[2] ?? m[3]));
+const resolvesTo = (href, target, base = SITE) => {
+  let u;
+  try { u = new URL(href.trim(), base); } catch { return false; }
+  if (u.hostname !== 'kolwen.com' && u.hostname !== 'www.kolwen.com') return false;
+  return u.pathname.replace(/\/+$/, '').replace(/\.html$/i, '').toLowerCase() === target;
 };
 const linksTo = (text, target) => hrefsIn(text).filter(h => resolvesTo(h, target));
 
@@ -41,6 +45,16 @@ test('the no-link check reads every spelling of a link, and reports none that po
   ];
   for (const s of spellings) assert.equal(linksTo(s, '/subprocessors').length, 1, s);
   for (const s of ['<a href="/subprocessors-old">x</a>', '<a href="/subprocessors/x">x</a>', '<a href="https://example.com/subprocessors">x</a>']) assert.equal(linksTo(s, '/subprocessors').length, 0, s);
+});
+
+test('the no-link check decodes character references in an href and resolves a relative one', () => {
+  const missed = [
+    '<a href="&#x2f;subprocessors">x</a>', '<a href="/sub&#112;rocessors">x</a>', '<a href="&#47;subprocessors">x</a>',
+    '<a href="../subprocessors">x</a>', '<a href="./../subprocessors/?x=1#y">x</a>',
+  ];
+  assert.deepEqual(missed.filter(s => linksTo(s, '/subprocessors').length !== 1), [], 'spellings of a link to the page that the check misses');
+  const passed = ['<a href="../subprocessors-old">x</a>', '<a href="&#x2f;subprocessors-old">x</a>'];
+  assert.deepEqual(passed.filter(s => linksTo(s, '/subprocessors').length !== 0), [], 'spellings that do not link to the page that the check reports');
 });
 
 test('the subprocessor page is read as prose, and loads nothing from another origin', () => {
