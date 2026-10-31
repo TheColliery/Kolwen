@@ -58,6 +58,8 @@ function calls(value, fn) {
 // K-16: each definition is expanded once per definitions map (a memo), so a chain whose definitions each name the one before it many times costs the chain's size, not its
 // fan-out; the chain stays bounded at depth 8, as before; and an expansion past EXPAND_MAX characters is cut there, its name reported missing, so no value grows past the bound.
 const EXPAND_MAX = 1 << 16;
+const CUT_MARK = '(a cut expansion)'; // not a name: marks an expansion the bound cut
+const CUT_WHY = 'a custom-property expansion passed 65536 characters and was cut';
 const memos = new WeakMap();
 function expand(value, defs) {
   if (!memos.has(defs)) memos.set(defs, new Map());
@@ -65,18 +67,26 @@ function expand(value, defs) {
 }
 function expandWith(value, defs, memo, depth) {
   const missing = new Set(); // names, once each: a name reached through many references is still one name
+  let size = 0, cut = false; // the length of the replacement built so far: once past EXPAND_MAX, nothing more is built (F-2)
   const out = value.replace(/var\(\s*(--[^\s,)]+)\s*(?:,([^)]*))?\)/g, (all, name, fallback) => {
+    if (cut) return '';
+    let rep;
     if (defs.has(name) && depth < 8) {
       if (!memo.has(name)) memo.set(name, expandWith(defs.get(name), defs, memo, depth + 1));
       const r = memo.get(name);
       for (const m of r.missing) missing.add(m);
-      return r.value;
+      rep = r.value;
+    } else if (fallback !== undefined) {
+      rep = fallback;
+    } else {
+      missing.add(name);
+      rep = '';
     }
-    if (fallback !== undefined) return fallback;
-    missing.add(name);
-    return '';
+    size += rep.length;
+    if (size > EXPAND_MAX) { cut = true; missing.add(CUT_MARK); return ''; }
+    return rep;
   });
-  if (out.length > EXPAND_MAX) { missing.add('(expansion over ' + EXPAND_MAX + ' characters)'); return { value: out.slice(0, EXPAND_MAX), missing: [...missing] }; }
+  if (cut || out.length > EXPAND_MAX) { missing.add(CUT_MARK); return { value: out.slice(0, EXPAND_MAX), missing: [...missing] }; }
   return { value: out, missing: [...missing] };
 }
 
@@ -116,6 +126,8 @@ export function sizeProblem(value) {
 }
 
 // The findings of a set of stylesheet texts that make one page: [{ prop, value, why }].
+// What the lint says of a name the expansion could not resolve: the cut has its own line (ruling (a)), a missing name the usual one.
+const expansionWhy = name => (name === CUT_MARK ? CUT_WHY : 'var(' + name + ') resolves to nothing, so its size cannot be judged');
 export function fontSizeProblems(cssTexts) {
   const decls = cssTexts.flatMap(declarationsOf);
   const defs = new Map();
@@ -126,13 +138,13 @@ export function fontSizeProblems(cssTexts) {
     let value = d.value;
     if (d.prop === 'font') {
       const e0 = expand(value, defs);
-      for (const name of e0.missing) out.push({ prop: d.prop, value: d.value, why: `var(${name}) resolves to nothing, so its size cannot be judged` });
+      for (const name of e0.missing) out.push({ prop: d.prop, value: d.value, why: expansionWhy(name) });
       const size = shorthandSize(e0.value);
       if (size === null) { out.push({ prop: d.prop, value: d.value, why: 'a font shorthand whose size cannot be read' }); continue; }
       value = size;
     }
     const e = expand(value, defs);
-    for (const name of e.missing) out.push({ prop: d.prop, value: d.value, why: `var(${name}) resolves to nothing, so its size cannot be judged` });
+    for (const name of e.missing) out.push({ prop: d.prop, value: d.value, why: expansionWhy(name) });
     if (e.missing.length) continue;
     const why = sizeProblem(e.value);
     if (why) out.push({ prop: d.prop, value: d.value, why });

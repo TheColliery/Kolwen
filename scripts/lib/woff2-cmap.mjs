@@ -8,6 +8,7 @@ import { brotliDecompressSync } from 'node:zlib';
 const MAX_CODE_POINTS = 0x110000;
 const CMAP_VISITS = MAX_CODE_POINTS * 8;
 const MAX_NAME_BYTES = 1 << 20;
+const MAX_TABLE_BYTES = 64 << 20; // far above any font this site ships: the font's own declared sizes are a second bound, never the only one
 const fail = msg => { throw new Error('woff2: ' + msg); };
 
 // The 63 table tags a directory flag byte can name (WOFF2 §5.1 "Known Table Tags"), by index.
@@ -43,6 +44,7 @@ export function woff2Table(buf, wanted) {
   }
   if (at.p + compressed > buf.length) fail('the brotli stream runs past the end of the file');
   const declared = dir.reduce((n, t) => n + t.stored, 0);
+  if (declared > MAX_TABLE_BYTES) fail('the table directory declares ' + declared + ' bytes, more than ' + MAX_TABLE_BYTES);
   let data;
   try { data = brotliDecompressSync(buf.subarray(at.p, at.p + compressed), { maxOutputLength: Math.max(1, declared) }); }
   catch (e) { fail('the brotli stream does not decode to the sizes its table directory declares (' + (e.code || 'corrupt') + ')'); }
@@ -105,6 +107,7 @@ export function woff2Names(buf) {
     if (base + off + len > t.length) fail('a name record runs past the end of the name table');
     bytes += len;
     if (bytes > MAX_NAME_BYTES) fail('the name records hold more than ' + MAX_NAME_BYTES + ' bytes');
+    if ((platform === 3 || platform === 0) && len % 2) fail('a UTF-16 name record has an odd length (' + len + ')');
     const raw = t.subarray(base + off, base + off + len);
     if (platform === 3 || platform === 0) out.push({ id, platform, text: Buffer.from(raw).swap16().toString('utf16le') });
     else out.push({ id, platform, text: raw.toString('latin1') });

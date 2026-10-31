@@ -4,7 +4,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { brotliCompressSync } from 'node:zlib';
+import { brotliCompressSync, constants as zlibConstants } from 'node:zlib';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -24,9 +24,9 @@ function uint128(n) {
 }
 
 // A WOFF2 file: the 48-byte header, one untransformed directory entry per table (its tag and the declared length), then ONE brotli stream of the payload.
-function woff2({ tables, lengths = tables.map(t => t.data.length), payload = Buffer.concat(tables.map(t => t.data)) }) {
+function woff2({ tables, lengths = tables.map(t => t.data.length), payload = Buffer.concat(tables.map(t => t.data)), quality = 11 }) {
   const dir = Buffer.concat(tables.map((t, i) => Buffer.concat([Buffer.from([TAG_INDEX[t.tag]]), uint128(lengths[i])])));
-  const stream = brotliCompressSync(payload);
+  const stream = brotliCompressSync(payload, { params: { [zlibConstants.BROTLI_PARAM_QUALITY]: quality } });
   const head = Buffer.alloc(48);
   head.write('wOF2', 0, 'latin1');
   head.writeUInt16BE(tables.length, 12);
@@ -50,7 +50,7 @@ function cmapWithGroups(groups) {
 }
 
 // A name table with `count` records that all point at the same 65534 bytes of storage (an even length, UTF-16): the records hold count * 65534 bytes in all.
-function nameWithRecords(count) {
+function nameWithRecords(count, len = 65534) {
   const base = 6 + count * 12;
   const head = Buffer.alloc(base);
   head.writeUInt16BE(count, 2);
@@ -58,9 +58,9 @@ function nameWithRecords(count) {
   for (let i = 0; i < count; i++) {
     const r = 6 + i * 12;
     head.writeUInt16BE(3, r); head.writeUInt16BE(1, r + 2); head.writeUInt16BE(0x409, r + 4); head.writeUInt16BE(1, r + 6);
-    head.writeUInt16BE(65534, r + 8); head.writeUInt16BE(0, r + 10);
+    head.writeUInt16BE(len, r + 8); head.writeUInt16BE(0, r + 10);
   }
-  return Buffer.concat([head, Buffer.alloc(65534)]);
+  return Buffer.concat([head, Buffer.alloc(len)]);
 }
 
 // The reader, called on a font, in a child with a heap cap and a kill timeout. The child prints one line: OK and a size, or ERR and the message (exit 3).
@@ -117,4 +117,16 @@ test('K-15 (5) the code points a cmap visits are bounded in total across its sub
 test('K-15 (6) a name table whose records hold more bytes than the bound is refused', () => {
   const font = woff2({ tables: [{ tag: 'name', data: nameWithRecords(17) }] });
   refuses('m.woff2Names(b)', font, /^ERR woff2: the name records hold more than/, 'seventeen records of 65534 bytes');
+});
+
+test('F-1 a font that declares a table past the fixed ceiling is refused before anything is inflated', () => {
+  // a small font whose stream inflates to 256 MiB, declared as a 256 MiB cmap: the font's own declared size would allow it, so the fixed ceiling must refuse the declaration
+  const size = 256 * 1024 * 1024;
+  const font = woff2({ tables: [{ tag: 'cmap', data: cmapWithGroups([[0x41, 0x41, 1]]) }], lengths: [size], payload: Buffer.alloc(size), quality: 1 });
+  refuses('m.woff2Cmap(b)', font, /^ERR woff2: the table directory declares 268435456 bytes, more than 67108864/, 'a 256 MiB cmap declared by a small font');
+});
+
+test('(c) an odd-length UTF-16 name record is refused with one line, not a generic RangeError', () => {
+  const font = woff2({ tables: [{ tag: 'name', data: nameWithRecords(1, 3) }] });
+  refuses('m.woff2Names(b)', font, /^ERR woff2: a UTF-16 name record has an odd length \(3\)/, 'a 3-byte UTF-16 record');
 });

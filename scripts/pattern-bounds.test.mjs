@@ -6,6 +6,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { patternMatches } from './lib/headers-file.mjs';
@@ -24,8 +26,8 @@ const CF_INJECT_LEGACY = /<script\b[^>]*>(?:(?!<\/script>)[\s\S])*?(?:\/cdn-cgi\
 const legacyStrip = t => { let prev; do { prev = t; t = t.replace(CF_INJECT_LEGACY, ''); } while (t !== prev); return t; };
 
 // Runs `source` in a child with a heap cap and a kill timeout. The child prints one line: OK and what it computed, or ERR and the message (exit 3).
-function inChild(body, env = {}) {
-  const r = spawnSync(process.execPath, [`--max-old-space-size=${HEAP_MB}`, '--input-type=module', '-e', body], { env: { ...process.env, ...env }, encoding: 'utf8', timeout: KILL_MS, killSignal: 'SIGKILL' });
+function inChild(body, env = {}, heapMb = HEAP_MB) {
+  const r = spawnSync(process.execPath, [`--max-old-space-size=${heapMb}`, '--input-type=module', '-e', body], { env: { ...process.env, ...env }, encoding: 'utf8', timeout: KILL_MS, killSignal: 'SIGKILL' });
   assert.equal(r.signal, null, 'the child was killed, so the code ran away (' + r.signal + ')');
   assert.equal(r.status, 0, 'the child failed: ' + JSON.stringify(r.stdout) + ' ' + JSON.stringify(r.stderr.slice(0, 300)));
   return r.stdout.trim();
@@ -55,7 +57,7 @@ function fanOutCss(levels, width) {
 test('K-16 (3) a chain of custom properties that each name the previous one many times expands in time linear in its size', () => {
   const out = inChild(`import { fontSizeProblems } from ${JSON.stringify(url(['scripts', 'lib', 'type-lint.mjs']))};
 const problems = fontSizeProblems([process.env.CSS]);
-console.log('OK ' + problems.some(p => /expansion over/.test(p.why)));`, { CSS: fanOutCss(12, 20) });
+console.log('OK ' + problems.some(p => /passed 65536 characters and was cut/.test(p.why)));`, { CSS: fanOutCss(12, 20) });
   assert.equal(out, 'OK true', 'the lint completes, and names the expansion it cut at its character bound');
 });
 
@@ -93,4 +95,19 @@ test('K-16 (6) a page of many unclosed script openers is stripped in time linear
 const t = '<script>'.repeat(60000) + '</script>';
 console.log('OK ' + stripEdge(t).length);`);
   assert.equal(out, 'OK ' + ('<script>'.length * 60000 + '</script>'.length), 'nothing carries a marker, so nothing is removed');
+});
+
+test('F-2 a definition with many references to a capped name is cut inside the replacement, and the lint says it was cut', () => {
+  // --b is 65000 characters and --a names it 20000 times: the whole replacement would be 1.3 G characters, past V8's string limit, so the cut must happen while it is built
+  const css = `:root{--b:${'x'.repeat(65000)};--a:${'var(--b) '.repeat(20000)}}p{font-size:var(--a)}`;
+  const dir = mkdtempSync(join(tmpdir(), 'pattern-bounds-'));
+  try {
+    const file = join(dir, 'page.css');
+    writeFileSync(file, css);
+    const out = inChild(`import { readFileSync } from 'node:fs';
+import { fontSizeProblems } from ${JSON.stringify(url(['scripts', 'lib', 'type-lint.mjs']))};
+const problems = fontSizeProblems([readFileSync(process.env.CSS_FILE, 'utf8')]);
+console.log('OK ' + problems.some(p => /passed 65536 characters and was cut/.test(p.why)));`, { CSS_FILE: file }, 1024);
+    assert.equal(out, 'OK true', 'the lint completes and says the expansion was cut');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
