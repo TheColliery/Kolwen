@@ -197,16 +197,16 @@
       "from": "from the day it first holds customer data."
     },
     "row4": {
-      "provider": "An e-mail-sending provider (named on the day its row takes effect).",
+      "provider": "Resend",
       "purpose": "Sending Kolwen's service e-mail.",
-      "data": "E-mail address and message content.",
-      "where": "stated when named.",
-      "basis": "stated when named.",
-      "dpa": "stated when named.",
+      "data": "E-mail address, message content and message metadata.",
+      "where": "The United States, where Resend's primary processing takes place, and its sub-processors there.",
+      "basis": "EU Standard Contractual Clauses (Module Two and Module Three); the UK SCCs; the EU SCCs as adapted for Switzerland; the EU-U.S. Data Privacy Framework, under which Resend states it complies.",
+      "dpa": "Data Processing Addendum, updated 31 December 2025.",
       "from": "from the day it first holds customer data."
     },
     "row5": {
-      "provider": "An off-provider backup store (named on the day its row takes effect).",
+      "provider": "An off-provider backup store (named before the first customer data is stored there).",
       "purpose": "Encrypted backup copies of account and billing records.",
       "data": "As held in those records, encrypted.",
       "where": "stated when named.",

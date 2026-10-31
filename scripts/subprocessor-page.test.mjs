@@ -1,4 +1,4 @@
-// Tests for the subprocessor page (web/subprocessors.html, generated from web-src/pages/subprocessors.html), shipped dark (UMB3-143): no link to it, no sitemap entry,
+// Tests for the subprocessor page (web/subprocessors.html, generated from web-src/pages/subprocessors.html), shipped dark: no link to it, no sitemap entry,
 // and a noindex meta that surface-check rule 16 exempts by name. Read-only: nothing here writes web/ or reaches the network. Run: node --test scripts/subprocessor-page.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';

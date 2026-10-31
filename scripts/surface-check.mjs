@@ -288,7 +288,7 @@ const SHIPPED = new Set([
   'web/404.html', 'web/_headers',
   // The status page: unannounced (no link, not in the sitemap), a PRODUCTION page read by the rules that read every page. Its URL is live, so it is declared by name here.
   'web/status.html',
-  // The subprocessor page (UMB3-143): unannounced, no link, not in the sitemap; listed like the status page.
+  // The subprocessor page: unannounced, no link, not in the sitemap; listed like the status page.
   'web/subprocessors.html',
   // `_redirects` is parsed by Workers and not served either (same docs page family); rule 18 holds its lines.
   'web/_redirects',
