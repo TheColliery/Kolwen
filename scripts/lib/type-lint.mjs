@@ -156,7 +156,11 @@ export function fontSizeProblems(cssTexts) {
       const e0 = expand(value, defs);
       for (const name of e0.missing) reportMissing(out, reported, d, name);
       const size = shorthandSize(e0.value);
-      if (size === null) { out.push({ prop: d.prop, value: d.value, why: 'a font shorthand whose size cannot be read' }); continue; }
+      if (size === null) {
+        // a shorthand whose expansion already named a missing entry is judged by that entry, once; unreadable on its own, it is reported
+        if (!e0.missing.length) out.push({ prop: d.prop, value: d.value, why: 'a font shorthand whose size cannot be read' });
+        continue;
+      }
       value = size;
     }
     const e = expand(value, defs);
