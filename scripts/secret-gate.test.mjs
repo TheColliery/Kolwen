@@ -32,35 +32,30 @@ const LIB = path.join(HERE, 'lib', 'secret-scan.mjs');
 const KEY = ['AK', 'IA', 'ABCDEFGHIJKLMNOP'].join(''); // an access-key-id shape, assembled so this file never carries one
 const ZERO = '0'.repeat(40);
 const made = [];
-let SANDBOX = ''; // made by the before hook below and removed by the after hook, so a run that dies at import leaves nothing behind
-let EMPTY_GLOBAL = '';
+const SANDBOX = fs.mkdtempSync(path.join(os.tmpdir(), 'secret-gate-sandbox-'));
+const EMPTY_GLOBAL = path.join(SANDBOX, 'empty-global-gitconfig');
+fs.writeFileSync(EMPTY_GLOBAL, '');
 // A hook runs with GIT_DIR, GIT_INDEX_FILE and friends set; a fixture that inherited them would write into the repository
-// the hook runs for. Every fixture git call, and the gate under test, gets an environment without them. The base is the
-// environment the caller hands in (the parent's by default), so no test has to assign the parent's process.env.
-const gitEnv = (base = process.env) => ({
-  ...Object.fromEntries(Object.entries(base).filter(([k]) => !/^GIT_/i.test(k))),
+// the hook runs for. Every fixture git call, and the gate under test, gets an environment without them.
+const gitEnv = () => ({
+  ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^GIT_/i.test(k))),
   TEMP: SANDBOX, TMP: SANDBOX, TMPDIR: SANDBOX, HOME: SANDBOX, USERPROFILE: SANDBOX,
   GIT_CONFIG_GLOBAL: EMPTY_GLOBAL, GIT_CONFIG_NOSYSTEM: '1',
 });
 
-function gitIn(env, dir, ...args) {
-  return execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', timeout: 60000, stdio: ['ignore', 'pipe', 'pipe'], env }).trim();
-}
-
 function git(dir, ...args) {
-  return gitIn(gitEnv(), dir, ...args);
+  return execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', timeout: 60000, stdio: ['ignore', 'pipe', 'pipe'], env: gitEnv() }).trim();
 }
 
 // A throwaway repository holding the gate and its scanner, with one commit per entry of `commits` ({ file: text } maps;
-// a null text deletes the file). Its git calls run in `base` when the caller gives one, else in the sandbox.
-function repo(commits, { withLib = true, base } = {}) {
+// a null text deletes the file).
+function repo(commits, { withLib = true } = {}) {
   const dir = fs.mkdtempSync(path.join(SANDBOX, 'secret-gate-'));
-  const g = (...args) => gitIn(gitEnv(base), dir, ...args);
   made.push(dir);
-  g('init', '-q', '-b', 'main');
-  g('config', 'user.email', 'test@example.invalid');
-  g('config', 'user.name', 'test');
-  g('config', 'commit.gpgsign', 'false');
+  git(dir, 'init', '-q', '-b', 'main');
+  git(dir, 'config', 'user.email', 'test@example.invalid');
+  git(dir, 'config', 'user.name', 'test');
+  git(dir, 'config', 'commit.gpgsign', 'false');
   fs.mkdirSync(path.join(dir, 'scripts', 'lib'), { recursive: true });
   fs.copyFileSync(GATE, path.join(dir, 'scripts', 'secret-gate.mjs'));
   if (withLib) fs.copyFileSync(LIB, path.join(dir, 'scripts', 'lib', 'secret-scan.mjs'));
@@ -70,26 +65,11 @@ function repo(commits, { withLib = true, base } = {}) {
       if (text === null) fs.rmSync(p, { force: true });
       else { fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, text, 'utf8'); }
     }
-    g('add', '-A');
-    g('commit', '-q', '-m', `commit ${i + 1}`);
+    git(dir, 'add', '-A');
+    git(dir, 'commit', '-q', '-m', `commit ${i + 1}`);
   });
   return dir;
 }
-
-test.before(() => {
-  SANDBOX = fs.mkdtempSync(path.join(os.tmpdir(), 'secret-gate-sandbox-'));
-  EMPTY_GLOBAL = path.join(SANDBOX, 'empty-global-gitconfig');
-  fs.writeFileSync(EMPTY_GLOBAL, '');
-});
-
-// The after hook removes the sandbox and each folder made in it. Each delete is narrow: a path outside the temp root is refused.
-test.after(() => {
-  const root = path.resolve(os.tmpdir()) + path.sep;
-  for (const d of [...made, SANDBOX].filter(Boolean)) {
-    if (!path.resolve(d).startsWith(root)) throw new Error('refusing to delete outside the temp root: ' + d);
-    fs.rmSync(d, { recursive: true, force: true });
-  }
-});
 
 function run(dir, args = [], input = '') {
   const r = spawnSync(process.execPath, [path.join(dir, 'scripts', 'secret-gate.mjs'), ...args], {
@@ -99,7 +79,7 @@ function run(dir, args = [], input = '') {
   return { code: r.status, out: r.stdout || '', err: r.stderr || '' };
 }
 
-
+test.after(() => { for (const d of [...made, SANDBOX]) fs.rmSync(d, { recursive: true, force: true }); });
 
 test('a clean tree passes: exit 0 and a PASS SECRETS line naming the files scanned', () => {
   const r = run(repo([{ 'README.md': 'hello\n' }]));
@@ -206,10 +186,9 @@ test('a file name that carries a right-to-left override is escaped in the report
 });
 
 // The witness for the sandbox. It plants a hostile global git config (an executable hooks path whose pre-commit hook exits 1)
-// and a hostile HOME in a base environment that is handed to the fixture and to the probe; the test process's own environment
-// is not changed. Under the old code every fixture commit failed with the hostile hook's exit 1; with the sandbox the fixture
-// commits work, the fixture folder lives inside the sandbox, the child's TEMP, TMP and TMPDIR point at it, and its global
-// config is an empty file of the sandbox.
+// and a hostile HOME in the test process itself, then builds a fixture and probes a child. Under the old code every fixture
+// commit failed with the hostile hook's exit 1; with the sandbox the fixture commits work, the fixture folder lives inside the
+// sandbox, the child's TEMP, TMP and TMPDIR point at it, and its global config is an empty file of the sandbox.
 test('the fixtures run in the test\'s own sandbox: a hostile global git config and HOME never reach them, and the fixture folders live inside the sandbox', () => {
   const hostile = fs.mkdtempSync(path.join(os.tmpdir(), 'secret-gate-hostile-'));
   made.push(hostile);
@@ -220,17 +199,21 @@ test('the fixtures run in the test\'s own sandbox: a hostile global git config a
   fs.writeFileSync(path.join(hostile, '.gitconfig'), hostileConfig); // the per-user file (HOME)
   fs.mkdirSync(path.join(hostile, 'git'));
   fs.writeFileSync(path.join(hostile, 'git', 'config'), hostileConfig); // the XDG file (XDG_CONFIG_HOME), which HOME alone does not cover
-  const base = { ...process.env, HOME: hostile, USERPROFILE: hostile, XDG_CONFIG_HOME: hostile, GIT_CONFIG_GLOBAL: path.join(hostile, '.gitconfig') };
-  const dir = repo([{ 'a.txt': 'x\n' }], { base }); // a commit under the hostile global hook would fail with exit 1
-  assert.ok(path.resolve(dir).startsWith(path.resolve(SANDBOX) + path.sep), 'the fixture folder is inside the sandbox: ' + dir);
-  const probe = execFileSync(process.execPath, ['-e', 'const e = process.env; console.log(JSON.stringify([e.TEMP, e.TMP, e.TMPDIR, e.GIT_CONFIG_GLOBAL, e.GIT_CONFIG_NOSYSTEM]))'], { encoding: 'utf8', timeout: 60000, env: gitEnv(base) });
-  const [tmp, tmp2, tmpdir, global, nosys] = JSON.parse(probe);
-  assert.deepEqual([tmp, tmp2, tmpdir], [SANDBOX, SANDBOX, SANDBOX]);
-  assert.equal(path.dirname(global), SANDBOX);
-  assert.equal(fs.readFileSync(global, 'utf8'), '', 'the global config is an empty file of the sandbox');
-  assert.equal(nosys, '1');
-  // And a child git call itself cannot read the box's global configuration: the hooks path the hostile file sets is not seen.
-  const seen = spawnSync('git', ['-C', dir, 'config', '--get', 'core.hooksPath'], { encoding: 'utf8', timeout: 60000, env: gitEnv(base) });
-  assert.strictEqual(seen.status, 1, 'git config --get core.hooksPath finds nothing (exit 1): ' + seen.stdout);
-  assert.strictEqual(seen.stdout.trim(), '');
+  const saved = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE, XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME, GIT_CONFIG_GLOBAL: process.env.GIT_CONFIG_GLOBAL };
+  process.env.HOME = hostile; process.env.USERPROFILE = hostile; process.env.XDG_CONFIG_HOME = hostile;
+  process.env.GIT_CONFIG_GLOBAL = path.join(hostile, '.gitconfig');
+  try {
+    const dir = repo([{ 'a.txt': 'x\n' }]); // a commit under the hostile global hook would fail with exit 1
+    assert.ok(path.resolve(dir).startsWith(path.resolve(SANDBOX) + path.sep), 'the fixture folder is inside the sandbox: ' + dir);
+    const probe = execFileSync(process.execPath, ['-e', 'const e = process.env; console.log(JSON.stringify([e.TEMP, e.TMP, e.TMPDIR, e.GIT_CONFIG_GLOBAL, e.GIT_CONFIG_NOSYSTEM]))'], { encoding: 'utf8', timeout: 60000, env: gitEnv() });
+    const [tmp, tmp2, tmpdir, global, nosys] = JSON.parse(probe);
+    assert.deepEqual([tmp, tmp2, tmpdir], [SANDBOX, SANDBOX, SANDBOX]);
+    assert.equal(path.dirname(global), SANDBOX);
+    assert.equal(fs.readFileSync(global, 'utf8'), '', 'the global config is an empty file of the sandbox');
+    assert.equal(nosys, '1');
+    // And a child git call itself cannot read the box's global configuration: the hooks path the hostile file sets is not seen.
+    const seen = spawnSync('git', ['-C', dir, 'config', '--get', 'core.hooksPath'], { encoding: 'utf8', timeout: 60000, env: gitEnv() });
+    assert.strictEqual(seen.status, 1, 'git config --get core.hooksPath finds nothing (exit 1): ' + seen.stdout);
+    assert.strictEqual(seen.stdout.trim(), '');
+  } finally { for (const [k, v] of Object.entries(saved)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; } }
 });
