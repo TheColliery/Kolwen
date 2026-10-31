@@ -153,7 +153,7 @@ console.log('OK ' + problems.some(p => /the custom-property memo passed 4194304 
 });
 
 test('K-25 one definition naming 200 unresolved names, used by 500 declarations, reports each missing name once', () => {
-  // --base names 200 unresolved names and 500 font-size declarations use it: each name is one missing name, so the lint reports it once per run (before K-25: 500 x 200 = 100,000 problems)
+  // --base names 200 unresolved names and 500 font-size declarations use it. Each name is one missing name, reported once per run, so each of the 200 appears in the problems exactly once: a name that is dropped, or reported twice, fails
   const names = Array.from({ length: 200 }, (_, i) => 'var(--u' + i + ')').join(' ');
   const defs = ['--base:' + names], uses = [];
   for (let i = 0; i < 500; i++) uses.push('p.c' + i + '{font-size:var(--base)}');
@@ -165,8 +165,37 @@ test('K-25 one definition naming 200 unresolved names, used by 500 declarations,
     const out = inChild(`import { readFileSync } from 'node:fs';
 import { fontSizeProblems } from ${JSON.stringify(url(['scripts', 'lib', 'type-lint.mjs']))};
 const problems = fontSizeProblems([readFileSync(process.env.CSS_FILE, 'utf8')]);
+console.log('W ' + JSON.stringify(problems.map(p => p.why)));`, { CSS_FILE: file }, 1024);
+    const whys = JSON.parse(out.replace(/^W /, ''));
+    const notOnce = Array.from({ length: 200 }, (_, i) => i).filter(i => whys.filter(w => w.startsWith('var(--u' + i + ') ')).length !== 1);
+    assert.deepEqual(notOnce, [], 'each of the 200 names is reported exactly once; the indexes that are not: ' + notOnce.join(', '));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('one missing name under 500 font shorthands is one problem, not one per shorthand', () => {
+  const css = Array.from({ length: 500 }, (_, i) => 'p.c' + i + '{font:var(--missing)}').join('');
+  const dir = mkdtempSync(join(tmpdir(), 'pattern-bounds-shorthand-'));
+  try {
+    const file = join(dir, 'shorthand.css');
+    writeFileSync(file, css);
+    const out = inChild(`import { readFileSync } from 'node:fs';
+import { fontSizeProblems } from ${JSON.stringify(url(['scripts', 'lib', 'type-lint.mjs']))};
+const problems = fontSizeProblems([readFileSync(process.env.CSS_FILE, 'utf8')]);
 console.log('N ' + problems.length);`, { CSS_FILE: file }, 1024);
-    const n = Number((/^N (\d+)$/.exec(out) || [])[1]);
-    assert.ok(n <= 200, 'each missing name is reported once, so at most 200 problems: ' + out);
+    assert.equal(out, 'N 1', 'one missing name is one problem');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('a font shorthand with no size and no missing name is still reported', () => {
+  const css = 'p.u{font:italic bold}';
+  const dir = mkdtempSync(join(tmpdir(), 'pattern-bounds-unreadable-'));
+  try {
+    const file = join(dir, 'unreadable.css');
+    writeFileSync(file, css);
+    const out = inChild(`import { readFileSync } from 'node:fs';
+import { fontSizeProblems } from ${JSON.stringify(url(['scripts', 'lib', 'type-lint.mjs']))};
+const problems = fontSizeProblems([readFileSync(process.env.CSS_FILE, 'utf8')]);
+console.log('W ' + JSON.stringify(problems.map(p => p.why)));`, { CSS_FILE: file }, 1024);
+    assert.deepEqual(JSON.parse(out.replace(/^W /, '')), ['a font shorthand whose size cannot be read'], 'the unreadable shorthand is reported once');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
