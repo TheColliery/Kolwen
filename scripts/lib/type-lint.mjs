@@ -62,6 +62,8 @@ const CUT_MARK = '(a cut expansion)'; // not a name: marks an expansion the boun
 const CUT_WHY = 'a custom-property expansion passed 65536 characters and was cut';
 const memos = new WeakMap();
 const MEMO_MAX = 1 << 22; // the characters the memo keeps across names (a value's length, and each missing name's length): past it a name is stored as its cut, so the memo's size stays bounded (CR-2)
+const MEMO_MARK = '(a memo cut)'; // not a name: marks a name the memo's bound cut (K-25)
+const MEMO_WHY = 'the custom-property memo passed 4194304 characters and later names were cut';
 function expand(value, defs) {
   if (!memos.has(defs)) memos.set(defs, { map: new Map(), kept: 0 });
   return expandWith(value, defs, memos.get(defs), 0);
@@ -76,7 +78,7 @@ function expandWith(value, defs, memo, depth) {
       if (!memo.map.has(name)) {
         let r = expandWith(defs.get(name), defs, memo, depth + 1);
         const cost = r.value.length + [...r.missing].reduce((n, m) => n + m.length, 0); // a stored entry costs its value and its missing names
-        if (memo.kept + cost > MEMO_MAX) r = { value: '', missing: [CUT_MARK] }; // past the memo's bound: stored as its cut, so nothing is recomputed per reference
+        if (memo.kept + cost > MEMO_MAX) r = { value: '', missing: [MEMO_MARK] }; // past the memo's bound: stored as its cut, so nothing is recomputed per reference
         else memo.kept += cost;
         memo.map.set(name, r);
       }
@@ -134,24 +136,31 @@ export function sizeProblem(value) {
 
 // The findings of a set of stylesheet texts that make one page: [{ prop, value, why }].
 // What the lint says of a name the expansion could not resolve: the cut has its own line (ruling (a)), a missing name the usual one.
-const expansionWhy = name => (name === CUT_MARK ? CUT_WHY : 'var(' + name + ') resolves to nothing, so its size cannot be judged');
+const expansionWhy = name => (name === CUT_MARK ? CUT_WHY : name === MEMO_MARK ? MEMO_WHY : 'var(' + name + ') resolves to nothing, so its size cannot be judged');
+// A missing name is reported once per run: the first declaration that names it carries the line, so N declarations naming one name cost one problem (K-25).
+function reportMissing(out, reported, d, name) {
+  if (reported.has(name)) return;
+  reported.add(name);
+  out.push({ prop: d.prop, value: d.value, why: expansionWhy(name) });
+}
 export function fontSizeProblems(cssTexts) {
   const decls = cssTexts.flatMap(declarationsOf);
   const defs = new Map();
   for (const d of decls) if (d.prop.startsWith('--')) defs.set(d.prop, d.value);
   const out = [];
+  const reported = new Set();
   for (const d of decls) {
     if (d.prop !== 'font-size' && d.prop !== 'font') continue;
     let value = d.value;
     if (d.prop === 'font') {
       const e0 = expand(value, defs);
-      for (const name of e0.missing) out.push({ prop: d.prop, value: d.value, why: expansionWhy(name) });
+      for (const name of e0.missing) reportMissing(out, reported, d, name);
       const size = shorthandSize(e0.value);
       if (size === null) { out.push({ prop: d.prop, value: d.value, why: 'a font shorthand whose size cannot be read' }); continue; }
       value = size;
     }
     const e = expand(value, defs);
-    for (const name of e.missing) out.push({ prop: d.prop, value: d.value, why: expansionWhy(name) });
+    for (const name of e.missing) reportMissing(out, reported, d, name);
     if (e.missing.length) continue;
     const why = sizeProblem(e.value);
     if (why) out.push({ prop: d.prop, value: d.value, why });
