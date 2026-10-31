@@ -12,6 +12,8 @@
 - Tags cannot be updated or deleted by anyone, with **no bypass** (`tag-immutable`).
 - Required status checks gate the default branch (`all-green`, `analyze (javascript)`).
 - Package publishing needs no human credential: OIDC, scoped to this repository.
+- No job that holds a deploy or publish credential runs a third-party action by a floating reference: every action in `.github/workflows/` is pinned to a 40-character commit SHA, and each workflow's token is `contents: read` unless a job needs more and says so (`SECURITY.md`, "What this repository already does").
+- Whatever a CI job's environment holds is treated as readable by any code that job runs, so no repository secret exists and the publish job reaches PyPI through OIDC with no stored token (Codecov's uploader sent CI environments to a third party; a compromised third-party action exposed the secrets of the workflows that ran it, CISA alert on CVE-2025-30066).
 - Automated merges are restricted to the maintainer's own bot and only after CI is green
   (`dependabot-auto-merge.yml`).
 
@@ -24,3 +26,5 @@ would ask about, so it is written down rather than left to be discovered.
 
 Separate roles, and a review requirement that does not depend on one person, once there is more
 than one person.
+
+Keys the service issues to customers are scoped to what each may call and can be rotated by the customer without losing the account.

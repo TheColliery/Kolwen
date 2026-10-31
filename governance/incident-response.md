@@ -204,6 +204,18 @@ Each is a numbered checklist; in the register entry each step carries who did it
 
 *Sources: NIST IR 8374 Rev. 1, "Ransomware Risk Management: A CSF 2.0 Community Profile" (June 2026); NIST SP 800-184, Guide for Cybersecurity Event Recovery (December 2016); NIST SP 800-61 Rev. 3 (April 2025); CISA #StopRansomware Guide (September 2023, the web page read).*
 
+**Playbook 9: a tampered build of Kolwen's own product reaches users (a package, an extension, a download or a deploy that carries code Kolwen did not write or release).**
+1. Write down the time it was found, how it was found, and which artifact, version and channel it is.
+2. Pull the build and stop the channel: remove the bad versions where the registry or store allows it, and take down the download or the deploy.
+3. Freeze publishing on every path until the way in is found and closed; audit who and what could publish, and confirm that no other artifact was changed. Suspend or remove the registry's trusted-publisher record for the affected project (PyPI, and npm where one exists) until the way in is found and closed; re-create it only after the publishing workflow has been reviewed. The PyPI publish workflow uses Trusted Publishing with no stored token (`SECURITY.md`; `governance/access-control.md`), so rotating credentials (step 4) does not end the trust the registry places in the workflow.
+4. Rotate every credential the build and publishing pipeline held, from a trusted system, and treat anything the pipeline's environment could read as exposed.
+5. Publish the bad versions' hashes, a check script users can run, and the indicators of compromise.
+6. Tell users plainly that uninstalling the bad version may not be enough where it left something running, and what to look for and remove.
+7. Set the severity (A4). Clock 1 starts at the moment there are grounds to believe that personal data was breached (A3), at whatever step that comes; record that time. Each other clock in A6 starts from its own trigger there. Where the piece is a product with digital elements made available in the European Union, a build that "has led or is capable of leading to the introduction or execution of malicious code" is a severe incident under the Cyber Resilience Act (Regulation (EU) 2024/2847, Art. 14(5)(b)): an early warning "without undue delay and in any event within 24 hours", an incident notification within 72 hours and a final report "within one month", sent to the CSIRT designated as coordinator and to ENISA (Art. 14(3), (4)). Whether a Kolwen piece is such a product is [to be confirmed with counsel before this plan is final].
+8. Record each decision and its time, and write the after-action report (A10).
+
+*Sources: Cursor, "Security notice — malicious version of Anthropic.claude-code (2.1.312 and 2.1.313) identified in the Cursor VS Code Extension Marketplace" (29 October 2026, updated 30 October 2026); Codecov's security update on its Bash Uploader (15 April 2021); CISA's alert on the supply chain compromise of the npm ecosystem (23 September 2025); Regulation (EU) 2024/2847 (Cyber Resilience Act), Art. 14.*
+
 ### A8. Notices drafted in advance
 
 Templates with blanks. The maintainer sends; each is read by counsel before the plan is final. The Office's notice is prepared in Thai as well [to be confirmed with counsel before this plan is final]. The Office's electronic channel is [to be confirmed with counsel before this plan is final]; until then the notice goes in writing, which the notice allows (ข้อ 6).
@@ -302,6 +314,10 @@ Recovery starts when the incident lead says so, on stated criteria, and checks: 
 | ENISA, Threat Landscape for Ransomware Attacks | July 2022 | https://www.enisa.europa.eu/sites/default/files/publications/ENISA%20Threat%20Landscape%20for%20Ransomware%20Attacks.pdf |
 | US-CERT (Carnegie Mellon), "Data Backup Options" | 2012 | https://www.cisa.gov/sites/default/files/publications/data_backup_options.pdf |
 | PDPC notice on erasure, destruction and de-identification B.E. 2567 | Royal Gazette vol. 141, special part 217 ง, 13 August B.E. 2567 | the Royal Gazette's own pages (URL not yet recorded) |
+| Cursor, "Security notice — malicious version of Anthropic.claude-code (2.1.312 and 2.1.313) identified in the Cursor VS Code Extension Marketplace" | 29 October 2026, updated 30 October 2026 | https://cursor.com/blog/claude-code-extension-security-notice |
+| Codecov, security update on its Bash Uploader | 15 April 2021 | https://about.codecov.io/security-update/ |
+| CISA, alert on the supply chain compromise of the npm ecosystem | 23 September 2025 | https://www.cisa.gov/news-events/alerts/2025/09/23/widespread-supply-chain-compromise-impacting-npm-ecosystem |
+| Regulation (EU) 2024/2847 (Cyber Resilience Act) | Official Journal L, 20 November 2024; reporting obligations apply from 11 September 2026 | the Official Journal text (URL not yet recorded); the dates of application as the Commission's page gives them, https://digital-strategy.ec.europa.eu/en/policies/cyber-resilience-act |
 
 International standards and guides come first; Thai law is the local layer on top. The Thai notice is quoted in the section where it applies; its text was read in the Gazette's own pages.
 
