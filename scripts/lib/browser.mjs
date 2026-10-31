@@ -14,6 +14,9 @@
 // On the WSL route nothing listens: a server on Windows 127.0.0.1 is not reachable from the distro (NAT), and the distro has no Node to run one, so the browser is told to ask the DevTools channel
 // for every request to the origin (Fetch.enable) and the same responder that backs the HTTP server answers it (Fetch.fulfillRequest), headers and Content-Security-Policy included.
 //
+// A CHECKED PAGE REACHES ITS OWN ORIGIN ONLY (K-17). Every request a page makes is paused (Fetch.requestPaused, both routes): one to the serving origin is answered (the WSL route,
+// by the responder) or continued (the native route, where the real server answers); a web request to any other address, 127.0.0.1 on another port included, is failed as blocked by the
+// client (routePaused). The WSL shell script needs no change: the flags stay, and the interception runs in this process over the DevTools channel that reaches the distro.
 // ONE PROFILE, REUSED, NEVER DELETED (native route). Every run uses the same profile folder: KOLWEN_BROWSER_PROFILE if set, else kolwen-browser-profile in the user's own cache folder, never in a
 // shared temp folder (profilePath(): $XDG_CACHE_HOME or ~/.cache; %LOCALAPPDATA% where a Windows caller asks). It is made once, with mode 0o700, and this module never deletes it or anything in it
 // (it imports no delete call, and a test holds it to that). Why: on a developer's Windows machine a file-system filter can refuse every process but the browser READ, WRITE and DELETE on the files
@@ -50,7 +53,7 @@
 // only pages it opens are this repository's own files served from 127.0.0.1 by the caller. Locally the sandbox stays on. The WSL route starts the headless shell with its sandbox on.
 import { spawn } from 'node:child_process';
 import { chmodSync, existsSync, lstatSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
-import { connect, createServer } from 'node:net';
+import { connect, createServer, isIP } from 'node:net';
 import { homedir } from 'node:os';
 import { join, resolve, delimiter, isAbsolute } from 'node:path';
 import { makeResponder, serveWeb } from './static-server.mjs';
@@ -246,6 +249,24 @@ export const NAME_NOT_RESOLVED = 'net::ERR_NAME_NOT_RESOLVED';
 // The Fetch.fulfillRequest parameters for the responder's answer `out` to a request of this method: the headers always, the body for every method but HEAD (a HEAD answer has none, as over HTTP).
 export const fulfillParams = (requestId, method, out) => ({ requestId, responseCode: out.status, responseHeaders: Object.entries(out.headers).map(([name, value]) => ({ name, value: String(value) })), body: method === 'HEAD' ? '' : out.body.toString('base64') });
 
+// K-17: a checked page reaches its own origin and no other. A request to the serving origin is answered by the responder (the WSL route) or continued (the native route); a web request
+// to any other address, 127.0.0.1 on another port included, is failed as blocked by the client; a request that is not a web one (data:, blob:) is continued, as before.
+function routePaused(p, web, send) {
+  const requestId = p.requestId;
+  let parsed = null;
+  try { parsed = new URL(p.request.url); } catch { /* not an absolute address: nothing to reach */ }
+  if (!parsed || (parsed.protocol !== 'http:' && parsed.protocol !== 'https:')) return send('Fetch.continueRequest', { requestId });
+  if (parsed.origin !== web.origin) {
+    // a host name is answered as a name the browser cannot resolve (the resources finding reads that answer); an address is blocked before it is sent
+    const host = parsed.hostname.replace(/^\[|\]$/g, '');
+    return send('Fetch.failRequest', { requestId, errorReason: isIP(host) ? 'BlockedByClient' : 'NameNotResolved' });
+  }
+  if (!web.responder) return send('Fetch.continueRequest', { requestId });
+  let out = null;
+  try { out = web.responder(p.request.url); } catch { out = null; }
+  return out ? send('Fetch.fulfillRequest', fulfillParams(requestId, p.request.method, out)) : send('Fetch.failRequest', { requestId, errorReason: 'Failed' });
+}
+
 // The browser API over one DevTools connection, the same for both routes. `serveVia` is null (pages come from a real server, serveWeb) or an object holding the responder the browser is asked to
 // get its pages from over the channel (the WSL route). `isExited()` says whether the browser process is gone.
 async function drive({ endpoint, profile, label, commandTimeoutMs, isExited, cleanup, channel }) {
@@ -258,7 +279,7 @@ async function drive({ endpoint, profile, label, commandTimeoutMs, isExited, cle
     profile,
     // Where the pages come from: a real HTTP server on 127.0.0.1 (native), or the DevTools channel (WSL). Returns { origin, close }.
     async serve(webDir, { headers = true } = {}) {
-      if (!channel) return serveWeb(webDir, { headers });
+      if (!channel) { const served = await serveWeb(webDir, { headers }); web.origin = served.origin; return served; }
       web.responder = makeResponder(webDir, { headers });
       web.origin = `http://127.0.0.1:${await freePort()}`; // nothing listens there: the browser's request is answered before it reaches a network
       return { origin: web.origin, close: async () => { web.responder = null; } };
@@ -288,18 +309,10 @@ async function drive({ endpoint, profile, label, commandTimeoutMs, isExited, cle
       const urls = new Map();
       listen('Network.requestWillBeSent', (p, sid) => { if (sid === sessionId) urls.set(p.requestId, p.request.url); });
       listen('Network.loadingFailed', (p, sid) => { if (sid === sessionId) resourceFailures.push({ url: urls.get(p.requestId) ?? '', errorText: p.errorText }); });
-      if (channel && web.responder) {
-        // the pages of this origin are answered here, over the channel
-        await send('Fetch.enable', { patterns: [{ urlPattern: `${web.origin}/*`, requestStage: 'Request' }] });
-        listen('Fetch.requestPaused', (p, sid) => {
-          if (sid !== sessionId) return;
-          let out = null;
-          try { out = web.responder ? web.responder(p.request.url) : null; } catch { out = null; }
-          const done = out
-            ? send('Fetch.fulfillRequest', fulfillParams(p.requestId, p.request.method, out))
-            : send('Fetch.failRequest', { requestId: p.requestId, errorReason: 'Failed' });
-          done.catch(() => { /* the page went away */ });
-        });
+      if (web.origin) {
+        // K-17: every request the page makes is paused and answered here (routePaused), on both routes
+        await send('Fetch.enable', { patterns: [{ urlPattern: '*', requestStage: 'Request' }] });
+        listen('Fetch.requestPaused', (p, sid) => { if (sid === sessionId) routePaused(p, web, send).catch(() => { /* the page went away */ }); });
       }
       return {
         send,

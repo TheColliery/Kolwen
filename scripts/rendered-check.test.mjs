@@ -9,6 +9,7 @@ import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
+import { createServer as createHttpServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve, win32 } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -1318,3 +1319,26 @@ test('on the WSL route a run leaves no folder of its own in the distro, and two 
   assert.equal(count(), before, 'the second browser\'s folder is gone with it');
 });
 const toWslProbe = () => wslLib.toWslPath(join(wslLib.WSL_SCRIPTS, 'probe.sh'));
+
+// K-17: a checked page reaches only its own origin. The page asks for an image on another loopback port; the request is failed as blocked by the client, and the server on that
+// port gets no request. On the WSL route that server (on Windows) is not reachable from the distro, so the request is refused by the page, and its errorText is the witness there;
+// the native route's proof is the CI runner, where the server is reachable and the hit count is the witness as well.
+test('K-17: a checked page reaches only its own origin: a request to another loopback port is blocked, and the other server sees nothing', { skip: SKIP }, async () => {
+  let hits = 0;
+  const other = createHttpServer((req, res) => { hits++; res.end(); });
+  await new Promise(r => other.listen(0, '127.0.0.1', r));
+  const probe = `http://127.0.0.1:${other.address().port}/probe.png`;
+  try {
+    const web = copyWeb(w => editPage(w, 'index.html', h => h.replace('</body>', `<img alt="" src="${probe}"></body>`)));
+    const server = await browser.serve(web, { headers: false });
+    const page = await browser.newPage();
+    try {
+      await page.goto(server.origin + '/');
+      await page.evaluate('new Promise(r => setTimeout(r, 300)).then(() => true)'); // the image's request has ended by now
+      const failed = page.resourceFailures.filter(f => f.url === probe).map(f => f.errorText);
+      assert.equal(failed.length, 1, 'one failure for the request: ' + JSON.stringify(failed));
+      assert.match(failed[0], /^net::ERR_BLOCKED_BY_CLIENT/, 'the request is failed as blocked by the client (Chrome adds .Inspector to it)');
+      assert.equal(hits, 0, 'the other server got no request');
+    } finally { await page.close(); await server.close(); }
+  } finally { await new Promise(r => other.close(r)); }
+});
