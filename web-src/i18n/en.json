@@ -159,13 +159,14 @@
       "title": "Subprocessors — Kolwen"
     },
     "title": "Subprocessors",
-    "intro": "These are the providers that process personal data of Kolwen's customers on Kolwen's behalf: what each one does, where it processes the data, the basis for any transfer abroad, and the data processing agreement it is under. Each row takes effect on the day that row's provider first holds a customer's data. Until then the row says so.",
+    "intro": "These are the providers that process personal data of Kolwen's customers on Kolwen's behalf: what each one does, where it processes the data, the basis for any transfer abroad, and the data processing agreement it is under. Paddle is listed for transparency: it acts as its own controller for purchase data. Each row takes effect on the day that row's provider first holds a customer's data. Until then the row says so.",
     "columns": {
       "provider": "Provider",
       "purpose": "Purpose",
       "data": "Personal data",
       "where": "Where it is processed",
       "basis": "Transfer basis",
+      "retention": "How long it is kept",
       "dpa": "Data processing agreement",
       "from": "From"
     },
@@ -175,6 +176,7 @@
       "data": "Requests made to the site, as Cloudflare handles them to serve it.",
       "where": "Cloudflare's network, and sub-processors outside the European Economic Area, Switzerland and the United Kingdom, in countries the agreement does not name.",
       "basis": "EU Standard Contractual Clauses (Module Two and Module Three); the UK Addendum; the Swiss addendum; the EU-U.S. Data Privacy Framework where Cloudflare is certified under it.",
+      "retention": "Kept until the main agreement ends or the processing is no longer needed. After that, Cloudflare deletes or returns the data at the customer's choice, except where the law requires it to keep it. The agreement states no fixed number of days.",
       "dpa": "Customer DPA, Version 6.4, effective 3 April 2026.",
       "from": "from the day it first holds customer data."
     },
@@ -182,8 +184,9 @@
       "provider": "Supabase",
       "purpose": "Account sign-in, and the service's database.",
       "data": "Account identity (name and e-mail address) and password hashes.",
-      "where": "The project's region, chosen when the account is created, from the regions Supabase lists.",
+      "where": "The project's region, chosen when the account is created, from the regions Supabase lists. The project's database and sign-in are hosted in that region. Supabase's agreement says covered data may be processed anywhere Supabase or its sub-processors maintain facilities, and its regional commitment gives way where the law or the requested service requires it. Account and support data are covered data under that rule. Service telemetry goes to systems segregated from customer projects; the agreement names no region for it.",
       "basis": "EU Standard Contractual Clauses (Module Two and Module Three), with the UK and Swiss addenda, where data leaves the EEA, the United Kingdom or Switzerland.",
+      "retention": "A copy may be requested within 30 days after the agreement expires; after that the data is deleted, including copies held by sub-processors. The agreement states no number of days for completing the deletion.",
       "dpa": "Data Processing Agreement, Version 1, 1 August 2026; accepted before the account holds customer data.",
       "from": "from the day it first holds customer data."
     },
@@ -193,6 +196,7 @@
       "data": "The buyer's name, e-mail address, and payment and tax data.",
       "where": "Paddle's controller entities in the United Kingdom, the United States, Ireland and Canada; its processors anywhere in the world.",
       "basis": "EU Standard Contractual Clauses (Module One, controller to controller), and the UK Approved Addendum, for transfers from the United Kingdom or the EEA to countries without an adequacy decision.",
+      "retention": "No fixed period. Kept while the customer relationship continues or as the law requires, and for the limitation period and a short administrative period after it. Kept also while a claim, investigation or dispute is open.",
       "dpa": "None as a processor: Paddle acts as its own controller under its Data Sharing Addendum.",
       "from": "from the day it first holds customer data."
     },
@@ -202,6 +206,7 @@
       "data": "E-mail address, message content and message metadata.",
       "where": "The United States, where Resend's primary processing takes place, and its sub-processors there.",
       "basis": "EU Standard Contractual Clauses (Module Two and Module Three); the UK SCCs; the EU SCCs as adapted for Switzerland; the EU-U.S. Data Privacy Framework, under which Resend states it complies.",
+      "retention": "Deleted within 90 days of account termination. The agreement states no period for message content or logs.",
       "dpa": "Data Processing Addendum, updated 31 December 2025.",
       "from": "from the day it first holds customer data."
     },
@@ -211,6 +216,7 @@
       "data": "As held in those records, encrypted.",
       "where": "stated when named.",
       "basis": "stated when named.",
+      "retention": "stated when named.",
       "dpa": "stated when named.",
       "from": "from the day it first holds customer data."
     },
