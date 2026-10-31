@@ -4,14 +4,15 @@
 //
 // Format, per Cloudflare's headers page: a line that starts in column 0 and is not a comment opens a
 // rule (a path, or an absolute URL); the indented `Name: value` lines under it are that rule's headers;
-// `#` starts a comment. Not modelled: the `! Name` detach form. This file uses it nowhere, and a line
-// in that shape is read as an ordinary header named `!`, which no gate here asks for.
+// `#` starts a comment. An indented `! Name` line detaches Name from its rule: it is kept in the rule's `removes`, never among its headers.
 export function parseHeadersFile(text) {
   const rules = [];
   let cur = null;
   text.split(/\r?\n/).forEach((raw, i) => {
     if (/^\s*(#.*)?$/.test(raw)) return;
-    if (!/^\s/.test(raw)) { cur = { pattern: raw.trim(), line: i + 1, headers: [] }; rules.push(cur); return; }
+    if (!/^\s/.test(raw)) { cur = { pattern: raw.trim(), line: i + 1, headers: [], removes: [] }; rules.push(cur); return; }
+    const detach = raw.trim().match(/^!\s*([^:\s]+)$/);
+    if (detach && cur) { cur.removes.push({ name: detach[1], line: i + 1 }); return; }
     const m = raw.trim().match(/^([^:\s]+):\s*(.*)$/);
     if (m && cur) cur.headers.push({ name: m[1], value: m[2].trim(), line: i + 1 });
   });

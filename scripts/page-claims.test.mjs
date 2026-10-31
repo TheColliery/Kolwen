@@ -570,3 +570,14 @@ test('the walk searches for a comment end once on 200,000 unclosed comment opene
     assert.match(r.stdout, /^FINISHED 200000 SEARCHES 1\n?$/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('the floor check refuses a _headers rule that removes the Content-Security-Policy with the detach form', () => {
+  const dir = surfaceCopy();
+  try {
+    edit(dir, 'web/_headers', s => s.replace(/\n*$/, '\n') + '\n/headers-removal-probe\n  ! Content-Security-Policy\n');
+    restage(dir);
+    const r = surface(dir);
+    assert.equal(r.status, 1, r.out);
+    assert.match(r.out, /web\/_headers: line \d+: removes the Content-Security-Policy on \/headers-removal-probe/, r.out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

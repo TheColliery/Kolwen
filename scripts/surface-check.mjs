@@ -789,6 +789,7 @@ const CSP_STATS = { scripts: 0, styles: 0 };
   else if (lib) {
     const text = read(HEADERS);
     const rules = lib.parseHeadersFile(text);
+    for (const r of rules) for (const x of r.removes) if (x.name.toLowerCase() === 'content-security-policy') note(HEADERS, 'line ' + x.line + ': removes the Content-Security-Policy on ' + r.pattern + ' (a detach line), and the CSP floor needs it on every response');
     if (rules.length > 100) note(HEADERS, `has ${rules.length} rules; Cloudflare allows 100`);
     text.split(/\r?\n/).forEach((l, i) => { if (l.length > 2000) note(HEADERS, `line ${i + 1} is ${l.length} characters; Cloudflare allows 2,000 per line`); });
     const csp = lib.declarations(rules, 'Content-Security-Policy');
