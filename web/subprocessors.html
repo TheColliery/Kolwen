@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en" data-job="prose">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Subprocessors — Kolwen</title>
+<meta name="robots" content="noindex">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#fbfaf8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f0d0b" media="(prefers-color-scheme: dark)">
+<!-- site-fonts:begin -->
+<link rel="stylesheet" href="/fonts/fonts.css">
+<!-- site-fonts:end -->
+<style>
+/* site-tokens-css:begin */
+  :root{
+    --kw-font-size-1:0.75rem;
+    --kw-font-size-2:0.78125rem;
+    --kw-font-size-3:0.8125rem;
+    --kw-font-size-4:0.84375rem;
+    --kw-font-size-5:0.875rem;
+    --kw-font-size-6:0.90625rem;
+    --kw-font-size-7:0.9375rem;
+    --kw-font-size-8:0.96875rem;
+    --kw-font-size-9:1.125rem;
+    --kw-font-size-10:1.25rem;
+    --kw-font-size-11:1.625rem;
+    --kw-font-size-body:1.125rem;
+    --kw-font-size-reading-h3:1.3125rem;
+    --kw-font-size-reading-h2:1.5rem;
+    --kw-font-size-reading-title:1.875rem;
+    --kw-font-size-display:clamp(1.75rem, -6.125rem + 30vw, 2.125rem);
+    --kw-font-size-title:clamp(1.25rem, -4rem + 20vw, 1.5rem);
+    --kw-font-size-title-home:clamp(1.125rem, -2.8125rem + 15vw, 1.3125rem);
+    --kw-font-size-cell:clamp(0.8125rem, -0.5rem + 5vw, 0.875rem);
+    --kw-space-inset-inline:1.25rem;
+    --kw-space-inset-roomy:2rem;
+    --kw-space-inset-block-start:2.25rem;
+    --kw-space-section:1.75rem;
+    --kw-space-header-block:0.375rem;
+    --kw-space-footer-top:2.75rem;
+    --kw-space-footer-bottom:2rem;
+    --kw-space-footer-offset:4.5rem;
+    --kw-space-gutter-inline:max(var(--kw-space-inset-inline), env(safe-area-inset-left, 0px)) max(var(--kw-space-inset-inline), env(safe-area-inset-right, 0px));
+    --kw-space-gutter-inline-roomy:max(var(--kw-space-inset-roomy), env(safe-area-inset-left, 0px)) max(var(--kw-space-inset-roomy), env(safe-area-inset-right, 0px));
+    --kw-space-header-top:max(var(--kw-space-header-block), env(safe-area-inset-top, 0px));
+    --kw-space-footer-end:max(var(--kw-space-footer-bottom), env(safe-area-inset-bottom, 0px));
+    --kw-space-cell:clamp(0.375rem, -4.875rem + 20vw, 0.625rem);
+    --kw-space-button:clamp(0.5rem, -4.75rem + 20vw, 0.75rem);
+    --kw-size-container-narrow:37.5rem;
+    --kw-size-container-reading:47.5rem;
+    --kw-size-container-wide:68.75rem;
+    --kw-size-container-compact:38rem;
+    --kw-size-measure-reading:33em;
+    --kw-line-height-body:1.6;
+    --kw-line-height-thai:1.65;
+    --kw-color-switch-border:rgba(128, 128, 128, 0.7);
+  }
+  html[data-job="prose"]{color-scheme:light dark;--bg:#fbfaf8;--bg2:#f1eee9;--card:#f5f2ed;--line:rgba(0, 0, 0, 0.12);--txt:#1a1a1a;--txt2:#464646;--quiet:#585858;--accent:#a65a19;--accent2:#8a4510;--kw-color-switch-border:#767676}
+  @media (prefers-color-scheme:dark){html[data-job="prose"]{--bg:#0f0d0b;--bg2:#15130f;--card:#1a1714;--line:rgba(255, 255, 255, 0.08);--txt:#ece4d9;--txt2:#a89a8c;--quiet:#a2968a;--accent:#e8833a;--accent2:#ffbb7a;--kw-color-switch-border:#8c8c8c}}
+  html[data-job="prose"] body{background:var(--bg)}
+  html[data-job="prose"] main{font-size:var(--kw-font-size-body);max-width:calc(var(--kw-size-measure-reading) + 2 * var(--kw-space-inset-inline))}
+  html[data-job="prose"] h1{font-size:var(--kw-font-size-reading-title)}
+  html[data-job="prose"] .legal h2{font-size:var(--kw-font-size-reading-h2)}
+  html[data-job="prose"] .legal h3{font-size:var(--kw-font-size-reading-h3)}
+  html[data-job="prose"] #doc-th,html[data-job="prose"] #doc-th *{line-height:var(--kw-line-height-thai)}
+/* site-tokens-css:end */
+:root{--ink:#1a1a1a;--dim:#5b5b5b;--bg:#fbfaf8;--amber:#A65A19}
+@media (prefers-color-scheme:dark){:root{--ink:#f2f0ed;--dim:#a3a3a3;--bg:#141414;--amber:#e8833a}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;flex-direction:column;background:var(--bg);color:var(--ink);font:1rem/1.65 "KW Sans Thai",system-ui,-apple-system,sans-serif}
+main{flex:1 0 auto;width:100%;max-width:var(--kw-size-container-compact);margin:0 auto;padding-block:var(--kw-space-inset-roomy);padding-inline:var(--kw-space-gutter-inline)}
+h1{font-size:1.35rem;margin:0 0 .75rem;font-weight:600}
+h2{font-size:1.05rem;margin:1.6rem 0 .5rem;font-weight:600}
+p{margin:0 0 .6rem;color:var(--dim)}
+.row{display:grid;gap:.15rem;margin:0 0 1.2rem;padding:.9rem 0 0;border-top:1px solid color-mix(in srgb,var(--dim) 25%,transparent);overflow-wrap:anywhere}
+.row dt{font-weight:600;color:var(--dim)}
+.row dd{margin:0 0 .4rem}
+.th{margin-top:1.6rem;padding-top:1.2rem;border-top:1px solid color-mix(in srgb,var(--dim) 25%,transparent)}
+a{color:var(--amber)}
+/* site-header-css:begin */
+  .site-header{border-bottom:1px solid rgba(128,128,128,.35);padding-block:var(--kw-space-header-top) var(--kw-space-header-block);padding-inline:var(--kw-space-gutter-inline)}
+  .site-header nav{display:flex;flex-wrap:wrap;align-items:center;gap:4px 18px;width:100%;max-width:var(--kw-size-container-wide);margin:0 auto;font-size:var(--kw-font-size-6)}
+  .site-header nav[lang="th"]{display:none}
+  html[lang="th"] .site-header nav[lang="en"]{display:none}
+  html[lang="th"] .site-header nav[lang="th"]{display:flex}
+  .site-header a{color:inherit;text-decoration:none;display:inline-flex;align-items:center;min-height:44px;overflow-wrap:anywhere}
+  .site-header a:hover{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}
+  .site-header .hmark{gap:10px;font-weight:700;font-size:var(--kw-font-size-9);letter-spacing:.01em;margin-right:auto}
+  .site-header .hglyph,.site-footer .fglyph{flex:none;display:block;fill:var(--accent,var(--amber,#e8833a))}
+  .lswitch{display:inline-flex;gap:6px}
+  .lswitch button{font:inherit;font-size:var(--kw-font-size-2);color:inherit;background:transparent;border:1px solid var(--kw-color-switch-border);border-radius:8px;padding:6px 12px;min-height:34px;cursor:pointer}
+  .lswitch button:hover{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}
+  .lswitch button[aria-pressed="true"]{border-color:currentColor;font-weight:600}
+  .site-header :focus-visible,.site-footer :focus-visible{outline:2px solid currentColor;outline-offset:2px}
+/* site-header-css:end */
+/* site-footer-css:begin */
+  .site-footer{display:block;margin-top:var(--kw-space-footer-offset);padding-block:var(--kw-space-footer-top) var(--kw-space-footer-end);padding-inline:var(--kw-space-gutter-inline);border-top:1px solid rgba(128,128,128,.35);font-size:var(--kw-font-size-4);line-height:1.7}
+  .site-footer[lang="th"]{display:none}
+  html[lang="th"] .site-footer[lang="en"]{display:none}
+  html[lang="th"] .site-footer[lang="th"]{display:block}
+  .site-footer .fwrap{width:100%;max-width:var(--kw-size-container-wide);margin:0 auto;display:flex;flex-direction:column;gap:28px}
+  .site-footer .fbrand{display:flex;align-items:center;gap:10px;margin:0;font-size:var(--kw-font-size-10);font-weight:700;letter-spacing:.01em}
+  .site-footer .fgroups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 18px}
+  @media (min-width:640px){.site-footer .fgroups{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  @media (min-width:1024px){.site-footer .fgroups{grid-template-columns:repeat(5,minmax(0,1fr))}}
+  .site-footer .fgroup{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0}
+  .site-footer .fh{font-size:var(--kw-font-size-1);letter-spacing:.04em;text-transform:uppercase;margin:0}
+  .site-footer a{color:inherit;text-decoration:underline;text-underline-offset:3px;display:inline-block;padding:5px 0;min-height:32px;overflow-wrap:anywhere}
+  .site-footer a:hover{text-decoration-thickness:2px}
+  .site-footer .fbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid rgba(128,128,128,.25);padding-top:16px}
+  .fine{font-size:var(--kw-font-size-1);margin:0}
+/* site-footer-css:end */
+</style>
+<noscript><style>
+/* site-noscript-css:begin */
+  .lswitch{display:none}
+  #doc-th{display:block !important;border-top:1px solid var(--line);padding-top:28px}
+  .site-header nav[lang="th"]{display:flex !important}
+  .site-footer[lang="th"]{display:block !important}
+/* site-noscript-css:end */
+</style></noscript>
+</head>
+<body>
+<!-- site-header:begin -->
+<header class="site-header">
+<nav lang="en" aria-label="Main">
+<a class="hmark" href="/" aria-label="Kolwen home"><svg class="hglyph" viewBox="0 0 100 100" width="26" height="26" aria-hidden="true"><rect x="8.5" y="9.1" width="64.3" height="25"/><rect x="17.85" y="46.25" width="64.3" height="19.66"/><rect x="27.2" y="75.46" width="64.3" height="15.45"/></svg><span>Kolwen</span></a>
+<a href="/pricing">Pricing</a>
+<div class="lswitch" role="group" aria-label="Language"><button type="button" data-lang-set="en" lang="en" aria-pressed="true">English</button><button type="button" data-lang-set="th" lang="th" aria-pressed="false">ไทย</button></div>
+</nav>
+<nav lang="th" aria-label="เมนูหลัก">
+<a class="hmark" href="/" aria-label="หน้าแรกของ Kolwen"><svg class="hglyph" viewBox="0 0 100 100" width="26" height="26" aria-hidden="true"><rect x="8.5" y="9.1" width="64.3" height="25"/><rect x="17.85" y="46.25" width="64.3" height="19.66"/><rect x="27.2" y="75.46" width="64.3" height="15.45"/></svg><span>Kolwen</span></a>
+<a href="/pricing">ราคา</a>
+<div class="lswitch" role="group" aria-label="ภาษา"><button type="button" data-lang-set="en" lang="en" aria-pressed="true">English</button><button type="button" data-lang-set="th" lang="th" aria-pressed="false">ไทย</button></div>
+</nav>
+</header>
+<!-- site-header:end -->
+<main>
+  <div id="doc-en" lang="en">
+  <h1>Subprocessors</h1>
+  <p>These are the providers that process personal data of Kolwen&#39;s customers on Kolwen&#39;s behalf: what each one does, where it processes the data, the basis for any transfer abroad, and the data processing agreement it is under. Each row takes effect on the day that row&#39;s provider first holds a customer&#39;s data. Until then the row says so.</p>
+  <dl class="row">
+    <dt><p>Provider</p></dt><dd><p>Cloudflare</p></dd>
+    <dt><p>Purpose</p></dt><dd><p>Serving the site and the service: hosting, Workers and their storage, and logs.</p></dd>
+    <dt><p>Personal data</p></dt><dd><p>Requests made to the site, as Cloudflare handles them to serve it.</p></dd>
+    <dt><p>Where it is processed</p></dt><dd><p>Cloudflare&#39;s network, and sub-processors outside the European Economic Area, Switzerland and the United Kingdom, in countries the agreement does not name.</p></dd>
+    <dt><p>Transfer basis</p></dt><dd><p>EU Standard Contractual Clauses (Module Two and Module Three); the UK Addendum; the Swiss addendum; the EU-U.S. Data Privacy Framework where Cloudflare is certified under it.</p></dd>
+    <dt><p>Data processing agreement</p></dt><dd><p>Customer DPA, Version 6.4, effective 3 April 2026.</p></dd>
+    <dt><p>From</p></dt><dd><p>from the day it first holds customer data.</p></dd>
+  </dl>
+  <dl class="row">
+    <dt><p>Provider</p></dt><dd><p>Supabase</p></dd>
+    <dt><p>Purpose</p></dt><dd><p>Account sign-in, and the service&#39;s database.</p></dd>
+    <dt><p>Personal data</p></dt><dd><p>Account identity (name and e-mail address) and password hashes.</p></dd>
+    <dt><p>Where it is processed</p></dt><dd><p>The project&#39;s region, chosen when the account is created, from the regions Supabase lists.</p></dd>
+    <dt><p>Transfer basis</p></dt><dd><p>EU Standard Contractual Clauses (Module Two and Module Three), with the UK and Swiss addenda, where data leaves the EEA, the United Kingdom or Switzerland.</p></dd>
+    <dt><p>Data processing agreement</p></dt><dd><p>Data Processing Agreement, Version 1, 1 August 2026; accepted before the account holds customer data.</p></dd>
+    <dt><p>From</p></dt><dd><p>from the day it first holds customer data.</p></dd>
+  </dl>
+  <dl class="row">
+    <dt><p>Provider</p></dt><dd><p>Paddle</p></dd>
+    <dt><p>Purpose</p></dt><dd><p>Merchant of record for purchases: payment and tax. Paddle acts as its own controller for purchase data.</p></dd>
+    <dt><p>Personal data</p></dt><dd><p>The buyer&#39;s name, e-mail address, and payment and tax data.</p></dd>
+    <dt><p>Where it is processed</p></dt><dd><p>Paddle&#39;s controller entities in the United Kingdom, the United States, Ireland and Canada; its processors anywhere in the world.</p></dd>
+    <dt><p>Transfer basis</p></dt><dd><p>EU Standard Contractual Clauses (Module One, controller to controller), and the UK Approved Addendum, for transfers from the United Kingdom or the EEA to countries without an adequacy decision.</p></dd>
+    <dt><p>Data processing agreement</p></dt><dd><p>None as a processor: Paddle acts as its own controller under its Data Sharing Addendum.</p></dd>
+    <dt><p>From</p></dt><dd><p>from the day it first holds customer data.</p></dd>
+  </dl>
+  <dl class="row">
+    <dt><p>Provider</p></dt><dd><p>Resend</p></dd>
+    <dt><p>Purpose</p></dt><dd><p>Sending Kolwen&#39;s service e-mail.</p></dd>
+    <dt><p>Personal data</p></dt><dd><p>E-mail address, message content and message metadata.</p></dd>
+    <dt><p>Where it is processed</p></dt><dd><p>The United States, where Resend&#39;s primary processing takes place, and its sub-processors there.</p></dd>
+    <dt><p>Transfer basis</p></dt><dd><p>EU Standard Contractual Clauses (Module Two and Module Three); the UK SCCs; the EU SCCs as adapted for Switzerland; the EU-U.S. Data Privacy Framework, under which Resend states it complies.</p></dd>
+    <dt><p>Data processing agreement</p></dt><dd><p>Data Processing Addendum, updated 31 December 2025.</p></dd>
+    <dt><p>From</p></dt><dd><p>from the day it first holds customer data.</p></dd>
+  </dl>
+  <dl class="row">
+    <dt><p>Provider</p></dt><dd><p>An off-provider backup store (named before the first customer data is stored there).</p></dd>
+    <dt><p>Purpose</p></dt><dd><p>Encrypted backup copies of account and billing records.</p></dd>
+    <dt><p>Personal data</p></dt><dd><p>As held in those records, encrypted.</p></dd>
+    <dt><p>Where it is processed</p></dt><dd><p>stated when named.</p></dd>
+    <dt><p>Transfer basis</p></dt><dd><p>stated when named.</p></dd>
+    <dt><p>Data processing agreement</p></dt><dd><p>stated when named.</p></dd>
+    <dt><p>From</p></dt><dd><p>from the day it first holds customer data.</p></dd>
+  </dl>
+  <h2>Changes</h2>
+  <p>31 October 2026: this list was created.</p>
+
+  </div>
+  <div class="th" id="doc-th" lang="th" hidden>
+  <h1>ผู้ประมวลผลช่วง</h1>
+  <p>นี่คือผู้ให้บริการที่ประมวลผลข้อมูลส่วนบุคคลของลูกค้า Kolwen แทน Kolwen แต่ละรายทำหน้าที่อะไร ประมวลผลข้อมูลที่ใด ฐานการโอนข้อมูลไปต่างประเทศ และข้อตกลงการประมวลผลข้อมูลที่ใช้อยู่ แต่ละแถวมีผลในวันที่ผู้ให้บริการของแถวนั้นเริ่มถือข้อมูลของลูกค้าเป็นครั้งแรก ก่อนถึงวันนั้น แถวจะระบุว่า จากวันที่เริ่มถือข้อมูลของลูกค้า</p>
+  <dl class="row">
+    <dt><p>ผู้ให้บริการ</p></dt><dd><p>Cloudflare</p></dd>
+    <dt><p>วัตถุประสงค์</p></dt><dd><p>ให้บริการเว็บไซต์และบริการ ได้แก่ โฮสติ้ง Workers และพื้นที่จัดเก็บของ Workers และบันทึก</p></dd>
+    <dt><p>ข้อมูลส่วนบุคคล</p></dt><dd><p>คำขอที่ส่งเข้าเว็บไซต์ ตามที่ Cloudflare ประมวลผลเพื่อส่งหน้าเว็บ</p></dd>
+    <dt><p>สถานที่ประมวลผล</p></dt><dd><p>เครือข่ายของ Cloudflare และผู้ประมวลผลช่วงนอก EEA สวิตเซอร์แลนด์ และสหราชอาณาจักร ในประเทศที่ข้อตกลงไม่ได้ระบุ</p></dd>
+    <dt><p>ฐานการโอนข้อมูล</p></dt><dd><p>ข้อสัญญามาตรฐานของ EU (Module Two และ Module Three) ภาคผนวกสำหรับสหราชอาณาจักร ภาคผนวกสำหรับสวิตเซอร์แลนด์ และกรอบความเป็นส่วนตัวข้อมูล EU-U.S. ในกรณีที่ Cloudflare ได้รับการรับรองภายใต้กรอบนี้</p></dd>
+    <dt><p>ข้อตกลงการประมวลผลข้อมูล</p></dt><dd><p>ข้อตกลงการประมวลผลข้อมูลของลูกค้า ฉบับที่ 6.4 มีผลตั้งแต่ 3 เมษายน 2569</p></dd>
+    <dt><p>มีผลตั้งแต่</p></dt><dd><p>จากวันที่เริ่มถือข้อมูลของลูกค้า</p></dd>
+  </dl>
+  <dl class="row">
+    <dt><p>ผู้ให้บริการ</p></dt><dd><p>Supabase</p></dd>
+    <dt><p>วัตถุประสงค์</p></dt><dd><p>การเข้าสู่ระบบบัญชี และฐานข้อมูลของบริการ</p></dd>
+    <dt><p>ข้อมูลส่วนบุคคล</p></dt><dd><p>ตัวตนของบัญชี (ชื่อและที่อยู่อีเมล) และค่าแฮชของรหัสผ่าน</p></dd>
+    <dt><p>สถานที่ประมวลผล</p></dt><dd><p>ภูมิภาคของโปรเจกต์ ซึ่งเลือกเมื่อสร้างบัญชี จากภูมิภาคที่ Supabase ระบุไว้</p></dd>
+    <dt><p>ฐานการโอนข้อมูล</p></dt><dd><p>ข้อสัญญามาตรฐานของ EU (Module Two และ Module Three) พร้อมภาคผนวกสำหรับสหราชอาณาจักรและสวิตเซอร์แลนด์ ในกรณีที่ข้อมูลออกนอก EEA สหราชอาณาจักร หรือสวิตเซอร์แลนด์</p></dd>
+    <dt><p>ข้อตกลงการประมวลผลข้อมูล</p></dt><dd><p>ข้อตกลงการประมวลผลข้อมูล ฉบับที่ 1 (1 สิงหาคม 2569) ซึ่งต้องยอมรับก่อนบัญชีถือข้อมูลของลูกค้า</p></dd>
+    <dt><p>มีผลตั้งแต่</p></dt><dd><p>จากวันที่เริ่มถือข้อมูลของลูกค้า</p></dd>
+  </dl>
+  <dl class="row">
+    <dt><p>ผู้ให้บริการ</p></dt><dd><p>Paddle</p></dd>
+    <dt><p>วัตถุประสงค์</p></dt><dd><p>ผู้ขายตามบันทึกสำหรับการซื้อ ได้แก่ การชำระเงินและภาษี Paddle ทำหน้าที่เป็นผู้ควบคุมข้อมูลของตนเองสำหรับข้อมูลการซื้อ</p></dd>
+    <dt><p>ข้อมูลส่วนบุคคล</p></dt><dd><p>ชื่อ ที่อยู่อีเมล และข้อมูลการชำระเงินและภาษีของผู้ซื้อ</p></dd>
+    <dt><p>สถานที่ประมวลผล</p></dt><dd><p>นิติบุคคลผู้ควบคุมของ Paddle ในสหราชอาณาจักร สหรัฐอเมริกา ไอร์แลนด์ และแคนาดา และผู้ประมวลผลของ Paddle ในที่ใดก็ได้ในโลก</p></dd>
+    <dt><p>ฐานการโอนข้อมูล</p></dt><dd><p>ข้อสัญญามาตรฐานของ EU (Module One ผู้ควบคุมถึงผู้ควบคุม) และ UK Approved Addendum สำหรับการโอนจากสหราชอาณาจักรหรือ EEA ไปยังประเทศที่ไม่มีการตัดสินว่าเพียงพอ</p></dd>
+    <dt><p>ข้อตกลงการประมวลผลข้อมูล</p></dt><dd><p>ไม่มีในฐานะผู้ประมวลผล: Paddle ทำหน้าที่เป็นผู้ควบคุมของตนเองภายใต้ Data Sharing Addendum</p></dd>
+    <dt><p>มีผลตั้งแต่</p></dt><dd><p>จากวันที่เริ่มถือข้อมูลของลูกค้า</p></dd>
+  </dl>
+  <dl class="row">
+    <dt><p>ผู้ให้บริการ</p></dt><dd><p>Resend</p></dd>
+    <dt><p>วัตถุประสงค์</p></dt><dd><p>ส่งอีเมลบริการของ Kolwen</p></dd>
+    <dt><p>ข้อมูลส่วนบุคคล</p></dt><dd><p>ที่อยู่อีเมล เนื้อหาของข้อความ และเมทาดาทาของข้อความ</p></dd>
+    <dt><p>สถานที่ประมวลผล</p></dt><dd><p>สหรัฐอเมริกา ซึ่งเป็นที่ประมวลผลหลักของ Resend และผู้ประมวลผลช่วงของ Resend ที่นั่น</p></dd>
+    <dt><p>ฐานการโอนข้อมูล</p></dt><dd><p>ข้อสัญญามาตรฐานของ EU (Module Two และ Module Three) ข้อสัญญามาตรฐานของสหราชอาณาจักร ข้อสัญญามาตรฐานของ EU ที่ปรับใช้สำหรับสวิตเซอร์แลนด์ และ EU-U.S. Data Privacy Framework ซึ่ง Resend ระบุว่าปฏิบัติตาม</p></dd>
+    <dt><p>ข้อตกลงการประมวลผลข้อมูล</p></dt><dd><p>ข้อตกลงการประมวลผลข้อมูล ปรับปรุงเมื่อ 31 ธันวาคม 2568</p></dd>
+    <dt><p>มีผลตั้งแต่</p></dt><dd><p>จากวันที่เริ่มถือข้อมูลของลูกค้า</p></dd>
+  </dl>
+  <dl class="row">
+    <dt><p>ผู้ให้บริการ</p></dt><dd><p>ที่เก็บสำรองนอกผู้ให้บริการหลัก (จะระบุชื่อก่อนเก็บข้อมูลลูกค้ารายการแรกไว้ที่นั่น)</p></dd>
+    <dt><p>วัตถุประสงค์</p></dt><dd><p>สำเนาสำรองที่เข้ารหัสของบันทึกบัญชีและการเรียกเก็บเงิน</p></dd>
+    <dt><p>ข้อมูลส่วนบุคคล</p></dt><dd><p>ตามที่มีในบันทึกเหล่านั้น เข้ารหัสแล้ว</p></dd>
+    <dt><p>สถานที่ประมวลผล</p></dt><dd><p>ระบุเมื่อมีการระบุชื่อ</p></dd>
+    <dt><p>ฐานการโอนข้อมูล</p></dt><dd><p>ระบุเมื่อมีการระบุชื่อ</p></dd>
+    <dt><p>ข้อตกลงการประมวลผลข้อมูล</p></dt><dd><p>ระบุเมื่อมีการระบุชื่อ</p></dd>
+    <dt><p>มีผลตั้งแต่</p></dt><dd><p>จากวันที่เริ่มถือข้อมูลของลูกค้า</p></dd>
+  </dl>
+  <h2>การเปลี่ยนแปลง</h2>
+  <p>31 ตุลาคม 2569 สร้างรายการนี้ขึ้น</p>
+
+  </div>
+</main>
+<!-- site-footer:en:begin -->
+<footer class="site-footer" lang="en">
+<div class="fwrap">
+<p class="fbrand"><svg class="fglyph" viewBox="0 0 100 100" width="24" height="24" aria-hidden="true"><rect x="8.5" y="9.1" width="64.3" height="25"/><rect x="17.85" y="46.25" width="64.3" height="19.66"/><rect x="27.2" y="75.46" width="64.3" height="15.45"/></svg>Kolwen</p>
+<nav class="fgroups" aria-label="Footer">
+<div class="fgroup"><p class="fh">Kolwen</p><a href="/">Home</a></div>
+<div class="fgroup"><p class="fh">Product</p><a href="/pricing">Pricing</a><a href="/changelog">Changelog</a></div>
+<div class="fgroup"><p class="fh">Legal</p><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/refund">Refunds</a></div>
+<div class="fgroup"><p class="fh">Code</p><a href="https://github.com/TheColliery/Kolwen">GitHub</a><a href="https://huggingface.co/kolwen">Hugging Face</a><a href="https://www.npmjs.com/package/kolwen">npm</a><a href="/llms.txt">llms.txt</a></div>
+<div class="fgroup"><p class="fh">Contact</p><a href="mailto:info@kolwen.com">Email</a><a href="mailto:support@kolwen.com">Support</a><a href="mailto:abuse@kolwen.com">Report abuse</a><a href="mailto:appeals@kolwen.com">Appeals</a><a href="https://kolwen.com/.well-known/security.txt">Security</a></div>
+</nav>
+<div class="fbar">
+<p class="fine">© 2026 Kolwen · trademark application pending</p>
+<div class="lswitch" role="group" aria-label="Language"><button type="button" data-lang-set="en" lang="en" aria-pressed="true">English</button><button type="button" data-lang-set="th" lang="th" aria-pressed="false">ไทย</button></div>
+</div>
+</div>
+</footer>
+<!-- site-footer:en:end -->
+<!-- site-footer:th:begin -->
+<footer class="site-footer" lang="th">
+<div class="fwrap">
+<p class="fbrand"><svg class="fglyph" viewBox="0 0 100 100" width="24" height="24" aria-hidden="true"><rect x="8.5" y="9.1" width="64.3" height="25"/><rect x="17.85" y="46.25" width="64.3" height="19.66"/><rect x="27.2" y="75.46" width="64.3" height="15.45"/></svg>Kolwen</p>
+<nav class="fgroups" aria-label="ส่วนท้ายเว็บ">
+<div class="fgroup"><p class="fh">Kolwen</p><a href="/">หน้าแรก</a></div>
+<div class="fgroup"><p class="fh">สินค้า</p><a href="/pricing">ราคา</a><a href="/changelog">บันทึกการเปลี่ยนแปลง</a></div>
+<div class="fgroup"><p class="fh">กฎหมาย</p><a href="/terms">ข้อกำหนด</a><a href="/privacy">ความเป็นส่วนตัว</a><a href="/refund">การคืนเงิน</a></div>
+<div class="fgroup"><p class="fh">โค้ด</p><a href="https://github.com/TheColliery/Kolwen">GitHub</a><a href="https://huggingface.co/kolwen">Hugging Face</a><a href="https://www.npmjs.com/package/kolwen">npm</a><a href="/llms.txt">llms.txt</a></div>
+<div class="fgroup"><p class="fh">ติดต่อ</p><a href="mailto:info@kolwen.com">อีเมล</a><a href="mailto:support@kolwen.com">ขอความช่วยเหลือ</a><a href="mailto:abuse@kolwen.com">แจ้งการละเมิด</a><a href="mailto:appeals@kolwen.com">ยื่นอุทธรณ์</a><a href="https://kolwen.com/.well-known/security.txt">ความปลอดภัย</a></div>
+</nav>
+<div class="fbar">
+<p class="fine">© 2026 Kolwen · เครื่องหมายการค้าอยู่ระหว่างการจดทะเบียน</p>
+<div class="lswitch" role="group" aria-label="ภาษา"><button type="button" data-lang-set="en" lang="en" aria-pressed="true">English</button><button type="button" data-lang-set="th" lang="th" aria-pressed="false">ไทย</button></div>
+</div>
+</div>
+</footer>
+<!-- site-footer:th:end -->
+<script>
+/* site-script:begin */
+(function () {
+  var KEY = 'kolwen-lang';
+  var en = document.getElementById('doc-en');
+  var th = document.getElementById('doc-th');
+  var buttons = document.querySelectorAll('[data-lang-set]');
+
+  function apply(lang, persist) {
+    var thai = lang === 'th';
+    th.hidden = !thai;
+    en.hidden = thai;
+    document.documentElement.lang = thai ? 'th' : 'en';
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].setAttribute('aria-pressed', String(buttons[i].getAttribute('data-lang-set') === lang));
+    }
+    if (persist) {
+      // Language preference only. localStorage, never a cookie: it is a
+      // client-only concern that never needs to ride on an HTTP request.
+      try { localStorage.setItem(KEY, lang); } catch (e) {}
+    }
+  }
+
+  var saved = null;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  if (saved === 'th' || saved === 'en') apply(saved, false);
+
+  // Pressing a switch changes the page language on the root element, which hides the header nav or the footer holding the pressed button. So focus goes to the same switch in the block that is now shown,
+  // in the same place (header to header, footer to footer), and without a scroll jump (WCAG 2.2 SC 2.4.3 and 2.4.7). Pressing the language already shown hides nothing and moves nothing.
+  function bind(button) {
+    button.addEventListener('click', function () {
+      var lang = button.getAttribute('data-lang-set');
+      var changed = document.documentElement.lang !== lang;
+      var place = button.closest('.site-header') ? '.site-header' : (button.closest('.site-footer') ? '.site-footer' : '');
+      apply(lang, true);
+      if (!changed || !place) return;
+      var same = document.querySelectorAll(place + ' [data-lang-set]');
+      for (var j = 0; j < same.length; j++) {
+        if (same[j].getAttribute('data-lang-set') === lang && same[j].parentNode.closest('[lang]').getAttribute('lang') === lang) { same[j].focus({ preventScroll: true }); return; }
+      }
+    });
+  }
+  for (var i = 0; i < buttons.length; i++) bind(buttons[i]);
+
+  // The status page is the one page with a [data-status] element. It reads /status.json, the last health check the Worker stored, and writes the state, the time and one row per
+  // probed page as text: the numbers, paths and times come from the data, and every word on the page comes from the catalogue. Without the fetch the page keeps its unavailable line.
+  if (document.querySelector('[data-status]')) {
+    fetch('/status.json', { cache: 'no-store' })
+      .then(function (res) { if (!res.ok) throw new Error('status ' + res.status); return res.json(); })
+      .then(showStatus)
+      .catch(function () { /* the page keeps its unavailable line */ });
+  }
+
+  function showStatus(data) {
+    var state = 'none';
+    if (data.checked) state = data.probes.every(function (p) { return p.ok; }) ? 'ok' : 'failing';
+    var lines = document.querySelectorAll('[data-state]');
+    for (var i = 0; i < lines.length; i++) lines[i].hidden = lines[i].getAttribute('data-state') !== state;
+    if (!data.checked) return;
+    var times = document.querySelectorAll('[data-fill="checked"]');
+    for (var j = 0; j < times.length; j++) { times[j].textContent = data.checked; times[j].setAttribute('datetime', data.checked); }
+    var lists = document.querySelectorAll('[data-fill="probes"]');
+    for (var k = 0; k < lists.length; k++) {
+      lists[k].textContent = '';
+      var labels = marks(lists[k]);
+      for (var m = 0; m < data.probes.length; m++) lists[k].appendChild(probeRow(data.probes[m], labels));
+    }
+  }
+
+  // A row's OK and FAIL labels come from the language section that holds its list, so a Thai row says ผ่าน or ไม่ผ่าน.
+  function marks(list) {
+    var lang = list.closest('[lang]');
+    return { ok: lang.querySelector('[data-mark="ok"]').textContent, fail: lang.querySelector('[data-mark="fail"]').textContent };
+  }
+
+  function probeRow(p, labels) {
+    var li = document.createElement('li');
+    var path = document.createElement('span');
+    path.className = 'path';
+    path.textContent = p.path;
+    var code = document.createElement('span');
+    code.textContent = p.status ? String(p.status) : '-';
+    var ms = document.createElement('span');
+    ms.textContent = p.ms + ' ms';
+    var mark = document.createElement('span');
+    mark.textContent = p.ok ? labels.ok : labels.fail;
+    li.appendChild(path);
+    li.appendChild(code);
+    li.appendChild(ms);
+    li.appendChild(mark);
+    return li;
+  }
+})();
+/* site-script:end */
+</script>
+</body>
+</html>

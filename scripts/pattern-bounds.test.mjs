@@ -129,7 +129,7 @@ test('CR-2 many definitions each naming a near-cap value are cut once the memo h
     const out = inChild(`import { readFileSync } from 'node:fs';
 import { fontSizeProblems } from ${JSON.stringify(url(['scripts', 'lib', 'type-lint.mjs']))};
 const problems = fontSizeProblems([readFileSync(process.env.CSS_FILE, 'utf8')]);
-console.log('OK ' + problems.some(p => /passed 65536 characters and was cut/.test(p.why)));`, { CSS_FILE: file }, 1024);
+console.log('OK ' + problems.some(p => /the custom-property memo passed 4194304 characters and later names were cut/.test(p.why)));`, { CSS_FILE: file }, 1024);
     assert.equal(out, 'OK true', 'the lint reports the cut once the memo holds its bound');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
@@ -147,7 +147,26 @@ test('K-24 many aliases of a definition with many unresolved names are cut once 
     const out = inChild(`import { readFileSync } from 'node:fs';
 import { fontSizeProblems } from ${JSON.stringify(url(['scripts', 'lib', 'type-lint.mjs']))};
 const problems = fontSizeProblems([readFileSync(process.env.CSS_FILE, 'utf8')]);
-console.log('OK ' + problems.some(p => /passed 65536 characters and was cut/.test(p.why)));`, { CSS_FILE: file }, 1024);
+console.log('OK ' + problems.some(p => /the custom-property memo passed 4194304 characters and later names were cut/.test(p.why)));`, { CSS_FILE: file }, 1024);
     assert.equal(out, 'OK true', 'the lint reports the cut once the memo counts the missing names');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('K-25 one definition naming 200 unresolved names, used by 500 declarations, reports each missing name once', () => {
+  // --base names 200 unresolved names and 500 font-size declarations use it: each name is one missing name, so the lint reports it once per run (before K-25: 500 x 200 = 100,000 problems)
+  const names = Array.from({ length: 200 }, (_, i) => 'var(--u' + i + ')').join(' ');
+  const defs = ['--base:' + names], uses = [];
+  for (let i = 0; i < 500; i++) uses.push('p.c' + i + '{font-size:var(--base)}');
+  const css = ':root{' + defs.join(';') + '}' + uses.join('');
+  const dir = mkdtempSync(join(tmpdir(), 'pattern-bounds-once-'));
+  try {
+    const file = join(dir, 'once.css');
+    writeFileSync(file, css);
+    const out = inChild(`import { readFileSync } from 'node:fs';
+import { fontSizeProblems } from ${JSON.stringify(url(['scripts', 'lib', 'type-lint.mjs']))};
+const problems = fontSizeProblems([readFileSync(process.env.CSS_FILE, 'utf8')]);
+console.log('N ' + problems.length);`, { CSS_FILE: file }, 1024);
+    const n = Number((/^N (\d+)$/.exec(out) || [])[1]);
+    assert.ok(n <= 200, 'each missing name is reported once, so at most 200 problems: ' + out);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
