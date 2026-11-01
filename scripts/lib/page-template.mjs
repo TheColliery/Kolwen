@@ -30,7 +30,7 @@
 // attribute (a data-* attribute is data the shared page script reads, `data-lang-set`, and is no text a visitor sees); it does not read the text a script writes into the page at run time, which is why a
 // template holds no script; it reads a javascript: URL written in the template, not one a catalogue value would make through an {{=key}} slot in an href (the site's CSP, with no 'unsafe-inline', blocks it
 // at run time, and no catalogue value holds a URL); it reads no other attribute as an address (poster, background, ping, cite, longdesc, manifest, codebase), no blob: or filesystem: URL, and not a <base href> that changes how a relative address resolves; a reference that is decoded twice by a layer outside the HTML (a script that unescapes an attribute) is outside it; it reads `<td abbr>` (assistive only) and the text of a comment as nothing; and the text of an <svg> or <math> element is read as any other text.
-import { htmlTokens } from './html-tokens.mjs';
+import { commentEnd, htmlTokens } from './html-tokens.mjs';
 import { cssContentOf, decodeAttribute } from './rendered-text.mjs';
 import { bcp47Problem, DEFAULT_LANG, valueHtml, valuePlain, valueJson, escAttr } from './i18n-catalogue.mjs';
 
@@ -103,8 +103,7 @@ export function withoutComments(text) {
   for (;;) {
     const open = t.indexOf('<!--');
     if (open < 0) return t;
-    const close = t.indexOf('-->', open + 4);
-    t = t.slice(0, open) + (close < 0 ? '' : t.slice(close + 3));
+    t = t.slice(0, open) + t.slice(commentEnd(t, open));
   }
 }
 

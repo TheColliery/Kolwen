@@ -64,7 +64,7 @@ function scanTag(html, from) {
 export const attrsOf = text => scanTag(text + '>', 0).attrs;
 
 // Where the comment that opens at `at` (`<!--`) ends: the index after its last character.
-function commentEnd(html, at) {
+export function commentEnd(html, at) {
   const from = at + 4;
   if (html[from] === '>') return from + 1;
   if (html[from] === '-' && html[from + 1] === '>') return from + 2;
