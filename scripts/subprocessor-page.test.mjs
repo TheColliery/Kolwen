@@ -93,6 +93,10 @@ test('the no-link check reads a src, an action and a refresh target, and a host 
   assert.deepEqual(passed.filter(s => linksTo(s, '/subprocessors').length !== 0), [], 'spellings that do not link to the page that the check reports');
 });
 
+test('an unknown reference survives as written in the decoded href', () => {
+  assert.deepEqual(hrefsIn('<a href="/a?x=1&campaign;">x</a>'), ['/a?x=1&campaign;']);
+});
+
 test('the subprocessor page is read as prose, and loads nothing from another origin', () => {
   const html = read('web/subprocessors.html');
   assert.match(html, /<html lang="en" data-job="prose">/);
