@@ -29,7 +29,7 @@
 		// wrong URL -- measured 2026-09-03 -- so crawlers indexed nonexistent pages as real ones.
 		"not_found_handling": "404-page"
 	},
-	// Every 15 minutes the script probes the six sitemap pages. Cron Triggers allowed per account: 5 on Workers Free
+	// Every 15 minutes the script probes the sitemap pages. Cron Triggers allowed per account: 5 on Workers Free
 	// (https://developers.cloudflare.com/workers/platform/limits/). This file uses one.
 	"triggers": {
 		"crons": ["*/15 * * * *"]

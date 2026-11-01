@@ -106,7 +106,16 @@ export async function statusResponse(env) {
 }
 
 const text = (body, status = 200) => new Response(body, { status, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
-const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// The shape a subscription address must have: at most 254 characters (RFC 5321's path limit), no whitespace, one "@" with a
+// non-empty local part, and a dot in the domain that is neither its first nor its last character. The length check runs
+// first, so no long input reaches a scan, and every step after it is a single linear pass.
+const MAX_EMAIL_LENGTH = 254;
+export function emailShape(email) {
+  if (email.length > MAX_EMAIL_LENGTH || /\s/.test(email)) return false;
+  const at = email.indexOf('@');
+  if (at < 1 || email.indexOf('@', at + 1) !== -1) return false;
+  return email.slice(at + 1).slice(1, -1).includes('.');
+}
 const TOKEN_SHAPE = /^[0-9a-f]{48}$/;
 
 // /subscribe, switched off by default: while SUBSCRIBE is not "on" both methods answer 404 and the store is not touched. Returns null for any other path.
@@ -118,7 +127,7 @@ export async function handleSubscription(request, env) {
   if (off) return new Response('not found', { status: 404 });
   if (request.method === 'POST') {
     const email = String((await request.formData().catch(() => null))?.get('email') ?? '').trim();
-    if (!EMAIL_SHAPE.test(email)) return text('enter an email address', 400);
+    if (!emailShape(email)) return text('enter an email address', 400);
     const token = [...crypto.getRandomValues(new Uint8Array(24))].map(b => b.toString(16).padStart(2, '0')).join('');
     await env.SUBSCRIBERS.put(token, JSON.stringify({ email, verified: false, created: new Date().toISOString() }));
     return text('subscribed; no confirmation mail is sent in this build');

@@ -2,7 +2,8 @@
 // no test reaches the network, sends mail or writes a real store. Nothing here spawns a child process. Run: node --test scripts/worker-status.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import worker, { buildState, handleSubscription, monitor, statusResponse, transition } from '../worker/index.mjs';
+import { spawnSync } from 'node:child_process';
+import worker, { buildState, emailShape, handleSubscription, monitor, statusResponse, transition } from '../worker/index.mjs';
 
 const HTML = { 'content-type': 'text/html; charset=utf-8' };
 const fetchWith = (failing = new Set()) => async url => (failing.has(new URL(url).pathname)
@@ -131,4 +132,45 @@ test('with SUBSCRIBE on (test only): a subscribe stores verified false and a tok
   const gone = await handleSubscription(new Request('https://kolwen.com/subscribe?token=' + token, { method: 'DELETE' }), env);
   assert.equal(gone.status, 200);
   assert.equal(subs.m.size, 0);
+});
+
+// The address check runs in a child with a heap cap and a kill timer: a check that goes super-linear is killed, and the test fails.
+const ADDRESS_CHILD = [
+  "const { handleSubscription } = await import(process.argv[1]);",
+  "const email = 'a@' + 'a.'.repeat(40000) + '@';",
+  "const req = new Request('https://kolwen.com/subscribe', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ email }) });",
+  "const t0 = performance.now();",
+  "const res = await handleSubscription(req, { SUBSCRIBE: 'on', SUBSCRIBERS: { put: async () => {} } });",
+  "console.log(res.status + ' ' + Math.round(performance.now() - t0));",
+].join('\n');
+
+test('a subscription address with a long dotted domain is refused in bounded time', () => {
+  const r = spawnSync(process.execPath, ['--max-old-space-size=256', '--input-type=module', '-e', ADDRESS_CHILD, new URL('../worker/index.mjs', import.meta.url).href], { encoding: 'utf8', timeout: 30000, killSignal: 'SIGKILL' });
+  assert.equal(r.signal, null, 'the child was killed: the address check ran away');
+  assert.equal(r.status, 0, 'the child failed: ' + r.stderr.slice(0, 300));
+  const [status, ms] = r.stdout.trim().split(' ').map(Number);
+  assert.equal(status, 400, 'a malformed address is refused');
+  assert.ok(ms < 1000, 'refused in ' + ms + ' ms; the bound is 1000 ms');
+});
+
+// The shape the address check accepted before the bound was added, verbatim: the reference for the equivalence test.
+const LEGACY_EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+test('the linear address check agrees with the old pattern on every input up to six characters over a small alphabet', () => {
+  const alphabet = ['a', '@', '.', ' ', '\t'];
+  assert.equal(emailShape(''), LEGACY_EMAIL_SHAPE.test(''), 'the empty string');
+  let level = [''];
+  for (let len = 1; len <= 6; len++) {
+    level = level.flatMap(s => alphabet.map(c => s + c));
+    for (const s of level) assert.equal(emailShape(s), LEGACY_EMAIL_SHAPE.test(s), JSON.stringify(s));
+  }
+});
+
+test('an address over 254 characters is refused, and one of exactly 254 with the right shape is accepted', () => {
+  const local = 'a'.repeat(64);
+  const fits = local + '@' + 'b'.repeat(185) + '.com';
+  assert.equal(fits.length, 254);
+  assert.equal(emailShape(fits), true);
+  assert.equal(emailShape(fits + 'x'), false, '255 characters');
+  assert.equal(emailShape('a@' + 'b'.repeat(300) + '.com'), false, 'far over the limit, and still refused without a scan');
 });
