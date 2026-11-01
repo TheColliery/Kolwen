@@ -74,3 +74,8 @@ test('a template whose comment ends at <!--> keeps the slot in the tag name that
   const problems = templateProblems('<main><!--><scr{{shared.k}}>{{x.a}}</scr{{shared.k}}><!----></main>', 'probe');
   assert.ok(problems.some(p => /a tag name holds a slot/.test(p)), JSON.stringify(problems));
 });
+
+test('a real tag after a quote in text keeps its precise message: the quoted-value strip runs only inside tags', () => {
+  const problems = templateProblems('<main>he said a="<scr{{x.t}}>y</scr{{x.t}}>" then left</main>', 'probe');
+  assert.ok(problems.some(p => /a tag name holds a slot/.test(p)), JSON.stringify(problems));
+});
