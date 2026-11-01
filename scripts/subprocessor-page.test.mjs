@@ -6,6 +6,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { decodeAttribute } from './lib/rendered-text.mjs';
+import { htmlTokens } from './lib/html-tokens.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = f => readFileSync(join(ROOT, f), 'utf8');
@@ -22,16 +23,12 @@ const SITE = 'https://kolwen.com/index.html';
 const decodeHref = s => decodeAttribute(s.replace(/&([a-z][a-z0-9]*);/gi, (m, name) => {
   try { decodeAttribute(m); return m; } catch { return '&amp;' + name + ';'; }
 }));
-// one attribute of a tag, by name, in any order and quoted or not
-const attrOf = (tag, name) => {
-  const m = new RegExp('\\s' + name + '\\s*=\\s*(?:"([^"]*)"|\'([^\']*)\'|([^\\s"\'>]+))', 'i').exec(tag);
-  return m ? (m[1] ?? m[2] ?? m[3]) : null;
-};
-// the url= of a refresh's content: the content is decoded once, as the browser decodes it, and the url read from it is not decoded again
-const refreshTargets = text => [...text.matchAll(/<meta\b[^>]*>/gi)].map(m => m[0])
-  .filter(tag => (attrOf(tag, 'http-equiv') || '').toLowerCase() === 'refresh')
-  .map(tag => attrOf(tag, 'content'))
-  .filter(c => c !== null)
+// the refresh metas, read by the tokenizer (their own attributes only, in any order); http-equiv is decoded once before it is compared, and the
+// content is decoded once, as the browser decodes it, before its url= is read; the url read from it is not decoded again
+const refreshTargets = text => htmlTokens(text).filter(t => t.type === 'tag' && !t.closing && t.name === 'meta')
+  .filter(t => decodeHref(t.attrs.get('http-equiv') ?? '').trim().toLowerCase() === 'refresh')
+  .map(t => t.attrs.get('content'))
+  .filter(c => c !== undefined)
   .map(c => (decodeHref(c).match(/url\s*=\s*["']?([^"']+)/i) || [])[1])
   .filter(Boolean);
 const hrefsIn = text => [...[...text.matchAll(LINK_ATTR)].map(m => decodeHref(m[1] ?? m[2] ?? m[3])), ...refreshTargets(text)];
@@ -117,6 +114,11 @@ test('the no-link check reads formaction, poster, object data and any refresh me
   assert.deepEqual(missed.filter(s => linksTo(s, '/subprocessors').length !== 1), [], 'spellings of a link to the page that the check misses');
   const passed = ['<meta http-equiv="refresh" content="0; url=/&amp;#115;ubprocessors">', '<button formaction="/terms">x</button>'];
   assert.deepEqual(passed.filter(s => linksTo(s, '/subprocessors').length !== 0), [], 'spellings that do not link to the page, or that a browser reads once');
+});
+
+test('a refresh meta is read from its own attributes, and its http-equiv is decoded once', () => {
+  assert.deepEqual(linksTo('<meta data-x="content=0; url=/subprocessors" http-equiv="refresh" content="0; url=/terms">', '/subprocessors'), []);
+  assert.equal(linksTo('<meta http-equiv="refr&#101;sh" content="0; url=/subprocessors">', '/subprocessors').length, 1);
 });
 
 test('the subprocessor page is read as prose, and loads nothing from another origin', () => {

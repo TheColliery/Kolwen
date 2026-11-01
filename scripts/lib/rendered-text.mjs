@@ -254,12 +254,12 @@ export function scriptStringsOf(html) {
 const DRAWN = { scripting: false };
 
 // code point -> the pages that render it. Characters at or below U+0020 are layout, not glyphs, except the space itself, which every face must carry.
-export function renderedChars(webDir) {
+export function renderedChars(webDir, refused = null) {
   const seen = new Map();
   const note = (text, page) => { for (const ch of text) { const cp = ch.codePointAt(0); if (cp < 0x20) continue; (seen.get(cp) || seen.set(cp, new Set()).get(cp)).add(page); } };
   const pages = htmlPages(webDir);
   for (const page of pages) {
-    const got = readContained(webDir, page); if (got.file === undefined) throw new Error(page + ': ' + (got.refused || 'is missing')); const html = got.bytes.toString('utf8').replace(/\r\n/g, '\n');
+    const got = readContained(webDir, page); if (got.file === undefined) { if (refused) { refused.set(page, got.refused || 'is missing'); continue; } throw new Error(page + ': ' + (got.refused || 'is missing')); } const html = got.bytes.toString('utf8').replace(/\r\n/g, '\n');
     note(textOf(html, DRAWN) + ' ' + cssContentOf(html, DRAWN) + ' ' + scriptStringsOf(html), 'web/' + page);
   }
   return seen;

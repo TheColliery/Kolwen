@@ -41,7 +41,7 @@ export function readContained(root, rel, max = MAX_READ_BYTES) {
     const chunks = [], chunk = Buffer.alloc(64 * 1024);
     let total = 0;
     for (;;) {
-      const n = readSync(fd, chunk, 0, chunk.length, null);
+      const n = readSync(fd, chunk, 0, Math.min(chunk.length, max + 1 - total), null);
       if (n === 0) break;
       total += n;
       if (total > max) return { refused: `grew past the ${max} byte read cap while it was read` };

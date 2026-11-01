@@ -3,7 +3,7 @@
 // a catalogue value may stand.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { templateProblems } from './lib/page-template.mjs';
+import { templateProblems, withoutComments } from './lib/page-template.mjs';
 
 test('a catalogue slot in an open and a close tag name is refused by name', () => {
   const problems = templateProblems('<main><{{x.tag}}>A</{{x.tag}}></main>', 'probe');
@@ -57,4 +57,9 @@ test('a slot at the start of an opening tag name is refused by name', () => {
 test('a slot later in an opening tag name is refused by name', () => {
   const problems = templateProblems('<main><p class="a"><scr{{x.k}}>A</p></main>', 'probe');
   assert.ok(problems.some(p => /a tag name holds a slot/.test(p)), problems.join('\n'));
+});
+
+test('the comment strip leaves no comment opener behind, and an unclosed comment cuts to the end', () => {
+  for (const s of ['<!<!--x-->--', '<!--a<!--b-->c-->', '<!-- never closed <p>']) assert.doesNotMatch(withoutComments(s), /<!--/, s);
+  assert.equal(withoutComments('<!-- never closed <p>'), '');
 });

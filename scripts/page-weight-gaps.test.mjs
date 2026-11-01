@@ -25,10 +25,10 @@ test('a refused read on one page does not stop the other pages: the refused page
   const outside = mkdtempSync(join(tmpdir(), 'page-weight-outside-')); roots.push(outside);
   writeFileSync(join(outside, 'x.css'), 'body{}');
   if (!linkDir(outside, join(d, 'web', 'o'))) return t.skip('no directory link (junction or symlink) can be made here');
-  page(d, 'a.html', '');
-  page(d, 'b.html', '<link rel="stylesheet" href="/o/x.css">');
+  page(d, 'a.html', '<link rel="stylesheet" href="/o/x.css">');
+  page(d, 'b.html', '');
   const rows = checkTree(join(d, 'web'));
-  const good = rows.find(r => r.page === 'a.html'), bad = rows.find(r => r.page === 'b.html');
+  const bad = rows.find(r => r.page === 'a.html'), good = rows.find(r => r.page === 'b.html');
   assert.ok(good && good.requests > 0, 'the good page is measured: ' + JSON.stringify(rows.map(r => r.page)));
   assert.equal(bad.level, 'fail');
   assert.match(bad.notes.join(' '), /leads outside the root/);
@@ -57,4 +57,25 @@ test('the rendered-characters reader refuses a page over the read cap, as the pa
   const d = tree();
   writeFileSync(join(d, 'web', 'big.html'), Buffer.alloc(9 << 20, 0x20));
   assert.throws(() => renderedChars(join(d, 'web')), /over the \d+ byte read cap/);
+});
+test('a missing asset is the page\'s own failed row, and a good page after it is still measured', () => {
+  const d = tree();
+  page(d, 'a.html', '<img src="/nope.png">');
+  page(d, 'b.html', '');
+  const rows = checkTree(join(d, 'web'));
+  const bad = rows.find(r => r.page === 'a.html'), good = rows.find(r => r.page === 'b.html');
+  assert.equal(bad.level, 'fail');
+  assert.match(bad.notes.join(' '), /loads \/nope\.png, which is not in the built tree/);
+  assert.ok(good && good.requests > 0, 'the good page is measured: ' + JSON.stringify(rows.map(r => r.page)));
+});
+
+test('an oversized page is its own failed row, and the pages after it are still measured', () => {
+  const d = tree();
+  writeFileSync(join(d, 'web', 'a.html'), Buffer.alloc(9 << 20, 0x20));
+  page(d, 'b.html', '');
+  const rows = checkTree(join(d, 'web'));
+  const bad = rows.find(r => r.page === 'a.html'), good = rows.find(r => r.page === 'b.html');
+  assert.equal(bad.level, 'fail');
+  assert.match(bad.notes.join(' '), /over the \d+ byte read cap/);
+  assert.ok(good && good.requests > 0, 'the good page is measured: ' + JSON.stringify(rows.map(r => r.page)));
 });

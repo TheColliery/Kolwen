@@ -96,6 +96,18 @@ function masked(src) {
   return keep.join('\n').replace(SLOT, (...a) => { const m = [a[0], ...a.slice(1, 6)]; const k = kindOf(m); return k === 'text' ? TEXT_MASK : k === 'attr' ? ATTR_MASK : k === 'json' ? JSON_MASK : CODE_MASK; });
 }
 
+// The comments of a template text removed so that no comment opener survives: the quoted attribute values are masked first, then each comment
+// is cut by an index scan and the scan starts again on what is left (a cut can join two halves into a new opener); an unclosed one cuts to the end.
+export function withoutComments(text) {
+  let t = text.replace(/=\s*("[^"]*"|'[^']*')/g, '=""');
+  for (;;) {
+    const open = t.indexOf('<!--');
+    if (open < 0) return t;
+    const close = t.indexOf('-->', open + 4);
+    t = t.slice(0, open) + (close < 0 ? '' : t.slice(close + 3));
+  }
+}
+
 export function templateProblems(src, name = 'template') {
   const out = [];
   const at = `template ${name}`;
@@ -116,7 +128,7 @@ export function templateProblems(src, name = 'template') {
   if (open !== null) out.push(`${at}: the {{lang}} region opened on line ${open} never closes`);
   // a slot in a tag name (an open or a close tag): the element name is code the build owns, never a catalogue value
   // a slot in a tag name is read as HTML reads a name: no HTML whitespace or / or > ends it, and a comment or a quoted attribute value is no tag, so it is not read
-  if (TAG_NAME_SLOT.test(masked(src).replace(/<!--[\s\S]*?-->/g, '').replace(/=\s*("[^"]*"|'[^']*')/g, '=""'))) out.push(`${at}: a tag name holds a slot; a slot fills a text node or an attribute value, never the name of an element`);
+  if (TAG_NAME_SLOT.test(withoutComments(masked(src)))) out.push(`${at}: a tag name holds a slot; a slot fills a text node or an attribute value, never the name of an element`);
   // slot syntax: whatever braces remain once the valid slots and directives are taken out
   src.split('\n').forEach((line, i) => {
     if (LANG_OPEN.test(line) || LANG_CLOSE.test(line)) return;

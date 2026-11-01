@@ -301,6 +301,7 @@ async function drive({ endpoint, profile, label, commandTimeoutMs, isExited, cle
       await send('Runtime.enable');
       await send('Log.enable');
       await send('Network.enable');
+      const workerSetupFailures = []; // a worker that could not be held to the page origin, with its reason: the witness asserts there is none
       const offs = []; // takes every handler this page added away again when it closes
       const listen = (event, handler) => { offs.push(conn.on(event, handler)); };
       const logs = []; // what the browser itself reports: a Content-Security-Policy violation arrives here (source 'security')
@@ -325,18 +326,25 @@ async function drive({ endpoint, profile, label, commandTimeoutMs, isExited, cle
           const start = () => conn.send('Runtime.runIfWaitingForDebugger', {}, child).catch(() => { /* the worker went away */ });
           if (!isWorker) { start(); return; }
           (async () => {
-            await conn.send('Network.enable', {}, child);
-            await conn.send('Network.setBlockedURLs', { urls: ['ws://*', 'wss://*'] }, child);
-            await conn.send('Fetch.enable', { patterns: [{ urlPattern: '*', requestStage: 'Request' }] }, child);
-            listen('Fetch.requestPaused', (q, s) => { if (s === child) routePaused(q, web, (m, pa) => conn.send(m, pa, child)).catch(() => { /* the worker went away */ }); });
-            await start();
-          })().catch(() => { /* the worker went away */ });
+            try {
+              await conn.send('Network.enable', {}, child);
+              await conn.send('Network.setBlockedURLs', { urls: ['ws://*', 'wss://*'] }, child);
+              await conn.send('Fetch.enable', { patterns: [{ urlPattern: '*', requestStage: 'Request' }] }, child);
+              listen('Fetch.requestPaused', (q, s) => { if (s === child) routePaused(q, web, (m, pa) => conn.send(m, pa, child)).catch(() => { /* the worker went away */ }); });
+            } catch (e) {
+              // a worker that could not be held to the page's origin is reported on the page, never swallowed: the witness asserts there is none
+              workerSetupFailures.push(String((e && e.message) || e));
+            } finally {
+              await start(); // the worker always resumes, whatever the setup did
+            }
+          })();
         });
       }
       return {
         send,
         logs,
         resourceFailures,
+        workerSetupFailures,
         // Resize the viewport (CSS px). `mobile: false`: the page is laid out as a desktop browser window of this width.
         async setViewport(width, height = 800) { await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false }); },
         async setColorScheme(scheme) { await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: scheme }] }); },
