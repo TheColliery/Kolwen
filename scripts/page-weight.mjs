@@ -11,7 +11,6 @@
 // can shrink no further: every asset compressed, fonts subset, images in modern formats at the size shown, no unused code, and the change records what was tried and why nothing
 // more can be cut without losing a function the page needs. A stated wish is not a floor." A listed page prints its divergence on every run, so it is never silent.
 // Zero dependencies, node builtins only. Report problems at https://github.com/TheColliery/Kolwen/issues
-import { readFileSync, existsSync } from 'node:fs';
 import { readContained } from './lib/contained-read.mjs';
 import { brotliCompressSync, constants } from 'node:zlib';
 import { join, dirname, resolve, extname, posix } from 'node:path';
