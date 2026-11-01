@@ -1,6 +1,6 @@
 # kolwen
 
-**Thai-first verifiable AI assistant, fired by [TheColliery](https://github.com/TheColliery).**
+**Verifiable AI assistant, fired by [TheColliery](https://github.com/TheColliery).**
 
 ## Status
 
