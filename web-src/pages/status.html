@@ -4,6 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{{status.meta.title}}</title>
+<meta name="description" content="{{=status.meta.description}}">
+<link rel="canonical" href="https://kolwen.com/status">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://kolwen.com/status">
+<meta property="og:title" content="{{=status.meta.title}}">
+<meta property="og:description" content="{{=status.meta.og-description}}">
+<meta property="og:image" content="https://kolwen.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{=status.meta.title}}">
+<meta name="twitter:description" content="{{=status.meta.og-description}}">
 {{block:site-fonts}}
 <style>
 {{block:site-tokens-css}}

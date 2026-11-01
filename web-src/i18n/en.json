@@ -128,8 +128,9 @@
       "regional": "Regional prices follow."
     },
     "meta": {
-      "title": "Plans — Kolwen",
-      "description": "Kolwen plans and US prices. Nothing can be bought yet: every buy button is disabled until the plans open."
+      "title": "Kolwen plans and prices (US$): none can be bought yet",
+      "description": "Kolwen plans and US prices. Nothing can be bought yet: every buy button is disabled until the plans open.",
+      "og-description": "Kolwen plans and US prices. Nothing can be bought yet: every buy button is disabled until the plans open."
     }
   },
   "notfound": {
@@ -151,7 +152,9 @@
     "unavailable": "The status could not be loaded. Try again later.",
     "probes": "Pages checked",
     "meta": {
-      "title": "Status — Kolwen"
+      "title": "Kolwen status: the last health check of the public pages",
+      "description": "Kolwen checks its public pages every 15 minutes; this page shows the last stored check result.",
+      "og-description": "Kolwen checks its public pages every 15 minutes; this page shows the last stored check result."
     }
   },
   "subprocessors": {
@@ -253,8 +256,9 @@
   },
   "accessibility": {
     "meta": {
-      "title": "Accessibility: Kolwen",
-      "description": "How Kolwen's website is built and checked for accessibility, what it does not yet cover, and how to report a problem."
+      "title": "Kolwen accessibility: how the site is checked and its limits",
+      "description": "How Kolwen's website is built and checked for accessibility, what it does not yet cover, and how to report a problem.",
+      "og-description": "How Kolwen's website is built and checked for accessibility, what it does not yet cover, and how to report a problem."
     },
     "title": "Accessibility",
     "intro": "This page is Kolwen's accessibility statement for the website at kolwen.com. It is dated 1 November 2026.",

@@ -518,9 +518,20 @@ export function shell({ title, description, path, en, th, job }) {
 <head>
 <meta charset="utf-8">
 ${VIEWPORT_META}
-<title>${escText(title)} — Kolwen</title>
+<title>${escText(title)}</title>
 <meta name="description" content="${escAttr(description)}">
 <link rel="canonical" href="https://kolwen.com${escAttr(path)}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://kolwen.com${escAttr(path)}">
+<meta property="og:title" content="${escAttr(title)}">
+<meta property="og:description" content="${escAttr(description)}">
+<meta property="og:image" content="https://kolwen.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${escAttr(title)}">
+<meta name="twitter:description" content="${escAttr(description)}">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -628,7 +639,7 @@ export function renderPages(inputs) {
   const done = (key, lines, draft = true) => {
     const P = PAGES[key];
     const html = shell({
-      title: P.titleEn, description: P.descEn, path: P.path, job: P.job,
+      title: P.metaTitleEn, description: P.descEn, path: P.path, job: P.job,
       en: docHtml('en', P.titleEn, lines.en.html, draft, ''), th: docHtml('th', P.titleTh, lines.th.html, draft, P.noteTh || ''),
     });
     pages[P.file] = html;
