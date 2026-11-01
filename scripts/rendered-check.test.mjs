@@ -1342,3 +1342,38 @@ test('K-17: a checked page reaches only its own origin: a request to another loo
     } finally { await page.close(); await server.close(); }
   } finally { await new Promise(r => other.close(r)); }
 });
+
+// A checked page reaches no other loopback port: its WebSocket and its dedicated worker's fetch are both held to the page's own origin.
+// The listener is the test's own, on another loopback port. The WSL route serves its pages through the DevTools channel, so this runs on the
+// native route only; CI's Linux runner is the native route.
+test('a checked page cannot open a WebSocket or make a worker fetch to another loopback port, and that listener sees nothing', { skip: route.kind === 'native' ? false : 'the WSL route serves its pages through the DevTools channel, so this witness runs on the native route only' }, async () => {
+  const seen = { connections: 0, requests: [] };
+  const other = createServer(sock => {
+    seen.connections++;
+    sock.on('data', d => { if (seen.requests.length < 4) seen.requests.push(d.toString('latin1').split('\r\n')[0].slice(0, 60)); sock.destroy(); });
+    sock.on('error', () => {});
+  });
+  await new Promise(r => other.listen(0, '127.0.0.1', r));
+  const port = other.address().port;
+  const web = copyWeb(w => editPage(w, 'index.html', h => h.replace('</head>', () => '<script>\n'
+    + 'window.__r = {};\n'
+    + "try { const w = new WebSocket('ws://127.0.0.1:" + port + "/ws'); w.onopen = () => { __r.ws = 'open'; }; w.onerror = () => { __r.wsError = true; }; } catch (e) { __r.wsThrow = String(e); }\n"
+    + "const src = 'fetch(\"http://127.0.0.1:" + port + "/worker\").then(() => postMessage(\"ok\"), () => postMessage(\"error\"));';\n"
+    + "const wk = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));\n"
+    + "wk.onmessage = e => { __r.worker = e.data; }; wk.onerror = () => { __r.workerError = true; };\n"
+    + '</script></head>')));
+  const server = await browser.serve(web, { headers: false });
+  const page = await browser.newPage();
+  try {
+    await page.goto(server.origin + '/index.html');
+    await new Promise(r => setTimeout(r, 3000));
+    const r = JSON.parse(await page.evaluate('JSON.stringify(window.__r)'));
+    assert.notEqual(r.ws, 'open', 'the page WebSocket reached the other port: ' + JSON.stringify(r));
+    assert.equal(r.worker, 'error', 'the worker fetch was not refused: ' + JSON.stringify(r));
+    assert.equal(seen.connections, 0, 'the other server saw ' + seen.connections + ' connection(s): ' + JSON.stringify(seen.requests));
+  } finally {
+    await page.close();
+    await server.close();
+    other.close();
+  }
+});

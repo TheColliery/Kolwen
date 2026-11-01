@@ -313,6 +313,25 @@ async function drive({ endpoint, profile, label, commandTimeoutMs, isExited, cle
         // K-17: every request the page makes is paused and answered here (routePaused), on both routes
         await send('Fetch.enable', { patterns: [{ urlPattern: '*', requestStage: 'Request' }] });
         listen('Fetch.requestPaused', (p, sid) => { if (sid === sessionId) routePaused(p, web, send).catch(() => { /* the page went away */ }); });
+        // K-23: the site serves no WebSocket, so every one a checked page opens is refused. Fetch does not pause a WebSocket handshake (the K-23 spike),
+        // so the refusal is the Network domain's blocked-URL list, applied to the page and to every worker it starts.
+        await send('Network.setBlockedURLs', { urls: ['ws://*', 'wss://*'] });
+        // K-23: a worker is held to the page's origin: auto-attached paused, given the same rules, then started. A worker's own requests are paused and answered here.
+        await send('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: true, flatten: true });
+        listen('Target.attachedToTarget', (p, sid) => {
+          if (sid !== sessionId) return;
+          const child = p.sessionId;
+          const isWorker = p.targetInfo.type === 'worker' || p.targetInfo.type === 'shared_worker';
+          const start = () => conn.send('Runtime.runIfWaitingForDebugger', {}, child).catch(() => { /* the worker went away */ });
+          if (!isWorker) { start(); return; }
+          (async () => {
+            await conn.send('Network.enable', {}, child);
+            await conn.send('Network.setBlockedURLs', { urls: ['ws://*', 'wss://*'] }, child);
+            await conn.send('Fetch.enable', { patterns: [{ urlPattern: '*', requestStage: 'Request' }] }, child);
+            listen('Fetch.requestPaused', (q, s) => { if (s === child) routePaused(q, web, (m, pa) => conn.send(m, pa, child)).catch(() => { /* the worker went away */ }); });
+            await start();
+          })().catch(() => { /* the worker went away */ });
+        });
       }
       return {
         send,
