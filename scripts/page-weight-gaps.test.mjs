@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { checkTree, measurePage, assetsOf } from './page-weight.mjs';
+import { checkTree, measurePage, assetsOf, report } from './page-weight.mjs';
 import { renderedChars } from './lib/rendered-text.mjs';
 import { reads } from './lib/contained-read.mjs';
 
@@ -90,3 +90,11 @@ test('a page whose text cannot be parsed is its own failed row, and the page aft
   assert.ok(good && good.requests > 0, 'the good page is measured: ' + JSON.stringify(rows.map(r => r.page)));
 });
 
+test('a failed page prints its own FAIL line on the report, with its reason once', () => {
+  const d = tree();
+  page(d, 'a.html', '<img src="/nope.png">');
+  page(d, 'b.html', '');
+  const out = report(checkTree(join(d, 'web')));
+  assert.match(out, /^FAIL a\.html: loads \/nope\.png, which is not in the built tree/m);
+  assert.doesNotMatch(out, /a\.html: a\.html:/);
+});

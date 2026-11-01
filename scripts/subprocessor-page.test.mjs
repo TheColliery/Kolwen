@@ -25,12 +25,15 @@ const decodeHref = s => decodeAttribute(s.replace(/&([a-z][a-z0-9]*);/gi, (m, na
 }));
 // the refresh metas, read by the tokenizer (their own attributes only, in any order); http-equiv is decoded once before it is compared, and the
 // content is decoded once, as the browser decodes it, before its url= is read; the url read from it is not decoded again
-const refreshTargets = text => htmlTokens(text).filter(t => t.type === 'tag' && !t.closing && t.name === 'meta')
+// read with scripting on (a noscript's body is raw text, so a meta inside it is not a tag) and with scripting off (it is markup): both count.
+// A meta outside any noscript is read by both modes, so the targets are a set: one meta, one target.
+const refreshTargets = text => [...new Set([htmlTokens(text), htmlTokens(text, { scripting: false })].flatMap(tokens => tokens
+  .filter(t => t.type === 'tag' && !t.closing && t.name === 'meta')
   .filter(t => decodeHref(t.attrs.get('http-equiv') ?? '').trim().toLowerCase() === 'refresh')
   .map(t => t.attrs.get('content'))
   .filter(c => c !== undefined)
   .map(c => (decodeHref(c).match(/url\s*=\s*["']?([^"']+)/i) || [])[1])
-  .filter(Boolean);
+  .filter(Boolean)))];
 const hrefsIn = text => [...[...text.matchAll(LINK_ATTR)].map(m => decodeHref(m[1] ?? m[2] ?? m[3])), ...refreshTargets(text)];
 const resolvesTo = (href, target, base = SITE) => {
   let u;
@@ -135,4 +138,8 @@ test('rule 16 exempts exactly the two noindex pages by name, and no other produc
   for (const f of readdirSync(join(ROOT, 'web')).filter(f => f.endsWith('.html') && f !== '404.html' && f !== 'subprocessors.html')) {
     assert.doesNotMatch(read('web/' + f), NOINDEX, 'web/' + f + ' must stay indexable');
   }
+});
+
+test('a refresh meta inside a noscript is read: the no-link check scans with scripting off as well as on', () => {
+  assert.equal(linksTo('<noscript><meta http-equiv="refresh" content="0; url=/subprocessors"></noscript>', '/subprocessors').length, 1);
 });

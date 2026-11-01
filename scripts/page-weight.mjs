@@ -225,7 +225,7 @@ export function report(rows, almanac = ALMANAC, today = new Date()) {
   // a divergence naming a page that is not in the tree has nothing measured: its cells read "-"
   const cell = (v, f = x => x) => (v === null ? '-' : f(v));
   for (const r of rows) out.push(`${r.page} | ${cell(r.bytes)} | ${cell(r.requests)} | ${cell(r.ratioBytes, x => x.toFixed(4))} | ${cell(r.ratioRequests, x => x.toFixed(4))} | ${WORD[r.level]}`);
-  for (const r of rows) for (const n of r.notes) out.push(`${r.page}: ${n}`);
+  for (const r of rows) for (const n of r.notes) out.push(r.level === 'fail' ? `FAIL ${r.page}: ${n.startsWith(r.page + ': ') ? n.slice(r.page.length + 2) : n}` : `${r.page}: ${n}`);
   out.push(NOT_COUNTED);
   return out.join('\n');
 }
