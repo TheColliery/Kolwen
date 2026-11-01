@@ -9,22 +9,40 @@ import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync }
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { htmlTokens } from './lib/html-tokens.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
+// The notice a visitor can see: each language's notice counts only inside that language's own element, read through its matching closing tag
+// (the element's own hidden attribute is the language switch, so it is not counted), and a hidden element inside it hides what it holds.
+// Nothing outside the element counts. The claim must carry its unavailability statement before it, in each language.
 const NOTICE = { en: /not yet available/i, th: /ยังไม่เปิดให้ใช้งาน/ };
 const CLAIM = {
-  en: { every: /says so on every page/i, home: /and the home page says so/i },
-  th: { every: /บอกเช่นนี้ในทุกหน้า/, home: /หน้าแรกของเว็บไซต์บอกเช่นนี้/ },
+  en: { every: /(not yet available|no product ships yet)[^.]*says so on every page/i, home: /(not yet available|no product ships yet)[^.]*and the home page says so/i },
+  th: { every: /ยังไม่มีผลิตภัณฑ์ใดเปิดให้ใช้งาน[^.]*บอกเช่นนี้ในทุกหน้า/, home: /ยังไม่มีผลิตภัณฑ์ใดเปิดให้ใช้งาน[^.]*หน้าแรกของเว็บไซต์บอกเช่นนี้/ },
 };
-// the template's language blocks: English runs from its marker to the Thai marker, Thai from its marker to the end of <main>
-const BLOCK = { en: ['id="doc-en"', 'id="doc-th"'], th: ['id="doc-th"', null] };
-function langBlock(html, lang) {
-  const [start, stop] = BLOCK[lang];
-  const from = html.indexOf(start);
-  if (from < 0) return null;
-  const to = stop === null ? html.indexOf('</main>', from) : html.indexOf(stop, from);
-  return html.slice(from, to < 0 ? html.length : to);
+const ID = { en: 'doc-en', th: 'doc-th' };
+const VOID = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
+// The visible text of one language element: its own text, through its matching closing tag, and not the text under a hidden element.
+// Null when the page has no such element.
+function visibleText(html, id) {
+  const stack = [];
+  let base = -1, text = '';
+  for (const t of htmlTokens(html)) {
+    if (t.type === 'tag' && !t.closing) {
+      if (base < 0) { if (t.attrs.get('id') === id) { base = 0; stack.push({ name: t.name, hidden: false }); } continue; }
+      if (!VOID.has(t.name)) stack.push({ name: t.name, hidden: t.attrs.has('hidden') });
+    } else if (t.type === 'tag' && t.closing) {
+      if (base < 0) continue;
+      let i = stack.length - 1;
+      while (i >= 0 && stack[i].name !== t.name) i--;
+      if (i >= 0) stack.length = i;
+      if (stack.length === 0) return text;
+    } else if (t.type === 'text' && base >= 0 && !stack.some(e => e.hidden)) {
+      text += t.text;
+    }
+  }
+  return base < 0 ? null : text;
 }
 
 function problems(root) {
@@ -39,13 +57,13 @@ function problems(root) {
     const c = CLAIM[lang];
     const every = c.every.test(what), home = c.home.test(what);
     if (!every && !home) {
-      out.push(`${lang}: accessibility.what does not tie the notice to a page (it must say so on every page, or say the home page says so): "${what}"`);
+      out.push(`${lang}: accessibility.what does not tie the notice to a page after its unavailability statement (it must say so on every page, or say the home page says so): "${what}"`);
       continue;
     }
     for (const f of every ? served : ['index.html']) {
       const html = served.includes(f) ? read('web/' + f) : '';
-      const block = langBlock(html, lang);
-      if (block === null || !NOTICE[lang].test(block)) {
+      const seen = visibleText(html, ID[lang]);
+      if (seen === null || !NOTICE[lang].test(seen)) {
         out.push(`${lang}: accessibility.what says the notice is on ${every ? 'every page' : 'the home page'}, but web/${f} carries no ${lang} notice in its ${lang} block: "${what}"`);
       }
     }
@@ -90,5 +108,28 @@ test('witness: a page whose Thai block lacks the notice is refused, though Engli
 test('witness: an empty served page list is refused, not passed', () => {
   withCopy(d => { for (const f of readdirSync(join(d, 'web'))) if (f.endsWith('.html')) rmSync(join(d, 'web', f)); }, d => {
     assert.ok(problems(d).some(p => /served page list holds 0 page/.test(p)), JSON.stringify(problems(d)));
+  });
+});
+
+// K-46: the statement guard reads each language element whole, and only the notice a visitor can see inside it.
+test('witness K-46(a): a Thai notice placed after the Thai element, outside it, does not count', () => {
+  withCopy(d => edit(d, 'web/index.html', s => s.split('ยังไม่เปิดให้ใช้งาน').join('').split('กำลังพัฒนา').join('').split('</main>').join('<p>ยังไม่เปิดให้ใช้งาน</p></main>')), d => {
+    assert.ok(problems(d).some(p => p.startsWith('th:') && p.includes('web/index.html carries no th notice')), JSON.stringify(problems(d)));
+  });
+});
+
+test('witness K-46(b): a sentence that says the product is available and that the home page says so is refused, in both languages', () => {
+  withCopy(d => {
+    edit(d, 'web-src/i18n/en.json', s => { const o = JSON.parse(s); o.accessibility.what = 'Kolwen product is available now, and the home page says so.'; return JSON.stringify(o, null, 2) + String.fromCharCode(10); });
+    edit(d, 'web-src/i18n/th.json', s => { const o = JSON.parse(s); o.accessibility.what = 'ผลิตภัณฑ์เปิดให้ใช้งานแล้ว และหน้าแรกของเว็บไซต์บอกเช่นนี้'; return JSON.stringify(o, null, 2) + String.fromCharCode(10); });
+  }, d => {
+    const p = problems(d);
+    assert.ok(p.some(x => x.startsWith('en:') && x.includes('available now')) && p.some(x => x.startsWith('th:') && x.includes('เปิดให้ใช้งานแล้ว')), JSON.stringify(p));
+  });
+});
+
+test('witness K-46(c): a notice inside an element the visitor cannot see (hidden) does not count', () => {
+  withCopy(d => edit(d, 'web/index.html', s => s.split('not yet available').join('<span hidden>not yet available</span>')), d => {
+    assert.ok(problems(d).some(p => p.startsWith('en:') && p.includes('web/index.html carries no en notice')), JSON.stringify(problems(d)));
   });
 });
