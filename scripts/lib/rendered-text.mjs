@@ -259,7 +259,10 @@ export function renderedChars(webDir, refused = null) {
   const pages = htmlPages(webDir);
   for (const page of pages) {
     const got = readContained(webDir, page); if (got.file === undefined) { if (refused) { refused.set(page, got.refused || 'is missing'); continue; } throw new Error(page + ': ' + (got.refused || 'is missing')); } const html = got.bytes.toString('utf8').replace(/\r\n/g, '\n');
-    note(textOf(html, DRAWN) + ' ' + cssContentOf(html, DRAWN) + ' ' + scriptStringsOf(html), 'web/' + page);
+    let text;
+    try { text = textOf(html, DRAWN) + ' ' + cssContentOf(html, DRAWN) + ' ' + scriptStringsOf(html); }
+    catch (e) { if (!refused) throw e; refused.set(page, e.message); continue; } // a page whose text cannot be parsed is refused, as an unreadable one is
+    note(text, 'web/' + page);
   }
   return seen;
 }

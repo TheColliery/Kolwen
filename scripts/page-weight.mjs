@@ -171,8 +171,9 @@ export function metricVerdict(value, median, entry, label) {
 // Every page of a built tree. `opts.divergences` replaces the table (tests), `opts.almanac` the median (tests).
 export function checkTree(webDir, opts = {}) {
   const divergences = opts.divergences ?? DIVERGENCES, almanac = opts.almanac ?? ALMANAC;
-  // a page whose rendered read is refused is skipped here: the loop below measures it and fails that page's own row
-  const rendered = renderedChars(webDir, new Map());
+  // a page whose rendered read is refused is skipped here; the loop below fails that page's own row
+  const refusedRendered = new Map();
+  const rendered = renderedChars(webDir, refusedRendered);
   const rows = [];
   const pages = htmlPages(webDir);
   for (const page of pages) {
@@ -180,6 +181,7 @@ export function checkTree(webDir, opts = {}) {
     let m;
     try { m = measurePage(webDir, page, cps); }
     catch (e) { rows.push({ page, bytes: null, requests: null, parts: [], ratioBytes: null, ratioRequests: null, level: 'fail', notes: [e.message] }); continue; }
+    if (refusedRendered.has(page)) { rows.push({ page, bytes: null, requests: null, parts: [], ratioBytes: null, ratioRequests: null, level: 'fail', notes: [`${page}: ${refusedRendered.get(page)}`] }); continue; }
     const d = Object.hasOwn(divergences, page) ? divergences[page] : {};
     const b = metricVerdict(m.bytes, almanac.medianBytes, d.bytes, 'transfer bytes'), r = metricVerdict(m.requests, almanac.medianRequests, d.requests, 'requests');
     // An exception lives only while it is used: an entry for a metric that is not over the ceiling, a key that is neither metric, or an entry naming no metric is a FAIL.

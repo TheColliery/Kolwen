@@ -79,3 +79,14 @@ test('an oversized page is its own failed row, and the pages after it are still 
   assert.match(bad.notes.join(' '), /over the \d+ byte read cap/);
   assert.ok(good && good.requests > 0, 'the good page is measured: ' + JSON.stringify(rows.map(r => r.page)));
 });
+
+test('a page whose text cannot be parsed is its own failed row, and the page after it is still measured', () => {
+  const d = tree();
+  page(d, 'a.html', '<p>&notarealentity;</p>');
+  page(d, 'b.html', '');
+  const rows = checkTree(join(d, 'web'));
+  const bad = rows.find(r => r.page === 'a.html'), good = rows.find(r => r.page === 'b.html');
+  assert.equal(bad.level, 'fail');
+  assert.ok(good && good.requests > 0, 'the good page is measured: ' + JSON.stringify(rows.map(r => r.page)));
+});
+
