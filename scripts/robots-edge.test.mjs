@@ -47,7 +47,7 @@ test('every training crawler on the list is refused the whole site', () => {
   for (const agent of TRAINING) assert.equal(blocked(agent), true, agent + ' is refused');
 });
 
-test('the search engines Baiduspider and PetalBot are not refused', () => {
+test('this file alone refuses neither Baiduspider nor PetalBot; the edge block may, and the deploy check says so', () => {
   for (const agent of ['Baiduspider', 'PetalBot']) assert.equal(blocked(agent), false, agent + ' is not refused');
 });
 
@@ -58,7 +58,8 @@ test('every other visitor is allowed the whole site, and the sitemap is named', 
   assert.match(POLICY, /^Sitemap:\s*https:\/\/kolwen\.com\/sitemap\.xml\s*$/m);
 });
 
-const OURS = ['User-agent: *', 'Allow: /', 'Sitemap: https://kolwen.com/sitemap.xml'].join('\n');
+// Our committed file as it stands: every agent allowed by `*`, and the training crawler GPTBot refused by its own group, as web/robots.txt does.
+const OURS = ['User-agent: *', 'Allow: /', 'User-agent: GPTBot', 'Disallow: /', 'Sitemap: https://kolwen.com/sitemap.xml'].join('\n');
 const EDGE = [
   '# As a condition of accessing this website, you agree to abide by the following',
   '# content signals:',
@@ -121,4 +122,21 @@ test('fails when text is glued to the front of our first line instead of ending 
 
 test('fails when the committed file is empty and the served one is not', () => {
   assert.equal(robotsVerdict(EDGE, '').ok, false);
+});
+
+// The served edge block with one more refusing group, for an agent named by the test. Our committed file allows every agent it does not name.
+const EDGE_REFUSING = agent => EDGE.replace('# END Cloudflare Managed Content', 'User-agent: ' + agent + '\nDisallow: /\n# END Cloudflare Managed Content');
+
+test('a managed block that refuses an agent our file allows, and the list does not name, is refused', () => {
+  const v = robotsVerdict(EDGE_REFUSING('ExampleBot') + OURS, OURS);
+  assert.equal(v.ok, false, 'accepted: ' + JSON.stringify(v));
+});
+
+test('a managed block that refuses Baiduspider or PetalBot is accepted, because the list names them', () => {
+  assert.deepEqual(robotsVerdict(EDGE_REFUSING('Baiduspider') + OURS, OURS), { ok: true, edge: true });
+  assert.deepEqual(robotsVerdict(EDGE_REFUSING('PetalBot') + OURS, OURS), { ok: true, edge: true });
+});
+
+test('an empty list refuses a managed block that refuses an agent our file allows, even a named one', () => {
+  assert.equal(robotsVerdict(EDGE_REFUSING('Baiduspider') + OURS, OURS, []).ok, false);
 });

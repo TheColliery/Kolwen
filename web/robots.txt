@@ -1,4 +1,5 @@
-# Built 2026-11-01 from the Cloudflare-managed robots.txt served on kolwen.com that day; Baiduspider and PetalBot are removed (search engines, allowed).
+# This file lists neither Baiduspider nor PetalBot. While the site's edge prepends its managed block above this file, that block still refuses both.
+# Built 2026-11-01 from the Cloudflare-managed robots.txt served on kolwen.com that day.
 # As a condition of accessing this website, you agree to abide by the following
 # content signals:
 
