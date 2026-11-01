@@ -125,7 +125,7 @@ test('escaping covers & < > " and \' for text and for attribute values, and a de
   for (const fn of [escText, escAttr]) assert.equal(fn('a&b<c>d"e\'f'), 'a&amp;b&lt;c&gt;d&quot;e&#39;f');
   const page = shell({ title: 'T <b>', description: 'x" onmouseover="alert(1)" <script>', path: '/p"q', en: '', th: '', job: 'default' });
   assert.match(page, /<meta name="description" content="x&quot; onmouseover=&quot;alert\(1\)&quot; &lt;script&gt;">/);
-  assert.ok(page.includes('<title>T &lt;b&gt; — Kolwen</title>'));
+  assert.ok(page.includes('<title>T &lt;b&gt;</title>'), 'the title is escaped and written as given: the page titles are complete sentences, so no suffix is added');
   assert.ok(page.includes('href="https://kolwen.com/p&quot;q"'));
 });
 
