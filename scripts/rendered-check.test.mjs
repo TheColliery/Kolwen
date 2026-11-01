@@ -1342,3 +1342,91 @@ test('K-17: a checked page reaches only its own origin: a request to another loo
     } finally { await page.close(); await server.close(); }
   } finally { await new Promise(r => other.close(r)); }
 });
+
+// WebSocket SPIKE: a measurement, not a gate. On CI's native Chrome, Network.setBlockedURLs with ws://* did not stop a page's WebSocket handshake
+// (job 124757803758: the listener received "GET /ws HTTP/1.1"). Each candidate control runs on its own fresh page, in this order; a listener on
+// another loopback port counts the connections the browser makes, and the page reports its outcome through one promise (no fixed sleep).
+// Every line printed is SPIKE <n> <name>: held|failed (<connections>) <detail>. The test always passes. Native route only: WSL skips it visibly.
+test('SPIKE: which DevTools control stops a page WebSocket on the native route (measurement only)', { skip: SKIP_NATIVE }, async () => {
+  const seen = { connections: 0, first: [] };
+  const listener = createServer(sock => {
+    seen.connections++;
+    sock.on('data', d => { if (seen.first.length < 2) seen.first.push(d.toString('latin1').split('\r\n')[0].slice(0, 60)); sock.destroy(); });
+    sock.on('error', () => {});
+  });
+  const dir = mkdtempSync(join(tmpdir(), 'kolwen-spike-'));
+  copies.push(dir);
+  let server = null;
+  try {
+    await new Promise(r => listener.listen(0, '127.0.0.1', r));
+    const port = listener.address().port;
+    writeFileSync(join(dir, 'index.html'), `<!doctype html><meta charset="utf-8"><title>spike</title><script>
+window.__outcome = new Promise(function (done) {
+  var ws;
+  try { ws = new WebSocket('ws://127.0.0.1:${port}/ws'); } catch (e) { done('threw ' + e.name); return; }
+  ws.onopen = function () { done('open'); };
+  ws.onerror = function () { done('error'); };
+  ws.onclose = function () { done('close'); };
+});
+</script>`);
+    server = await browser.serve(dir, { headers: false });
+    // Each setup runs before the page loads, and returns a detail string, or a function that returns one once the page has finished.
+    const candidates = [
+      [1, 'Network.setBlockedURLs', async page => {
+        let form = 'urlPatterns';
+        try { await page.send('Network.setBlockedURLs', { urlPatterns: [{ urlPattern: 'ws://*', block: true }, { urlPattern: 'wss://*', block: true }] }); }
+        catch (e) { form = 'urls, after urlPatterns was refused (' + e.message + ')'; await page.send('Network.setBlockedURLs', { urls: ['ws://*', 'wss://*'] }); }
+        const version = await browser.send('Browser.getVersion').then(r => `${r.product} protocol ${r.protocolVersion}`, e => 'Browser.getVersion refused: ' + e.message);
+        return `form=${form} browser=${version}`;
+      }],
+      [2, 'Fetch.failRequest on an Upgrade: websocket request', async page => {
+        let paused = 0; const urls = [];
+        page.on('Fetch.requestPaused', p => {
+          const h = p.request.headers || {};
+          const up = Object.keys(h).find(k => k.toLowerCase() === 'upgrade');
+          const isWs = /^wss?:/.test(p.request.url) || (up !== undefined && /websocket/i.test(String(h[up])));
+          if (isWs) { paused++; if (urls.length < 2) urls.push(p.request.url); page.send('Fetch.failRequest', { requestId: p.requestId, errorReason: 'BlockedByClient' }).catch(() => {}); }
+          else page.send('Fetch.continueRequest', { requestId: p.requestId }).catch(() => {});
+        });
+        await page.send('Fetch.enable', { patterns: [{ urlPattern: '*', requestStage: 'Request' }], handleAuthRequests: false });
+        // the harness's own routing is on for this page (serve() set its origin), so its listener sees the same events: recorded, not hidden
+        return () => `websocket requests paused here=${paused}${urls.length ? ' ' + JSON.stringify(urls) : ''}`;
+      }],
+      [3, 'Network.setRequestInterception (deprecated)', async page => {
+        let intercepted = 0;
+        try { await page.send('Network.setRequestInterception', { patterns: [{ urlPattern: '*' }] }); }
+        catch (e) { return 'not supported: ' + e.message; }
+        page.on('Network.requestIntercepted', p => {
+          const ws = /^wss?:/.test(p.request.url);
+          if (ws) intercepted++;
+          page.send('Network.continueInterceptedRequest', ws ? { interceptionId: p.interceptionId, errorReason: 'BlockedByClient' } : { interceptionId: p.interceptionId }).catch(() => {});
+        });
+        return () => `websocket requests intercepted=${intercepted}`;
+      }],
+      [4, 'information only: WebSocket replaced before any page script runs', async page => {
+        await page.send('Page.addScriptToEvaluateOnNewDocument', { source: "window.WebSocket = function () { throw new Error('blocked by the spike'); };" });
+        return 'not a candidate: the page constructor throws, so no socket is ever made';
+      }],
+    ];
+    for (const [n, name, setup] of candidates) {
+      seen.connections = 0; seen.first = [];
+      let detail = '', page = null;
+      try {
+        page = await browser.newPage();
+        const note = await setup(page);
+        await page.goto(server.origin + '/index.html');
+        const outcome = await Promise.race([
+          page.send('Runtime.evaluate', { expression: 'window.__outcome', awaitPromise: true, returnByValue: true }).then(r => String(r.result.value)),
+          new Promise(r => setTimeout(() => r('no outcome in 8000 ms'), 8000)),
+        ]);
+        detail = `outcome=${outcome}; ${typeof note === 'function' ? note() : note}`;
+      } catch (e) { detail = `error: ${e.message}`; }
+      finally { if (page) await page.close().catch(() => { /* the page went away */ }); }
+      const verdict = seen.connections === 0 ? 'held' : 'failed';
+      process.stdout.write(`SPIKE ${n} ${name}: ${verdict} (${seen.connections}) ${detail}${seen.first.length ? ' first=' + JSON.stringify(seen.first) : ''}\n`);
+    }
+  } finally {
+    listener.close();
+    if (server) await server.close();
+  }
+});

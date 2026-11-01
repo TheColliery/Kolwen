@@ -318,6 +318,7 @@ async function drive({ endpoint, profile, label, commandTimeoutMs, isExited, cle
         send,
         logs,
         resourceFailures,
+        on: (event, handler) => listen(event, handler), // test-only (WebSocket spike): a test's own handler for this page's events, called as (params, sessionId)
         // Resize the viewport (CSS px). `mobile: false`: the page is laid out as a desktop browser window of this width.
         async setViewport(width, height = 800) { await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false }); },
         async setColorScheme(scheme) { await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: scheme }] }); },
