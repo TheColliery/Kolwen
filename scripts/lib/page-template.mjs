@@ -46,6 +46,7 @@ const WHOLE_LINE = new RegExp(`^\\s*(?:\\{\\{(?:block:|raw:)${NAME}\\}\\}|<style
 const TEXT_MASK = String.fromCharCode(0xe001), ATTR_MASK = String.fromCharCode(0xe002), CODE_MASK = String.fromCharCode(0xe003), JSON_MASK = String.fromCharCode(0xe004);
 const MASKS = new RegExp('[' + TEXT_MASK + '-' + JSON_MASK + ']', 'g');
 const HAS_MASK = new RegExp('[' + TEXT_MASK + '-' + JSON_MASK + ']');
+const TAG_NAME_SLOT = new RegExp('</?[' + TEXT_MASK + '-' + JSON_MASK + ']');
 const HAS_VALUE_MASK = new RegExp('[' + TEXT_MASK + ATTR_MASK + JSON_MASK + ']'); // a slot that writes a catalogue value (a block or raw slot writes code the build owns)
 // The attributes whose value a visitor sees or hears: the accessible name and description, the tooltip, the alternative text, the placeholder, the role description and the value text of a widget.
 const VISIBLE_ATTRS = ['aria-label', 'aria-description', 'aria-roledescription', 'aria-valuetext', 'aria-placeholder', 'title', 'alt', 'placeholder'];
@@ -113,6 +114,8 @@ export function templateProblems(src, name = 'template') {
     } else if (/^\s*\{\{\/?lang/.test(line)) out.push(`${at} line ${i + 1}: a {{lang}} directive must stand alone on its line as {{lang <bcp47>}} or {{/lang}}`);
   });
   if (open !== null) out.push(`${at}: the {{lang}} region opened on line ${open} never closes`);
+  // a slot in a tag name (an open or a close tag): the element name is code the build owns, never a catalogue value
+  if (TAG_NAME_SLOT.test(masked(src))) out.push(`${at}: a tag name holds a slot; a slot fills a text node or an attribute value, never the name of an element`);
   // slot syntax: whatever braces remain once the valid slots and directives are taken out
   src.split('\n').forEach((line, i) => {
     if (LANG_OPEN.test(line) || LANG_CLOSE.test(line)) return;
