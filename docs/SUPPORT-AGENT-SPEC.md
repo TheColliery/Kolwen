@@ -98,15 +98,14 @@ and one check character. An appeal's case takes the type prefix `KWA-` in place 
 character follow the same rules. The shape borrows the postal S10 identifier's (a two-character prefix, an
 eight-character body, one check character). It does not borrow the serial: the body is random, never a sequence.
 
-**The body.** Each of the eight characters is one of the 32 symbols (the ten digits, then the letters A to Z without I, L, O and U), drawn from a
+**The body.** Each of the eight characters is one of the 32 symbols (the symbols 0 to 9, then ABCDEFGHJKMNPQRSTVWXYZ, Crockford's table, values 0 to 31 in that order), drawn from a
 cryptographically secure random source: five random bits give one symbol, and 32 divides 256, so the draw is uniform
-with no rejection step. Crockford's page accepts lowercase input and, at decode time only, reads `I` and `L` as `1`
+with no rejection step. A body already issued under either prefix is drawn again, never reused. Crockford's page accepts lowercase input and, at decode time only, reads `I` and `L` as `1`
 and `O` as `0`. Source: https://www.crockford.com/base32.html, read 2026-11-02.
 
 **The check character.** Read the eight body characters as one base-32 number N, the first character most
 significant. The check character is the symbol at position N mod 37 (counting from 0) in the 37-symbol set (
-the 32 symbols followed by `*`, `~`, `$`, `=` and `U`). Crockford's page: "The check value is computed by taking the number
-modulo 37." Example, not an issued ID: body `0000000Z` gives N = 31, 31 mod 37 = 31, and position 31 is `Z`, so the
+the 32 symbols followed by `*`, `~`, `$`, `=` and `U`). Crockford's page: "The check symbol encodes the number modulo 37, 37 being the least prime number greater than 32." Example, not an issued ID: body `0000000Z` gives N = 31, 31 mod 37 = 31, and position 31 is `Z`, so the
 format reads `KW-0000-000Z-Z`. The check character catches a mistyped ID; it does not authenticate one. The S10
 check digit this copies the shape of is a different algorithm (weighted modulus 11 over digits only): UPU S10-12,
 clause 5.4, approved 17 October 2017, read 2026-11-02.
