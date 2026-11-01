@@ -1,6 +1,6 @@
 // Kolwen's Worker. fetch hands every request to the ASSETS binding unchanged, with three exceptions: GET /status.json answers from the stored state (binding STATUS,
 // when it exists), and /subscribe answers 404 unless SUBSCRIBE is "on" (binding SUBSCRIBERS). Only unmatched paths reach this function (run_worker_first stays off).
-// scheduled runs every 15 minutes (triggers.crons in wrangler.jsonc): it probes the six sitemap pages on kolwen.com, writes ONE state object to STATUS (96 a day
+// scheduled runs every 15 minutes (triggers.crons in wrangler.jsonc): it probes the sitemap pages on kolwen.com, writes ONE state object to STATUS (96 a day
 // against Free's 1,000 writes), and mails an alert only when the result changes: all-OK to failing, and one recovery note from failing back to all-OK.
 // Rules kept here: a probe reads no response body; the state, the alert and the log lines hold only paths, status codes, timings, ok flags and the UTC time (never a body,
 // a header, an IP, an address or a secret); with ALERT_TO unset nothing is sent and the log line holds no address.
