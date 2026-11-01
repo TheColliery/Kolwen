@@ -23,3 +23,13 @@ test('a catalogue slot in an attribute name is refused by name', () => {
 test('a text slot and an attribute-value slot are the places a catalogue value stands', () => {
   assert.deepEqual(templateProblems('<main><p class="{{=x.c}}">{{x.a}}</p></main>', 'probe'), []);
 });
+
+test('a catalogue slot later in a tag name is refused by name, in an open tag and in a close tag', () => {
+  const problems = templateProblems('<main><p><scr{{shared.k}}>x</scr{{shared.k}}></p></main>', 'probe');
+  assert.ok(problems.some(p => /a tag name holds a slot/.test(p)), problems.join('\n'));
+});
+
+test('a catalogue slot later in a close tag name alone is refused by name', () => {
+  const problems = templateProblems('<main><p>x</scr{{shared.k}}></p></main>', 'probe');
+  assert.ok(problems.some(p => /a tag name holds a slot/.test(p)), problems.join('\n'));
+});

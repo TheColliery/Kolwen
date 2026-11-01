@@ -46,7 +46,7 @@ const WHOLE_LINE = new RegExp(`^\\s*(?:\\{\\{(?:block:|raw:)${NAME}\\}\\}|<style
 const TEXT_MASK = String.fromCharCode(0xe001), ATTR_MASK = String.fromCharCode(0xe002), CODE_MASK = String.fromCharCode(0xe003), JSON_MASK = String.fromCharCode(0xe004);
 const MASKS = new RegExp('[' + TEXT_MASK + '-' + JSON_MASK + ']', 'g');
 const HAS_MASK = new RegExp('[' + TEXT_MASK + '-' + JSON_MASK + ']');
-const TAG_NAME_SLOT = new RegExp('</?[' + TEXT_MASK + '-' + JSON_MASK + ']');
+const TAG_NAME_SLOT = new RegExp('</?[^\\s/>' + TEXT_MASK + '-' + JSON_MASK + ']*[' + TEXT_MASK + '-' + JSON_MASK + ']');
 const HAS_VALUE_MASK = new RegExp('[' + TEXT_MASK + ATTR_MASK + JSON_MASK + ']'); // a slot that writes a catalogue value (a block or raw slot writes code the build owns)
 // The attributes whose value a visitor sees or hears: the accessible name and description, the tooltip, the alternative text, the placeholder, the role description and the value text of a widget.
 const VISIBLE_ATTRS = ['aria-label', 'aria-description', 'aria-roledescription', 'aria-valuetext', 'aria-placeholder', 'title', 'alt', 'placeholder'];
