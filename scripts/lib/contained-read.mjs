@@ -2,7 +2,7 @@
 // pages its record names. A path is resolved to its real location first. A real location outside the root is refused; a file that is
 // not a regular file, or is over the read cap, is refused before it is read. Callers key a visited set on `file`, the real path, so one
 // file reached under two URLs (a directory alias) is read once.
-import { lstatSync, readFileSync, realpathSync } from 'node:fs';
+import { closeSync, fstatSync, lstatSync, openSync, readSync, realpathSync } from 'node:fs';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 
 export const MAX_READ_BYTES = 8 << 20;
@@ -25,9 +25,28 @@ export function locate(root, rel, max = MAX_READ_BYTES) {
 // The bytes at a path, read once it is located: { file, bytes } | { missing: true } | { refused: why }.
 // The real reads readContained makes: a test counts them to hold a file to one read.
 export const reads = { n: 0 };
+// The bytes at a path: one descriptor, opened once and checked on that descriptor (fstat), then read at most max + 1 bytes, so a file that
+// grows after the check is refused rather than read in full. The descriptor is closed in every case.
 export function readContained(root, rel, max = MAX_READ_BYTES) {
   const at = locate(root, rel, max);
   if (at.file === undefined) return at;
   reads.n++;
-  return { file: at.file, bytes: readFileSync(at.file) };
+  let fd;
+  try { fd = openSync(at.file, 'r'); }
+  catch (e) { return e.code === 'ENOENT' ? { missing: true } : { refused: `cannot be read (${e.code || e.message})` }; }
+  try {
+    const st = fstatSync(fd);
+    if (!st.isFile()) return { refused: 'is not a regular file' };
+    if (st.size > max) return { refused: `is ${st.size} bytes, over the ${max} byte read cap` };
+    const chunks = [], chunk = Buffer.alloc(64 * 1024);
+    let total = 0;
+    for (;;) {
+      const n = readSync(fd, chunk, 0, chunk.length, null);
+      if (n === 0) break;
+      total += n;
+      if (total > max) return { refused: `grew past the ${max} byte read cap while it was read` };
+      chunks.push(Buffer.from(chunk.subarray(0, n)));
+    }
+    return { file: at.file, bytes: Buffer.concat(chunks) };
+  } finally { closeSync(fd); }
 }

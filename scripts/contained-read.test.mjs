@@ -20,19 +20,17 @@ function linkDir(target, link) {
   for (const type of ['junction', 'dir']) { try { symlinkSync(target, link, type); return true; } catch { /* the next kind */ } }
   return false;
 }
-const probe = tree();
-const SKIP = linkDir(join(probe, 'web'), join(probe, 'probe-link')) ? false : 'no directory link (junction or symlink) can be made here';
 test.after(() => { for (const d of roots) rmSync(d, { recursive: true, force: true }); });
 
 const page = (d, head) => writeFileSync(join(d, 'web', 'index.html'), '<!doctype html><html><head>' + head + '</head><body><main>A</main></body></html>');
 const sheetLink = href => '<link rel="stylesheet" href="' + href + '">';
 const CPS = new Set([65]);
 
-test('a stylesheet that resolves outside the web root is refused, not read', { skip: SKIP }, () => {
+test('a stylesheet that resolves outside the web root is refused, not read', t => {
   const d = tree();
   const outside = mkdtempSync(join(tmpdir(), 'contained-outside-')); roots.push(outside);
   writeFileSync(join(outside, 'x.css'), 'body{}');
-  assert.ok(linkDir(outside, join(d, 'web', 'css')));
+  if (!linkDir(outside, join(d, 'web', 'css'))) return t.skip('no directory link (junction or symlink) can be made here');
   page(d, sheetLink('/css/x.css'));
   assert.throws(() => measurePage(join(d, 'web'), 'index.html', CPS), /loads \/css\/x\.css, leads outside the root/);
 });
@@ -44,16 +42,16 @@ test('a stylesheet over the read cap is refused before it is read', () => {
   assert.throws(() => measurePage(join(d, 'web'), 'index.html', CPS), /loads \/big\.css, is \d+ bytes, over the \d+ byte read cap/);
 });
 
-test('a directory alias that loops back into the web root ends, and the page is measured', { skip: SKIP }, () => {
+test('a directory alias that loops back into the web root ends, and the page is measured', t => {
   const d = tree();
-  assert.ok(linkDir(join(d, 'web'), join(d, 'web', 'loop')));
+  if (!linkDir(join(d, 'web'), join(d, 'web', 'loop'))) return t.skip('no directory link (junction or symlink) can be made here');
   writeFileSync(join(d, 'web', 'a.css'), '@import url("./loop/a.css");\nbody{}');
   page(d, sheetLink('/a.css'));
-  const code = 'import { measurePage } from ' + JSON.stringify(pathToFileURL(join(HERE, 'page-weight.mjs')).href)
-    + '; const r = measurePage(' + JSON.stringify(join(d, 'web')) + ", 'index.html', new Set([65])); console.log('DONE ' + r.requests);";
-  const r = spawnSync(process.execPath, ['--max-old-space-size=1024', '--input-type=module', '-e', code], { encoding: 'utf8', timeout: 30000, killSignal: 'SIGKILL' });
+  const code = 'import { reads } from ' + JSON.stringify(pathToFileURL(join(HERE, 'lib', 'contained-read.mjs')).href) + '; import { measurePage } from ' + JSON.stringify(pathToFileURL(join(HERE, 'page-weight.mjs')).href)
+    + '; const r = measurePage(' + JSON.stringify(join(d, 'web')) + ", 'index.html', new Set([65])); console.log('READS ' + reads.n);";
+  const r = spawnSync(process.execPath, ['--max-old-space-size=1024', '--input-type=module', '-e', code], { encoding: 'utf8', timeout: 30000, killSignal: 'SIGKILL', env: { ...process.env, HOME: d, USERPROFILE: d, TEMP: d, TMP: d, TMPDIR: d } });
   assert.equal(r.signal, null, 'the measure was ended by a signal, so the alias chain did not end: ' + (r.stderr || '').slice(0, 200));
-  assert.equal(r.stdout.trim(), 'DONE 3', 'the one file under two urls is read at most twice: ' + r.stdout.trim());
+  assert.equal(r.stdout.trim(), 'READS 2', 'the page and its one stylesheet, each read once: ' + r.stdout.trim() + ' STDERR ' + (r.stderr || '').slice(0, 500));
 });
 
 function siteRecord(d, pagePath) {
@@ -62,11 +60,11 @@ function siteRecord(d, pagePath) {
   writeFileSync(join(d, 'scripts', 'lib', 'sitemap-content.json'), JSON.stringify({ 'https://kolwen.com/o.html': { page: pagePath, sha256: 'a'.repeat(64), lastmod: '2026-01-01' } }));
 }
 
-test('a sitemap record whose page resolves outside the root is refused, not read', { skip: SKIP }, () => {
+test('a sitemap record whose page resolves outside the root is refused, not read', t => {
   const d = tree();
   const outside = mkdtempSync(join(tmpdir(), 'contained-outside-')); roots.push(outside);
   writeFileSync(join(outside, 'page.html'), '<main>x</main>');
-  assert.ok(linkDir(outside, join(d, 'web', 'o')));
+  if (!linkDir(outside, join(d, 'web', 'o'))) return t.skip('no directory link (junction or symlink) can be made here');
   siteRecord(d, 'web/o/page.html');
   const { problems } = check(d, { today: '2026-02-01' });
   assert.ok(problems.some(p => /names web\/o\/page\.html, which leads outside the root/.test(p)), problems.join('\n'));
