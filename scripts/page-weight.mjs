@@ -11,7 +11,7 @@
 // can shrink no further: every asset compressed, fonts subset, images in modern formats at the size shown, no unused code, and the change records what was tried and why nothing
 // more can be cut without losing a function the page needs. A stated wish is not a floor." A listed page prints its divergence on every run, so it is never silent.
 // Zero dependencies, node builtins only. Report problems at https://github.com/TheColliery/Kolwen/issues
-import { readContained } from './lib/contained-read.mjs';
+import { locate, readContained } from './lib/contained-read.mjs';
 import { brotliCompressSync, constants } from 'node:zlib';
 import { join, dirname, resolve, extname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -81,10 +81,18 @@ function importsOf(text, from) {
   return { urls, rest: clean.replace(IMPORT, ' ') };
 }
 
+// A file's read, once per real path, within one page's measure: a file under two urls, or read by the walk and again by the measure, is one read.
+function bytesOf(webDir, url, cache) {
+  const at = locate(webDir, url);
+  if (at.file === undefined) return at;
+  if (!cache.has(at.file)) cache.set(at.file, readContained(webDir, url));
+  return cache.get(at.file);
+}
+
 // The assets one page loads, as a Map url -> kind ('css' | 'font' | 'image' | 'script' | 'icon' | 'other'). Fonts are the faces of the linked stylesheets whose unicode-range covers a
 // character the page renders (an over-approximation: every such face, whatever the cascade would pick). `cps` are the code points the page renders.
-export function assetsOf(webDir, page, cps) {
-  const pageRead = readContained(webDir, page);
+export function assetsOf(webDir, page, cps, cache = new Map()) {
+  const pageRead = bytesOf(webDir, page, cache);
   if (pageRead.file === undefined) throw new Error(page + ': ' + (pageRead.refused || 'is missing'));
   const html = pageRead.bytes.toString('utf8').replace(/\r\n/g, '\n');
   const pageUrl = '/' + page;
@@ -111,35 +119,38 @@ export function assetsOf(webDir, page, cps) {
   const inline = importsOf(styleBlocksOf(html).join('\n'), pageUrl);
   inline.urls.forEach(queue);
   for (const u of cssUrls(inline.rest + '\n' + styleAttrs.join('\n'), pageUrl)) add(u, 'image');
-  // Each stylesheet: its imports, its @font-face faces by unicode-range, and any other url() it loads. A file reached under two urls
-  // (a directory alias) is read once, keyed on its real path.
-  const done = new Set();
-  for (let i = 0; i < todo.length; i++) {
-    const url = todo[i];
-    const got = readContained(webDir, url);
-    if (got.missing) continue; // reported by measurePage as a missing asset
-    if (got.refused) throw new Error(`${page}: loads ${url}, ${got.refused}`);
-    if (done.has(got.file)) continue;
-    done.add(got.file);
-    const sheet = importsOf(got.bytes.toString('utf8').replace(/\r\n/g, '\n'), url);
-    sheet.urls.forEach(queue);
-    for (const f of facesOf(sheet.rest)) {
-      if (f.range && ![...cps].some(cp => inRange(cp, f.range))) continue;
-      for (const u of f.urls) if (sameOrigin(u)) add(resolveUrl(strip(u), url), 'font');
+  // Each stylesheet, walked from each url the page names. A walk keeps its own visited real paths: a file reached under a second url (a
+  // directory alias) keeps its own imports, and a cycle inside one walk still ends at the first repeat of a real file.
+  for (const start of todo.slice()) {
+    const walk = [start], seen = new Set();
+    for (let i = 0; i < walk.length; i++) {
+      const url = walk[i];
+      const got = bytesOf(webDir, url, cache);
+      if (got.missing) continue; // reported by measurePage as a missing asset
+      if (got.refused) throw new Error(`${page}: loads ${url}, ${got.refused}`);
+      if (seen.has(got.file)) continue;
+      seen.add(got.file);
+      const sheet = importsOf(got.bytes.toString('utf8').replace(/\r\n/g, '\n'), url);
+      sheet.urls.forEach(u => { add(u, 'css'); if (!walk.includes(u)) walk.push(u); });
+      for (const f of facesOf(sheet.rest)) {
+        if (f.range && ![...cps].some(cp => inRange(cp, f.range))) continue;
+        for (const u of f.urls) if (sameOrigin(u)) add(resolveUrl(strip(u), url), 'font');
+      }
+      for (const u of cssUrls(sheet.rest.replace(/@font-face\s*\{[^}]*\}/g, ' '), url)) add(u, 'image');
     }
-    for (const u of cssUrls(sheet.rest.replace(/@font-face\s*\{[^}]*\}/g, ' '), url)) add(u, 'image');
   }
   return found;
 }
 
 // One page: its parts, total transfer bytes and request count (the HTML is one request).
 export function measurePage(webDir, page, cps) {
-  const pageRead = readContained(webDir, page);
+  const cache = new Map(); // real path -> the read: a file named by two urls, or read by the walk and by the measure, is read once
+  const pageRead = bytesOf(webDir, page, cache);
   if (pageRead.file === undefined) throw new Error(page + ': ' + (pageRead.refused || 'is missing'));
   const parts = [{ url: '/' + page, kind: 'html', bytes: servedBytes(page, pageRead.bytes) }];
-  for (const [url, kind] of assetsOf(webDir, page, cps)) {
-    const got = readContained(webDir, url);
-    if (got.missing) throw new Error(`${page}: loads ${url}, which is not in the built tree`);
+  for (const [url, kind] of assetsOf(webDir, page, cps, cache)) {
+    const got = bytesOf(webDir, url, cache);
+    if (got.missing) { const err = new Error(`${page}: loads ${url}, which is not in the built tree`); err.missing = true; throw err; }
     if (got.refused) throw new Error(`${page}: loads ${url}, ${got.refused}`);
     parts.push({ url, kind, bytes: servedBytes(url, got.bytes) });
   }
@@ -165,7 +176,9 @@ export function checkTree(webDir, opts = {}) {
   const pages = htmlPages(webDir);
   for (const page of pages) {
     const cps = [...rendered].filter(([, pageSet]) => pageSet.has('web/' + page)).map(([cp]) => cp);
-    const m = measurePage(webDir, page, cps);
+    let m;
+    try { m = measurePage(webDir, page, cps); }
+    catch (e) { if (e.missing) throw e; rows.push({ page, bytes: null, requests: null, parts: [], ratioBytes: null, ratioRequests: null, level: 'fail', notes: [e.message] }); continue; }
     const d = Object.hasOwn(divergences, page) ? divergences[page] : {};
     const b = metricVerdict(m.bytes, almanac.medianBytes, d.bytes, 'transfer bytes'), r = metricVerdict(m.requests, almanac.medianRequests, d.requests, 'requests');
     // An exception lives only while it is used: an entry for a metric that is not over the ceiling, a key that is neither metric, or an entry naming no metric is a FAIL.

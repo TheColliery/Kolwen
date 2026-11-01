@@ -3,6 +3,7 @@
 // inline CSS, and the string literals of its inline scripts (an over-approximation: a literal that is never written to the page only adds characters). Not drawn in the
 // page's typefaces, so left out: attribute text (alt, title, aria-label: the browser or the screen reader draws or speaks it), and the page's own URLs.
 // Zero dependencies, node builtins only.
+import { readContained } from './contained-read.mjs';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { htmlPages } from './web-files.mjs';
@@ -258,7 +259,7 @@ export function renderedChars(webDir) {
   const note = (text, page) => { for (const ch of text) { const cp = ch.codePointAt(0); if (cp < 0x20) continue; (seen.get(cp) || seen.set(cp, new Set()).get(cp)).add(page); } };
   const pages = htmlPages(webDir);
   for (const page of pages) {
-    const html = readFileSync(join(webDir, page), 'utf8').replace(/\r\n/g, '\n');
+    const got = readContained(webDir, page); if (got.file === undefined) throw new Error(page + ': ' + (got.refused || 'is missing')); const html = got.bytes.toString('utf8').replace(/\r\n/g, '\n');
     note(textOf(html, DRAWN) + ' ' + cssContentOf(html, DRAWN) + ' ' + scriptStringsOf(html), 'web/' + page);
   }
   return seen;

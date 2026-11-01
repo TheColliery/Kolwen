@@ -23,8 +23,11 @@ export function locate(root, rel, max = MAX_READ_BYTES) {
 }
 
 // The bytes at a path, read once it is located: { file, bytes } | { missing: true } | { refused: why }.
+// The real reads readContained makes: a test counts them to hold a file to one read.
+export const reads = { n: 0 };
 export function readContained(root, rel, max = MAX_READ_BYTES) {
   const at = locate(root, rel, max);
   if (at.file === undefined) return at;
+  reads.n++;
   return { file: at.file, bytes: readFileSync(at.file) };
 }
