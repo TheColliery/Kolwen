@@ -570,3 +570,19 @@ test('the walk searches for a comment end once on 200,000 unclosed comment opene
     assert.match(r.stdout, /^FINISHED 200000 SEARCHES 1\n?$/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('the floor check refuses a _headers rule that removes any floor header with the detach form, in any letter case', () => {
+  const FLOOR = ['Content-Security-Policy', 'Referrer-Policy', 'Cross-Origin-Opener-Policy', 'Cross-Origin-Resource-Policy', 'Permissions-Policy'];
+  const misses = [];
+  for (const header of FLOOR) {
+    const dir = surfaceCopy();
+    try {
+      const name = header.toLowerCase();
+      edit(dir, 'web/_headers', s => s.replace(/\n*$/, '\n') + '\n/headers-removal-probe\n  ! ' + name + '\n');
+      restage(dir);
+      const r = surface(dir);
+      if (r.status !== 1 || !new RegExp('web/_headers: line \\d+: removes .*' + name + ' on /headers-removal-probe', 'i').test(r.out)) misses.push(header);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }
+  assert.deepEqual(misses, [], 'floor headers whose detach line the floor check did not refuse');
+});
