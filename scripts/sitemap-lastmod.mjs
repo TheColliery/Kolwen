@@ -14,6 +14,7 @@
 // --root <dir> runs the check on another tree (the tests use it). Zero dependencies: node builtins and the shared decoder only.
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
+import { readContained } from './lib/contained-read.mjs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { decodeAttribute, decodeEntities } from './lib/rendered-text.mjs';
@@ -70,8 +71,10 @@ export function check(root, { write = false, today = new Date().toISOString().sl
     if (row.lastmod === undefined) problems.push(`web/sitemap.xml: ${row.loc} has no <lastmod>; set it to the date its content last changed`);
     else if (!isRealDate(row.lastmod)) problems.push(`web/sitemap.xml: ${row.loc} lastmod "${row.lastmod}" is not a real YYYY-MM-DD date; set the date its content last changed`);
     else if (row.lastmod > today) problems.push(`web/sitemap.xml: ${row.loc} lastmod ${row.lastmod} is later than today (UTC) ${today}; set the date its content last changed`);
-    const html = readOr(join(root, rec.page));
-    if (html === null) { problems.push(`${RECORD}: ${row.loc} names ${rec.page}, which does not exist`); return; }
+    const got = readContained(root, rec.page);
+    if (got.missing) { problems.push(`${RECORD}: ${row.loc} names ${rec.page}, which does not exist`); return; }
+    if (got.refused) { problems.push(`${RECORD}: ${row.loc} names ${rec.page}, which ${got.refused}`); return; }
+    const html = got.bytes.toString('utf8');
     if ((html.match(/<main\b/gi) || []).length !== 1 || (html.match(/<\/main>/gi) || []).length !== 1) { problems.push(`${rec.page}: needs exactly one <main>...</main>; the content rule reads the text inside it`); return; }
     const hash = contentHash(html);
     if (hash !== rec.sha256) {

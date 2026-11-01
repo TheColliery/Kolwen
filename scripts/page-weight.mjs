@@ -12,6 +12,7 @@
 // more can be cut without losing a function the page needs. A stated wish is not a floor." A listed page prints its divergence on every run, so it is never silent.
 // Zero dependencies, node builtins only. Report problems at https://github.com/TheColliery/Kolwen/issues
 import { readFileSync, existsSync } from 'node:fs';
+import { readContained } from './lib/contained-read.mjs';
 import { brotliCompressSync, constants } from 'node:zlib';
 import { join, dirname, resolve, extname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -84,7 +85,9 @@ function importsOf(text, from) {
 // The assets one page loads, as a Map url -> kind ('css' | 'font' | 'image' | 'script' | 'icon' | 'other'). Fonts are the faces of the linked stylesheets whose unicode-range covers a
 // character the page renders (an over-approximation: every such face, whatever the cascade would pick). `cps` are the code points the page renders.
 export function assetsOf(webDir, page, cps) {
-  const html = readFileSync(join(webDir, page), 'utf8').replace(/\r\n/g, '\n');
+  const pageRead = readContained(webDir, page);
+  if (pageRead.file === undefined) throw new Error(page + ': ' + (pageRead.refused || 'is missing'));
+  const html = pageRead.bytes.toString('utf8').replace(/\r\n/g, '\n');
   const pageUrl = '/' + page;
   const found = new Map();
   // A url named as a stylesheet by any link is a stylesheet, whatever kind it was first met as (a preload hint ahead of the link must not hide it).
@@ -109,11 +112,17 @@ export function assetsOf(webDir, page, cps) {
   const inline = importsOf(styleBlocksOf(html).join('\n'), pageUrl);
   inline.urls.forEach(queue);
   for (const u of cssUrls(inline.rest + '\n' + styleAttrs.join('\n'), pageUrl)) add(u, 'image');
-  // Each stylesheet: its imports, its @font-face faces by unicode-range, and any other url() it loads.
+  // Each stylesheet: its imports, its @font-face faces by unicode-range, and any other url() it loads. A file reached under two urls
+  // (a directory alias) is read once, keyed on its real path.
+  const done = new Set();
   for (let i = 0; i < todo.length; i++) {
-    const url = todo[i], file = join(webDir, url);
-    if (!existsSync(file)) continue; // reported by measurePage as a missing asset
-    const sheet = importsOf(readFileSync(file, 'utf8').replace(/\r\n/g, '\n'), url);
+    const url = todo[i];
+    const got = readContained(webDir, url);
+    if (got.missing) continue; // reported by measurePage as a missing asset
+    if (got.refused) throw new Error(`${page}: loads ${url}, ${got.refused}`);
+    if (done.has(got.file)) continue;
+    done.add(got.file);
+    const sheet = importsOf(got.bytes.toString('utf8').replace(/\r\n/g, '\n'), url);
     sheet.urls.forEach(queue);
     for (const f of facesOf(sheet.rest)) {
       if (f.range && ![...cps].some(cp => inRange(cp, f.range))) continue;
@@ -126,11 +135,14 @@ export function assetsOf(webDir, page, cps) {
 
 // One page: its parts, total transfer bytes and request count (the HTML is one request).
 export function measurePage(webDir, page, cps) {
-  const parts = [{ url: '/' + page, kind: 'html', bytes: servedBytes(page, readFileSync(join(webDir, page))) }];
+  const pageRead = readContained(webDir, page);
+  if (pageRead.file === undefined) throw new Error(page + ': ' + (pageRead.refused || 'is missing'));
+  const parts = [{ url: '/' + page, kind: 'html', bytes: servedBytes(page, pageRead.bytes) }];
   for (const [url, kind] of assetsOf(webDir, page, cps)) {
-    const file = join(webDir, url);
-    if (!existsSync(file)) throw new Error(`${page}: loads ${url}, which is not in the built tree`);
-    parts.push({ url, kind, bytes: servedBytes(url, readFileSync(file)) });
+    const got = readContained(webDir, url);
+    if (got.missing) throw new Error(`${page}: loads ${url}, which is not in the built tree`);
+    if (got.refused) throw new Error(`${page}: loads ${url}, ${got.refused}`);
+    parts.push({ url, kind, bytes: servedBytes(url, got.bytes) });
   }
   return { page, bytes: parts.reduce((n, p) => n + p.bytes, 0), requests: parts.length, parts };
 }

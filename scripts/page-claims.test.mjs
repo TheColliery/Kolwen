@@ -25,7 +25,7 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
 function surfaceCopy() {
   const dir = mkdtempSync(join(tmpdir(), 'page-claims-'));
   const env = childEnv(dir);
-  const files = spawnSync('git', ['ls-files', '-z'], { cwd: ROOT, encoding: 'utf8', timeout: 30000 }).stdout.split('\0').filter(Boolean);
+  const files = spawnSync('git', ['ls-files', '-z'], { cwd: ROOT, encoding: 'utf8', timeout: 30000, env: childEnv(ROOT) }).stdout.split('\0').filter(Boolean);
   for (const f of files) { mkdirSync(dirname(join(dir, f)), { recursive: true }); writeFileSync(join(dir, f), readFileSync(join(ROOT, f))); }
   for (const args of [['init', '-q'], ['add', '-A']]) assert.equal(spawnSync('git', args, { cwd: dir, env, timeout: 60000 }).status, 0, 'git ' + args[0]);
   return dir;
@@ -574,14 +574,14 @@ test('the walk searches for a comment end once on 200,000 unclosed comment opene
 test('the floor check refuses a _headers rule that removes any floor header with the detach form, in any letter case', () => {
   const FLOOR = ['Content-Security-Policy', 'Referrer-Policy', 'Cross-Origin-Opener-Policy', 'Cross-Origin-Resource-Policy', 'Permissions-Policy'];
   const misses = [];
-  for (const header of FLOOR) {
+  for (const header of FLOOR) for (const probe of [header.toLowerCase(), header]) {
     const dir = surfaceCopy();
     try {
-      const name = header.toLowerCase();
+      const name = probe;
       edit(dir, 'web/_headers', s => s.replace(/\n*$/, '\n') + '\n/headers-removal-probe\n  ! ' + name + '\n');
       restage(dir);
       const r = surface(dir);
-      if (r.status !== 1 || !new RegExp('web/_headers: line \\d+: removes .*' + name + ' on /headers-removal-probe', 'i').test(r.out)) misses.push(header);
+      if (r.status !== 1 || !new RegExp('web/_headers: line \\d+: removes .*' + name + ' on /headers-removal-probe', 'i').test(r.out)) misses.push(probe);
     } finally { rmSync(dir, { recursive: true, force: true }); }
   }
   assert.deepEqual(misses, [], 'floor headers whose detach line the floor check did not refuse');

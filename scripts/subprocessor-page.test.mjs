@@ -11,21 +11,26 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = f => readFileSync(join(ROOT, f), 'utf8');
 const NOINDEX = /<meta name="robots" content="noindex">/;
 
-// Every spelling a link can take: any quotes or none, any case, a trailing slash, .html, the full origin, a query or a fragment,
+// Every spelling a link can take, in the attributes a browser follows a URL from: href (a link), src (a script, an image, a frame), action
+// (a form) and the url= of a refresh meta. Any quotes or none, any case, a trailing slash, .html, the full origin, a query or a fragment,
 // a character reference in the value (decoded as the browser decodes an attribute value; an unknown named reference is kept as
-// written), a percent-encoded path (decoded before it is compared), and a relative path (resolved as the browser resolves it,
-// against a page of the site). Each href is resolved to a path before it is compared.
-const LINK_HREF = /\shref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/gi;
+// written), a percent-encoded path (decoded before it is compared), a relative path (resolved as the browser resolves it, against a
+// page of the site), and a trailing dot on the host. Each target is resolved to a path before it is compared.
+const LINK_ATTR = /\s(?:href|src|action)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/gi;
+const REFRESH = /<meta\b[^>]*\bhttp-equiv\s*=\s*["']?refresh["']?[^>]*\bcontent\s*=\s*(?:"([^"]*)"|'([^']*)')/gi;
 const SITE = 'https://kolwen.com/index.html';
 // decodeAttribute throws on a named reference it does not know, so such a reference is held back as text and comes out as written.
 const decodeHref = s => decodeAttribute(s.replace(/&([a-z][a-z0-9]*);/gi, (m, name) => {
   try { decodeAttribute(m); return m; } catch { return '&amp;' + name + ';'; }
 }));
-const hrefsIn = text => [...text.matchAll(LINK_HREF)].map(m => decodeHref(m[1] ?? m[2] ?? m[3]));
+// the url= of a refresh's content, as the browser reads it: "0; url=/x", the key in any case, the value with or without quotes
+const refreshTargets = text => [...text.matchAll(REFRESH)].map(m => ((m[1] ?? m[2] ?? '').match(/url\s*=\s*["']?([^"']+)/i) || [])[1]).filter(Boolean);
+const hrefsIn = text => [...[...text.matchAll(LINK_ATTR)].map(m => m[1] ?? m[2] ?? m[3]), ...refreshTargets(text)].map(decodeHref);
 const resolvesTo = (href, target, base = SITE) => {
   let u;
   try { u = new URL(href.trim(), base); } catch { return false; }
-  if (u.hostname !== 'kolwen.com' && u.hostname !== 'www.kolwen.com') return false;
+  const host = u.hostname.replace(/\.$/, '');
+  if (host !== 'kolwen.com' && host !== 'www.kolwen.com') return false;
   let path;
   try { path = decodeURIComponent(u.pathname); } catch { return false; }
   return path.replace(/\/+$/, '').replace(/\.html$/i, '').toLowerCase() === target;
@@ -73,6 +78,23 @@ test('the no-link check keeps an unknown reference as written and decodes the pa
   assert.equal(linksTo('<a href="/sub%70rocessors">x</a>', '/subprocessors').length, 1);
   // a malformed escape is not a match, and is not an error
   assert.deepEqual(linksTo('<a href="/%E0%A4%A">x</a>', '/subprocessors'), []);
+});
+
+test('the no-link check reads a src, an action and a refresh target, and a host with a trailing dot', () => {
+  const missed = [
+    '<script src="/subprocessors"></script>',
+    "<form action='../subprocessors'></form>",
+    '<meta http-equiv="refresh" content="0; url=/subprocessors">',
+    '<a href="https://kolwen.com./subprocessors">x</a>',
+    '<img src="https://kolwen.com./subprocessors/?x=1">',
+  ];
+  assert.deepEqual(missed.filter(s => linksTo(s, '/subprocessors').length !== 1), [], 'spellings of a link to the page that the check misses');
+  const passed = ['<script src="https://example.com./subprocessors"></script>', '<meta http-equiv="refresh" content="0; url=/terms">'];
+  assert.deepEqual(passed.filter(s => linksTo(s, '/subprocessors').length !== 0), [], 'spellings that do not link to the page that the check reports');
+});
+
+test('an unknown reference survives as written in the decoded href', () => {
+  assert.deepEqual(hrefsIn('<a href="/a?x=1&campaign;">x</a>'), ['/a?x=1&campaign;']);
 });
 
 test('the subprocessor page is read as prose, and loads nothing from another origin', () => {
