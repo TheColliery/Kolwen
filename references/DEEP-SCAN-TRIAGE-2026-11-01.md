@@ -17,7 +17,7 @@ Advisories: whether a finding warrants a GitHub security advisory turns on who c
 | 5 | denial_of_service | `scripts/sitemap-lastmod.mjs` (`strip`) | 2026-10-31 | DEFERRED (the open fix for rows 2, 4, 5 and 7) | the script and style removal rescans inside a comment; comments are removed first, in one pass |
 | 6 | denial_of_service | `scripts/lib/page-template.mjs` (`withoutComments`) | 2026-11-01 | DEFERRED (one open fix for rows 1, 6, 8 and 9) | comment removal restarts from the start after each deletion; a forward scan keeps its position |
 | 7 | denial_of_service | `scripts/lib/legal-render.mjs` (`splitSource`) | 2026-10-31 | DEFERRED (the open fix for rows 2, 4, 5 and 7) | the comment removal rescans at each unclosed opener; one forward pass replaces it |
-| 8 | denial_of_service | `scripts/surface-check.mjs` (visible-text blanking) | 2026-11-01 | DEFERRED (one open fix for rows 1, 6, 8 and 9) | overlapping spans are blanked one by one; the spans are merged, or the visible text built in one pass |
-| 9 | denial_of_service | `scripts/rendered-check.mjs` (the line-length measure) | 2026-11-01 | DEFERRED (one open fix for rows 1, 6, 8 and 9) | every line is filtered again for every block; each block's last line is recorded once |
+| 8 | denial_of_service | `scripts/surface-check.mjs` (`blank`, over each `dataSpansOf` span) | 2026-11-01 | DEFERRED (one open fix for rows 1, 6, 8 and 9) | overlapping spans are blanked one by one; the spans are merged, or the visible text built in one pass |
+| 9 | denial_of_service | `scripts/rendered-check.mjs` (`measureLines`) | 2026-11-01 | DEFERRED (one open fix for rows 1, 6, 8 and 9) | every line is filtered again for every block; each block's last line is recorded once |
 
 Count: FIXED 0, CONSIDERED 0, REJECTED 0, DEFERRED 9. Advisories owed: 0.
