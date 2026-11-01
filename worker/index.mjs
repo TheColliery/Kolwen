@@ -8,7 +8,7 @@
 // shortcut: whether a cron or a secret reaches a preview deployment is not on the Cloudflare pages read for this file; the ALERT_TO secret is the guard until a preview setting is read.
 // shortcut: KV is eventually consistent; the window is not on the pages read, so /status.json can lag a run by that window.
 
-export const PATHS = ['/', '/pricing', '/terms', '/privacy', '/refund', '/changelog'];
+export const PATHS = ['/', '/pricing', '/terms', '/privacy', '/refund', '/changelog', '/accessibility'];
 const ORIGIN = 'https://kolwen.com';
 const TIMEOUT_MS = 10_000;
 const HTML = 'text/html';

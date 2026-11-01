@@ -104,7 +104,7 @@ test('/status.json answers "No stored check result is available yet." when the s
   const after = await worker.fetch(new Request('https://kolwen.com/status.json'), env);
   const body = await after.json();
   assert.equal(typeof body.checked, 'string');
-  assert.equal(body.probes.length, 6);
+  assert.equal(body.probes.length, 7);
   assert.equal(after.headers.get('x-robots-tag'), 'noindex');
 });
 
