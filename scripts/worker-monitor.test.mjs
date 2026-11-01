@@ -64,7 +64,7 @@ test('ALERT_TO unset: the alert path is dark, nothing is sent, and no address re
   assert.equal(box.sent.length, 0, 'no send');
   assert.equal(out.dark, true);
   assert.equal(logs.filter(l => /alert path dark/.test(l)).length, 1, 'one dark line: ' + logs.join('\n'));
-  assert.equal(logs.filter(l => l.startsWith('{"probe":')).length, 6, 'one probe line per path');
+  assert.equal(logs.filter(l => l.startsWith('{"probe":')).length, 7, 'one probe line per path');
   assert.doesNotMatch(logs.join('\n'), /SECRET|body|header/i, 'a probe line holds no body or header');
   assert.doesNotMatch(logs.join('\n'), /@/, 'no address in any log');
 });

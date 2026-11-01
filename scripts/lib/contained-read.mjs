@@ -16,10 +16,10 @@ export function locate(root, rel, max = MAX_READ_BYTES) {
   catch (e) { return e.code === 'ENOENT' ? { missing: true } : { refused: `cannot be resolved (${e.code || e.message})` }; }
   const within = relative(realRoot, real);
   if (within === '..' || within.startsWith('..' + sep) || isAbsolute(within)) return { refused: 'leads outside the root' };
-  const st = lstatSync(real);
+  const st = lstatSync(real, { bigint: true });
   if (!st.isFile()) return { refused: 'is not a regular file' };
-  if (st.size > max) return { refused: `is ${st.size} bytes, over the ${max} byte read cap` };
-  return { file: real };
+  if (st.size > BigInt(max)) return { refused: `is ${st.size} bytes, over the ${max} byte read cap` };
+  return { file: real, dev: st.dev, ino: st.ino }; // the identity the check saw: readContained holds the opened descriptor to it
 }
 
 // The bytes at a path, read once it is located: { file, bytes } | { missing: true } | { refused: why }.
@@ -27,17 +27,21 @@ export function locate(root, rel, max = MAX_READ_BYTES) {
 export const reads = { n: 0 };
 // The bytes at a path: one descriptor, opened once and checked on that descriptor (fstat), then read at most max + 1 bytes, so a file that
 // grows after the check is refused rather than read in full. The descriptor is closed in every case.
-export function readContained(root, rel, max = MAX_READ_BYTES) {
+// `seam.afterLocate(file)`, when given, runs between the check and the open. Production passes none; the witness uses it to swap the file.
+export function readContained(root, rel, max = MAX_READ_BYTES, seam = {}) {
   const at = locate(root, rel, max);
   if (at.file === undefined) return at;
+  if (seam.afterLocate) seam.afterLocate(at.file);
   reads.n++;
   let fd;
   try { fd = openSync(at.file, 'r'); }
   catch (e) { return e.code === 'ENOENT' ? { missing: true } : { refused: `cannot be read (${e.code || e.message})` }; }
   try {
-    const st = fstatSync(fd);
+    const st = fstatSync(fd, { bigint: true });
+    // the descriptor must be the file the check saw: a last component swapped for another file between the check and the open is refused
+    if (st.dev !== at.dev || st.ino !== at.ino) return { refused: 'changed between the check and the read' };
     if (!st.isFile()) return { refused: 'is not a regular file' };
-    if (st.size > max) return { refused: `is ${st.size} bytes, over the ${max} byte read cap` };
+    if (st.size > BigInt(max)) return { refused: `is ${st.size} bytes, over the ${max} byte read cap` };
     const chunks = [], chunk = Buffer.alloc(64 * 1024);
     let total = 0;
     for (;;) {

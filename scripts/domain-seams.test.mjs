@@ -392,7 +392,7 @@ test('seam 4: the scan is not vacuous: no shipped file at all is a finding', () 
 // ── seam 5: the page-keyed catalogue names no domain or host ─────────────────────────────────────────────────
 test('seam 5: the real catalogue is keyed by page and names no domain or host in any key', () => {
   assert.deepEqual(msgs(catalogueDomainProblems(REAL.catalogue, REAL.templates)), []);
-  assert.deepEqual(Object.keys(JSON.parse(Object.values(REAL.catalogue)[0])).sort(), ['home', 'notfound', 'pricing', 'shared', 'status', 'subprocessors']);
+  assert.deepEqual(Object.keys(JSON.parse(Object.values(REAL.catalogue)[0])).sort(), ['accessibility', 'home', 'legal', 'notfound', 'pricing', 'shared', 'status', 'subprocessors']);
 });
 
 test('seam 5: a key that names a host, a TLD or a domain fails, at any depth and in any language file', () => {

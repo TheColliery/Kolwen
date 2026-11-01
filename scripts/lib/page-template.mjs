@@ -96,10 +96,11 @@ function masked(src) {
   return keep.join('\n').replace(SLOT, (...a) => { const m = [a[0], ...a.slice(1, 6)]; const k = kindOf(m); return k === 'text' ? TEXT_MASK : k === 'attr' ? ATTR_MASK : k === 'json' ? JSON_MASK : CODE_MASK; });
 }
 
-// The comments of a template text removed so that no comment opener survives: the quoted attribute values are masked first, then each comment
+// The comments of a template text removed so that no comment opener survives: the quoted attribute values inside tags are masked first (a quote in text is text), then each comment
 // is cut by an index scan and the scan starts again on what is left (a cut can join two halves into a new opener); an unclosed one cuts to the end.
 export function withoutComments(text) {
-  let t = text.replace(/=\s*("[^"]*"|'[^']*')/g, '=""');
+  // a tag runs to its closing '>' outside quoted values, so a '>' inside a value does not end it; a quote outside a tag is never touched
+  let t = text.replace(/<[a-zA-Z\/](?:"[^"]*"|'[^']*'|[^'">])*>/g, tag => tag.replace(/=\s*("[^"]*"|'[^']*')/g, '=""'));
   for (;;) {
     const open = t.indexOf('<!--');
     if (open < 0) return t;

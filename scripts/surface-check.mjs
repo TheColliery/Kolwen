@@ -290,6 +290,10 @@ const SHIPPED = new Set([
   'web/status.html',
   // The subprocessor page: unannounced, no link, not in the sitemap; listed like the status page.
   'web/subprocessors.html',
+  // The legal page: unannounced: no link, not in the sitemap, and noindex by name in rule 16.
+  'web/legal.html',
+  // The accessibility page: a LIVE reading page, indexable and in the sitemap.
+  'web/accessibility.html',
   // `_redirects` is parsed by Workers and not served either (same docs page family); rule 18 holds its lines.
   'web/_redirects',
   // The pricing page (first published as /plans): a PRODUCTION page (US prices, every buy button disabled), read by the rules that read every page.
@@ -958,7 +962,7 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
   // The unread-tag finding below is safe only while rule 13's file set stays a superset of this rule's pages: rule 13 reads the markup of every page
   // this rule reads, so a page whose tags rule 13 cannot read is named there. Keep that superset when either list changes.
   // subprocessors: unannounced until its first row takes effect; the switch that removes the noindex, adds the link and the sitemap entry is a later change
-const NOINDEX_META_OK = new Set(['web/404.html', 'web/subprocessors.html']);
+const NOINDEX_META_OK = new Set(['web/404.html', 'web/subprocessors.html', 'web/legal.html']);
   if (WEB_PAGES.length > 0 && PRODUCTION_PAGES.length === 0) note('web/', 'has tracked HTML pages but every one is in PREVIEW_EXEMPT, so rule 16 checked nothing — this CHECK is now empty, not the noindex meta proven absent');
   for (const f of PRODUCTION_PAGES.filter(f => !NOINDEX_META_OK.has(f))) {
     if (!pageClaims) break;

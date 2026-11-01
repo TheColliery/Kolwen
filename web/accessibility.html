@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en" data-job="prose">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Accessibility: Kolwen</title>
+<meta name="description" content="How Kolwen&#39;s website is built and checked for accessibility, what it does not yet cover, and how to report a problem.">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#fbfaf8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f0d0b" media="(prefers-color-scheme: dark)">
+<!-- site-fonts:begin -->
+<link rel="stylesheet" href="/fonts/fonts.css">
+<!-- site-fonts:end -->
+<style>
+/* site-tokens-css:begin */
+  :root{
+    --kw-font-size-1:0.75rem;
+    --kw-font-size-2:0.78125rem;
+    --kw-font-size-3:0.8125rem;
+    --kw-font-size-4:0.84375rem;
+    --kw-font-size-5:0.875rem;
+    --kw-font-size-6:0.90625rem;
+    --kw-font-size-7:0.9375rem;
+    --kw-font-size-8:0.96875rem;
+    --kw-font-size-9:1.125rem;
+    --kw-font-size-10:1.25rem;
+    --kw-font-size-11:1.625rem;
+    --kw-font-size-body:1.125rem;
+    --kw-font-size-reading-h3:1.3125rem;
+    --kw-font-size-reading-h2:1.5rem;
+    --kw-font-size-reading-title:1.875rem;
+    --kw-font-size-display:clamp(1.75rem, -6.125rem + 30vw, 2.125rem);
+    --kw-font-size-title:clamp(1.25rem, -4rem + 20vw, 1.5rem);
+    --kw-font-size-title-home:clamp(1.125rem, -2.8125rem + 15vw, 1.3125rem);
+    --kw-font-size-cell:clamp(0.8125rem, -0.5rem + 5vw, 0.875rem);
+    --kw-space-inset-inline:1.25rem;
+    --kw-space-inset-roomy:2rem;
+    --kw-space-inset-block-start:2.25rem;
+    --kw-space-section:1.75rem;
+    --kw-space-header-block:0.375rem;
+    --kw-space-footer-top:2.75rem;
+    --kw-space-footer-bottom:2rem;
+    --kw-space-footer-offset:4.5rem;
+    --kw-space-gutter-inline:max(var(--kw-space-inset-inline), env(safe-area-inset-left, 0px)) max(var(--kw-space-inset-inline), env(safe-area-inset-right, 0px));
+    --kw-space-gutter-inline-roomy:max(var(--kw-space-inset-roomy), env(safe-area-inset-left, 0px)) max(var(--kw-space-inset-roomy), env(safe-area-inset-right, 0px));
+    --kw-space-header-top:max(var(--kw-space-header-block), env(safe-area-inset-top, 0px));
+    --kw-space-footer-end:max(var(--kw-space-footer-bottom), env(safe-area-inset-bottom, 0px));
+    --kw-space-cell:clamp(0.375rem, -4.875rem + 20vw, 0.625rem);
+    --kw-space-button:clamp(0.5rem, -4.75rem + 20vw, 0.75rem);
+    --kw-size-container-narrow:37.5rem;
+    --kw-size-container-reading:47.5rem;
+    --kw-size-container-wide:68.75rem;
+    --kw-size-container-compact:38rem;
+    --kw-size-measure-reading:33em;
+    --kw-line-height-body:1.6;
+    --kw-line-height-thai:1.65;
+    --kw-color-switch-border:rgba(128, 128, 128, 0.7);
+  }
+  html[data-job="prose"]{color-scheme:light dark;--bg:#fbfaf8;--bg2:#f1eee9;--card:#f5f2ed;--line:rgba(0, 0, 0, 0.12);--txt:#1a1a1a;--txt2:#464646;--quiet:#585858;--accent:#a65a19;--accent2:#8a4510;--kw-color-switch-border:#767676}
+  @media (prefers-color-scheme:dark){html[data-job="prose"]{--bg:#0f0d0b;--bg2:#15130f;--card:#1a1714;--line:rgba(255, 255, 255, 0.08);--txt:#ece4d9;--txt2:#a89a8c;--quiet:#a2968a;--accent:#e8833a;--accent2:#ffbb7a;--kw-color-switch-border:#8c8c8c}}
+  html[data-job="prose"] body{background:var(--bg)}
+  html[data-job="prose"] main{font-size:var(--kw-font-size-body);max-width:calc(var(--kw-size-measure-reading) + 2 * var(--kw-space-inset-inline))}
+  html[data-job="prose"] h1{font-size:var(--kw-font-size-reading-title)}
+  html[data-job="prose"] .legal h2{font-size:var(--kw-font-size-reading-h2)}
+  html[data-job="prose"] .legal h3{font-size:var(--kw-font-size-reading-h3)}
+  html[data-job="prose"] #doc-th,html[data-job="prose"] #doc-th *{line-height:var(--kw-line-height-thai)}
+/* site-tokens-css:end */
+:root{--ink:#1a1a1a;--dim:#5b5b5b;--bg:#fbfaf8;--amber:#A65A19}
+@media (prefers-color-scheme:dark){:root{--ink:#f2f0ed;--dim:#a3a3a3;--bg:#141414;--amber:#e8833a}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;flex-direction:column;background:var(--bg);color:var(--ink);font:1rem/1.65 "KW Sans Thai",system-ui,-apple-system,sans-serif}
+main{flex:1 0 auto;width:100%;max-width:var(--kw-size-container-compact);margin:0 auto;padding-block:var(--kw-space-inset-roomy);padding-inline:var(--kw-space-gutter-inline)}
+h1{font-size:1.35rem;margin:0 0 .75rem;font-weight:600}
+h2{font-size:1.05rem;margin:1.6rem 0 .5rem;font-weight:600}
+p{margin:0 0 .6rem;color:var(--dim)}
+.row{display:grid;gap:.15rem;margin:0 0 1.2rem;padding:.9rem 0 0;border-top:1px solid color-mix(in srgb,var(--dim) 25%,transparent);overflow-wrap:anywhere}
+.row dt{font-weight:600;color:var(--dim)}
+.row dd{margin:0 0 .4rem}
+.th{margin-top:1.6rem;padding-top:1.2rem;border-top:1px solid color-mix(in srgb,var(--dim) 25%,transparent)}
+a{color:var(--amber)}
+/* site-header-css:begin */
+  .site-header{border-bottom:1px solid rgba(128,128,128,.35);padding-block:var(--kw-space-header-top) var(--kw-space-header-block);padding-inline:var(--kw-space-gutter-inline)}
+  .site-header nav{display:flex;flex-wrap:wrap;align-items:center;gap:4px 18px;width:100%;max-width:var(--kw-size-container-wide);margin:0 auto;font-size:var(--kw-font-size-6)}
+  .site-header nav[lang="th"]{display:none}
+  html[lang="th"] .site-header nav[lang="en"]{display:none}
+  html[lang="th"] .site-header nav[lang="th"]{display:flex}
+  .site-header a{color:inherit;text-decoration:none;display:inline-flex;align-items:center;min-height:44px;overflow-wrap:anywhere}
+  .site-header a:hover{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}
+  .site-header .hmark{gap:10px;font-weight:700;font-size:var(--kw-font-size-9);letter-spacing:.01em;margin-right:auto}
+  .site-header .hglyph,.site-footer .fglyph{flex:none;display:block;fill:var(--accent,var(--amber,#e8833a))}
+  .lswitch{display:inline-flex;gap:6px}
+  .lswitch button{font:inherit;font-size:var(--kw-font-size-2);color:inherit;background:transparent;border:1px solid var(--kw-color-switch-border);border-radius:8px;padding:6px 12px;min-height:34px;cursor:pointer}
+  .lswitch button:hover{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}
+  .lswitch button[aria-pressed="true"]{border-color:currentColor;font-weight:600}
+  .site-header :focus-visible,.site-footer :focus-visible{outline:2px solid currentColor;outline-offset:2px}
+/* site-header-css:end */
+/* site-footer-css:begin */
+  .site-footer{display:block;margin-top:var(--kw-space-footer-offset);padding-block:var(--kw-space-footer-top) var(--kw-space-footer-end);padding-inline:var(--kw-space-gutter-inline);border-top:1px solid rgba(128,128,128,.35);font-size:var(--kw-font-size-4);line-height:1.7}
+  .site-footer[lang="th"]{display:none}
+  html[lang="th"] .site-footer[lang="en"]{display:none}
+  html[lang="th"] .site-footer[lang="th"]{display:block}
+  .site-footer .fwrap{width:100%;max-width:var(--kw-size-container-wide);margin:0 auto;display:flex;flex-direction:column;gap:28px}
+  .site-footer .fbrand{display:flex;align-items:center;gap:10px;margin:0;font-size:var(--kw-font-size-10);font-weight:700;letter-spacing:.01em}
+  .site-footer .fgroups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 18px}
+  @media (min-width:640px){.site-footer .fgroups{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  @media (min-width:1024px){.site-footer .fgroups{grid-template-columns:repeat(5,minmax(0,1fr))}}
+  .site-footer .fgroup{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0}
+  .site-footer .fh{font-size:var(--kw-font-size-1);letter-spacing:.04em;text-transform:uppercase;margin:0}
+  .site-footer a{color:inherit;text-decoration:underline;text-underline-offset:3px;display:inline-block;padding:5px 0;min-height:32px;overflow-wrap:anywhere}
+  .site-footer a:hover{text-decoration-thickness:2px}
+  .site-footer .fbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid rgba(128,128,128,.25);padding-top:16px}
+  .fine{font-size:var(--kw-font-size-1);margin:0}
+/* site-footer-css:end */
+</style>
+<noscript><style>
+/* site-noscript-css:begin */
+  .lswitch{display:none}
+  #doc-th{display:block !important;border-top:1px solid var(--line);padding-top:28px}
+  .site-header nav[lang="th"]{display:flex !important}
+  .site-footer[lang="th"]{display:block !important}
+/* site-noscript-css:end */
+</style></noscript>
+</head>
+<body>
+<!-- site-header:begin -->
+<header class="site-header">
+<nav lang="en" aria-label="Main">
+<a class="hmark" href="/" aria-label="Kolwen home"><svg class="hglyph" viewBox="0 0 100 100" width="26" height="26" aria-hidden="true"><rect x="8.5" y="9.1" width="64.3" height="25"/><rect x="17.85" y="46.25" width="64.3" height="19.66"/><rect x="27.2" y="75.46" width="64.3" height="15.45"/></svg><span>Kolwen</span></a>
+<a href="/pricing">Pricing</a>
+<div class="lswitch" role="group" aria-label="Language"><button type="button" data-lang-set="en" lang="en" aria-pressed="true">English</button><button type="button" data-lang-set="th" lang="th" aria-pressed="false">ไทย</button></div>
+</nav>
+<nav lang="th" aria-label="เมนูหลัก">
+<a class="hmark" href="/" aria-label="หน้าแรกของ Kolwen"><svg class="hglyph" viewBox="0 0 100 100" width="26" height="26" aria-hidden="true"><rect x="8.5" y="9.1" width="64.3" height="25"/><rect x="17.85" y="46.25" width="64.3" height="19.66"/><rect x="27.2" y="75.46" width="64.3" height="15.45"/></svg><span>Kolwen</span></a>
+<a href="/pricing">ราคา</a>
+<div class="lswitch" role="group" aria-label="ภาษา"><button type="button" data-lang-set="en" lang="en" aria-pressed="true">English</button><button type="button" data-lang-set="th" lang="th" aria-pressed="false">ไทย</button></div>
+</nav>
+</header>
+<!-- site-header:end -->
+<main>
+  <div id="doc-en" lang="en">
+  <h1>Accessibility</h1>
+  <p>This page is Kolwen&#39;s accessibility statement for the website at kolwen.com. It is dated 1 November 2026.</p>
+  <h2>What this site is</h2>
+  <p>Kolwen&#39;s website describes a chatbot product that is still in development. No product ships yet, and the site says so on every page. The site is a set of static pages in English and Thai, which a visitor reads in a browser.</p>
+  <h2>Our commitment</h2>
+  <p>Kolwen aims to make the website usable by people with disabilities, and to fix a problem that a visitor reports.</p>
+  <h2>The standard we aim for</h2>
+  <p>Kolwen&#39;s own target is WCAG 2.2 level AA. It is a target Kolwen set for itself. It is not a legal test, and this statement does not claim that the site meets it.</p>
+  <h2>What is checked on every change</h2>
+  <p>The repository runs these checks in its continuous integration on each pull request and each push to main, and a failed check fails the change. A headless browser checks every page, in English and Thai: text reflows at 320 CSS pixels wide without sideways scrolling; text at 200 percent is not cut off; the browser reports no content-security-policy violation; the language switch sets the page&#39;s language. On the reading pages, text and background meet a contrast of 4.5 to 1 (3 to 1 for large text) in both the light and the dark colour scheme, the line height is at least 1.5 times the font size, and the line length of English text is measured against 80 characters. The source checks confirm that the home page declares English as its language, and that the layout uses relative type sizes and a viewport setting that does not block zoom.</p>
+  <h2>Known limits</h2>
+  <p>The checks above cover only what they measure. They do not test every criterion of WCAG 2.2. In particular, no check reads the keyboard focus order or whether focus is visible; no check reads the names and roles of controls with a screen reader; the contrast and line-height checks cover the reading pages, not the default pages, whose background gradient is not read; the line-length check does not apply to Thai text; and the pages have not been checked with script switched off. The repository records no manual audit and no test with assistive technology by people.</p>
+  <h2>What you need</h2>
+  <p>The site needs a current browser. It needs no plug-in, and no account or sign-in to read a page. Whether a page reads with script switched off is not checked.</p>
+  <h2>Report a problem</h2>
+  <p>If a page is hard for you to use, write to info@kolwen.com with the address of the page and what got in your way. We read every report and answer it. We do not promise a time for the answer.</p>
+  <h2>Date of this statement</h2>
+  <p>1 November 2026.</p>
+  </div>
+  <div class="th" id="doc-th" lang="th" hidden>
+  <h1>การเข้าถึงได้</h1>
+  <p>หน้านี้คือคำแถลงการเข้าถึงได้ของเว็บไซต์ kolwen.com ลงวันที่ 1 พฤศจิกายน 2569</p>
+  <h2>เว็บไซต์นี้คืออะไร</h2>
+  <p>เว็บไซต์ของ Kolwen อธิบายผลิตภัณฑ์แชตบอตที่ยังอยู่ระหว่างการพัฒนา ยังไม่มีผลิตภัณฑ์ใดเปิดให้ใช้งาน และเว็บไซต์บอกเช่นนี้ในทุกหน้า เว็บไซต์เป็นชุดหน้าคงที่ทั้งภาษาอังกฤษและภาษาไทย ผู้เยี่ยมชมอ่านหน้าเหล่านี้ผ่านเบราว์เซอร์</p>
+  <h2>คำมั่นของเรา</h2>
+  <p>Kolwen ตั้งใจให้เว็บไซต์ใช้งานได้สำหรับผู้มีความพิการ และแก้ไขปัญหาที่ผู้เยี่ยมชมแจ้งมา</p>
+  <h2>มาตรฐานที่เราตั้งเป้าหมาย</h2>
+  <p>เป้าหมายของ Kolwen คือ WCAG 2.2 ระดับ AA เป็นเป้าหมายที่ Kolwen กำหนดเอง ไม่ใช่เกณฑ์ทางกฎหมาย และคำแถลงนี้ไม่ได้อ้างว่าเว็บไซต์ผ่านเป้าหมายนี้แล้ว</p>
+  <h2>สิ่งที่ตรวจทุกครั้งที่มีการเปลี่ยนแปลง</h2>
+  <p>ที่เก็บโค้ดรันการตรวจเหล่านี้ในระบบตรวจสอบต่อเนื่องทุกครั้งที่มีคำขอรวมโค้ดและทุกครั้งที่ส่งการเปลี่ยนแปลงเข้า main และการตรวจที่ไม่ผ่านทำให้การเปลี่ยนแปลงล้มเหลว เบราว์เซอร์แบบไม่แสดงผลตรวจทุกหน้าทั้งภาษาอังกฤษและภาษาไทย ได้แก่ ข้อความจัดเรียงใหม่ได้ที่ความกว้าง 320 พิกเซลโดยไม่เลื่อนด้านข้าง ข้อความที่ซูมเป็น 200 เปอร์เซ็นต์ไม่ถูกตัด เบราว์เซอร์ไม่รายงานการละเมิดนโยบายความปลอดภัยของเนื้อหา และปุ่มสลับภาษาตั้งค่าภาษาของหน้า ในหน้าอ่าน สีข้อความกับพื้นหลังมีความคมชัดอย่างน้อย 4.5 ต่อ 1 (3 ต่อ 1 สำหรับข้อความขนาดใหญ่) ทั้งโหมดสว่างและโหมดมืด ความสูงบรรทัดอย่างน้อย 1.5 เท่าของขนาดตัวอักษร และความยาวบรรทัดของข้อความภาษาอังกฤษถูกวัดเทียบกับ 80 ตัวอักษร การตรวจต้นทางยืนยันว่าหน้าหลักประกาศภาษาอังกฤษ และการจัดวางใช้ขนาดตัวอักษรแบบสัมพัทธ์กับการตั้งค่า viewport ที่ไม่บล็อกการซูม</p>
+  <h2>ข้อจำกัดที่ทราบ</h2>
+  <p>การตรวจข้างต้นครอบคลุมเฉพาะสิ่งที่วัดเท่านั้น ไม่ได้ทดสอบทุกเกณฑ์ของ WCAG 2.2 โดยเฉพาะ ไม่มีการตรวจลำดับการโฟกัสด้วยคีย์บอร์ดหรือการมองเห็นโฟกัส ไม่มีการตรวจชื่อและบทบาทของปุ่มควบคุมด้วยโปรแกรมอ่านหน้าจอ การตรวจความคมชัดและความสูงบรรทัดครอบคลุมหน้าอ่าน ไม่ครอบคลุมหน้าปกติซึ่งไม่อ่านพื้นหลังแบบไล่สี การตรวจความยาวบรรทัดไม่ใช้กับข้อความภาษาไทย และหน้าเว็บยังไม่ได้ทดสอบโดยปิดสคริปต์ ที่เก็บโค้ดไม่มีบันทึกการตรวจโดยคน และไม่มีการทดสอบโดยผู้ที่ใช้เทคโนโลยีช่วยเหลือ</p>
+  <h2>สิ่งที่ต้องมี</h2>
+  <p>เว็บไซต์ต้องใช้เบราว์เซอร์ที่ทันสมัย ไม่ต้องใช้ปลั๊กอิน และไม่ต้องมีบัญชีหรือการเข้าสู่ระบบเพื่ออ่านหน้าใด ยังไม่ได้ตรวจว่าหน้าอ่านได้เมื่อปิดสคริปต์</p>
+  <h2>แจ้งปัญหา</h2>
+  <p>หากหน้าใดใช้ยาก โปรดเขียนถึง info@kolwen.com พร้อมที่อยู่ของหน้านั้นและสิ่งที่ขัดขวาง Kolwen อ่านทุกรายงานและตอบกลับ ไม่ได้ให้เวลาตอบที่แน่นอน</p>
+  <h2>วันที่ของคำแถลงนี้</h2>
+  <p>1 พฤศจิกายน 2569</p>
+  </div>
+</main>
+<!-- site-footer:en:begin -->
+<footer class="site-footer" lang="en">
+<div class="fwrap">
+<p class="fbrand"><svg class="fglyph" viewBox="0 0 100 100" width="24" height="24" aria-hidden="true"><rect x="8.5" y="9.1" width="64.3" height="25"/><rect x="17.85" y="46.25" width="64.3" height="19.66"/><rect x="27.2" y="75.46" width="64.3" height="15.45"/></svg>Kolwen</p>
+<nav class="fgroups" aria-label="Footer">
+<div class="fgroup"><p class="fh">Kolwen</p><a href="/">Home</a></div>
+<div class="fgroup"><p class="fh">Product</p><a href="/pricing">Pricing</a><a href="/changelog">Changelog</a></div>
+<div class="fgroup"><p class="fh">Legal</p><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/refund">Refunds</a></div>
+<div class="fgroup"><p class="fh">Code</p><a href="https://github.com/TheColliery/Kolwen">GitHub</a><a href="https://huggingface.co/kolwen">Hugging Face</a><a href="https://www.npmjs.com/package/kolwen">npm</a><a href="/llms.txt">llms.txt</a></div>
+<div class="fgroup"><p class="fh">Contact</p><a href="mailto:info@kolwen.com">Email</a><a href="mailto:support@kolwen.com">Support</a><a href="mailto:abuse@kolwen.com">Report abuse</a><a href="mailto:appeals@kolwen.com">Appeals</a><a href="https://kolwen.com/.well-known/security.txt">Security</a></div>
+</nav>
+<div class="fbar">
+<p class="fine">© 2026 Kolwen · trademark application pending</p>
+<div class="lswitch" role="group" aria-label="Language"><button type="button" data-lang-set="en" lang="en" aria-pressed="true">English</button><button type="button" data-lang-set="th" lang="th" aria-pressed="false">ไทย</button></div>
+</div>
+</div>
+</footer>
+<!-- site-footer:en:end -->
+<!-- site-footer:th:begin -->
+<footer class="site-footer" lang="th">
+<div class="fwrap">
+<p class="fbrand"><svg class="fglyph" viewBox="0 0 100 100" width="24" height="24" aria-hidden="true"><rect x="8.5" y="9.1" width="64.3" height="25"/><rect x="17.85" y="46.25" width="64.3" height="19.66"/><rect x="27.2" y="75.46" width="64.3" height="15.45"/></svg>Kolwen</p>
+<nav class="fgroups" aria-label="ส่วนท้ายเว็บ">
+<div class="fgroup"><p class="fh">Kolwen</p><a href="/">หน้าแรก</a></div>
+<div class="fgroup"><p class="fh">สินค้า</p><a href="/pricing">ราคา</a><a href="/changelog">บันทึกการเปลี่ยนแปลง</a></div>
+<div class="fgroup"><p class="fh">กฎหมาย</p><a href="/terms">ข้อกำหนด</a><a href="/privacy">ความเป็นส่วนตัว</a><a href="/refund">การคืนเงิน</a></div>
+<div class="fgroup"><p class="fh">โค้ด</p><a href="https://github.com/TheColliery/Kolwen">GitHub</a><a href="https://huggingface.co/kolwen">Hugging Face</a><a href="https://www.npmjs.com/package/kolwen">npm</a><a href="/llms.txt">llms.txt</a></div>
+<div class="fgroup"><p class="fh">ติดต่อ</p><a href="mailto:info@kolwen.com">อีเมล</a><a href="mailto:support@kolwen.com">ขอความช่วยเหลือ</a><a href="mailto:abuse@kolwen.com">แจ้งการละเมิด</a><a href="mailto:appeals@kolwen.com">ยื่นอุทธรณ์</a><a href="https://kolwen.com/.well-known/security.txt">ความปลอดภัย</a></div>
+</nav>
+<div class="fbar">
+<p class="fine">© 2026 Kolwen · เครื่องหมายการค้าอยู่ระหว่างการจดทะเบียน</p>
+<div class="lswitch" role="group" aria-label="ภาษา"><button type="button" data-lang-set="en" lang="en" aria-pressed="true">English</button><button type="button" data-lang-set="th" lang="th" aria-pressed="false">ไทย</button></div>
+</div>
+</div>
+</footer>
+<!-- site-footer:th:end -->
+<script>
+/* site-script:begin */
+(function () {
+  var KEY = 'kolwen-lang';
+  var en = document.getElementById('doc-en');
+  var th = document.getElementById('doc-th');
+  var buttons = document.querySelectorAll('[data-lang-set]');
+
+  function apply(lang, persist) {
+    var thai = lang === 'th';
+    th.hidden = !thai;
+    en.hidden = thai;
+    document.documentElement.lang = thai ? 'th' : 'en';
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].setAttribute('aria-pressed', String(buttons[i].getAttribute('data-lang-set') === lang));
+    }
+    if (persist) {
+      // Language preference only. localStorage, never a cookie: it is a
+      // client-only concern that never needs to ride on an HTTP request.
+      try { localStorage.setItem(KEY, lang); } catch (e) {}
+    }
+  }
+
+  var saved = null;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  if (saved === 'th' || saved === 'en') apply(saved, false);
+
+  // Pressing a switch changes the page language on the root element, which hides the header nav or the footer holding the pressed button. So focus goes to the same switch in the block that is now shown,
+  // in the same place (header to header, footer to footer), and without a scroll jump (WCAG 2.2 SC 2.4.3 and 2.4.7). Pressing the language already shown hides nothing and moves nothing.
+  function bind(button) {
+    button.addEventListener('click', function () {
+      var lang = button.getAttribute('data-lang-set');
+      var changed = document.documentElement.lang !== lang;
+      var place = button.closest('.site-header') ? '.site-header' : (button.closest('.site-footer') ? '.site-footer' : '');
+      apply(lang, true);
+      if (!changed || !place) return;
+      var same = document.querySelectorAll(place + ' [data-lang-set]');
+      for (var j = 0; j < same.length; j++) {
+        if (same[j].getAttribute('data-lang-set') === lang && same[j].parentNode.closest('[lang]').getAttribute('lang') === lang) { same[j].focus({ preventScroll: true }); return; }
+      }
+    });
+  }
+  for (var i = 0; i < buttons.length; i++) bind(buttons[i]);
+
+  // The status page is the one page with a [data-status] element. It reads /status.json, the last health check the Worker stored, and writes the state, the time and one row per
+  // probed page as text: the numbers, paths and times come from the data, and every word on the page comes from the catalogue. Without the fetch the page keeps its unavailable line.
+  if (document.querySelector('[data-status]')) {
+    fetch('/status.json', { cache: 'no-store' })
+      .then(function (res) { if (!res.ok) throw new Error('status ' + res.status); return res.json(); })
+      .then(showStatus)
+      .catch(function () { /* the page keeps its unavailable line */ });
+  }
+
+  function showStatus(data) {
+    var state = 'none';
+    if (data.checked) state = data.probes.every(function (p) { return p.ok; }) ? 'ok' : 'failing';
+    var lines = document.querySelectorAll('[data-state]');
+    for (var i = 0; i < lines.length; i++) lines[i].hidden = lines[i].getAttribute('data-state') !== state;
+    if (!data.checked) return;
+    var times = document.querySelectorAll('[data-fill="checked"]');
+    for (var j = 0; j < times.length; j++) { times[j].textContent = data.checked; times[j].setAttribute('datetime', data.checked); }
+    var lists = document.querySelectorAll('[data-fill="probes"]');
+    for (var k = 0; k < lists.length; k++) {
+      lists[k].textContent = '';
+      var labels = marks(lists[k]);
+      for (var m = 0; m < data.probes.length; m++) lists[k].appendChild(probeRow(data.probes[m], labels));
+    }
+  }
+
+  // A row's OK and FAIL labels come from the language section that holds its list, so a Thai row says ผ่าน or ไม่ผ่าน.
+  function marks(list) {
+    var lang = list.closest('[lang]');
+    return { ok: lang.querySelector('[data-mark="ok"]').textContent, fail: lang.querySelector('[data-mark="fail"]').textContent };
+  }
+
+  function probeRow(p, labels) {
+    var li = document.createElement('li');
+    var path = document.createElement('span');
+    path.className = 'path';
+    path.textContent = p.path;
+    var code = document.createElement('span');
+    code.textContent = p.status ? String(p.status) : '-';
+    var ms = document.createElement('span');
+    ms.textContent = p.ms + ' ms';
+    var mark = document.createElement('span');
+    mark.textContent = p.ok ? labels.ok : labels.fail;
+    li.appendChild(path);
+    li.appendChild(code);
+    li.appendChild(ms);
+    li.appendChild(mark);
+    return li;
+  }
+})();
+/* site-script:end */
+</script>
+</body>
+</html>

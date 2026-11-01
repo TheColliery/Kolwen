@@ -98,3 +98,11 @@ test('a failed page prints its own FAIL line on the report, with its reason once
   assert.match(out, /^FAIL a\.html: loads \/nope\.png, which is not in the built tree/m);
   assert.doesNotMatch(out, /a\.html: a\.html:/);
 });
+
+test('a failed page prints one FAIL line with all its reasons, and the report ends with a done summary that counts the failed pages', () => {
+  const failed = { page: 'a.html', bytes: null, requests: null, parts: [], ratioBytes: null, ratioRequests: null, level: 'fail', notes: ['a.html: first reason', 'a.html: second reason'] };
+  const ok = { page: 'b.html', bytes: 1, requests: 2, parts: [], ratioBytes: 0.5, ratioRequests: 0.5, level: 'pass', notes: [] };
+  const out = report([failed, ok]);
+  assert.deepEqual(out.split('\n').filter(l => l.startsWith('FAIL a.html:')), ['FAIL a.html: first reason; second reason']);
+  assert.equal(out.split('\n').at(-1), 'page-weight done: 2 page(s) measured, 1 failed');
+});

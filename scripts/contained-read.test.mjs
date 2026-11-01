@@ -4,12 +4,13 @@
 // that need one skip visibly.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync, renameSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { measurePage } from './page-weight.mjs';
+import { readContained, MAX_READ_BYTES } from './lib/contained-read.mjs';
 import { check } from './sitemap-lastmod.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -76,4 +77,22 @@ test('a sitemap record whose page is over the read cap is refused before it is r
   siteRecord(d, 'web/big.html');
   const { problems } = check(d, { today: '2026-02-01' });
   assert.ok(problems.some(p => /names web\/big\.html, which is \d+ bytes, over the \d+ byte read cap/.test(p)), problems.join('\n'));
+});
+
+test('a file swapped for another after the check and before the open is refused, not read', () => {
+  const d = tree();
+  const real = join(d, 'web', 'page.txt'), other = join(d, 'other.txt');
+  writeFileSync(real, 'original');
+  writeFileSync(other, 'swapped in');
+  // the seam runs between locate's checks and the open: it puts another file's bytes at the path, as a swap of the last component would
+  const got = readContained(join(d, 'web'), 'page.txt', MAX_READ_BYTES, { afterLocate: file => renameSync(other, file) });
+  assert.equal(got.bytes, undefined, 'the swapped file was read: ' + String(got.bytes));
+  assert.match(got.refused, /changed between the check and the read/);
+});
+
+test('a file that is not swapped between the check and the open reads as before', () => {
+  const d = tree();
+  writeFileSync(join(d, 'web', 'page.txt'), 'original');
+  const got = readContained(join(d, 'web'), 'page.txt', MAX_READ_BYTES, { afterLocate: () => {} });
+  assert.equal(String(got.bytes), 'original');
 });
