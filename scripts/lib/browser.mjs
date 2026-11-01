@@ -301,7 +301,6 @@ async function drive({ endpoint, profile, label, commandTimeoutMs, isExited, cle
       await send('Runtime.enable');
       await send('Log.enable');
       await send('Network.enable');
-      const workerSetupFailures = []; // a worker that could not be held to the page origin, with its reason: the witness asserts there is none
       const offs = []; // takes every handler this page added away again when it closes
       const listen = (event, handler) => { offs.push(conn.on(event, handler)); };
       const logs = []; // what the browser itself reports: a Content-Security-Policy violation arrives here (source 'security')
@@ -314,37 +313,11 @@ async function drive({ endpoint, profile, label, commandTimeoutMs, isExited, cle
         // K-17: every request the page makes is paused and answered here (routePaused), on both routes
         await send('Fetch.enable', { patterns: [{ urlPattern: '*', requestStage: 'Request' }] });
         listen('Fetch.requestPaused', (p, sid) => { if (sid === sessionId) routePaused(p, web, send).catch(() => { /* the page went away */ }); });
-        // K-23: the site serves no WebSocket, so every one a checked page opens is refused. Fetch does not pause a WebSocket handshake (the K-23 spike),
-        // so the refusal is the Network domain's blocked-URL list, applied to the page and to every worker it starts.
-        await send('Network.setBlockedURLs', { urls: ['ws://*', 'wss://*'] });
-        // K-23: a worker is held to the page's origin: auto-attached paused, given the same rules, then started. A worker's own requests are paused and answered here.
-        await send('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: true, flatten: true });
-        listen('Target.attachedToTarget', (p, sid) => {
-          if (sid !== sessionId) return;
-          const child = p.sessionId;
-          const isWorker = p.targetInfo.type === 'worker' || p.targetInfo.type === 'shared_worker';
-          const start = () => conn.send('Runtime.runIfWaitingForDebugger', {}, child).catch(() => { /* the worker went away */ });
-          if (!isWorker) { start(); return; }
-          (async () => {
-            try {
-              await conn.send('Network.enable', {}, child);
-              await conn.send('Network.setBlockedURLs', { urls: ['ws://*', 'wss://*'] }, child);
-              await conn.send('Fetch.enable', { patterns: [{ urlPattern: '*', requestStage: 'Request' }] }, child);
-              listen('Fetch.requestPaused', (q, s) => { if (s === child) routePaused(q, web, (m, pa) => conn.send(m, pa, child)).catch(() => { /* the worker went away */ }); });
-            } catch (e) {
-              // a worker that could not be held to the page's origin is reported on the page, never swallowed: the witness asserts there is none
-              workerSetupFailures.push(String((e && e.message) || e));
-            } finally {
-              await start(); // the worker always resumes, whatever the setup did
-            }
-          })();
-        });
       }
       return {
         send,
         logs,
         resourceFailures,
-        workerSetupFailures,
         // Resize the viewport (CSS px). `mobile: false`: the page is laid out as a desktop browser window of this width.
         async setViewport(width, height = 800) { await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false }); },
         async setColorScheme(scheme) { await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: scheme }] }); },
