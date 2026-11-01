@@ -24,7 +24,7 @@ const CLAIM = {
 const ID = { en: 'doc-en', th: 'doc-th' };
 const VOID = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
 // The visible text of one language element: its own text, through its matching closing tag, and not the text under a hidden element.
-// Null when the page has no such element.
+// Null when the page has no such element, or the element is never closed.
 function visibleText(html, id) {
   const stack = [];
   let base = -1, text = '';
@@ -36,13 +36,13 @@ function visibleText(html, id) {
       if (base < 0) continue;
       let i = stack.length - 1;
       while (i >= 0 && stack[i].name !== t.name) i--;
-      if (i >= 0) stack.length = i;
+      if (i < 0) return null; stack.length = i; // a closing tag that opens nothing inside the element: the element is malformed, so fail closed (A-1)
       if (stack.length === 0) return text;
     } else if (t.type === 'text' && base >= 0 && !stack.some(e => e.hidden)) {
       text += t.text;
     }
   }
-  return base < 0 ? null : text;
+  return null; // the element was never closed: fail closed
 }
 
 function problems(root) {
@@ -131,5 +131,12 @@ test('witness K-46(b): a sentence that says the product is available and that th
 test('witness K-46(c): a notice inside an element the visitor cannot see (hidden) does not count', () => {
   withCopy(d => edit(d, 'web/index.html', s => s.split('not yet available').join('<span hidden>not yet available</span>')), d => {
     assert.ok(problems(d).some(p => p.startsWith('en:') && p.includes('web/index.html carries no en notice')), JSON.stringify(problems(d)));
+  });
+});
+
+// A-1: a language element that is never closed fails closed: its read does not run past </main> to a notice outside it.
+test('witness A-1: a Thai element that is never closed is refused, even when a Thai notice sits after </main>', () => {
+  withCopy(d => edit(d, 'web/index.html', s => { const i = s.indexOf('<div id="doc-th"'); return s.slice(0, i) + '<div id="doc-th" lang="th" hidden><p>ภาษาไทย</p></main><p>ยังไม่เปิดให้ใช้งาน</p></body></html>'; }), d => {
+    assert.ok(problems(d).some(p => p.startsWith('th:') && p.includes('web/index.html carries no th notice')), JSON.stringify(problems(d)));
   });
 });
