@@ -30,7 +30,7 @@
 // attribute (a data-* attribute is data the shared page script reads, `data-lang-set`, and is no text a visitor sees); it does not read the text a script writes into the page at run time, which is why a
 // template holds no script; it reads a javascript: URL written in the template, not one a catalogue value would make through an {{=key}} slot in an href (the site's CSP, with no 'unsafe-inline', blocks it
 // at run time, and no catalogue value holds a URL); it reads no other attribute as an address (poster, background, ping, cite, longdesc, manifest, codebase), no blob: or filesystem: URL, and not a <base href> that changes how a relative address resolves; a reference that is decoded twice by a layer outside the HTML (a script that unescapes an attribute) is outside it; it reads `<td abbr>` (assistive only) and the text of a comment as nothing; and the text of an <svg> or <math> element is read as any other text.
-import { htmlTokens } from './html-tokens.mjs';
+import { commentEnd, htmlTokens } from './html-tokens.mjs';
 import { cssContentOf, decodeAttribute } from './rendered-text.mjs';
 import { bcp47Problem, DEFAULT_LANG, valueHtml, valuePlain, valueJson, escAttr } from './i18n-catalogue.mjs';
 
@@ -46,7 +46,7 @@ const WHOLE_LINE = new RegExp(`^\\s*(?:\\{\\{(?:block:|raw:)${NAME}\\}\\}|<style
 const TEXT_MASK = String.fromCharCode(0xe001), ATTR_MASK = String.fromCharCode(0xe002), CODE_MASK = String.fromCharCode(0xe003), JSON_MASK = String.fromCharCode(0xe004);
 const MASKS = new RegExp('[' + TEXT_MASK + '-' + JSON_MASK + ']', 'g');
 const HAS_MASK = new RegExp('[' + TEXT_MASK + '-' + JSON_MASK + ']');
-const TAG_NAME_SLOT = new RegExp('</?[^\\s/>' + TEXT_MASK + '-' + JSON_MASK + ']*[' + TEXT_MASK + '-' + JSON_MASK + ']');
+const TAG_NAME_SLOT = new RegExp('</?[^\\t\\n\\f\\r />]*[' + TEXT_MASK + '-' + JSON_MASK + ']');
 const HAS_VALUE_MASK = new RegExp('[' + TEXT_MASK + ATTR_MASK + JSON_MASK + ']'); // a slot that writes a catalogue value (a block or raw slot writes code the build owns)
 // The attributes whose value a visitor sees or hears: the accessible name and description, the tooltip, the alternative text, the placeholder, the role description and the value text of a widget.
 const VISIBLE_ATTRS = ['aria-label', 'aria-description', 'aria-roledescription', 'aria-valuetext', 'aria-placeholder', 'title', 'alt', 'placeholder'];
@@ -96,6 +96,17 @@ function masked(src) {
   return keep.join('\n').replace(SLOT, (...a) => { const m = [a[0], ...a.slice(1, 6)]; const k = kindOf(m); return k === 'text' ? TEXT_MASK : k === 'attr' ? ATTR_MASK : k === 'json' ? JSON_MASK : CODE_MASK; });
 }
 
+// The comments of a template text removed so that no comment opener survives: the quoted attribute values are masked first, then each comment
+// is cut by an index scan and the scan starts again on what is left (a cut can join two halves into a new opener); an unclosed one cuts to the end.
+export function withoutComments(text) {
+  let t = text.replace(/=\s*("[^"]*"|'[^']*')/g, '=""');
+  for (;;) {
+    const open = t.indexOf('<!--');
+    if (open < 0) return t;
+    t = t.slice(0, open) + t.slice(commentEnd(t, open));
+  }
+}
+
 export function templateProblems(src, name = 'template') {
   const out = [];
   const at = `template ${name}`;
@@ -115,7 +126,8 @@ export function templateProblems(src, name = 'template') {
   });
   if (open !== null) out.push(`${at}: the {{lang}} region opened on line ${open} never closes`);
   // a slot in a tag name (an open or a close tag): the element name is code the build owns, never a catalogue value
-  if (TAG_NAME_SLOT.test(masked(src))) out.push(`${at}: a tag name holds a slot; a slot fills a text node or an attribute value, never the name of an element`);
+  // a slot in a tag name is read as HTML reads a name: no HTML whitespace or / or > ends it, and a comment or a quoted attribute value is no tag, so it is not read
+  if (TAG_NAME_SLOT.test(withoutComments(masked(src)))) out.push(`${at}: a tag name holds a slot; a slot fills a text node or an attribute value, never the name of an element`);
   // slot syntax: whatever braces remain once the valid slots and directives are taken out
   src.split('\n').forEach((line, i) => {
     if (LANG_OPEN.test(line) || LANG_CLOSE.test(line)) return;

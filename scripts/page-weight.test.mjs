@@ -148,7 +148,7 @@ test('an asset a page loads that is not in the built tree is a named failure, ne
     assert.throws(() => measurePage(dir, 'index.html', []), /index\.html: loads \/nope\.png, which is not in the built tree/);
     const cli = cliRun('--web', dir);
     assert.equal(cli.status, 1);
-    assert.match(cli.stderr, /FAIL index\.html: loads \/nope\.png/);
+    assert.match(cli.stdout + cli.stderr, /FAIL[\s\S]*index\.html[\s\S]*loads \/nope\.png, which is not in the built tree/);
   } finally { gone(dir); }
 });
 
@@ -290,7 +290,7 @@ test('RED PROOF: an @import (string or url()), nested, in a linked or an inline 
 
 test('an @import of a file that is not in the built tree is a named failure', () => {
   const dir = tree({ 's.css': '@import "gone.css";', 'index.html': '<!doctype html><html><head><link rel="stylesheet" href="/s.css"></head><body>x</body></html>' });
-  try { assert.throws(() => checkTree(dir), /index\.html: loads \/gone\.css, which is not in the built tree/); } finally { gone(dir); }
+  try { const row = checkTree(dir).find(r => r.page === 'index.html'); assert.equal(row.level, 'fail'); assert.match(row.notes.join(' '), /index\.html: loads \/gone\.css, which is not in the built tree/); } finally { gone(dir); }
 });
 
 // F3: one page lister for the font coverage check and this one.
