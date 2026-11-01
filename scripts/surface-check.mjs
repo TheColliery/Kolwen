@@ -789,7 +789,9 @@ const CSP_STATS = { scripts: 0, styles: 0 };
   else if (lib) {
     const text = read(HEADERS);
     const rules = lib.parseHeadersFile(text);
-    for (const r of rules) for (const x of r.removes) if (x.name.toLowerCase() === 'content-security-policy') note(HEADERS, 'line ' + x.line + ': removes the Content-Security-Policy on ' + r.pattern + ' (a detach line), and the CSP floor needs it on every response');
+    // The header floor: a detach line (`! Name`) for any of these names removes a header the floor needs on every response. Case-insensitive, as HTTP names are.
+    const FLOOR_HEADER_NAMES = new Set(['content-security-policy', 'referrer-policy', 'cross-origin-opener-policy', 'cross-origin-resource-policy', 'permissions-policy']);
+    for (const r of rules) for (const x of r.removes) if (FLOOR_HEADER_NAMES.has(x.name.toLowerCase())) note(HEADERS, 'line ' + x.line + ': removes ' + x.name + ' on ' + r.pattern + ' (a detach line); the header floor needs it on every response');
     if (rules.length > 100) note(HEADERS, `has ${rules.length} rules; Cloudflare allows 100`);
     text.split(/\r?\n/).forEach((l, i) => { if (l.length > 2000) note(HEADERS, `line ${i + 1} is ${l.length} characters; Cloudflare allows 2,000 per line`); });
     const csp = lib.declarations(rules, 'Content-Security-Policy');
