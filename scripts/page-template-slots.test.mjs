@@ -33,3 +33,28 @@ test('a catalogue slot later in a close tag name alone is refused by name', () =
   const problems = templateProblems('<main><p>x</scr{{shared.k}}></p></main>', 'probe');
   assert.ok(problems.some(p => /a tag name holds a slot/.test(p)), problems.join('\n'));
 });
+
+test('a slot inside a quoted attribute value is not a tag name, so it is not refused as one', () => {
+  const problems = templateProblems('<main><p title="<scr{{shared.k}}>">A</p></main>', 'probe');
+  assert.ok(!problems.some(p => /a tag name holds a slot/.test(p)), problems.join('\n'));
+});
+
+test('a slot inside a comment is not a tag name, so it is not refused as one', () => {
+  const problems = templateProblems('<main><!-- <scr{{shared.k}}> --><p>A</p></main>', 'probe');
+  assert.ok(!problems.some(p => /a tag name holds a slot/.test(p)), problems.join('\n'));
+});
+
+test('a no-break space does not end a tag name: a slot after one is refused by name', () => {
+  const problems = templateProblems('<main><scr {{shared.k}}>A</scr></main>', 'probe');
+  assert.ok(problems.some(p => /a tag name holds a slot/.test(p)), problems.join('\n'));
+});
+
+test('a slot at the start of an opening tag name is refused by name', () => {
+  const problems = templateProblems('<main><{{x.tag}}>A</main>', 'probe');
+  assert.ok(problems.some(p => /a tag name holds a slot/.test(p)), problems.join('\n'));
+});
+
+test('a slot later in an opening tag name is refused by name', () => {
+  const problems = templateProblems('<main><p class="a"><scr{{x.k}}>A</p></main>', 'probe');
+  assert.ok(problems.some(p => /a tag name holds a slot/.test(p)), problems.join('\n'));
+});
