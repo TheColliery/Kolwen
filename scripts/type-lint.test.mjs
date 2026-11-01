@@ -165,8 +165,8 @@ test('surface-check rule 21 checks each page on its own: a page it cannot check 
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-// K-44: a custom property first expanded deep in a chain (where the depth limit cuts it) must not hand a shallower reference the cut's fallback.
-test('K-44: a name first expanded deep in a chain does not hand a shallower reference its depth-limit fallback', () => {
+// A custom property first expanded deep in a chain (where the depth limit cuts it) must not hand a shallower reference the cut's fallback.
+test('a name first expanded deep in a chain does not hand a shallower reference its depth-limit fallback', () => {
   const defs = Array.from({ length: 7 }, (_, i) => `--a${i}: var(--a${i + 1});`).join('') + '--a7: var(--a8, 1rem);--a8: 12px;';
   const css = `:root{${defs}} h1{font-size: var(--a0)} p{font-size: var(--a7)}`;
   assert.equal(fontSizeProblems([css]).length, 1, 'the 12px behind --a7 is the one px finding; a 1rem fallback cut by the depth limit must not hide it');

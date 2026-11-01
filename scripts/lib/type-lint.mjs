@@ -75,7 +75,7 @@ function expandWith(value, defs, memo, depth) {
     if (cut) return '';
     let rep;
     if (defs.has(name) && depth < 8) {
-      const key = depth + ':' + name; if (!memo.map.has(key)) { // the expansion depends on the depth it starts at (K-44): keyed by both
+      const key = depth + ':' + name; if (!memo.map.has(key)) { // the expansion depends on the depth it starts at, keyed by both
         let r = expandWith(defs.get(name), defs, memo, depth + 1);
         const cost = r.value.length + [...r.missing].reduce((n, m) => n + m.length, 0); // a stored entry costs its value and its missing names
         if (memo.kept + cost > MEMO_MAX) r = { value: '', missing: [MEMO_MARK] }; // past the memo's bound: stored as its cut, so nothing is recomputed per reference

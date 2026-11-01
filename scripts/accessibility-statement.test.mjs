@@ -111,14 +111,14 @@ test('witness: an empty served page list is refused, not passed', () => {
   });
 });
 
-// K-46: the statement guard reads each language element whole, and only the notice a visitor can see inside it.
-test('witness K-46(a): a Thai notice placed after the Thai element, outside it, does not count', () => {
+// The statement guard reads each language element whole, and only the notice a visitor can see inside it.
+test('witness: a Thai notice placed after the Thai element, outside it, does not count', () => {
   withCopy(d => edit(d, 'web/index.html', s => s.split('ยังไม่เปิดให้ใช้งาน').join('').split('กำลังพัฒนา').join('').split('</main>').join('<p>ยังไม่เปิดให้ใช้งาน</p></main>')), d => {
     assert.ok(problems(d).some(p => p.startsWith('th:') && p.includes('web/index.html carries no th notice')), JSON.stringify(problems(d)));
   });
 });
 
-test('witness K-46(b): a sentence that says the product is available and that the home page says so is refused, in both languages', () => {
+test('witness: a sentence that says the product is available and that the home page says so is refused, in both languages', () => {
   withCopy(d => {
     edit(d, 'web-src/i18n/en.json', s => { const o = JSON.parse(s); o.accessibility.what = 'Kolwen product is available now, and the home page says so.'; return JSON.stringify(o, null, 2) + String.fromCharCode(10); });
     edit(d, 'web-src/i18n/th.json', s => { const o = JSON.parse(s); o.accessibility.what = 'ผลิตภัณฑ์เปิดให้ใช้งานแล้ว และหน้าแรกของเว็บไซต์บอกเช่นนี้'; return JSON.stringify(o, null, 2) + String.fromCharCode(10); });
@@ -128,7 +128,7 @@ test('witness K-46(b): a sentence that says the product is available and that th
   });
 });
 
-test('witness K-46(c): a notice inside an element the visitor cannot see (hidden) does not count', () => {
+test('witness: a notice inside an element the visitor cannot see (hidden) does not count', () => {
   withCopy(d => edit(d, 'web/index.html', s => s.split('not yet available').join('<span hidden>not yet available</span>')), d => {
     assert.ok(problems(d).some(p => p.startsWith('en:') && p.includes('web/index.html carries no en notice')), JSON.stringify(problems(d)));
   });
