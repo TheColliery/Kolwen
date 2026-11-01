@@ -12,20 +12,29 @@ const read = f => readFileSync(join(ROOT, f), 'utf8');
 const NOINDEX = /<meta name="robots" content="noindex">/;
 
 // Every spelling a link can take, in the attributes a browser follows a URL from: href (a link), src (a script, an image, a frame), action
-// (a form) and the url= of a refresh meta. Any quotes or none, any case, a trailing slash, .html, the full origin, a query or a fragment,
-// a character reference in the value (decoded as the browser decodes an attribute value; an unknown named reference is kept as
-// written), a percent-encoded path (decoded before it is compared), a relative path (resolved as the browser resolves it, against a
-// page of the site), and a trailing dot on the host. Each target is resolved to a path before it is compared.
-const LINK_ATTR = /\s(?:href|src|action)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/gi;
-const REFRESH = /<meta\b[^>]*\bhttp-equiv\s*=\s*["']?refresh["']?[^>]*\bcontent\s*=\s*(?:"([^"]*)"|'([^']*)')/gi;
+// (a form), formaction (a button), poster (a video frame) and data (an object), and the url= of a refresh meta, whatever the order of its
+// attributes and whether its values are quoted. Any quotes or none, any case, a trailing slash, .html, the full origin, a query or a fragment,
+// a character reference in a value (decoded once, as the browser decodes it; an unknown named reference is kept as written), a
+// percent-encoded path (decoded before it is compared), a relative path (resolved against a page of the site), and a trailing dot on the host.
+const LINK_ATTR = /\s(?:href|src|action|formaction|poster|data)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/gi;
 const SITE = 'https://kolwen.com/index.html';
 // decodeAttribute throws on a named reference it does not know, so such a reference is held back as text and comes out as written.
 const decodeHref = s => decodeAttribute(s.replace(/&([a-z][a-z0-9]*);/gi, (m, name) => {
   try { decodeAttribute(m); return m; } catch { return '&amp;' + name + ';'; }
 }));
-// the url= of a refresh's content, as the browser reads it: "0; url=/x", the key in any case, the value with or without quotes
-const refreshTargets = text => [...text.matchAll(REFRESH)].map(m => ((m[1] ?? m[2] ?? '').match(/url\s*=\s*["']?([^"']+)/i) || [])[1]).filter(Boolean);
-const hrefsIn = text => [...[...text.matchAll(LINK_ATTR)].map(m => m[1] ?? m[2] ?? m[3]), ...refreshTargets(text)].map(decodeHref);
+// one attribute of a tag, by name, in any order and quoted or not
+const attrOf = (tag, name) => {
+  const m = new RegExp('\\s' + name + '\\s*=\\s*(?:"([^"]*)"|\'([^\']*)\'|([^\\s"\'>]+))', 'i').exec(tag);
+  return m ? (m[1] ?? m[2] ?? m[3]) : null;
+};
+// the url= of a refresh's content: the content is decoded once, as the browser decodes it, and the url read from it is not decoded again
+const refreshTargets = text => [...text.matchAll(/<meta\b[^>]*>/gi)].map(m => m[0])
+  .filter(tag => (attrOf(tag, 'http-equiv') || '').toLowerCase() === 'refresh')
+  .map(tag => attrOf(tag, 'content'))
+  .filter(c => c !== null)
+  .map(c => (decodeHref(c).match(/url\s*=\s*["']?([^"']+)/i) || [])[1])
+  .filter(Boolean);
+const hrefsIn = text => [...[...text.matchAll(LINK_ATTR)].map(m => decodeHref(m[1] ?? m[2] ?? m[3])), ...refreshTargets(text)];
 const resolvesTo = (href, target, base = SITE) => {
   let u;
   try { u = new URL(href.trim(), base); } catch { return false; }
@@ -95,6 +104,19 @@ test('the no-link check reads a src, an action and a refresh target, and a host 
 
 test('an unknown reference survives as written in the decoded href', () => {
   assert.deepEqual(hrefsIn('<a href="/a?x=1&campaign;">x</a>'), ['/a?x=1&campaign;']);
+});
+
+test('the no-link check reads formaction, poster, object data and any refresh meta, and decodes a refresh url once', () => {
+  const missed = [
+    '<button formaction="/subprocessors">x</button>',
+    '<video poster="/subprocessors"></video>',
+    '<object data="/subprocessors"></object>',
+    '<meta content="0; url=/subprocessors" http-equiv="refresh">',
+    '<meta http-equiv=refresh content=0;url=/subprocessors>',
+  ];
+  assert.deepEqual(missed.filter(s => linksTo(s, '/subprocessors').length !== 1), [], 'spellings of a link to the page that the check misses');
+  const passed = ['<meta http-equiv="refresh" content="0; url=/&amp;#115;ubprocessors">', '<button formaction="/terms">x</button>'];
+  assert.deepEqual(passed.filter(s => linksTo(s, '/subprocessors').length !== 0), [], 'spellings that do not link to the page, or that a browser reads once');
 });
 
 test('the subprocessor page is read as prose, and loads nothing from another origin', () => {
