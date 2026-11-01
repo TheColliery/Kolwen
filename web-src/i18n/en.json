@@ -225,6 +225,32 @@
       "line": "31 October 2026: this list was created."
     }
   },
+  "legal": {
+    "meta": {
+      "title": "Legal: Kolwen",
+      "description": "The legal pages Kolwen publishes today."
+    },
+    "title": "Legal",
+    "intro": "The legal pages published today:",
+    "item": {
+      "terms": {
+        "name": "Terms",
+        "text": ": the licence to use Kolwen and Kolwen's own policies."
+      },
+      "privacy": {
+        "name": "Privacy",
+        "text": ": what kolwen.com does with data today, and which parts change when the assistant ships."
+      },
+      "refund": {
+        "name": "Refunds",
+        "text": ": an unredeemed key is refunded in full within 14 days of purchase."
+      },
+      "accessibility": {
+        "name": "Accessibility",
+        "text": ": how the site is built and checked, and how to report a problem."
+      }
+    }
+  },
   "accessibility": {
     "meta": {
       "title": "Accessibility: Kolwen",

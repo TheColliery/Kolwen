@@ -196,7 +196,7 @@ test('the zoom check really runs at 200%: the root font size is 32 px on every p
 test('the reading theme: prose pages are solid and follow the device in both colour schemes, with the contrast and line heights the standard asks, and the default pages are untouched', { skip: SKIP }, async () => {
   const { failures, measured } = await run(join(ROOT, 'web'), ['theme', 'contrast', 'lineheight', 'measure'], true);
   assert.deepEqual(failures, []);
-  const prose = ['accessibility.html', 'changelog.html', 'privacy.html', 'refund.html', 'subprocessors.html', 'terms.html'];
+  const prose = ['accessibility.html', 'changelog.html', 'legal.html', 'privacy.html', 'refund.html', 'subprocessors.html', 'terms.html'];
   for (const p of prose) for (const scheme of ['light', 'dark']) {
     const th = measured.find(m => m.page === p && m.check === 'theme' && m.scheme === scheme);
     assert.ok(th && th.job === 'prose' && th.image === 'none', `${p} ${scheme}: prose, no background image`);

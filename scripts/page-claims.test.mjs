@@ -62,12 +62,13 @@ test('rule 16 reads EVERY production page: the meta planted in each page but the
     assert.ok(pages.length >= 7, 'the tracked pages: ' + pages.join(', '));
     assert.match(readFileSync(join(dir, 'web/404.html'), 'utf8'), /name="robots"[^>]*noindex|noindex[^>]*name="robots"/i, 'the 404 page carries its own noindex, so the exemption is exercised');
     const planted = {};
-    for (const f of pages.filter(f => f !== 'web/404.html' && f !== 'web/subprocessors.html')) { const after = edit(dir, f, s => s.replace('</head>', META_I1 + '\n</head>')); planted[f] = lineOf(after, after.indexOf(META_I1)); }
+    for (const f of pages.filter(f => f !== 'web/404.html' && f !== 'web/subprocessors.html' && f !== 'web/legal.html')) { const after = edit(dir, f, s => s.replace('</head>', META_I1 + '\n</head>')); planted[f] = lineOf(after, after.indexOf(META_I1)); }
     const r = surface(dir);
     assert.equal(r.status, 1, r.out);
     for (const [f, line] of Object.entries(planted)) assert.ok(r.out.includes(`${f}: line ${line}: carries a robots noindex meta tag`), f + '\n' + r.out);
     assert.ok(!r.out.includes('web/404.html: line'), 'the 404 page is not named');
     assert.ok(!r.out.includes('web/subprocessors.html: line'), 'the subprocessor page is exempt by name, so it is not named');
+    assert.ok(!r.out.includes('web/legal.html: line'), 'the legal hub is exempt by name, so it is not named');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

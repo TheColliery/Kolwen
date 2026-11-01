@@ -131,15 +131,32 @@ test('the subprocessor page is read as prose, and loads nothing from another ori
   for (const u of urls) assert.ok(!/^(?:https?:)?\/\//.test(u) || u.startsWith('https://kolwen.com/'), 'loads ' + u);
 });
 
-test('rule 16 exempts exactly the two noindex pages by name, and no other production page carries noindex', () => {
+test('rule 16 exempts exactly the three noindex pages by name, and no other production page carries noindex', () => {
   const set = /const NOINDEX_META_OK = new Set\(\[([^\]]*)\]\);/.exec(read('scripts/surface-check.mjs'));
   assert.ok(set, 'surface-check.mjs names the noindex exemption set');
-  assert.deepEqual([...set[1].matchAll(/'([^']+)'/g)].map(m => m[1]).sort(), ['web/404.html', 'web/subprocessors.html']);
-  for (const f of readdirSync(join(ROOT, 'web')).filter(f => f.endsWith('.html') && f !== '404.html' && f !== 'subprocessors.html')) {
+  assert.deepEqual([...set[1].matchAll(/'([^']+)'/g)].map(m => m[1]).sort(), ['web/404.html', 'web/legal.html', 'web/subprocessors.html']);
+  for (const f of readdirSync(join(ROOT, 'web')).filter(f => f.endsWith('.html') && f !== '404.html' && f !== 'subprocessors.html' && f !== 'legal.html')) {
     assert.doesNotMatch(read('web/' + f), NOINDEX, 'web/' + f + ' must stay indexable');
   }
 });
 
 test('a refresh meta inside a noscript is read: the no-link check scans with scripting off as well as on', () => {
   assert.equal(linksTo('<noscript><meta http-equiv="refresh" content="0; url=/subprocessors"></noscript>', '/subprocessors').length, 1);
+});
+
+// The legal hub is dark: noindex, out of the sitemap, and linked from no page, template or shared block (the same rule as the subprocessor page,
+// named for /legal). KOLWEN_SITE_ROOT, when set, is the tree the witness reads instead of this repository: a test-only way to hold a temporary copy
+// with a planted link or sitemap entry to the same assertion.
+test('the legal hub is dark: noindex, no sitemap entry, and no page, template or shared block links to /legal', () => {
+  const SITE = process.env.KOLWEN_SITE_ROOT || ROOT;
+  const readSite = f => readFileSync(join(SITE, f), 'utf8');
+  assert.match(readSite('web/legal.html'), NOINDEX);
+  assert.doesNotMatch(readSite('web/sitemap.xml'), /\/legal</, 'no sitemap entry names the legal hub');
+  const sources = [
+    ...readdirSync(join(SITE, 'web')).filter(f => f.endsWith('.html')).map(f => 'web/' + f),
+    ...readdirSync(join(SITE, 'web-src', 'pages')).map(f => 'web-src/pages/' + f),
+    'scripts/lib/legal-render.mjs',
+  ];
+  const hits = sources.flatMap(f => linksTo(readSite(f), '/legal').map(h => f + ' href="' + h + '"'));
+  assert.deepEqual(hits, [], 'no page, template or shared block links to the legal hub');
 });
