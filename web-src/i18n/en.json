@@ -225,6 +225,32 @@
       "line": "31 October 2026: this list was created."
     }
   },
+  "accessibility": {
+    "meta": {
+      "title": "Accessibility: Kolwen",
+      "description": "How Kolwen's website is built and checked for accessibility, what it does not yet cover, and how to report a problem."
+    },
+    "title": "Accessibility",
+    "intro": "This page is Kolwen's accessibility statement for the website at kolwen.com. It is dated 1 November 2026.",
+    "h": {
+      "what": "What this site is",
+      "commitment": "Our commitment",
+      "target": "The standard we aim for",
+      "checked": "What is checked on every change",
+      "limits": "Known limits",
+      "prereq": "What you need",
+      "report": "Report a problem",
+      "date": "Date of this statement"
+    },
+    "what": "Kolwen's website describes a chatbot product that is still in development. No product ships yet, and the site says so on every page. The site is a set of static pages in English and Thai, which a visitor reads in a browser.",
+    "commitment": "Kolwen aims to make the website usable by people with disabilities, and to fix a problem that a visitor reports.",
+    "target": "Kolwen's own target is WCAG 2.2 level AA. It is a target Kolwen set for itself. It is not a legal test, and this statement does not claim that the site meets it.",
+    "checked": "The repository runs these checks in its continuous integration on each pull request and each push to main, and a failed check fails the change. A headless browser checks every page, in English and Thai: text reflows at 320 CSS pixels wide without sideways scrolling; text at 200 percent is not cut off; the browser reports no content-security-policy violation; the language switch sets the page's language. On the reading pages, text and background meet a contrast of 4.5 to 1 (3 to 1 for large text) in both the light and the dark colour scheme, the line height is at least 1.5 times the font size, and the line length of English text is measured against 80 characters. The source checks confirm that the home page declares English as its language, and that the layout uses relative type sizes and a viewport setting that does not block zoom.",
+    "limits": "The checks above cover only what they measure. They do not test every criterion of WCAG 2.2. In particular, no check reads the keyboard focus order or whether focus is visible; no check reads the names and roles of controls with a screen reader; the contrast and line-height checks cover the reading pages, not the default pages, whose background gradient is not read; the line-length check does not apply to Thai text; and the pages have not been checked with script switched off. The repository records no manual audit and no test with assistive technology by people.",
+    "prereq": "The site needs a current browser. It needs no plug-in, and no account or sign-in to read a page. Whether a page reads with script switched off is not checked.",
+    "report": "If a page is hard for you to use, write to info@kolwen.com with the address of the page and what got in your way. We read every report and answer it. We do not promise a time for the answer.",
+    "date": "1 November 2026."
+  },
   "shared": {
     "brand": "Kolwen",
     "header": {

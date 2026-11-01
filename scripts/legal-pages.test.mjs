@@ -220,8 +220,8 @@ test('the same inputs give the same pages', () => {
 });
 
 // ── the CLI, against a throwaway copy of the tree ──────────────────────────────────────────────
-const FILES = ['web/band-404.svg', 'web/band-home.svg', 'scripts/legal-pages.mjs','scripts/lib/legal-render.mjs', 'scripts/lib/layout-tokens.mjs', 'scripts/lib/legal-page-text.mjs', 'scripts/lib/legal-state.mjs', 'scripts/lib/legal-holds.json', 'TERMS.md', 'PRIVACY.md', 'legal/thai-7day-clause.md', 'legal/legal-state.json', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/pricing.html', 'CHANGELOG.md', 'web/changelog.html', 'web/index.html', 'web/404.html', 'web/status.html', 'web/subprocessors.html', 'web/_headers', 'scripts/lib/headers-file.mjs', 'scripts/lib/page-sync.mjs', 'scripts/lib/csp-hashes.mjs', 'scripts/lib/page-claims.mjs',
-  'scripts/lib/i18n-catalogue.mjs', 'scripts/lib/page-template.mjs', 'scripts/lib/html-tokens.mjs', 'scripts/lib/rendered-text.mjs', 'scripts/lib/contained-read.mjs', 'scripts/lib/web-files.mjs', 'scripts/lib/html-entities.json', 'web-src/i18n/en.json', 'web-src/i18n/th.json', 'web-src/pages/home.html', 'web-src/pages/pricing.html', 'web-src/pages/notfound.html', 'web-src/pages/status.html', 'web-src/pages/subprocessors.html', 'scripts/lib/controller-slot.mjs', 'legal/controller.json'];
+const FILES = ['web/band-404.svg', 'web/band-home.svg', 'web/accessibility.html', 'scripts/legal-pages.mjs','scripts/lib/legal-render.mjs', 'scripts/lib/layout-tokens.mjs', 'scripts/lib/legal-page-text.mjs', 'scripts/lib/legal-state.mjs', 'scripts/lib/legal-holds.json', 'TERMS.md', 'PRIVACY.md', 'legal/thai-7day-clause.md', 'legal/legal-state.json', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/pricing.html', 'CHANGELOG.md', 'web/changelog.html', 'web/index.html', 'web/404.html', 'web/status.html', 'web/subprocessors.html', 'web/_headers', 'scripts/lib/headers-file.mjs', 'scripts/lib/page-sync.mjs', 'scripts/lib/csp-hashes.mjs', 'scripts/lib/page-claims.mjs',
+  'scripts/lib/i18n-catalogue.mjs', 'scripts/lib/page-template.mjs', 'scripts/lib/html-tokens.mjs', 'scripts/lib/rendered-text.mjs', 'scripts/lib/contained-read.mjs', 'scripts/lib/web-files.mjs', 'scripts/lib/html-entities.json', 'web-src/i18n/en.json', 'web-src/i18n/th.json', 'web-src/pages/home.html', 'web-src/pages/accessibility.html', 'web-src/pages/pricing.html', 'web-src/pages/notfound.html', 'web-src/pages/status.html', 'web-src/pages/subprocessors.html', 'scripts/lib/controller-slot.mjs', 'legal/controller.json'];
 function copyTree() {
   const dir = mkdtempSync(join(tmpdir(), 'legal-pages-'));
   for (const f of FILES) { mkdirSync(dirname(join(dir, f)), { recursive: true }); writeFileSync(join(dir, f), readFileSync(join(ROOT, f))); }
@@ -235,7 +235,7 @@ const edit = (dir, f, fn) => writeFileSync(join(dir, f), fn(readFileSync(join(di
 
 test('--check passes on the committed pages', () => {
   const dir = copyTree();
-  try { const r = check(dir); assert.equal(r.status, 0, r.stdout + r.stderr); assert.match(r.stdout, /9 pages match/); } finally { rmSync(dir, { recursive: true, force: true }); }
+  try { const r = check(dir); assert.equal(r.status, 0, r.stdout + r.stderr); assert.match(r.stdout, /10 pages match/); } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('--check fails, naming the page, when one word of a statement in a source changes; --write puts it right', () => {
@@ -396,7 +396,7 @@ test('the CLI child runs with HOME, USERPROFILE and the temp variables inside th
 });
 
 // ── the shared blocks: --write generates the four template pages with them between fixed markers, and --check names the block that drifted ──────────
-const TEMPLATE_PAGES = ['web/index.html', 'web/pricing.html', 'web/404.html', 'web/status.html', 'web/subprocessors.html'];
+const TEMPLATE_PAGES = ['web/index.html', 'web/pricing.html', 'web/404.html', 'web/status.html', 'web/subprocessors.html', 'web/accessibility.html'];
 const WATCHED = [...TEMPLATE_PAGES, 'web/_headers', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html'];
 const mk = (name, css) => (css ? { name, begin: `/* ${name}:begin */`, end: `/* ${name}:end */` } : { name, begin: `<!-- ${name}:begin -->`, end: `<!-- ${name}:end -->` });
 const MARK = { fonts: mk('site-fonts'), tokens: mk('site-tokens-css', true), hcss: mk('site-header-css', true), css: mk('site-footer-css', true), ncss: mk('site-noscript-css', true), header: mk('site-header'), en: mk('site-footer:en'), th: mk('site-footer:th'), script: mk('site-script', true) };
@@ -407,7 +407,7 @@ const sameBytes = (a, b) => Object.keys(a).every(f => Buffer.compare(a[f], b[f])
 // The comments of _headers talk about style-src too, so the directive is read from the one indented policy line.
 const styleSrcLine = text => /^[ \t]+Content-Security-Policy:[^\r\n]*/m.exec(text)[0].split(';').map(d => d.trim()).find(d => d.split(/\s+/)[0] === 'style-src');
 const sortedStyleSrc = text => styleSrcLine(text).split(/\s+/).filter(t => t.startsWith("'sha256-")).sort();
-const FOOTER_ANCHOR = { 'web/index.html': ['<a href="/terms">Terms</a>', '<a href="/terms">Terms </a>'], 'web/pricing.html': ['<a href="/privacy">ความเป็นส่วนตัว</a>', '<a href="/privacy">ความเป็นส่วนตัว </a>'], 'web/404.html': ['<a href="/changelog">Changelog</a>', '<a href="/changelogs">Changelog</a>'], 'web/status.html': ['<a href="/terms">Terms</a>', '<a href="/terms">Terms </a>'], 'web/subprocessors.html': ['<a href="/terms">Terms</a>', '<a href="/terms">Terms </a>'] };
+const FOOTER_ANCHOR = { 'web/index.html': ['<a href="/terms">Terms</a>', '<a href="/terms">Terms </a>'], 'web/pricing.html': ['<a href="/privacy">ความเป็นส่วนตัว</a>', '<a href="/privacy">ความเป็นส่วนตัว </a>'], 'web/404.html': ['<a href="/changelog">Changelog</a>', '<a href="/changelogs">Changelog</a>'], 'web/status.html': ['<a href="/terms">Terms</a>', '<a href="/terms">Terms </a>'], 'web/accessibility.html': ['<a href="/terms">Terms</a>', '<a href="/terms">Terms </a>'], 'web/subprocessors.html': ['<a href="/terms">Terms</a>', '<a href="/terms">Terms </a>'] };
 
 test('reEscape turns any text into a regex that matches exactly that text, backslash included', () => {
   const every = '\\^$.*+?()[]{}|/-';
@@ -434,10 +434,10 @@ test('the sync markers are named once, in the lib, and are the ones the pages ca
   for (const m of Object.values(MARK)) assert.ok(!cli.includes(m.name), 'the CLI does not retype ' + m.name);
 });
 
-test('every one of the nine pages carries every marker pair exactly once, and the header pair holds the header', () => {
+test('every one of the ten pages carries every marker pair exactly once, and the header pair holds the header', () => {
   const pages = { ...renderPages(inputs()).pages };
   for (const f of TEMPLATE_PAGES) pages[f] = read(f);
-  assert.equal(Object.keys(pages).length, 9);
+  assert.equal(Object.keys(pages).length, 10);
   for (const [f, html] of Object.entries(pages)) {
     for (const k of Object.keys(MARK)) assert.equal(count(html, MARK[k].begin) + count(html, MARK[k].end), 2, f + ' ' + k);
     assert.ok(html.includes(MARK.header.begin + '\n' + lib.siteHeaderHtml() + '\n' + MARK.header.end), f + ' the header pair holds the header');
@@ -568,7 +568,7 @@ test('an edited footer rule in the lib is carried to all nine pages by one --wri
     assert.match(w.stdout, /wrote web\/_headers/);
     for (const f of [...TEMPLATE_PAGES, 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html']) assert.ok(readFileSync(join(dir, f), 'utf8').includes('text-decoration-thickness:3px'), f);
     const headers = readFileSync(join(dir, 'web/_headers'), 'utf8');
-    const want = new Set(['web/index.html', 'web/pricing.html', 'web/404.html', 'web/status.html', 'web/subprocessors.html', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html', 'web/band-404.svg', 'web/band-home.svg'].flatMap(f => inlineStyles(readFileSync(join(dir, f), 'utf8')).map(cspHash)));
+    const want = new Set(['web/index.html', 'web/pricing.html', 'web/404.html', 'web/status.html', 'web/subprocessors.html', 'web/accessibility.html', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html', 'web/band-404.svg', 'web/band-home.svg'].flatMap(f => inlineStyles(readFileSync(join(dir, f), 'utf8')).map(cspHash)));
     assert.deepEqual(sortedStyleSrc(headers), [...want].sort(), 'style-src admits exactly the hashes of the nine pages and the two SVG images');
     assert.equal(headers.split(/\r?\n/).filter((l, i) => l !== headersBefore.split(/\r?\n/)[i]).length, 1, 'one line of _headers changed: the CSP line');
     assert.equal(check(dir).status, 0);
@@ -624,7 +624,7 @@ for (const [what, f, k, fn, re] of CROSS) {
 // ── the style-src directive is found by its NAME at the start of a directive, and the EFFECTIVE directive is judged ──────────
 const cspLine = text => /^[ \t]+Content-Security-Policy:[^\r\n]*/m.exec(text)[0];
 const directive = (line, name) => line.split(';').map(d => d.trim()).find(d => d === name || d.startsWith(name + ' '));
-const NINE = ['web/index.html', 'web/pricing.html', 'web/404.html', 'web/status.html', 'web/subprocessors.html', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html'];
+const NINE = ['web/index.html', 'web/pricing.html', 'web/404.html', 'web/status.html', 'web/subprocessors.html', 'web/accessibility.html', 'web/terms.html', 'web/privacy.html', 'web/refund.html', 'web/changelog.html'];
 // The documents the policy governs: the nine pages and the two SVG images, whose <style> the policy admits by hash.
 const pagesOf = () => Object.fromEntries([...NINE, 'web/band-404.svg', 'web/band-home.svg'].map(f => [f, read(f)]));
 // The committed _headers with extra directives put in front of the real style-src directive (in the CSP line only: the comments mention style-src too).
@@ -1280,7 +1280,7 @@ test('every other source refuses the slot, with a value or without one', () => {
 });
 
 test('a site template that carries the slot fails the build (home, pricing, the 404 page and the status page each)', () => {
-  for (const page of ['home', 'pricing', 'notfound', 'status', 'subprocessors']) {
+  for (const page of ['home', 'pricing', 'notfound', 'status', 'subprocessors', 'accessibility']) {
     const dir = copyTree();
     try {
       edit(dir, `web-src/pages/${page}.html`, s => s.replace('</main>', `<p>${SLOT}</p></main>`));

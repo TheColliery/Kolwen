@@ -290,6 +290,8 @@ const SHIPPED = new Set([
   'web/status.html',
   // The subprocessor page: unannounced, no link, not in the sitemap; listed like the status page.
   'web/subprocessors.html',
+  // The accessibility page: a LIVE reading page, indexable and in the sitemap.
+  'web/accessibility.html',
   // `_redirects` is parsed by Workers and not served either (same docs page family); rule 18 holds its lines.
   'web/_redirects',
   // The pricing page (first published as /plans): a PRODUCTION page (US prices, every buy button disabled), read by the rules that read every page.

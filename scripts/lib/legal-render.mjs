@@ -575,6 +575,7 @@ export const SITE_PAGES = [
   { group: 'status', template: 'web-src/pages/status.html', file: 'web/status.html' },
   // The subprocessor page: prose, unannounced; its noindex is exempted by name in surface-check rule 16.
   { group: 'subprocessors', template: 'web-src/pages/subprocessors.html', file: 'web/subprocessors.html' },
+  { group: 'accessibility', template: 'web-src/pages/accessibility.html', file: 'web/accessibility.html' },
 ];
 // templates: { group: source }, messages: { lang: { key: value } }. Returns { pages: { 'web/index.html': html, ... }, problems: [line] }.
 // The shared blocks (the header, the footers, the page script's strings) read their strings through t(), which reads the module's loaded catalogue; withCatalogue puts the caller's `messages` in place
