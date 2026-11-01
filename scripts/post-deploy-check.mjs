@@ -176,7 +176,8 @@ async function main() {
           // The zone prepends Cloudflare's managed block (see robotsVerdict); our file must still be the final block.
           const v = robotsVerdict(live, want);
           if (v.edge) EDGE_ROBOTS.add(origin);
-          if (!v.ok) misses.push(`${f}: served ${live.length} chars, committed ${want.length}; the committed file is not the served file or its final block after Cloudflare's managed block`);
+          if (!v.ok && v.contradicts) misses.push(`${f}: Cloudflare's managed block refuses ${v.contradicts.join(', ')}, which our file allows and the edge list does not name`);
+          else if (!v.ok) misses.push(`${f}: served ${live.length} chars, committed ${want.length}; the committed file is not the served file or its final block after Cloudflare's managed block`);
         } else if (live !== want) misses.push(`${f}: served ${live.length} chars, committed ${want.length}`);
       } else {
         const live = sha(Buffer.from(await r.arrayBuffer()));

@@ -25,13 +25,61 @@ export function parseHeadersFile(text) {
 // Content` comment lines, with a comment-only content-signals preamble above the fence (read 2026-10-02), and
 // serves our file after it, unchanged. So the served body is accepted when it IS the committed file, or when
 // the committed file is its FINAL block and everything before is comment lines, one fenced block, and nothing
-// else. The managed block's own contents are NOT compared (Cloudflare owns them); any non-comment line ahead
+// else. The managed block's lines are NOT compared one by one (Cloudflare owns them), but an agent it refuses that our file allows
+// and the list does not name is a contradiction (edgeContradictions). Any non-comment line ahead
 // of the fence, a changed line of ours, or our lines missing is a miss. Limit: if Cloudflare renames the fence
 // comments this fails closed (red, naming the file), never open.
 const EDGE_ROBOTS_PREFIX = /^(?:#[^\n]*\n)*# BEGIN Cloudflare Managed content[^\n]*\n[\s\S]*\n# END Cloudflare Managed Content[ \t]*\n$/i;
-export function robotsVerdict(live, want) {
+// The agents the site's edge still refuses on purpose, while the origin file lists neither. A managed block may refuse them. A managed
+// block that refuses any OTHER agent our file allows is a contradiction, and is refused. Empty this list when the edge sync is turned
+// off (the owner's switch), so every managed-block refusal the origin file does not carry is refused from then on.
+export const EDGE_REFUSED_BY_DESIGN = ['Baiduspider', 'PetalBot'];
+
+// The groups of a robots.txt, RFC 9309 style: a run of User-agent lines starts a group, and its rules follow. Each group is
+// { agents: lowercased names, refuses: true when it has Disallow: / }. Comments and blank lines are ignored.
+function robotsGroups(text) {
+  const groups = [];
+  let cur = null, inRules = false;
+  for (const raw of text.split('\n')) {
+    const line = raw.replace(/#.*$/, '').trim();
+    const m = line.match(/^([A-Za-z-]+)\s*:\s*(.*)$/);
+    if (!m) continue;
+    const key = m[1].toLowerCase(), value = m[2].trim();
+    if (key === 'user-agent') {
+      if (!cur || inRules) { cur = { agents: [], refuses: false }; groups.push(cur); inRules = false; }
+      cur.agents.push(value.toLowerCase());
+    } else if (cur) {
+      inRules = true;
+      if (key === 'disallow' && value === '/') cur.refuses = true;
+    }
+  }
+  return groups;
+}
+
+// The agents the managed block refuses that the origin file allows, and the list does not name. The origin file's own group for an
+// agent governs it when one names it; otherwise its `*` group does (RFC 9309 section 2.2.1).
+function edgeContradictions(prefix, want, byDesign) {
+  const named = new Set(byDesign.map(a => a.toLowerCase()));
+  const ours = robotsGroups(want);
+  const out = [];
+  for (const agent of new Set(robotsGroups(prefix).filter(g => g.refuses).flatMap(g => g.agents))) {
+    if (named.has(agent)) continue;
+    const own = ours.filter(g => g.agents.includes(agent));
+    const governing = own.length ? own : ours.filter(g => g.agents.includes('*'));
+    if (!governing.some(g => g.refuses)) out.push(agent);
+  }
+  return out;
+}
+
+export function robotsVerdict(live, want, byDesign = EDGE_REFUSED_BY_DESIGN) {
   if (live === want) return { ok: true, edge: false };
-  if (want.length > 0 && live.endsWith(want) && EDGE_ROBOTS_PREFIX.test(live.slice(0, live.length - want.length))) return { ok: true, edge: true };
+  if (want.length > 0 && live.endsWith(want)) {
+    const prefix = live.slice(0, live.length - want.length);
+    if (EDGE_ROBOTS_PREFIX.test(prefix)) {
+      const contradicts = edgeContradictions(prefix, want, byDesign);
+      return contradicts.length ? { ok: false, edge: true, contradicts } : { ok: true, edge: true };
+    }
+  }
   return { ok: false, edge: false };
 }
 
