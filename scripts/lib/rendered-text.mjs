@@ -5,7 +5,6 @@
 // Zero dependencies, node builtins only.
 import { readContained } from './contained-read.mjs';
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { htmlPages } from './web-files.mjs';
 import { htmlTokens } from './html-tokens.mjs';
 
