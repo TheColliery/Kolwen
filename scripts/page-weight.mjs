@@ -225,8 +225,14 @@ export function report(rows, almanac = ALMANAC, today = new Date()) {
   // a divergence naming a page that is not in the tree has nothing measured: its cells read "-"
   const cell = (v, f = x => x) => (v === null ? '-' : f(v));
   for (const r of rows) out.push(`${r.page} | ${cell(r.bytes)} | ${cell(r.requests)} | ${cell(r.ratioBytes, x => x.toFixed(4))} | ${cell(r.ratioRequests, x => x.toFixed(4))} | ${WORD[r.level]}`);
-  for (const r of rows) for (const n of r.notes) out.push(r.level === 'fail' ? `FAIL ${r.page}: ${n.startsWith(r.page + ': ') ? n.slice(r.page.length + 2) : n}` : `${r.page}: ${n}`);
+  for (const r of rows) {
+    if (r.level !== 'fail') { for (const n of r.notes) out.push(`${r.page}: ${n}`); continue; }
+    // one FAIL line per failed page, with every reason on it: a page with two reasons is one line, never two
+    const reasons = r.notes.map(n => (n.startsWith(r.page + ': ') ? n.slice(r.page.length + 2) : n));
+    out.push(`FAIL ${r.page}: ${reasons.length ? reasons.join('; ') : 'no reason recorded'}`);
+  }
   out.push(NOT_COUNTED);
+  out.push(`page-weight done: ${rows.length} page(s) measured, ${rows.filter(r => r.level === 'fail').length} failed`);
   return out.join('\n');
 }
 
