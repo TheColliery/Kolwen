@@ -268,7 +268,7 @@
       "report": "Report a problem",
       "date": "Date of this statement"
     },
-    "what": "Kolwen's website describes a chatbot product that is still in development. No product ships yet, and the site says so on every page. The site is a set of static pages in English and Thai, which a visitor reads in a browser.",
+    "what": "Kolwen's website describes a chatbot product that is still in development. No product ships yet, and the home page says so. The site is a set of static pages in English and Thai, which a visitor reads in a browser.",
     "commitment": "Kolwen aims to make the website usable by people with disabilities, and to fix a problem that a visitor reports.",
     "target": "Kolwen's own target is WCAG 2.2 level AA. It is a target Kolwen set for itself. It is not a legal test, and this statement does not claim that the site meets it.",
     "checked": "The repository runs these checks in its continuous integration on each pull request and each push to main, and a failed check fails the change. A headless browser checks every page, in English and Thai: text reflows at 320 CSS pixels wide without sideways scrolling; text at 200 percent is not cut off; the browser reports no content-security-policy violation; the language switch sets the page's language. On the reading pages, text and background meet a contrast of 4.5 to 1 (3 to 1 for large text) in both the light and the dark colour scheme, the line height is at least 1.5 times the font size, and the line length of English text is measured against 80 characters. The source checks confirm that the home page declares English as its language, and that the layout uses relative type sizes and a viewport setting that does not block zoom.",

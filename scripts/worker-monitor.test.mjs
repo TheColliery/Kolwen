@@ -1,4 +1,4 @@
-// Tests for worker/index.mjs: the health probes of the six sitemap pages, the alert that composes from them, and the path that ships dark. Every fetch and the email
+// Tests for worker/index.mjs: the health probes of the sitemap pages, the alert that composes from them, and the path that ships dark. Every fetch and the email
 // binding are stubs: no test reaches the network or sends mail. Nothing here spawns a child process. Run: node --test scripts/worker-monitor.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -30,7 +30,7 @@ const capture = async fn => {
   return logs;
 };
 
-test('the probe list is the sitemap\'s own six URLs', () => {
+test('the probe list is the sitemap\'s own URLs', () => {
   const locs = [...readFileSync(join(ROOT, 'web', 'sitemap.xml'), 'utf8').matchAll(/<loc>https:\/\/kolwen\.com(\/[^<]*)<\/loc>/g)].map(m => m[1]);
   assert.deepEqual([...PATHS].sort(), [...locs].sort());
 });
