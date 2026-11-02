@@ -40,7 +40,7 @@ const TRAINING = [
 
 test('the served policy names its source and carries the Content-Signal line in the group for every visitor', () => {
   assert.match(POLICY, /^# Built 2026-11-01 from the Cloudflare-managed robots\.txt served on kolwen\.com/m);
-  assert.ok(groupsFor('*').some(g => g.rules.some(([k, v]) => k === 'content-signal' && v === 'search=yes,ai-train=no,use=reference')), 'the Content-Signal line');
+  assert.ok(groupsFor('*').some(g => g.rules.some(([k, v]) => k === 'content-signal' && v === 'search=yes,ai-input=yes,ai-train=no,use=reference')), 'the Content-Signal line');
 });
 
 test('every training crawler on the list is refused the whole site', () => {
@@ -65,7 +65,7 @@ const EDGE = [
   '# content signals:',
   '# BEGIN Cloudflare Managed content',
   'User-agent: *',
-  'Content-Signal: search=yes,ai-train=no,use=reference',
+  'Content-Signal: search=yes,ai-input=yes,ai-train=no,use=reference',
   'Allow: /',
   '# Training crawlers',
   'User-agent: GPTBot',
