@@ -1,0 +1,11 @@
+{
+  "name": "kolwen",
+  "version": "0.0.2",
+  "description": "Kolwen — verifiable AI assistant. Nothing is released yet; see kolwen.com. โคลเวน ผู้ช่วย AI ที่ตรวจสอบที่มาได้",
+  "main": "index.js",
+  "files": ["index.js", "README.md"],
+  "keywords": ["kolwen", "ai", "thai", "llm", "assistant"],
+  "author": "Kolwen",
+  "license": "UNLICENSED",
+  "homepage": "https://github.com/TheColliery/Kolwen"
+}

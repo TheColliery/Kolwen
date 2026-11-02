@@ -1,7 +1,6 @@
-"""Kolwen — verifiable AI assistant.
+"""Kolwen — verifiable AI assistant. Nothing is released yet; see kolwen.com.
 
-Nothing is released yet. This package reserves the name on PyPI so the
-published one is the real one; the model and CLI land in a later version.
+This package reserves the name on PyPI so the published one is the real one.
 
     https://kolwen.com
     https://github.com/TheColliery/Kolwen
