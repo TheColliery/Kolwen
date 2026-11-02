@@ -68,7 +68,9 @@ cases. The requirements below are how the support surface behaves around that pr
    second scheme. The customer sees the case's state and the deadline of its current step, which Kolwen sets and
    publishes. The steps are `TERMS.md` steps 3 to 5: **14 business days** for the customer to answer a notice,
    **7 business days** for Kolwen's written decision, **30 business days** for the customer to file an appeal, and
-   **14 business days** for Kolwen to answer it, **with an escalation when the deadline passes.** The ID rules
+   **14 business days** for Kolwen to answer it. If one of Kolwen's own deadlines passes (the 7 business days for
+   the decision, the 14 business days for the appeal answer), the suspension is lifted and the key comes back into
+   use, as `TERMS.md` states under its ceiling paragraph. The ID rules
    are in "Case IDs and the case status page", below.
 4. **One case across support, safety and billing.** Every door sees the same case and its ID, and no door sends the
    customer back to a door already tried.
@@ -128,9 +130,9 @@ clause 5.4, approved 17 October 2017, read 2026-11-02.
    the open items below).
 
 **Mail threading.** Every mail about a case carries a `Message-ID` header, and every reply carries `In-Reply-To`
-and `References`. This is a house requirement. RFC 5322 section 3.6.4 says a message "SHOULD have" a Message-ID, and
-a reply "should include these fields where appropriate" (https://www.rfc-editor.org/rfc/rfc5322.html, read
-2026-11-02). The References field holds the parent's References, then the parent's Message-ID. The ID in the subject
+and `References`. This is a house requirement. RFC 5322 section 3.6.4 says that a message SHOULD have a Message-ID field, and that
+reply messages SHOULD have In-Reply-To and References fields as appropriate (https://www.rfc-editor.org/rfc/rfc5322.txt,
+read 2026-11-02). The References field holds the parent's References, then the parent's Message-ID. The ID in the subject
 is the fallback for routing and search.
 
 **The page.** It is called "Case status" and sits at `kolwen.com/support/case`. It is not called "tracking", and it
