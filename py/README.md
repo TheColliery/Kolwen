@@ -4,7 +4,7 @@
 
 ## Status
 
-**Pre-release—nothing is released yet; see [kolwen.com](https://kolwen.com).**
+**Kolwen — verifiable AI assistant. Nothing is released yet; see [kolwen.com](https://kolwen.com).**
 This package reserves the name on PyPI so that the `kolwen` you install is
 the one we publish.
 
