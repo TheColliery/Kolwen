@@ -61,7 +61,7 @@ than dressed up:
 
 - We acknowledge a report within 5 days, send an assessment within 10 days, and disclose publicly once the fix ships, or at 90 days at most. During an absence announced on the maintainer's GitHub profile, the 5 days count from the first day back.
 - It will be **triaged against the scope above**, and you will be told which side it fell on.
-- A confirmed issue is **disclosed once a fix ships**, through a GitHub Security Advisory on
+- A confirmed issue is **disclosed once a fix ships, or at 90 days at most**, through a GitHub Security Advisory on
   this repository. If a release fixes a known vulnerability, the release notes name it.
 - Credit is given to the reporter by default. Say so if you would rather not be named.
 
