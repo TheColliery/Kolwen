@@ -141,7 +141,7 @@ npm publish
   page says "Certain files are always included, regardless of settings:", and its list starts with
   `package.json`. Read the name and version in `npm/package.json` before the command.
 - **Two-factor authentication.** npm's 2FA page says publishing "requires either" 2FA on the account
-  "OR a granular access token with bypass 2FA enabled". With 2FA on, npm asks for a one-time password: the
+  "OR A granular access token with bypass 2FA enabled". With 2FA on, npm asks for a one-time password: the
   publish page says that if the `--otp` flag is not set and the registry answers with a one-time-password
   challenge, npm prompts for one on the command line. The flag is "needed when publishing or changing
   package permissions with `npm access`". Whether this account has 2FA on, or holds such a token, is
