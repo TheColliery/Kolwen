@@ -7,5 +7,6 @@
   "keywords": ["kolwen", "ai", "thai", "llm", "assistant"],
   "author": "Kolwen",
   "license": "UNLICENSED",
+  "repository": { "type": "git", "url": "https://github.com/TheColliery/Kolwen", "directory": "npm" },
   "homepage": "https://github.com/TheColliery/Kolwen"
 }
