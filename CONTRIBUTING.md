@@ -122,17 +122,40 @@ that it was an intentional one.** Only a SIGNED, ANNOTATED tag passes: a lightwe
 tag object and nothing to attribute, an unsigned one proves nothing, and a signature that does not
 verify stops the run before anything is built. There is no override.
 
-**The npm name package is published by hand, from the tracked `npm/` folder. Nothing in this
-repository publishes it.** The package is a name reservation: `npm/package.json` sets version `0.0.2`.
-Its `files` list names `index.js` and `README.md`, and the tarball carries those two plus `package.json`,
-which npm always includes (`npm pack --dry-run` in `npm/` lists `README.md`, `index.js` and `package.json`,
-three files). A publish puts that
-version on the public registry. Run it only on the owner's word, from a clean checkout of the commit
-being released, after `node scripts/surface-check.mjs` passes.
+**A `npm-v*` tag publishes `kolwen` to npm, so a tag here is an outward act too.** The release route is the
+tag: a signed, annotated tag publishes through `.github/workflows/publish-npm.yml`, which uses Trusted
+Publishing over OIDC. No npm token is stored anywhere, and npm generates the provenance statement
+automatically. The package is a name reservation: `npm/package.json` sets version `0.0.2`. Run the tag only on
+the owner's word, from `main` at the commit being released, after `node scripts/surface-check.mjs` passes.
+For `0.0.2`:
+
+```
+git tag -s npm-v0.0.2 -m "npm-v0.0.2"
+git push origin npm-v0.0.2
+```
+
+Then approve the run in the `npm` environment, whose required reviewer is the maintainer. The workflow checks
+the tag before it builds anything, and refuses at the first failure:
+
+- the tag name is exactly `npm-vX.Y.Z`, digits only, with no suffix;
+- the tag is annotated: a lightweight tag has no tag object, and is refused;
+- GitHub reports the tag's signature as verified. Any other reason is refused, including `unsigned`, and
+  `unknown_key`, which means the signing key is not registered on the account as a signing key;
+- any failed API call is refused, with no "could not check, proceeding" branch;
+- the version in the tag is the version `npm/package.json` declares (`scripts/npm-release-guard.mjs`).
+
+Trusted Publishing must be set up on npmjs.com before the first tag, naming this workflow file and the `npm`
+environment. npm's trusted-publishers page says: "The filename of your workflow (e.g., `publish.yml`)", and
+"The workflow file must exist in `.github/workflows/` in your repository"; for the environment, "If using
+GitHub environments for deployment protection". The package's `repository.url` field must match the repository:
+"your package's `repository.url` field in `package.json` must exactly match your GitHub repository." Runs are
+queued, never cancelled: a publish killed midway cannot be retried at the same version.
+
+**The manual publish is the fallback.** Use it only if the workflow cannot run, and only on the same word:
 
 ```
 cd npm
-npm publish --registry=https://registry.npmjs.org/
+npm publish --registry=https://registry.npmjs.org/ --provenance=false
 ```
 
 The `--registry` flag names the public registry for this command. npm's config page gives the `registry`
@@ -145,18 +168,19 @@ default as "https://registry.npmjs.org/", described as "The base URL of the npm 
   `package.json`. Read the name and version in `npm/package.json` before the command.
 - **Two-factor authentication.** npm's 2FA page says publishing "requires either" 2FA on the account
   "OR A granular access token with bypass 2FA enabled". With 2FA on, npm asks for the second factor the
-  account uses. Its 2FA page says the security-key flow prompts "to authenticate with a security-key", and
+  account uses. The page `https://docs.npmjs.com/about-two-factor-authentication` says "You will be prompted to authenticate with a security-key.", and
   the publish page describes the `--otp` value as "a one-time password from a two-factor authenticator". If the
   `--otp` flag is not set and the registry answers with a one-time-password challenge, npm prompts for one on
   the command line. The flag is "needed when publishing or changing package permissions with `npm access`". Whether this account has 2FA on, or holds such a token, is
   account state that the public docs cannot show. The maintainer checks it in the npm account settings
   before the publish.
-- **Provenance.** This local workflow generates no provenance statement and publishes without
-  `--provenance`. npm's publish page lists a `provenance-file` option: "When publishing, the provenance
-  bundle at the given path will be used." This step does not use it. Publishing with provenance needs a
-  supported cloud CI runner: npm's provenance page says "To publish a package with provenance, you must
-  build your package with a supported cloud CI/CD provider" "using a cloud-hosted runner". On GitHub Actions,
-  that job's `permissions:` block gives `id-token: write`.
+- **Provenance.** The manual publish generates no provenance statement, and `--provenance=false` says so in the
+  command. npm's publish page gives the `provenance` default as "false" and describes linking "When publishing
+  from a supported cloud CI/CD system". A `provenance-file` setting in the local npm configuration must be
+  unset for this command, because npm's page says that config "cannot be used with: `provenance`" (the page
+  `https://docs.npmjs.com/cli/v12/commands/npm-publish`, provenance-file entry). Provenance on the tag route
+  needs the workflow's `id-token: write` permission, which npm's trusted-publishers page calls "the critical
+  requirement", and the job holds it. That permission is the GitHub Actions setting.
 - **Read back.** `npm view kolwen@0.0.2 --registry=https://registry.npmjs.org/` shows the registry's record for that version, and the same
   record is at `https://registry.npmjs.org/kolwen/0.0.2`. Until the version is published that URL
   answers 404. npm's view page gives the form `npm view [<package-spec>] [<field>[.subfield]...]`. Neither
