@@ -131,5 +131,5 @@ Contributions are licensed under this repository's own outbound license—see
 assume good faith and be respectful, per [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Report security
 issues per [SECURITY.md](SECURITY.md), never in a public issue.
 
-**Response time:** best effort by a solo maintainer. No SLA is promised, and none is implied by
-this document.
+**Response time:** best effort by a solo maintainer for contributions. No SLA is promised for them, and none
+is implied by this document; security reports follow the timeframes in [SECURITY.md](SECURITY.md).
