@@ -65,7 +65,7 @@ const EDGE = [
   '# content signals:',
   '# BEGIN Cloudflare Managed content',
   'User-agent: *',
-  'Content-Signal: search=yes,ai-input=yes,ai-train=no,use=reference',
+  'Content-Signal: search=yes,ai-train=no,use=reference',
   'Allow: /',
   '# Training crawlers',
   'User-agent: GPTBot',
