@@ -123,8 +123,10 @@ tag object and nothing to attribute, an unsigned one proves nothing, and a signa
 verify stops the run before anything is built. There is no override.
 
 **The npm name package is published by hand, from the tracked `npm/` folder. Nothing in this
-repository publishes it.** The package is a name reservation: `npm/package.json` sets version `0.0.2`,
-and its `files` list (`index.js` and `README.md`) is all the tarball carries. A publish puts that
+repository publishes it.** The package is a name reservation: `npm/package.json` sets version `0.0.2`.
+Its `files` list names `index.js` and `README.md`, and the tarball carries those two plus `package.json`,
+which npm always includes (`npm pack --dry-run` in `npm/` lists `README.md`, `index.js` and `package.json`,
+three files). A publish puts that
 version on the public registry. Run it only on the owner's word, from a clean checkout of the commit
 being released, after `node scripts/surface-check.mjs` passes.
 
@@ -133,21 +135,26 @@ cd npm
 npm publish
 ```
 
-- `npm publish` packs the folder that holds the `package.json`. npm's publish page says it "figures
-  out the files to be included and packs them into a tarball", and that with a `files` list "only the
-  files specified will be included". Read the name and version in `npm/package.json` before the command.
+- `npm publish` packs the folder that holds the `package.json`. npm's publish page (npm CLI v12, the
+  current version on docs.npmjs.com) says it "figures out the files to be included and packs them into
+  a tarball", and that with a `files` list "only the files specified will be included". The package-json
+  page says "Certain files are always included, regardless of settings:", and its list starts with
+  `package.json`. Read the name and version in `npm/package.json` before the command.
 - **Two-factor authentication.** npm's 2FA page says publishing "requires either" 2FA on the account
-  "OR a granular access token with bypass 2FA enabled". With 2FA on, the command takes a one-time
-  password through the `--otp` flag, which npm's publish page describes as needed "when publishing".
-  Whether this account has 2FA on, or holds such a token, is account state that the public docs cannot
-  show. The maintainer checks it in the npm account settings before the publish.
+  "OR a granular access token with bypass 2FA enabled". With 2FA on, npm asks for a one-time password: the
+  publish page says that if the `--otp` flag is not set and the registry answers with a one-time-password
+  challenge, npm prompts for one on the command line. The flag is "needed when publishing or changing
+  package permissions with `npm access`". Whether this account has 2FA on, or holds such a token, is
+  account state that the public docs cannot show. The maintainer checks it in the npm account settings
+  before the publish.
 - **Provenance.** `npm publish --provenance` links the package to the build it came from. npm's
   provenance page says this needs a supported CI provider on a cloud-hosted runner (GitHub Actions or
   GitLab CI/CD, with `id-token: write`). A publish from a local machine cannot carry provenance, so
   this step publishes without `--provenance`.
-- **Read back.** `npm view kolwen@0.0.2` shows the registry's record for that version. npm's view page
-  gives the form `npm view [<package-spec>] [<field>[.subfield]...]`, and does not say whether the
-  command needs a login.
+- **Read back.** `npm view kolwen@0.0.2` shows the registry's record for that version, and the same
+  record is at `https://registry.npmjs.org/kolwen/0.0.2`. Until the version is published that URL
+  answers 404. npm's view page gives the form `npm view [<package-spec>] [<field>[.subfield]...]`. Neither
+  the view page nor the package pages say that reading the record needs a login, and neither says it does not.
 
 ---
 
