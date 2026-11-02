@@ -142,7 +142,14 @@ the tag before it builds anything, and refuses at the first failure:
 - GitHub reports the tag's signature as verified. Any other reason is refused, including `unsigned`, and
   `unknown_key`, which means the signing key is not registered on the account as a signing key;
 - any failed API call is refused, with no "could not check, proceeding" branch;
-- the version in the tag is the version `npm/package.json` declares (`scripts/npm-release-guard.mjs`).
+- the version in the tag is the version `npm/package.json` declares (`scripts/npm-release-guard.mjs`);
+- the name the tag object carries is the same tag: the gate reads it from the tag object, and an absent, empty
+  or different name is refused (`checkTagName` in `scripts/npm-release-guard.mjs`);
+- the run is bound to the tag: its ref is `refs/tags/<tag>` and its commit is the verified tag commit. A run
+  started from a branch is refused, whatever the event (`checkRun` in `scripts/npm-release-guard.mjs`).
+
+A manual run (`workflow_dispatch`) is started from the tag: in the Run workflow form, "Use workflow from" is set
+to the tag, and the `tag` input names it. A run started from a branch is refused by the check above.
 
 Two settings are made before the first tag. On npmjs.com, the package's trusted publisher names this workflow
 file and the `npm` environment, and its "Allowed actions" allow direct publishing: npm's page says "npm stage
