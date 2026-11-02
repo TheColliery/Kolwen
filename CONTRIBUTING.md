@@ -134,7 +134,7 @@ git tag -s npm-v0.0.2 -m "npm-v0.0.2"
 git push origin npm-v0.0.2
 ```
 
-Then approve the run in the `npm` environment, whose required reviewer is the maintainer. The workflow checks
+Then approve the run in the `npm` environment, set up as described below. The workflow checks
 the tag before it builds anything, and refuses at the first failure:
 
 - the tag name is exactly `npm-vX.Y.Z`, digits only, with no suffix;
@@ -144,8 +144,11 @@ the tag before it builds anything, and refuses at the first failure:
 - any failed API call is refused, with no "could not check, proceeding" branch;
 - the version in the tag is the version `npm/package.json` declares (`scripts/npm-release-guard.mjs`).
 
-Trusted Publishing must be set up on npmjs.com before the first tag, naming this workflow file and the `npm`
-environment. npm's trusted-publishers page says: "The filename of your workflow (e.g., `publish.yml`)", and
+Two settings are made before the first tag. On npmjs.com, the package's trusted publisher names this workflow
+file and the `npm` environment, and its "Allowed actions" allow direct publishing: npm's page says "npm stage
+publish is always allowed. Choose whether this trusted publisher can also publish directly with npm publish".
+Before the first tag, create the GitHub environment `npm` with the maintainer as required reviewer and a
+deployment rule allowing only tags matching `npm-v*` (no branches). npm's trusted-publishers page says: "The filename of your workflow (e.g., `publish.yml`)", and
 "The workflow file must exist in `.github/workflows/` in your repository"; for the environment, "If using
 GitHub environments for deployment protection". The package's `repository.url` field must match the repository:
 "your package's `repository.url` field in `package.json` must exactly match your GitHub repository." Runs are
@@ -168,7 +171,7 @@ default as "https://registry.npmjs.org/", described as "The base URL of the npm 
   `package.json`. Read the name and version in `npm/package.json` before the command.
 - **Two-factor authentication.** npm's 2FA page says publishing "requires either" 2FA on the account
   "OR A granular access token with bypass 2FA enabled". With 2FA on, npm asks for the second factor the
-  account uses. The page `https://docs.npmjs.com/about-two-factor-authentication` says "You will be prompted to authenticate with a security-key.", and
+  account uses. npm's 2FA pages name a security key as one second factor, and
   the publish page describes the `--otp` value as "a one-time password from a two-factor authenticator". If the
   `--otp` flag is not set and the registry answers with a one-time-password challenge, npm prompts for one on
   the command line. The flag is "needed when publishing or changing package permissions with `npm access`". Whether this account has 2FA on, or holds such a token, is
@@ -179,8 +182,8 @@ default as "https://registry.npmjs.org/", described as "The base URL of the npm 
   from a supported cloud CI/CD system". A `provenance-file` setting in the local npm configuration must be
   unset for this command, because npm's page says that config "cannot be used with: `provenance`" (the page
   `https://docs.npmjs.com/cli/v12/commands/npm-publish`, provenance-file entry). Provenance on the tag route
-  needs the workflow's `id-token: write` permission, which npm's trusted-publishers page calls "the critical
-  requirement", and the job holds it. That permission is the GitHub Actions setting.
+  needs the workflow's `id-token: write` permission. npm's trusted-publishers page says "The critical requirement
+  is the id-token: write permission", and the job holds it. That permission is the GitHub Actions setting.
 - **Read back.** `npm view kolwen@0.0.2 --registry=https://registry.npmjs.org/` shows the registry's record for that version, and the same
   record is at `https://registry.npmjs.org/kolwen/0.0.2`. Until the version is published that URL
   answers 404. npm's view page gives the form `npm view [<package-spec>] [<field>[.subfield]...]`. Neither
