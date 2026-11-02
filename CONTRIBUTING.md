@@ -122,6 +122,33 @@ that it was an intentional one.** Only a SIGNED, ANNOTATED tag passes: a lightwe
 tag object and nothing to attribute, an unsigned one proves nothing, and a signature that does not
 verify stops the run before anything is built. There is no override.
 
+**The npm name package is published by hand, from the tracked `npm/` folder. Nothing in this
+repository publishes it.** The package is a name reservation: `npm/package.json` sets version `0.0.2`,
+and its `files` list (`index.js` and `README.md`) is all the tarball carries. A publish puts that
+version on the public registry. Run it only on the owner's word, from a clean checkout of the commit
+being released, after `node scripts/surface-check.mjs` passes.
+
+```
+cd npm
+npm publish
+```
+
+- `npm publish` packs the folder that holds the `package.json`. npm's publish page says it "figures
+  out the files to be included and packs them into a tarball", and that with a `files` list "only the
+  files specified will be included". Read the name and version in `npm/package.json` before the command.
+- **Two-factor authentication.** npm's 2FA page says publishing "requires either" 2FA on the account
+  "OR a granular access token with bypass 2FA enabled". With 2FA on, the command takes a one-time
+  password through the `--otp` flag, which npm's publish page describes as needed "when publishing".
+  Whether this account has 2FA on, or holds such a token, is account state that the public docs cannot
+  show. The maintainer checks it in the npm account settings before the publish.
+- **Provenance.** `npm publish --provenance` links the package to the build it came from. npm's
+  provenance page says this needs a supported CI provider on a cloud-hosted runner (GitHub Actions or
+  GitLab CI/CD, with `id-token: write`). A publish from a local machine cannot carry provenance, so
+  this step publishes without `--provenance`.
+- **Read back.** `npm view kolwen@0.0.2` shows the registry's record for that version. npm's view page
+  gives the form `npm view [<package-spec>] [<field>[.subfield]...]`, and does not say whether the
+  command needs a login.
+
 ---
 
 ## License and conduct
