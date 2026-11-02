@@ -3,9 +3,53 @@
 // Run: node --test scripts/npm-release-guard.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { checkRelease } from './npm-release-guard.mjs';
+import { checkRelease, checkRun, checkTagName } from './npm-release-guard.mjs';
 
 const pkg = version => JSON.stringify({ name: 'kolwen', version });
+const COMMIT = '0123456789abcdef0123456789abcdef01234567';
+const runOf = over => ({ tag: 'npm-v0.0.2', eventName: 'workflow_dispatch', ref: 'refs/tags/npm-v0.0.2', sha: COMMIT, commit: COMMIT, ...over });
+
+// Binding the run to its tag (review of PR #131): npm's provenance takes the run's ref and commit, so the run must be the released tag and the verified commit.
+test('a run started on the tag, at the verified commit, passes, by dispatch and by a tag push', () => {
+  assert.deepEqual(checkRun(runOf({})), { ok: true });
+  assert.deepEqual(checkRun(runOf({ eventName: 'push' })), { ok: true });
+});
+
+test('a dispatch started on a branch is refused, and the message tells the operator to start the run from the tag', () => {
+  const r = checkRun(runOf({ ref: 'refs/heads/main' }));
+  assert.equal(r.ok, false);
+  assert.match(r.reason, /started on refs\/heads\/main, not on the tag npm-v0\.0\.2/);
+  assert.match(r.reason, /start the run from the tag npm-v0\.0\.2/);
+});
+
+test('a run whose ref names another tag, or no tag, is refused', () => {
+  assert.equal(checkRun(runOf({ ref: 'refs/tags/npm-v0.0.3' })).ok, false, 'a different tag');
+  assert.equal(checkRun(runOf({ ref: '' })).ok, false, 'no ref');
+  assert.equal(checkRun(runOf({ eventName: 'push', ref: 'refs/heads/npm-v0.0.2' })).ok, false, 'a branch named like the tag');
+});
+
+test('a run whose commit is not the verified tag commit is refused, by either event', () => {
+  const other = 'fedcba9876543210fedcba9876543210fedcba98';
+  assert.equal(checkRun(runOf({ sha: other })).ok, false, 'dispatch');
+  assert.equal(checkRun(runOf({ eventName: 'push', sha: other })).ok, false, 'push');
+});
+
+test('an event other than dispatch or a tag push is refused', () => {
+  assert.equal(checkRun(runOf({ eventName: 'schedule' })).ok, false);
+  assert.equal(checkRun(runOf({ eventName: '' })).ok, false);
+});
+
+// The tag object's own name (review of PR #131): the API's tag object carries its name in `tag`; it must be the TAG the gate read, or the gate is not checking that tag.
+test('a tag object whose embedded name is the tag passes', () => {
+  assert.deepEqual(checkTagName('npm-v0.0.2', 'npm-v0.0.2'), { ok: true });
+});
+
+test('a tag object whose embedded name differs, or is missing, or is not text, is refused (fail closed)', () => {
+  assert.equal(checkTagName('npm-v0.0.2', 'npm-v0.0.3').ok, false, 'a different name');
+  assert.equal(checkTagName('npm-v0.0.2', '').ok, false, 'empty: the field was absent');
+  assert.equal(checkTagName('npm-v0.0.2', 'null').ok, false, 'jq printed null');
+  assert.equal(checkTagName('npm-v0.0.2', undefined).ok, false, 'no value at all');
+});
 
 test('a clean npm-vX.Y.Z tag that names the declared version passes, and reports the version', () => {
   assert.deepEqual(checkRelease('npm-v0.0.2', pkg('0.0.2')), { ok: true, version: '0.0.2' });

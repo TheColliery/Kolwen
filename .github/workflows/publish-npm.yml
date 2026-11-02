@@ -14,11 +14,15 @@ on:
 
 # cancel-in-progress: FALSE. npm refuses a re-publish of a version that already exists, so a
 # publish killed midway is not retryable at that version -- the only recovery is a version bump.
-# Queue instead of cancel. The group is deliberately CONSTANT, not per-ref, so one publish is in
-# flight repository-wide, the same rule as publish-pypi.yml.
+# queue: max, so a publish that waits behind one in flight is queued, not cancelled: without it
+# the default (single) cancels the pending run it replaces, which is the cancel this group forbids.
+# GitHub: "To allow more than one pending job or workflow run to wait in the same concurrency group,
+# use the optional queue property" and "set queue: max". The group is deliberately CONSTANT, not
+# per-ref, so one publish is in flight repository-wide, the same rule as publish-pypi.yml.
 concurrency:
   group: publish-npm
   cancel-in-progress: false
+  queue: max
 
 permissions:
   contents: read
@@ -84,6 +88,8 @@ jobs:
             exit 1
           fi
           echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          # The tag object's own name, handed to the guard after checkout (review of PR #131). Absent reads as "null", which the guard refuses.
+          echo "tagname=$(printf '%s' "$tag_json" | jq -r '.tag')" >> "$GITHUB_OUTPUT"
           echo "$TAG is a signed annotated tag, verified. Publishing the tree at $commit."
 
       # persist-credentials: false -- nothing after this step runs a git operation that needs the
@@ -112,6 +118,25 @@ jobs:
           at_least "$node_v" 22.14.0 || { echo "::error::refusing to publish: Node $node_v is older than 22.14.0"; exit 1; }
           at_least "$npm_v" 11.5.1 || { echo "::error::refusing to publish: npm $npm_v is older than 11.5.1"; exit 1; }
           echo "node $node_v, npm $npm_v: trusted publishing is supported."
+
+      # ── THE RUN IS BOUND TO ITS TAG (review of PR #131). The run must be a dispatch or a tag push
+      # started on refs/tags/<TAG>, at the verified tag commit, and the tag object must carry that same
+      # name. npm generates provenance from the run's ref and commit, so the run must be the released
+      # tag and commit. The check is `run` in scripts/npm-release-guard.mjs, reading the values below
+      # from the environment. It runs after checkout, because the guard is a repository file and can
+      # run only once the tree is here. Checkout is read-only (persist-credentials: false), and nothing
+      # is built or published before this step passes.
+      - name: Require the run to be bound to its verified tag
+        env:
+          TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_SHA: ${{ github.sha }}
+          COMMIT: ${{ steps.gate.outputs.commit }}
+          TAG_OBJECT_NAME: ${{ steps.gate.outputs.tagname }}
+        run: |
+          set -euo pipefail
+          node scripts/npm-release-guard.mjs run
 
       # ── THE VERSION GUARD: a release tag must NAME the version npm/package.json declares. ─────
       # The gate above proves who signed the tag; it does not prove that the tag and the package
