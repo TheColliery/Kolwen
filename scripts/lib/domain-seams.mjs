@@ -330,12 +330,14 @@ export function catalogueDomainProblems(files, templates) {
     try { cat = JSON.parse(files[file]); } catch (e) { out.push(prob(file, `is not valid JSON (${e.message.slice(0, 100)})`)); continue; }
     if (cat === null || typeof cat !== 'object' || Array.isArray(cat)) { out.push(prob(file, 'is not a JSON object')); continue; }
     for (const k of Object.keys(cat)) if (!pageKeys.has(k)) out.push(prob(file, `top-level key "${k}" is neither a template page nor shared; the catalogue is keyed by page, never by domain`));
+    // a path longer than 120 characters is quoted cut: its first 60 and its last 60 characters, so a report does not grow with the depth
+    const shownPath = p => (p.length > 120 ? p.slice(0, 60) + '...' + p.slice(-60) : p);
     const walk = (o, path) => {
       for (const [k, v] of Object.entries(o)) {
         const full = path ? path + '.' + k : k;
         // a reserved key is reported once, and the walk does not go on below it: a reserved key nested under reserved keys would otherwise report every level, each with its full path
         if (HOST_KEY.test(k)) { out.push(prob(file, `key "${k}" names a host; the catalogue is keyed by page, so a page that moves host keeps its strings`)); continue; }
-        if (HOST_WORDS.has(k.toLowerCase())) { out.push(prob(file, `key "${full}" names a domain or host; the catalogue is keyed by page, so a page that moves host keeps its strings`)); continue; }
+        if (HOST_WORDS.has(k.toLowerCase())) { out.push(prob(file, `key "${shownPath(full)}" names a domain or host; the catalogue is keyed by page, so a page that moves host keeps its strings`)); continue; }
         if (v !== null && typeof v === 'object') walk(v, full);
       }
     };

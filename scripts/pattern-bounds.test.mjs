@@ -326,6 +326,22 @@ console.log('OK ' + cookieProblems([{ file: 'web/f.js', text: 'for(' + '.cookie,
   assert.equal(out, 'OK 1', 'the bulk is one reported line');
 });
 
+test('a reserved key under a deep chain of keys is reported in output bounded by the input', () => {
+  // A chain of a thousand keys ends in a thousand sibling objects, each with a reserved key. Each report quotes its full path, so the output grows with the
+  // depth times the leaves: the bound is twenty times the input.
+  const out = inChild(`import { catalogueDomainProblems } from ${JSON.stringify(url(['scripts', 'lib', 'domain-seams.mjs']))};
+let bottom = {};
+for (let j = 0; j < 1000; j++) bottom['x' + j] = { domain: 'x' };
+let obj = bottom;
+for (let i = 0; i < 1000; i++) obj = { k: obj };
+const text = JSON.stringify({ home: obj });
+let chars = 0;
+for (const p of catalogueDomainProblems({ 'en.json': text }, ['home'])) chars += JSON.stringify(p).length;
+console.log('OK ' + text.length + ' ' + chars);`);
+  const m = /^OK (\d+) (\d+)$/.exec(out);
+  assert.ok(m && Number(m[2]) < 20 * Number(m[1]), 'the report is ' + (m ? m[2] : out) + ' characters for ' + (m ? m[1] : '?') + ' of input');
+});
+
 test('a font shorthand with no size and no missing name is still reported', () => {
   const css = 'p.u{font:italic bold}';
   const dir = mkdtempSync(join(tmpdir(), 'pattern-bounds-unreadable-'));
