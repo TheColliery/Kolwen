@@ -45,9 +45,9 @@ Advisories: as above, none is owed. No finding reaches the served site or a publ
 
 | # | Class | Where | Seen | Disposition | Reason |
 |---|---|---|---|---|---|
-| 1 | uncontrolled resource use (CWE-400) | `scripts/lib/i18n-catalogue.mjs`, the cross-language key comparison | new | FIXED (7a38caf) | more than 16 catalogue files are refused with one named line, not compared pair by pair |
+| 1 | uncontrolled resource use (CWE-400) | `scripts/lib/i18n-catalogue.mjs`, the cross-language key comparison | new | FIXED (e7250d8) | each catalogue is compared with `en.json` in both directions, so the work and the messages grow with the keys, not with the pairs of files |
 | 2 | super-linear matching (CWE-1333) | `scripts/surface-check.mjs`, the CSS `url()` pattern | new | DEFERRED (one open fix for rows 2, 7, 12 to 15, 17, 18, 21 and 22) | an unquoted body may contain further openers, so a failed match rescans; the body excludes them |
-| 3 | uncontrolled resource use (CWE-400) | `scripts/lib/i18n-catalogue.mjs`, catalogue flattening | new | FIXED (7a38caf) | the total key text is bounded at 1 MiB; past it the file is refused with a named line |
+| 3 | uncontrolled resource use (CWE-400) | `scripts/lib/i18n-catalogue.mjs`, catalogue flattening | new | FIXED (7a38caf, e7250d8) | the key text of one catalogue is bounded in total at 1,048,576 characters; past it the catalogue is refused whole with a named line, and its keys are neither stored nor compared |
 | 4 | inefficient algorithm (CWE-407) | `scripts/lib/page-template.mjs`, comment removal | same file and class | DEFERRED (the open fix of rows 1, 6, 8 and 9 above) | the earlier row 6, reworded; the code has not moved |
 | 5 | uncontrolled resource use (CWE-400) | `scripts/lib/type-lint.mjs`, the unresolved-variable report | same file and class | FIXED (276eea5) | unresolved-name problems quote 120 characters, 200 names are listed, and the rest are counted in one line |
 | 6 | inefficient algorithm (CWE-407) | `scripts/rendered-check.mjs`, the line measurement | same file and class | DEFERRED (the open fix of rows 1, 6, 8 and 9 above) | the earlier row 9, reworded; the code has not moved |
