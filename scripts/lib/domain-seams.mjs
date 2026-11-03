@@ -325,8 +325,9 @@ export function catalogueDomainProblems(files, templates) {
     const walk = (o, path) => {
       for (const [k, v] of Object.entries(o)) {
         const full = path ? path + '.' + k : k;
-        if (HOST_KEY.test(k)) out.push(prob(file, `key "${k}" names a host; the catalogue is keyed by page, so a page that moves host keeps its strings`));
-        else if (HOST_WORDS.has(k.toLowerCase())) out.push(prob(file, `key "${full}" names a domain or host; the catalogue is keyed by page, so a page that moves host keeps its strings`));
+        // a reserved key is reported once, and the walk does not go on below it: a reserved key nested under reserved keys would otherwise report every level, each with its full path
+        if (HOST_KEY.test(k)) { out.push(prob(file, `key "${k}" names a host; the catalogue is keyed by page, so a page that moves host keeps its strings`)); continue; }
+        if (HOST_WORDS.has(k.toLowerCase())) { out.push(prob(file, `key "${full}" names a domain or host; the catalogue is keyed by page, so a page that moves host keeps its strings`)); continue; }
         if (v !== null && typeof v === 'object') walk(v, full);
       }
     };
