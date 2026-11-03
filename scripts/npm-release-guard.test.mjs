@@ -46,9 +46,11 @@ test('a tag object whose embedded name is the tag passes', () => {
 
 test('a tag object whose embedded name differs, or is missing, or is not text, is refused (fail closed)', () => {
   assert.equal(checkTagName('npm-v0.0.2', 'npm-v0.0.3').ok, false, 'a different name');
-  assert.equal(checkTagName('npm-v0.0.2', '').ok, false, 'empty: the field was absent');
-  assert.equal(checkTagName('npm-v0.0.2', 'null').ok, false, 'jq printed null');
-  assert.equal(checkTagName('npm-v0.0.2', undefined).ok, false, 'no value at all');
+  // The REASON, not only the verdict: an empty, "null" or absent name is the unreadable-name branch, and only that branch says so.
+  assert.match(checkTagName('npm-v0.0.2', '').reason, /carries no readable name/, 'empty: the field was absent');
+  assert.match(checkTagName('npm-v0.0.2', 'null').reason, /carries no readable name/, 'jq printed null');
+  assert.match(checkTagName('npm-v0.0.2', undefined).reason, /carries no readable name/, 'no value at all');
+  assert.match(checkTagName('npm-v0.0.2', 'npm-v0.0.3').reason, /reads npm-v0\.0\.3, not npm-v0\.0\.2/, 'a different name gets the mismatch reason');
 });
 
 test('a clean npm-vX.Y.Z tag that names the declared version passes, and reports the version', () => {

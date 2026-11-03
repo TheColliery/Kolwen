@@ -58,6 +58,10 @@ jobs:
           TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
           REPO: ${{ github.repository }}
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The run's own values, read by the binding check below before any checkout (the rules are scripts/npm-release-guard.mjs `run`).
+          EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           printf '%s' "$TAG" | grep -Eq '^npm-v[0-9]+\.[0-9]+\.[0-9]+$' || {
@@ -87,10 +91,25 @@ jobs:
             echo "::error::refusing to publish: $TAG is annotated but its signature does not verify (reason: $reason). If that reads unknown_key, register the signing key on the account as a SIGNING key, or re-sign the tag. The gate is not the thing to soften."
             exit 1
           fi
+          # ── THE RUN IS BOUND TO ITS TAG, BEFORE ANY CHECKOUT (review thread 4448984402). The three binding checks
+          # are checkRun and checkTagName of scripts/npm-release-guard.mjs, run here in its `run` mode. The file is
+          # read from the VERIFIED commit, through the API, into a temporary folder, so nothing from the checkout
+          # (which a tag moved during the approval wait would change) is read before these checks pass. The
+          # values come from the environment and from this step's own variables, never from the script's text.
+          tagname=$(printf '%s' "$tag_json" | jq -r '.tag')
+          bind="$RUNNER_TEMP/bind"
+          mkdir -p "$bind/scripts/lib"
+          fetch_guard() { curl -sS --fail-with-body -H "Authorization: Bearer $TOKEN" \
+                            -H "Accept: application/vnd.github.raw" \
+                            "https://api.github.com/repos/$REPO/contents/$1?ref=$commit" -o "$bind/$1"; }
+          fetch_guard scripts/npm-release-guard.mjs || {
+            echo "::error::refusing to publish: cannot read the release guard at the verified commit $commit"; exit 1; }
+          fetch_guard scripts/lib/entry-guard.mjs || {
+            echo "::error::refusing to publish: cannot read the entry guard at the verified commit $commit"; exit 1; }
+          TAG="$TAG" COMMIT="$commit" TAG_OBJECT_NAME="$tagname" \
+            node "$bind/scripts/npm-release-guard.mjs" run || exit 1
           echo "commit=$commit" >> "$GITHUB_OUTPUT"
-          # The tag object's own name, handed to the guard after checkout (review of PR #131). Absent reads as "null", which the guard refuses.
-          echo "tagname=$(printf '%s' "$tag_json" | jq -r '.tag')" >> "$GITHUB_OUTPUT"
-          echo "$TAG is a signed annotated tag, verified. Publishing the tree at $commit."
+          echo "$TAG is a signed annotated tag, verified, and this run is bound to it. Publishing the tree at $commit."
 
       # persist-credentials: false -- nothing after this step runs a git operation that needs the
       # token (the build reads files; the publish goes through OIDC), so it is not left in
@@ -118,25 +137,6 @@ jobs:
           at_least "$node_v" 22.14.0 || { echo "::error::refusing to publish: Node $node_v is older than 22.14.0"; exit 1; }
           at_least "$npm_v" 11.5.1 || { echo "::error::refusing to publish: npm $npm_v is older than 11.5.1"; exit 1; }
           echo "node $node_v, npm $npm_v: trusted publishing is supported."
-
-      # ── THE RUN IS BOUND TO ITS TAG (review of PR #131). The run must be a dispatch or a tag push
-      # started on refs/tags/<TAG>, at the verified tag commit, and the tag object must carry that same
-      # name. npm generates provenance from the run's ref and commit, so the run must be the released
-      # tag and commit. The check is `run` in scripts/npm-release-guard.mjs, reading the values below
-      # from the environment. It runs after checkout, because the guard is a repository file and can
-      # run only once the tree is here. Checkout is read-only (persist-credentials: false), and nothing
-      # is built or published before this step passes.
-      - name: Require the run to be bound to its verified tag
-        env:
-          TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-          EVENT_NAME: ${{ github.event_name }}
-          GITHUB_REF: ${{ github.ref }}
-          GITHUB_SHA: ${{ github.sha }}
-          COMMIT: ${{ steps.gate.outputs.commit }}
-          TAG_OBJECT_NAME: ${{ steps.gate.outputs.tagname }}
-        run: |
-          set -euo pipefail
-          node scripts/npm-release-guard.mjs run
 
       # ── THE VERSION GUARD: a release tag must NAME the version npm/package.json declares. ─────
       # The gate above proves who signed the tag; it does not prove that the tag and the package
