@@ -5,7 +5,7 @@
 // is not evaluated here. A character outside every declared range is another check's business (fonts.test.mjs: every character is inside a declared Sans range).
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { join } from 'node:path';
+import { join, posix } from 'node:path';
 import { renderedChars } from './rendered-text.mjs';
 import { woff2Cmap } from './woff2-cmap.mjs';
 import { readContained } from './contained-read.mjs';
@@ -27,7 +27,7 @@ export function glyphSets(webDir, rendered = renderedChars(webDir)) {
   const faces = facesOf(readFileSync(join(webDir, 'fonts/fonts.css'), 'utf8').replace(/\r\n/g, '\n'));
   const files = new Map();
   for (const f of faces) {
-    const url = f.urls[0];
+    const url = posix.normalize(f.urls[0]); // one address, one entry: the spellings of one path (a doubled slash, a dot segment) are the same file
     const file = files.get(url) || files.set(url, { url, families: new Set(), weights: new Set(), ranges: [], need: new Map() }).get(url);
     file.families.add(f.family); file.weights.add(f.weight); file.ranges.push(f.range);
   }

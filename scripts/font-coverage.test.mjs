@@ -12,6 +12,26 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { decodeEntities, decodeAttribute, textOf, stripCssComments, cssContentOf, scriptStringsOf, renderedChars } from './lib/rendered-text.mjs';
 import { woff2Cmap, woff2Names } from './lib/woff2-cmap.mjs';
 import { htmlPages } from './lib/web-files.mjs';
+
+// Many spellings of one font address are one file on the disk: each spelling must give one glyph-set entry, not one entry with its own copy of the needs.
+test('many spellings of one font address give one glyph-set entry, with the needs of that one address', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'glyph-spell-'));
+  try {
+    mkdirSync(join(dir, 'fonts'));
+    const rules = Array.from({ length: 3000 }, (_, i) => "@font-face{font-family:'A';font-weight:400;src:url('/fonts/x/" + '/'.repeat(i) + "a.0123456789.woff2') format('woff2');unicode-range:U+0000-FFFF;}").join('\n');
+    writeFileSync(join(dir, 'fonts', 'fonts.css'), rules);
+    const glyph = pathToFileURL(join(dirname(fileURLToPath(import.meta.url)), 'lib', 'font-coverage.mjs')).href;
+    const code = `import { glyphSets } from ${JSON.stringify(glyph)};
+const rendered = new Map(); for (let cp = 65; cp < 75; cp++) rendered.set(cp, new Set(['index.html']));
+const m = glyphSets(process.env.WEB, rendered);
+const needs = [...m.values()].reduce((n, f) => n + f.need.size, 0);
+const empty = glyphSets(process.env.WEB, new Map()).size;
+console.log('N ' + m.size + ' ' + needs + ' ' + empty);`;
+    const r = spawnSync(process.execPath, ['--max-old-space-size=256', '--input-type=module', '-e', code], { env: { ...process.env, WEB: dir }, encoding: 'utf8', timeout: 30000, killSignal: 'SIGKILL' });
+    assert.equal(r.signal, null, 'the child was killed');
+    assert.equal(r.stdout.trim(), 'N 1 14 1', 'one address, ten rendered needs plus the four Thai shaping characters (the range covers Thai), and one entry with no rendered text: ' + (r.stderr || '').slice(0, 200));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
 import { glyphSets, coverageGaps, facesOf, asksForLayoutFeature, THAI_SHAPING } from './lib/font-coverage.mjs';
 import { cutSet, BASELINE } from './font-subset.mjs';
 
