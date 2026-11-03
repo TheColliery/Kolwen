@@ -45,7 +45,7 @@ Advisories: as above, none is owed. No finding reaches the served site or a publ
 
 | # | Class | Where | Seen | Disposition | Reason |
 |---|---|---|---|---|---|
-| 1 | uncontrolled resource use (CWE-400) | `scripts/lib/i18n-catalogue.mjs`, the cross-language key comparison | new | FIXED (e7250d8) | each catalogue is compared with `en.json` in both directions, so the work and the messages grow with the keys, not with the pairs of files |
+| 1 | uncontrolled resource use (CWE-400) | `scripts/lib/i18n-catalogue.mjs`, the cross-language key comparison | new | FIXED (e7250d8) | each catalogue is compared with `en.json` in both directions; at most 500 differing keys are listed in all, and the rest are counted in one line per file and direction, so the messages grow with the number of files, not with the keys times the files |
 | 2 | super-linear matching (CWE-1333) | `scripts/surface-check.mjs`, the CSS `url()` pattern | new | DEFERRED (one open fix for rows 2, 7, 12 to 15, 17, 18, 21 and 22) | an unquoted body may contain further openers, so a failed match rescans; the body excludes them |
 | 3 | uncontrolled resource use (CWE-400) | `scripts/lib/i18n-catalogue.mjs`, catalogue flattening | new | FIXED (7a38caf, e7250d8) | the key text of one catalogue is bounded in total at 1,048,576 characters; past it the catalogue is refused whole with a named line, and its keys are neither stored nor compared |
 | 4 | inefficient algorithm (CWE-407) | `scripts/lib/page-template.mjs`, comment removal | same file and class | DEFERRED (the open fix of rows 1, 6, 8 and 9 above) | the earlier row 6, reworded; the code has not moved |
