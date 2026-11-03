@@ -45,8 +45,8 @@ Advisories: as above, none is owed. No finding reaches the served site or a publ
 
 | # | Class | Where | Seen | Disposition | Reason |
 |---|---|---|---|---|---|
-| 1 | uncontrolled resource use (CWE-400) | `scripts/lib/i18n-catalogue.mjs`, the cross-language key comparison | new | FIXED (e7250d8) | each catalogue is compared with `en.json` in both directions; at most 500 differing keys are listed in all, and the rest are counted in one line per file and direction, so the messages grow with the number of files, not with the keys times the files |
-| 2 | super-linear matching (CWE-1333) | `scripts/surface-check.mjs`, the CSS `url()` pattern | new | DEFERRED (one open fix for rows 2, 7, 12 to 15, 17, 18, 21 and 22) | an unquoted body may contain further openers, so a failed match rescans; the body excludes them |
+| 1 | uncontrolled resource use (CWE-400) | `scripts/lib/i18n-catalogue.mjs`, the cross-language key comparison | new | FIXED (e7250d8, fa893f3) | each catalogue is compared with `en.json` in both directions; at most 500 differing keys are listed in all, and the rest are counted in one line per file and direction, so the messages grow with the number of files, not with the keys times the files |
+| 2 | super-linear matching (CWE-1333) | `scripts/surface-check.mjs`, the CSS `url()` pattern | new | DEFERRED (one open fix for rows 2, 7, 12, 13 and 18) | an unquoted body may contain further openers, so a failed match rescans; the body excludes them |
 | 3 | uncontrolled resource use (CWE-400) | `scripts/lib/i18n-catalogue.mjs`, catalogue flattening | new | FIXED (7a38caf, e7250d8) | the key text of one catalogue is bounded in total at 1,048,576 characters; past it the catalogue is refused whole with a named line, and its keys are neither stored nor compared |
 | 4 | inefficient algorithm (CWE-407) | `scripts/lib/page-template.mjs`, comment removal | same file and class | DEFERRED (the open fix of rows 1, 6, 8 and 9 above) | the earlier row 6, reworded; the code has not moved |
 | 5 | uncontrolled resource use (CWE-400) | `scripts/lib/type-lint.mjs`, the unresolved-variable report | same file and class | FIXED (276eea5) | unresolved-name problems quote 120 characters, 200 names are listed, and the rest are counted in one line |
@@ -58,15 +58,15 @@ Advisories: as above, none is owed. No finding reaches the served site or a publ
 | 11 | super-linear matching (CWE-1333) | `scripts/lib/legal-render.mjs`, comment removal | same file and class | DEFERRED (the open fix of rows 2, 4, 5 and 7 above) | the earlier row 7, reworded |
 | 12 | super-linear matching (CWE-1333) | `scripts/surface-check.mjs`, SVG removal | new | DEFERRED (the open fix of row 2) | an opener with no closing tag makes the search rescan the rest; one forward pass replaces it |
 | 13 | inefficient algorithm (CWE-407) | `scripts/lib/type-lint.mjs`, nested function inspection | new | DEFERRED (the open fix of row 2) | overlapping bodies are scanned once per opener; each body is scanned once |
-| 14 | super-linear matching (CWE-1333) | `scripts/lib/legal-render.mjs`, the link pattern | same file and class | DEFERRED (the open fix of row 2) | a new site in this file: extra openers in a label make a failed match rescan; the label excludes them |
-| 15 | uncontrolled resource use (CWE-400) | `scripts/lib/font-coverage.mjs`, the glyph sets per stylesheet address | new | DEFERRED (the open fix of row 2) | each spelling of an address gets its own copy of the character lists; addresses are resolved to one file first |
+| 14 | super-linear matching (CWE-1333) | `scripts/lib/legal-render.mjs`, the link pattern | same file and class | FIXED (b73409e) | a link label stops at an opening bracket, so a bracket with no closing one is read once, not from every later bracket |
+| 15 | uncontrolled resource use (CWE-400) | `scripts/lib/font-coverage.mjs`, the glyph sets per stylesheet address | new | FIXED (7bf0395) | each font address is normalized before it keys the glyph-set map, so spellings of one file give one entry |
 | 16 | uncontrolled resource use (CWE-400) | `scripts/lib/font-coverage.mjs`, the font file read | new | FIXED (8216038) | the font file is read through the contained reader, which refuses a link that leads outside the root |
-| 17 | inefficient algorithm (CWE-407) | `scripts/lib/headers-file.mjs`, the path-pattern match | new | DEFERRED (the open fix of row 2) | the match allocates state the size of the path for each pattern token; the state is shared |
+| 17 | inefficient algorithm (CWE-407) | `scripts/lib/headers-file.mjs`, the path-pattern match | new | FIXED (7bdd015) | a path pattern with more than 256 wildcards is refused with an error; each wildcard costs one sweep of the path |
 | 18 | super-linear matching (CWE-1333) | `scripts/coderabbit-config.test.mjs`, the glob translation | new | DEFERRED (the open fix of row 2) | runs of wildcards become ambiguous quantifiers; they are collapsed first |
 | 19 | super-linear matching (CWE-1333) | `scripts/lib/font-coverage.mjs` (`facesOf`) | same file and class | DEFERRED (the open fix of rows 2, 4, 5 and 7 above) | the earlier row 2, reworded |
 | 20 | browser confinement | `scripts/lib/browser.mjs`, request interception | new | CONSIDERED | true: the interception does not see WebSocket connections. The page's own Content-Security-Policy is the control that blocks them, and it is tested; no browser-level block held on the CI runner's browser |
-| 21 | uncontrolled resource use (CWE-400) | `scripts/lib/domain-seams.mjs`, the reserved-key report | new | DEFERRED (the open fix of row 2) | each message carries the full ancestor path and the walk continues below the key; the walk stops there |
-| 22 | super-linear matching (CWE-1333) | `scripts/lib/domain-seams.mjs`, the cookie-write pattern | new | DEFERRED (the open fix of row 2) | a failed destructuring candidate makes the match rescan a long suffix; the pattern is anchored |
+| 21 | uncontrolled resource use (CWE-400) | `scripts/lib/domain-seams.mjs`, the reserved-key report | new | FIXED (3d60649) | a reserved key is reported once, and the walk does not go on below it |
+| 22 | super-linear matching (CWE-1333) | `scripts/lib/domain-seams.mjs`, the cookie-write pattern | new | FIXED (b447b8d) | a destructuring target is read to at most 200 characters, so the scan does not run to the end of the text at each name |
 | 23 | uncontrolled resource use (CWE-400) | `scripts/coderabbit-config.test.mjs` (`expandBraces`) | same file and class | DEFERRED (the open fix of rows 1, 6, 8 and 9 above) | the earlier row 1, reworded |
 | 24 | super-linear matching (CWE-1333) | `scripts/address-check.mjs` (`addressesIn`) | same file and class | DEFERRED (the open fix of rows 2, 4, 5 and 7 above) | the earlier row 4, reworded |
 | 25 | super-linear matching (CWE-1333) | `worker/index.mjs` (`emailShape`) | seen again | FIXED (a15186e) | the earlier row 3; an address over 254 characters is refused before one linear pass |
@@ -88,4 +88,4 @@ Advisories: as above, none is owed. No finding reaches the served site or a publ
   - the browser's loopback reach (`scripts/lib/browser.mjs`, f168e05).
 - 7 were renamed, not fixed: listed again in this batch, reworded, as rows 4, 6, 10, 11, 19, 23 and 24.
 
-Count: FIXED 15, CONSIDERED 1, REJECTED 0, DEFERRED 19. Advisories owed: 0.
+Count: FIXED 20, CONSIDERED 1, REJECTED 0, DEFERRED 14. Advisories owed: 0.
