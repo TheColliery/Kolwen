@@ -149,7 +149,11 @@ the tag before it builds anything, and refuses at the first failure:
   started from a branch is refused, whatever the event (`checkRun` in `scripts/npm-release-guard.mjs`).
 
 A manual run (`workflow_dispatch`) is started from the tag: in the Run workflow form, "Use workflow from" is set
-to the tag, and the `tag` input names it. A run started from a branch is refused by the check above.
+to the tag, and the `tag` input names it. The gate binds the run before checkout: a dispatch or a tag push, on the
+ref `refs/tags/<tag>`, whose commit is the verified tag commit, and whose tag object carries that tag's name. A run
+started from a branch is refused by that check. A branch whose copy of the workflow file was edited is a second
+case: the `npm` environment's deployment rule allows only tags matching `npm-v*`, so the job, which uses that
+environment, is not allowed to deploy from a branch (the rule is set up before the first tag, as above).
 
 Two settings are made before the first tag. On npmjs.com, the package's trusted publisher names this workflow
 file and the `npm` environment, and its "Allowed actions" allow direct publishing: npm's page says "npm stage
