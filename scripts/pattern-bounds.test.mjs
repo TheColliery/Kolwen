@@ -236,6 +236,18 @@ test('an over-budget catalogue is refused whole: its partial keys are neither st
   assert.deepEqual(problems.filter(p => / is missing \(it is in /.test(p)), [], 'a partial walk of the over-budget file was compared');
 });
 
+test('a 2,000-key English catalogue beside 300 empty catalogues gives at most 500 listed keys and one count line per file and direction', () => {
+  // Every empty catalogue lacks every English key. Listing each one costs the English key count per file; the bound is the listing budget plus two count lines per file.
+  const out = inChild(`import { catalogueProblems } from ${JSON.stringify(url(['scripts', 'lib', 'i18n-catalogue.mjs']))};
+const en = { home: Object.fromEntries(Array.from({ length: 2000 }, (_, i) => ['k' + i, 'v'])) };
+const files = { 'en.json': Buffer.from(JSON.stringify(en)) };
+const tagOf = i => String.fromCharCode(97 + (i % 26)) + String.fromCharCode(97 + Math.floor(i / 26));
+for (let i = 0; i < 300; i++) files[tagOf(i) + '.json'] = Buffer.from('{}');
+console.log('N ' + catalogueProblems(files).length);`);
+  const n = Number(/^N (\d+)$/.exec(out)?.[1]);
+  assert.ok(n <= 500 + 2 * 300, 'the problems number ' + n + ', over the 500 listed keys plus two count lines for each of the 300 files');
+});
+
 test('sixty catalogues with disjoint keys stay within twice their key count, and a key that a third file lacks is still reported', () => {
   // The disjoint files are compared with the default language only. The witness counts every problem and checks one line that must still be there.
   const out = inChild(`import { catalogueProblems } from ${JSON.stringify(url(['scripts', 'lib', 'i18n-catalogue.mjs']))};

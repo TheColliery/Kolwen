@@ -120,6 +120,7 @@ export function valueJson(value) {
 // Every string leaf of a catalogue object as { 'home.hero.title': value }. A leaf that is not a string, or a key that is not a key, is left to catalogueProblems.
 // The bound of one catalogue. Its key text (every key with its ancestor path) is bounded in total, so nested objects cannot make the keys quadratic in the file.
 const KEY_TEXT_MAX = 1 << 20;
+const LIST_MAX = 500; // the differing keys listed in all by the English comparison; the rest are counted per file
 export function flatten(obj, prefix = '', out = {}, spent = { n: 0 }) {
   for (const [k, v] of Object.entries(obj)) {
     const key = prefix ? prefix + '.' + k : k;
@@ -208,12 +209,34 @@ export function catalogueProblems(files) {
     parsed[tag] = leaves;
   }
   const tags = Object.keys(parsed);
-  // Each catalogue is compared with the default language in both directions, so the work and the messages grow with the keys, not with the pairs of files.
+  // Each catalogue is compared with the default language in both directions. At most LIST_MAX differing keys are listed in all, across every file; the rest
+  // are counted, one line per file and direction. Messages therefore grow with the files, not with the keys times the files. A file that lacks no keys is never scanned.
   const ref = parsed[DEFAULT_LANG];
-  if (ref) for (const tag of tags) {
-    if (tag === DEFAULT_LANG) continue;
-    for (const key of Object.keys(ref)) if (!(key in parsed[tag])) problems.push(`${tag}.json: key ${key} is missing (it is in ${DEFAULT_LANG}.json)`);
-    for (const key of Object.keys(parsed[tag])) if (!(key in ref)) problems.push(`${DEFAULT_LANG}.json: key ${key} is missing (it is in ${tag}.json)`);
+  if (ref) {
+    const refKeys = Object.keys(ref);
+    let listed = 0;
+    for (const tag of tags) {
+      if (tag === DEFAULT_LANG) continue;
+      const own = parsed[tag];
+      const extra = [];
+      let shared = 0;
+      for (const key of Object.keys(own)) { if (key in ref) shared++; else extra.push(key); }
+      const lacking = refKeys.length - shared; // the English keys this file lacks, counted without listing them
+      let missingListed = 0;
+      for (let i = 0; i < refKeys.length && lacking > 0 && listed < LIST_MAX; i++) {
+        if (refKeys[i] in own) continue;
+        problems.push(`${tag}.json: key ${refKeys[i]} is missing (it is in ${DEFAULT_LANG}.json)`);
+        listed++; missingListed++;
+      }
+      if (lacking > missingListed) problems.push(`${tag}.json: ${lacking - missingListed} more keys of ${DEFAULT_LANG}.json are missing`);
+      let extraListed = 0;
+      for (const key of extra) {
+        if (listed >= LIST_MAX) break;
+        problems.push(`${DEFAULT_LANG}.json: key ${key} is missing (it is in ${tag}.json)`);
+        listed++; extraListed++;
+      }
+      if (extra.length > extraListed) problems.push(`${DEFAULT_LANG}.json: ${extra.length - extraListed} more keys of ${tag}.json are missing`);
+    }
   }
   for (const key of Object.keys(parsed[tags[0]] ?? {})) {
     const have = tags.filter(t => key in parsed[t]);
