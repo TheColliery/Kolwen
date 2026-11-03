@@ -26,8 +26,9 @@ export function declarationsOf(css) {
   const cut = at => {
     const seg = text.slice(from, at);
     from = at + 1;
-    const m = /^\s*(--[^\s:]+|[a-z-]+)\s*:\s*([\s\S]*?)\s*$/i.exec(seg);
-    if (m) out.push({ prop: m[1].toLowerCase().startsWith('--') ? m[1] : m[1].toLowerCase(), value: m[2] });
+    // The value is the rest of the segment with its trailing whitespace cut, in one pass; the lazy match it replaces re-scanned a whitespace run at every character
+    const m = /^\s*(--[^\s:]+|[a-z-]+)\s*:/i.exec(seg);
+    if (m) out.push({ prop: m[1].toLowerCase().startsWith('--') ? m[1] : m[1].toLowerCase(), value: seg.slice(m[0].length).trim() });
   };
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
@@ -138,10 +139,16 @@ export function sizeProblem(value) {
 // What the lint says of a name the expansion could not resolve: the cut has its own line (ruling (a)), a missing name the usual one.
 const expansionWhy = name => (name === CUT_MARK ? CUT_WHY : name === MEMO_MARK ? MEMO_WHY : 'var(' + name + ') resolves to nothing, so its size cannot be judged');
 // A missing name is reported once per run: the first declaration that names it carries the line, so N declarations naming one name cost one problem (K-25).
+// A problem quotes at most EXCERPT characters of its declaration, and at most MISSING_MAX names are listed; the rest are counted in one line.
+const EXCERPT = 120;
+const MISSING_MAX = 200;
 function reportMissing(out, reported, d, name) {
   if (reported.has(name)) return;
   reported.add(name);
-  out.push({ prop: d.prop, value: d.value, why: expansionWhy(name) });
+  const cut = name === CUT_MARK || name === MEMO_MARK; // a cut is always said: it is never counted among the omitted names
+  if (!cut && reported.size > MISSING_MAX) { reported.omitted = (reported.omitted ?? 0) + 1; return; }
+  const value = d.value.length > EXCERPT ? d.value.slice(0, EXCERPT) + '...' : d.value;
+  out.push({ prop: d.prop, value, why: expansionWhy(name) });
 }
 export function fontSizeProblems(cssTexts) {
   const decls = cssTexts.flatMap(declarationsOf);
@@ -169,6 +176,7 @@ export function fontSizeProblems(cssTexts) {
     const why = sizeProblem(e.value);
     if (why) out.push({ prop: d.prop, value: d.value, why });
   }
+  if (reported.omitted) out.push({ prop: 'font-size', value: '', why: `${reported.omitted} more unresolved names were not listed (the first ${MISSING_MAX} are)` });
   return out;
 }
 
