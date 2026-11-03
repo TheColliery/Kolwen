@@ -8,7 +8,7 @@
 // every page is served as, whichever way it travels.
 import { createServer } from 'node:http';
 import { readFileSync, realpathSync, statSync } from 'node:fs';
-import { extname, join, resolve, sep } from 'node:path';
+import { extname, resolve, sep } from 'node:path';
 import { parseHeadersFile } from './headers-file.mjs';
 import { readContained } from './contained-read.mjs';
 
