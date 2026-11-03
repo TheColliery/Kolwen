@@ -208,15 +208,15 @@ console.log('OK ' + chars);`);
   assert.ok(/^OK \d+$/.test(out) && Number(out.slice(3)) < 1000000, 'the problems\' text is ' + out + ' for a twenty-thousand-name declaration');
 });
 
-test('sixty catalogues with disjoint keys produce no missing-key finding, so no pair of them is compared', () => {
-  // Each file holds keys no other file holds. A pairwise comparison would report every key of every file as missing from the rest: about 7 million lines,
-  // past the child's heap cap. The assertion counts the missing-key lines, so a comparison that still runs fails it.
+test('sixty catalogues with disjoint keys are compared with the default language only, so no pair of them is compared', () => {
+  // Each file holds keys no other file holds. A pairwise comparison reports each key missing from another file of the sixty, not only from the default
+  // language: about 7 million lines, past the child's heap cap. The assertion counts the missing-key lines that name a non-default reference.
   const out = inChild(`import { catalogueProblems } from ${JSON.stringify(url(['scripts', 'lib', 'i18n-catalogue.mjs']))};
 const files = { 'en.json': Buffer.from(JSON.stringify({ home: { hi: 'x' } })) };
 for (let i = 0; i < 60; i++) files[String.fromCharCode(97 + (i % 26)) + String.fromCharCode(97 + Math.floor(i / 26)) + '.json'] = Buffer.from(JSON.stringify({ home: Object.fromEntries(Array.from({ length: 2000 }, (_, j) => ['k' + i + 'x' + j, 'v'])) }));
 const problems = catalogueProblems(files);
-console.log('MISSING ' + problems.filter(p => p.includes(' is missing (it is in ')).length);`);
-  assert.equal(out, 'MISSING 0', 'a missing-key line is a pairwise comparison that ran');
+console.log('PAIRS ' + problems.filter(p => p.includes(' is missing (it is in ') && !p.startsWith('en.json:') && !p.endsWith('(it is in en.json)')).length);`);
+  assert.equal(out, 'PAIRS 0', 'a missing-key line that names a non-default catalogue is a pairwise comparison that ran');
 });
 
 test('a catalogue whose keys nest past the key-text budget is refused, and its keys are not built', () => {
@@ -224,6 +224,31 @@ test('a catalogue whose keys nest past the key-text budget is refused, and its k
   for (let i = 0; i < 2000; i++) obj = { k: 'x', n: obj };
   const problems = catalogueProblems({ 'en.json': Buffer.from(JSON.stringify(obj)) });
   assert.ok(problems.some(p => /key text/.test(p)), 'no key-text budget problem: ' + problems.slice(0, 3).join(' | '));
+});
+
+test('an over-budget catalogue is refused whole: its partial keys are neither stored nor compared with the others', () => {
+  // The first file is the nested chain past the key-text budget. The walk stops partway, so a stored partial walk would report the second file as
+  // missing keys the first file was never fully read for.
+  let obj = { v: 'x' };
+  for (let i = 0; i < 2000; i++) obj = { k: 'x', n: obj };
+  const problems = catalogueProblems({ 'en.json': Buffer.from(JSON.stringify(obj)), 'th.json': Buffer.from(JSON.stringify({ v: 'x' })) });
+  assert.ok(problems.some(p => /key text/.test(p)), 'the budget line is missing: ' + problems.slice(0, 3).join(' | '));
+  assert.deepEqual(problems.filter(p => / is missing \(it is in /.test(p)), [], 'a partial walk of the over-budget file was compared');
+});
+
+test('sixty catalogues with disjoint keys stay within twice their key count, and a key that a third file lacks is still reported', () => {
+  // The disjoint files are compared with the default language only. The witness counts every problem and checks one line that must still be there.
+  const out = inChild(`import { catalogueProblems } from ${JSON.stringify(url(['scripts', 'lib', 'i18n-catalogue.mjs']))};
+const en = { home: { hi: 'x', shared: 'y' } };
+const files = { 'en.json': Buffer.from(JSON.stringify(en)), 'th.json': Buffer.from(JSON.stringify(en)) };
+const tagOf = i => String.fromCharCode(97 + (i % 26)) + String.fromCharCode(97 + Math.floor(i / 26));
+let keys = 4;
+for (let i = 0; i < 60; i++) { files[tagOf(i) + '.json'] = Buffer.from(JSON.stringify({ home: Object.fromEntries(Array.from({ length: 2000 }, (_, j) => ['k' + i + 'x' + j, 'v'])) })); keys += 2000; }
+const problems = catalogueProblems(files);
+console.log(JSON.stringify({ n: problems.length, keys, lacks: problems.includes(tagOf(0) + '.json: key home.shared is missing (it is in en.json)') }));`);
+  const r = JSON.parse(out);
+  assert.ok(r.n <= 2 * r.keys, 'the problems number ' + r.n + ', over twice the ' + r.keys + ' keys');
+  assert.equal(r.lacks, true, 'a key that the third file lacks was not reported');
 });
 
 test('a font shorthand with no size and no missing name is still reported', () => {

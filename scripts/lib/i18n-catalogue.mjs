@@ -118,10 +118,8 @@ export function valueJson(value) {
 
 // ── the files ───────────────────────────────────────────────────────────────────────────────────
 // Every string leaf of a catalogue object as { 'home.hero.title': value }. A leaf that is not a string, or a key that is not a key, is left to catalogueProblems.
-// The bounds of one catalogue. Its key text (every key with its ancestor path) is bounded in total, so nested objects cannot make the keys quadratic in the file;
-// and the pairwise check compares at most MAX_TAGS files (its work is quadratic in the files).
+// The bound of one catalogue. Its key text (every key with its ancestor path) is bounded in total, so nested objects cannot make the keys quadratic in the file.
 const KEY_TEXT_MAX = 1 << 20;
-const MAX_TAGS = 16;
 export function flatten(obj, prefix = '', out = {}, spent = { n: 0 }) {
   for (const [k, v] of Object.entries(obj)) {
     const key = prefix ? prefix + '.' + k : k;
@@ -182,6 +180,7 @@ export function catalogueProblems(files) {
     const spent = { n: 0, stopped: false };
     const walk = (o, prefix) => {
       for (const [k, v] of Object.entries(o)) {
+        if (spent.stopped) return; // past the budget the whole walk stops, not only this branch
         const key = prefix ? prefix + '.' + k : k;
         if ((spent.n += key.length) > KEY_TEXT_MAX) {
           if (!spent.stopped) problems.push(`${name}: its keys pass ${KEY_TEXT_MAX} characters of key text, so the walk stopped; split the file`);
@@ -195,6 +194,7 @@ export function catalogueProblems(files) {
       }
     };
     walk(obj, '');
+    if (spent.stopped) continue; // an over-budget catalogue is refused whole: its partial keys are neither stored nor compared
     for (const [key, v] of Object.entries(leaves)) {
       const at = `${name}: ${key}`;
       if (v.includes(SPLIT_SARA_AM)) problems.push(`${at} has the split sara am U+0E4D U+0E32 (write the one character U+0E33)`);
@@ -208,10 +208,12 @@ export function catalogueProblems(files) {
     parsed[tag] = leaves;
   }
   const tags = Object.keys(parsed);
-  if (tags.length > MAX_TAGS) problems.push(`${tags.length} catalogue files: more than ${MAX_TAGS} is too many to check pair by pair, so the files are not compared; keep the languages the site ships`);
-  else for (const a of tags) for (const b of tags) {
-    if (a === b) continue;
-    for (const key of Object.keys(parsed[a])) if (!(key in parsed[b])) problems.push(`${b}.json: key ${key} is missing (it is in ${a}.json)`);
+  // Each catalogue is compared with the default language in both directions, so the work and the messages grow with the keys, not with the pairs of files.
+  const ref = parsed[DEFAULT_LANG];
+  if (ref) for (const tag of tags) {
+    if (tag === DEFAULT_LANG) continue;
+    for (const key of Object.keys(ref)) if (!(key in parsed[tag])) problems.push(`${tag}.json: key ${key} is missing (it is in ${DEFAULT_LANG}.json)`);
+    for (const key of Object.keys(parsed[tag])) if (!(key in ref)) problems.push(`${DEFAULT_LANG}.json: key ${key} is missing (it is in ${tag}.json)`);
   }
   for (const key of Object.keys(parsed[tags[0]] ?? {})) {
     const have = tags.filter(t => key in parsed[t]);
