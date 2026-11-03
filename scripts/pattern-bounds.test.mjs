@@ -301,6 +301,16 @@ console.log('OK ' + chars + ' ' + problems.length);`);
   assert.ok(m && Number(m[1]) < 2000 && Number(m[2]) === 1, 'the report is ' + out + '; one reserved key is reported once, not at each level below it');
 });
 
+test('a bulk of cookie property names before commas is checked in time linear in its length', () => {
+  // A destructuring target is read up to its closing bracket, and the read starts again at every cookie name. A bulk with no bracket at all is quadratic on
+  // the base commit; the control checks that a real destructuring write is still reported.
+  const out = inChild(`import { cookieProblems } from ${JSON.stringify(url(['scripts', 'lib', 'domain-seams.mjs']))};
+const bulk = cookieProblems([{ file: 'web/x.js', text: '.cookie,'.repeat(100000) }]).length;
+const control = cookieProblems([{ file: 'web/y.js', text: '[document.cookie, y] = z;' }]).length;
+console.log('OK ' + bulk + ' ' + control);`);
+  assert.equal(out, 'OK 0 1', 'the bulk has no write, and the control is one write');
+});
+
 test('a font shorthand with no size and no missing name is still reported', () => {
   const css = 'p.u{font:italic bold}';
   const dir = mkdtempSync(join(tmpdir(), 'pattern-bounds-unreadable-'));

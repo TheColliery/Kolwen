@@ -232,7 +232,8 @@ const ASSIGN_OP = /(?:\*\*|<<|>>>?|&&|\|\||\?\?|[+\-*/%|&^])?=(?![=>])/.source;
 const UPDATE_OP = '(?:\\+\\+|--)';
 const DOC_COOKIE_WRITE = new RegExp([
   COOKIE_PROP + GAP + ASSIGN_OP,
-  COOKIE_PROP + GAP + '(?:,[^\\]}=;]*)?[\\]}](?:' + GAP + '[\\]}])*' + GAP + ASSIGN_OP,
+  // the destructuring target is read to at most 200 characters: a bulk of cookie names with no bracket would otherwise be read to the end of the text at each name (quadratic)
+  COOKIE_PROP + GAP + '(?:,[^\\]}=;]{0,200})?[\\]}](?:' + GAP + '[\\]}])*' + GAP + ASSIGN_OP,
   // never two gaps side by side (the comments between them could be split in as many ways as there are comments): the closing delimiters, each with its own gap, are one optional group
   '\\bfor\\s*(?:await\\s*)?\\(\\s*[^;()]*?' + COOKIE_PROP + GAP + '(?:(?:,[^\\]}=;()]*)?(?:[\\]}]' + GAP + ')+)?(?:of|in)\\b',
   COOKIE_PROP + GAP_SAME_LINE + UPDATE_OP,
