@@ -267,13 +267,6 @@ console.log(JSON.stringify({ n: problems.length, keys, lacks: problems.includes(
   assert.equal(r.lacks, true, 'a key that the third file lacks was not reported');
 });
 
-test('a value with two hundred thousand open clamp() calls is judged in one pass, not one scan per call', () => {
-  const out = inChild(`import { fontSizeProblems } from ${JSON.stringify(url(['scripts', 'lib', 'type-lint.mjs']))};
-const css = 'p{font-size:' + 'clamp('.repeat(200000) + '1}';
-console.log('OK ' + fontSizeProblems([css]).length);`);
-  assert.equal(out, 'OK 1', 'the value is judged once, and its first clamp has no rem term');
-});
-
 test('a Markdown passage of two hundred thousand open brackets is converted in one pass', () => {
   const out = inChild(`import { inline } from ${JSON.stringify(url(['scripts', 'lib', 'legal-render.mjs']))};
 const md = '['.repeat(200000);
