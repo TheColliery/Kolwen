@@ -21,3 +21,69 @@ Advisories: whether a finding warrants a GitHub security advisory turns on who c
 | 9 | denial_of_service | `scripts/rendered-check.mjs` (`measureLines`) | 2026-11-01 | DEFERRED (one open fix for rows 1, 6, 8 and 9) | every line is filtered again for every block; each block's last line is recorded once |
 
 Count: FIXED 1, CONSIDERED 0, REJECTED 0, DEFERRED 8. Advisories owed: 0.
+
+## Batch B, 2026-11-03
+
+A second Deep Scan of `main`, read against `099e02e`, lists 35 open findings: 20 medium and 15 low. Against the scan recorded above:
+- 11 are the same findings seen again;
+- 9 sit at the same file and weakness class as an earlier finding;
+- 15 are new;
+- 10 earlier findings are no longer listed.
+
+Eleven of the open rows come from earlier scans that this scan did not raise again. Nine of those sit at sites where the fix has already shipped: their dashboard entries are open only because nobody has closed them.
+
+Thirty-four of the 35 sit in CI and development scripts, reached only by the maintainer's own input or by a contributor's pull request in that pull request's own CI. The 35th is the Worker's subscription address check, fixed before this scan.
+
+Method as above:
+- Each finding was read against the code at `099e02e`: why it was raised, whether it holds, and its other sides (the callers, the environments it runs in, who controls its input).
+- Each has one disposition: FIXED, CONSIDERED, REJECTED or DEFERRED.
+- "Seen" says whether a row is new, seen again, or at the same file and class as an earlier one.
+
+Advisories: as above, none is owed. No finding reaches the served site or a published package through input from outside the repository, and the one in the Worker is fixed.
+
+| # | Class | Where | Seen | Disposition | Reason |
+|---|---|---|---|---|---|
+| 1 | uncontrolled resource use (CWE-400) | `scripts/lib/i18n-catalogue.mjs`, the cross-language key comparison | new | DEFERRED (one open fix for rows 1 to 3, 5, 7, 8, 12 to 15, 17, 18, 21 and 22) | a message is stored for every pair of languages; the comparison is made against one reference language instead |
+| 2 | super-linear matching (CWE-1333) | `scripts/surface-check.mjs`, the CSS `url()` pattern | new | DEFERRED (the open fix of row 1) | an unquoted body may contain further openers, so a failed match rescans; the body excludes them |
+| 3 | uncontrolled resource use (CWE-400) | `scripts/lib/i18n-catalogue.mjs`, catalogue flattening | new | DEFERRED (the open fix of row 1) | each leaf key carries its whole ancestor path with no total bound; the total key text gets a limit |
+| 4 | inefficient algorithm (CWE-407) | `scripts/lib/page-template.mjs`, comment removal | same file and class | DEFERRED (the open fix of rows 1, 6, 8 and 9 above) | the earlier row 6, reworded; the code has not moved |
+| 5 | uncontrolled resource use (CWE-400) | `scripts/lib/type-lint.mjs`, the unresolved-variable report | same file and class | DEFERRED (the open fix of row 1) | each unresolved name repeats the whole declaration in its message; the message quotes the name only |
+| 6 | inefficient algorithm (CWE-407) | `scripts/rendered-check.mjs`, the line measurement | same file and class | DEFERRED (the open fix of rows 1, 6, 8 and 9 above) | the earlier row 9, reworded; the code has not moved |
+| 7 | inefficient algorithm (CWE-407) | `scripts/lib/rendered-text.mjs`, declaration recovery after an unterminated string | new | DEFERRED (the open fix of row 1) | recovery restarts inside a string already scanned; the scan keeps its position |
+| 8 | super-linear matching (CWE-1333) | `scripts/lib/type-lint.mjs`, the declaration pattern | new | DEFERRED (the open fix of row 1) | a long whitespace run makes the match rescan; the whitespace is consumed once |
+| 9 | uncontrolled resource use (CWE-400) | `scripts/lib/static-server.mjs`, the `_headers` read | new | DEFERRED (one open fix for rows 9 and 16) | the file is read before its location, type and size are checked; the read goes through the contained reader the other scripts use |
+| 10 | super-linear matching (CWE-1333) | `scripts/lib/rendered-text.mjs`, the script-string pattern | same file and class | DEFERRED (the open fix of rows 2, 4, 5 and 7 above) | an earlier row at this site, reworded; the code has not moved |
+| 11 | super-linear matching (CWE-1333) | `scripts/lib/legal-render.mjs`, comment removal | same file and class | DEFERRED (the open fix of rows 2, 4, 5 and 7 above) | the earlier row 7, reworded |
+| 12 | super-linear matching (CWE-1333) | `scripts/surface-check.mjs`, SVG removal | new | DEFERRED (the open fix of row 1) | an opener with no closing tag makes the search rescan the rest; one forward pass replaces it |
+| 13 | inefficient algorithm (CWE-407) | `scripts/lib/type-lint.mjs`, nested function inspection | new | DEFERRED (the open fix of row 1) | overlapping bodies are scanned once per opener; each body is scanned once |
+| 14 | super-linear matching (CWE-1333) | `scripts/lib/legal-render.mjs`, the link pattern | same file and class | DEFERRED (the open fix of row 1) | a new site in this file: extra openers in a label make a failed match rescan; the label excludes them |
+| 15 | uncontrolled resource use (CWE-400) | `scripts/lib/font-coverage.mjs`, the glyph sets per stylesheet address | new | DEFERRED (the open fix of row 1) | each spelling of an address gets its own copy of the character lists; addresses are resolved to one file first |
+| 16 | uncontrolled resource use (CWE-400) | `scripts/lib/font-coverage.mjs`, the font file read | new | DEFERRED (the open fix of rows 9 and 16) | the read checks neither the resolved location nor the file type; it goes through the contained reader |
+| 17 | inefficient algorithm (CWE-407) | `scripts/lib/headers-file.mjs`, the path-pattern match | new | DEFERRED (the open fix of row 1) | the match allocates state the size of the path for each pattern token; the state is shared |
+| 18 | super-linear matching (CWE-1333) | `scripts/coderabbit-config.test.mjs`, the glob translation | new | DEFERRED (the open fix of row 1) | runs of wildcards become ambiguous quantifiers; they are collapsed first |
+| 19 | super-linear matching (CWE-1333) | `scripts/lib/font-coverage.mjs` (`facesOf`) | same file and class | DEFERRED (the open fix of rows 2, 4, 5 and 7 above) | the earlier row 2, reworded |
+| 20 | browser confinement | `scripts/lib/browser.mjs`, request interception | new | CONSIDERED | true: the interception does not see WebSocket connections. The page's own Content-Security-Policy is the control that blocks them, and it is tested; no browser-level block held on the CI runner's browser |
+| 21 | uncontrolled resource use (CWE-400) | `scripts/lib/domain-seams.mjs`, the reserved-key report | new | DEFERRED (the open fix of row 1) | each message carries the full ancestor path and the walk continues below the key; the walk stops there |
+| 22 | super-linear matching (CWE-1333) | `scripts/lib/domain-seams.mjs`, the cookie-write pattern | new | DEFERRED (the open fix of row 1) | a failed destructuring candidate makes the match rescan a long suffix; the pattern is anchored |
+| 23 | uncontrolled resource use (CWE-400) | `scripts/coderabbit-config.test.mjs` (`expandBraces`) | same file and class | DEFERRED (the open fix of rows 1, 6, 8 and 9 above) | the earlier row 1, reworded |
+| 24 | super-linear matching (CWE-1333) | `scripts/address-check.mjs` (`addressesIn`) | same file and class | DEFERRED (the open fix of rows 2, 4, 5 and 7 above) | the earlier row 4, reworded |
+| 25 | super-linear matching (CWE-1333) | `worker/index.mjs` (`emailShape`) | seen again | FIXED (a15186e) | the earlier row 3; an address over 254 characters is refused before one linear pass |
+| 26 | super-linear matching (CWE-1333) | `scripts/sitemap-lastmod.mjs` (`strip`) | seen again | DEFERRED (the open fix of rows 2, 4, 5 and 7 above) | the earlier row 5 |
+| 27 | inefficient algorithm (CWE-407) | `scripts/surface-check.mjs` (`blank`) | seen again | DEFERRED (the open fix of rows 1, 6, 8 and 9 above) | the earlier row 8 |
+| 28 | uncontrolled resource use (CWE-400) | `scripts/lib/woff2-cmap.mjs`, range expansion | seen again | FIXED (f168e05) | the October rows; the reader bounds every size its font declares |
+| 29 | uncontrolled resource use (CWE-400) | `scripts/page-weight.mjs`, the stylesheet queue | seen again | FIXED (def04ae) | the queue is keyed by the real path |
+| 30 | super-linear matching (CWE-1333) | `scripts/post-deploy-check.mjs`, script removal | seen again | FIXED (f168e05) | the October row; removal is one forward pass |
+| 31 | uncontrolled resource use (CWE-400) | `scripts/page-weight.mjs`, the asset read | seen again | FIXED (def04ae) | the read goes through the contained reader: inside the root, a regular file, bounded |
+| 32 | uncontrolled resource use (CWE-400) | `scripts/sitemap-lastmod.mjs`, the page read | seen again | FIXED (def04ae) | the same contained reader |
+| 33 | uncontrolled resource use (CWE-400) | `scripts/lib/woff2-cmap.mjs`, name records | seen again | FIXED (f168e05) | the name records have a byte limit |
+| 34 | decompression bomb (CWE-409) | `scripts/lib/woff2-cmap.mjs`, decompression | seen again | FIXED (f168e05) | the output is capped at the sizes the font's directory declares |
+| 35 | uncontrolled resource use (CWE-400) | `scripts/lib/type-lint.mjs`, variable expansion | seen again | FIXED (f168e05) | expansion is memoised with an output budget, and the memo honours depth since 21b3afd |
+
+**No longer listed (10):**
+- 3 were fixed:
+  - the `_headers` parser's dropped removal lines (`scripts/lib/headers-file.mjs`, 9e09d25 and 0efffc2);
+  - the path matcher's wildcards (`scripts/lib/headers-file.mjs`, f168e05);
+  - the browser's loopback reach (`scripts/lib/browser.mjs`, f168e05).
+- 7 were renamed, not fixed: listed again in this batch, reworded, as rows 4, 6, 10, 11, 19, 23 and 24.
+
+Count: FIXED 9, CONSIDERED 1, REJECTED 0, DEFERRED 25. Advisories owed: 0.
