@@ -86,22 +86,36 @@ jobs:
           reason=$(printf '%s' "$tag_json" | jq -r '.verification.reason')
           commit=$(printf '%s' "$tag_json" | jq -r '.object.sha')
 
+          # ── THE BINDING, IN PLAIN SHELL, BEFORE ANY FETCHED CODE RUNS (review thread 4448984402). These three
+          # checks read environment values only and compare them with the commit the verified tag object names. A tag
+          # moved during the approval wait is refused here, before anything is fetched or checked out.
+          case "$EVENT_NAME" in
+            workflow_dispatch|push) ;;
+            *) echo "::error::refusing to publish: this run's event is '$EVENT_NAME': only a workflow_dispatch or a tag push may publish"; exit 1 ;;
+          esac
+          if [ "$GITHUB_REF" != "refs/tags/$TAG" ]; then
+            echo "::error::refusing to publish: this run started on '$GITHUB_REF', not on the tag $TAG. Start the run from the tag $TAG (the Run workflow form's Use workflow from set to the tag), or push the tag."
+            exit 1
+          fi
+          if [ "$GITHUB_SHA" != "$commit" ]; then
+            echo "::error::refusing to publish: this run's commit $GITHUB_SHA is not the verified commit of $TAG ($commit)"
+            exit 1
+          fi
+
           echo "tag=$TAG object=$obj_sha commit=$commit verified=$verified reason=$reason"
           if [ "$verified" != "true" ]; then
             echo "::error::refusing to publish: $TAG is annotated but its signature does not verify (reason: $reason). If that reads unknown_key, register the signing key on the account as a SIGNING key, or re-sign the tag. The gate is not the thing to soften."
             exit 1
           fi
-          # ── THE RUN IS BOUND TO ITS TAG, BEFORE ANY CHECKOUT (review thread 4448984402). The three binding checks
-          # are checkRun and checkTagName of scripts/npm-release-guard.mjs, run here in its `run` mode. The file is
-          # read from the VERIFIED commit, through the API, into a temporary folder, so nothing from the checkout
-          # (which a tag moved during the approval wait would change) is read before these checks pass. The
-          # values come from the environment and from this step's own variables, never from the script's text.
+          # The second layer: the rules of scripts/npm-release-guard.mjs, in its `run` mode, are fetched at the RUN'S OWN
+          # commit ($GITHUB_SHA, which the plain-shell checks above just proved is the verified commit), into a temporary
+          # folder, and run there. Code that performs a check is never taken from the commit the check is about to judge.
           tagname=$(printf '%s' "$tag_json" | jq -r '.tag')
           bind="$RUNNER_TEMP/bind"
           mkdir -p "$bind/scripts/lib"
           fetch_guard() { curl -sS --fail-with-body -H "Authorization: Bearer $TOKEN" \
                             -H "Accept: application/vnd.github.raw" \
-                            "https://api.github.com/repos/$REPO/contents/$1?ref=$commit" -o "$bind/$1"; }
+                            "https://api.github.com/repos/$REPO/contents/$1?ref=$GITHUB_SHA" -o "$bind/$1"; }
           fetch_guard scripts/npm-release-guard.mjs || {
             echo "::error::refusing to publish: cannot read the release guard at the verified commit $commit"; exit 1; }
           fetch_guard scripts/lib/entry-guard.mjs || {
