@@ -3,7 +3,7 @@
 // Node builtins only. A test that needs a changed copy of the site works on a copy in a temp folder; the real tree is never written.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, cpSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, cpSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { brotliCompressSync } from 'node:zlib';
 import { tmpdir } from 'node:os';
@@ -34,6 +34,7 @@ console.log('N ' + m.size + ' ' + needs + ' ' + empty);`;
 });
 import { glyphSets, coverageGaps, facesOf, asksForLayoutFeature, THAI_SHAPING } from './lib/font-coverage.mjs';
 import { cutSet, BASELINE } from './font-subset.mjs';
+import * as fontSubset from './font-subset.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const WEB = join(ROOT, 'web');
@@ -134,6 +135,29 @@ test('RED PROOF: a "<!--" inside an attribute value, a <textarea>, a <title> or 
   assert.ok(textOf('<textarea>' + THAI + '</textarea>').includes(THAI), 'but a textarea body is text the page draws');
   assert.ok(textOf('<textarea><!-- ' + THAI + ' --></textarea>x').includes(THAI), 'a comment-like text in a textarea is text too');
   assert.ok(textOf('a < b ' + THAI + ' > c').includes(THAI), 'a "<" that starts no tag is text');
+});
+
+test('a font re-cut keeps fonts.css in step with the file it renames: a stylesheet that names a managed font by a non-canonical spelling is refused, and nothing it names is deleted', () => {
+  const canon = '/fonts/thai/kw-sans-thai-400.7a93a32da9.woff2';
+  const next = '/fonts/thai/kw-sans-thai-400.0123456789.woff2';
+  const sheet = u => `@font-face { src: url('${u}') format('woff2'); }`;
+  const managed = new Set([canon]);
+  const doubled = '/fonts/thai//kw-sans-thai-400.7a93a32da9.woff2';
+  const dotted = '/fonts/thai/./kw-sans-thai-400.7a93a32da9.woff2';
+  assert.deepEqual(fontSubset.spellingProblems(sheet(doubled), managed), [doubled], 'a doubled slash is refused');
+  assert.deepEqual(fontSubset.spellingProblems(sheet(dotted), managed), [dotted], 'a dot segment is refused');
+  assert.deepEqual(fontSubset.spellingProblems(sheet(canon), managed), [], 'the canonical spelling is not refused');
+  assert.deepEqual(fontSubset.spellingProblems(sheet('/fonts/other//x.woff2'), managed), [], 'a font the cut does not manage is not this rule');
+  assert.equal(fontSubset.restyle(sheet(canon), [[canon, next]]), sheet(next), 'the canonical name is restyled to the new file');
+  // The file half: a refused re-cut deletes nothing, so the spelling the stylesheet holds still resolves to a file on disk.
+  const dir = mkdtempSync(join(tmpdir(), 'font-css-'));
+  try {
+    mkdirSync(join(dir, 'fonts', 'thai'), { recursive: true });
+    writeFileSync(join(dir, canon), 'uncut bytes');
+    assert.ok(fontSubset.spellingProblems(sheet(doubled), managed).length > 0, 'refused before any file is touched');
+    assert.ok(existsSync(join(dir, canon)), 'the file the cut would have renamed is kept');
+    assert.ok(existsSync(join(dir, doubled)), 'the stylesheet spelling still resolves to a file');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('the derived set: the pages render these characters, the Thai block among them, and every one is a code point at or above U+0020', () => {

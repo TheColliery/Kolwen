@@ -19,9 +19,9 @@
 import { readFileSync, writeFileSync, readdirSync, mkdirSync, mkdtempSync, rmSync, existsSync, statSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
-import { join, dirname, resolve, sep } from 'node:path';
+import { join, dirname, resolve, sep, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { glyphSets, hashOf, inRange, FONT_URL } from './lib/font-coverage.mjs';
+import { glyphSets, hashOf, inRange, facesOf, FONT_URL } from './lib/font-coverage.mjs';
 import { isMainModule } from './lib/entry-guard.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -80,6 +80,20 @@ const PY = [
   'subset.save_font(font, out, opts)',
 ].join('\n');
 
+// The urls of fonts.css that name a managed file by a spelling other than its canonical one (a doubled slash, a dot segment). A re-cut renames the canonical name and deletes
+// the old file, so such a spelling would keep pointing at a file that is gone. The cut refuses before it writes or deletes anything; it does not rewrite the spelling.
+// `managed` holds the canonical urls of the files this cut renames.
+export function spellingProblems(css, managed) {
+  const urls = facesOf(css.replace(/\r\n/g, '\n')).flatMap(f => f.urls);
+  return [...new Set(urls)].filter(u => posix.normalize(u) !== u && managed.has(posix.normalize(u)));
+}
+
+// The stylesheet with each renamed url replaced by its new one. Every non-canonical spelling was refused before the cut (spellingProblems), so the canonical name is the only one here.
+export function restyle(css, renames) {
+  for (const [oldUrl, newUrl] of renames) css = css.split(oldUrl).join(newUrl);
+  return css;
+}
+
 function main() {
   const args = process.argv.slice(2);
   if (args.includes('-h') || args.includes('--help')) { console.log(USAGE); return; }
@@ -89,6 +103,13 @@ function main() {
   const src = opt('--src'), python = opt('--python'), pythonpath = opt('--pythonpath');
   if (!src || !python) { console.error(USAGE); process.exitCode = 2; return; }
   const sets = glyphSets(WEB);
+  const cssPath = join(WEB, 'fonts/fonts.css');
+  const refused = spellingProblems(readFileSync(cssPath, 'utf8'), new Set([...sets.values()].map(f => f.url)));
+  if (refused.length) {
+    for (const u of refused) console.error(`FAIL fonts.css names ${u} by a spelling that is not canonical (write it as ${posix.normalize(u)}); nothing was cut, written or deleted`);
+    process.exitCode = 1;
+    return;
+  }
   const tmp = mkdtempSync(join(tmpdir(), 'font-subset-'));
   const env = { ...process.env, ...(pythonpath ? { PYTHONPATH: pythonpath } : {}) };
   let failed = 0;
@@ -112,10 +133,7 @@ function main() {
     }
   } finally { rmSync(tmp, { recursive: true, force: true }); }
   if (renames.length) {
-    const cssPath = join(WEB, 'fonts/fonts.css');
-    let css = readFileSync(cssPath, 'utf8');
-    for (const [oldUrl, newUrl] of renames) css = css.split(oldUrl).join(newUrl);
-    writeFileSync(cssPath, css);
+    writeFileSync(cssPath, restyle(readFileSync(cssPath, 'utf8'), renames));
     console.log('fonts.css now names the new urls. Name them in scripts/surface-check.mjs (rule 7) too:');
     for (const file of readdirSync(join(WEB, 'fonts'), { recursive: true })) if (String(file).endsWith('.woff2')) console.log("  'web/fonts/" + String(file).split(sep).join('/') + "',");
   }
