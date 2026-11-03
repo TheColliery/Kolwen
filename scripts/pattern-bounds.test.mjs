@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { patternMatches } from './lib/headers-file.mjs';
-import { fontSizeProblems, pageTypeProblems } from './lib/type-lint.mjs';
+import { fontSizeProblems } from './lib/type-lint.mjs';
 import { catalogueProblems } from './lib/i18n-catalogue.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -187,32 +187,36 @@ console.log('N ' + problems.length);`, { CSS_FILE: file }, 1024);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('a declaration with a long whitespace run inside its value is read in time linear in its length', () => {
+test('a declaration with a long whitespace run inside its value is read to its end, not re-scanned at every character', () => {
+  // The pathological input: three hundred thousand spaces inside one value. The lazy match this replaced re-scanned the run at each character, so the
+  // child runs past the kill timer on the old code; the bound is the child's heap cap and that timer, not a clock read here.
   const out = inChild(`import { fontSizeProblems } from ${JSON.stringify(url(['scripts', 'lib', 'type-lint.mjs']))};
-const css = 'p{font-size:1rem' + ' '.repeat(100000) + 'x}';
-const t0 = performance.now();
+const css = 'p{font-size:1rem' + ' '.repeat(300000) + 'x}';
 fontSizeProblems([css]);
-console.log('OK ' + Math.round(performance.now() - t0));`);
-  const ms = Number(/^OK (\d+)$/.exec(out)?.[1]);
-  assert.ok(ms < 1000, `took ${ms} ms, over the 1000 ms bound (${out})`);
+console.log('OK');`);
+  assert.equal(out, 'OK', 'the declaration is read to its end');
 });
 
 test('a declaration naming twenty thousand unresolved names reports them in output bounded by its length', () => {
-  const names = Array.from({ length: 20000 }, (_, i) => 'var(--u' + i + ')').join(' ');
-  const html = '<!doctype html><html><head><style>p{font-size:' + names + '}</style></head><body></body></html>';
+  // The fixture is built inside the child (a 270 KB argument is refused by the kernel on Linux). Its problems are summed without joining them.
   const out = inChild(`import { pageTypeProblems } from ${JSON.stringify(url(['scripts', 'lib', 'type-lint.mjs']))};
-const problems = pageTypeProblems(process.env.HTML);
-console.log('OK ' + problems.join('\\n').length);`, { HTML: html });
-  assert.ok(Number(out.slice(3)) < 1000000, 'the problems\' text is ' + out.slice(3) + ' characters for a ' + names.length + '-character declaration');
+const names = Array.from({ length: 20000 }, (_, i) => 'var(--u' + i + ')').join(' ');
+const html = '<!doctype html><html><head><style>p{font-size:' + names + '}</style></head><body></body></html>';
+let chars = 0;
+for (const p of pageTypeProblems(html)) chars += p.length;
+console.log('OK ' + chars);`);
+  assert.ok(/^OK \d+$/.test(out) && Number(out.slice(3)) < 1000000, 'the problems\' text is ' + out + ' for a twenty-thousand-name declaration');
 });
 
-test('a set of catalogue files larger than the pairwise check is refused before the pairs are compared', () => {
+test('sixty catalogues with disjoint keys produce no missing-key finding, so no pair of them is compared', () => {
+  // Each file holds keys no other file holds. A pairwise comparison would report every key of every file as missing from the rest: about 7 million lines,
+  // past the child's heap cap. The assertion counts the missing-key lines, so a comparison that still runs fails it.
   const out = inChild(`import { catalogueProblems } from ${JSON.stringify(url(['scripts', 'lib', 'i18n-catalogue.mjs']))};
 const files = { 'en.json': Buffer.from(JSON.stringify({ home: { hi: 'x' } })) };
 for (let i = 0; i < 60; i++) files[String.fromCharCode(97 + (i % 26)) + String.fromCharCode(97 + Math.floor(i / 26)) + '.json'] = Buffer.from(JSON.stringify({ home: Object.fromEntries(Array.from({ length: 2000 }, (_, j) => ['k' + i + 'x' + j, 'v'])) }));
 const problems = catalogueProblems(files);
-console.log('OK ' + problems.some(p => /pair by pair/.test(p)));`);
-  assert.equal(out, 'OK true', 'the catalogue files are not counted as one set and refused');
+console.log('MISSING ' + problems.filter(p => p.includes(' is missing (it is in ')).length);`);
+  assert.equal(out, 'MISSING 0', 'a missing-key line is a pairwise comparison that ran');
 });
 
 test('a catalogue whose keys nest past the key-text budget is refused, and its keys are not built', () => {
