@@ -342,6 +342,16 @@ console.log('OK ' + text.length + ' ' + chars);`);
   assert.ok(m && Number(m[2]) < 20 * Number(m[1]), 'the report is ' + (m ? m[2] : out) + ' characters for ' + (m ? m[1] : '?') + ' of input');
 });
 
+test('a bulk of link openers with no closing parenthesis is converted in time linear in its length', () => {
+  // Each opener's url is read to the next parenthesis or space, and no parenthesis comes, so each opener reads to the end of the passage. The control is a
+  // closed link, which must still become an anchor.
+  const out = inChild(`import { inline } from ${JSON.stringify(url(['scripts', 'lib', 'legal-render.mjs']))};
+const bulk = inline('[a](https://'.repeat(80000));
+const control = inline('[a](https://x.y)') === '<a href="https://x.y">a</a>';
+console.log('OK ' + control + ' ' + bulk.length);`);
+  assert.equal(out, 'OK true 960000', 'the control is an anchor, and the bulk is text unchanged');
+});
+
 test('a font shorthand with no size and no missing name is still reported', () => {
   const css = 'p.u{font:italic bold}';
   const dir = mkdtempSync(join(tmpdir(), 'pattern-bounds-unreadable-'));

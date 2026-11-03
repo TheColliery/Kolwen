@@ -119,7 +119,7 @@ export function inline(md) {
   let s = md.replace(/`([^`]+)`/g, (_, c) => { codes.push(c); return SLOT + (codes.length - 1) + SLOT; });
   s = escText(s);
   // the label excludes an opening bracket: a bracket with no closing one is then read once, not searched from again at every later bracket
-  s = s.replace(/\[([^\][]+)\]\((https:\/\/[^)\s]+)\)/g, '<a href="$2">$1</a>'); // text and url are already escaped
+  s = s.replace(/\[([^\][]+)\]\((https:\/\/[^)\s[(]+)\)/g, '<a href="$2">$1</a>'); // text and url are already escaped
   s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   s = s.replace(/(^|[^*])\*([^*\s][^*]*?)\*(?!\*)/g, '$1<em>$2</em>');
   return s.replace(new RegExp(SLOT + '([0-9]+)' + SLOT, 'g'), (_, i) => '<code>' + escText(codes[Number(i)]) + '</code>');
@@ -128,7 +128,7 @@ export function inline(md) {
 export function plain(md) {
   const codes = [];
   let s = md.replace(/`([^`]+)`/g, (_, c) => { codes.push(c); return SLOT + (codes.length - 1) + SLOT; });
-  s = s.replace(/\[([^\][]+)\]\(https:\/\/[^)\s]+\)/g, '$1').replace(/\*\*(.+?)\*\*/g, '$1').replace(/(^|[^*])\*([^*\s][^*]*?)\*(?!\*)/g, '$1$2');
+  s = s.replace(/\[([^\][]+)\]\(https:\/\/[^)\s[(]+\)/g, '$1').replace(/\*\*(.+?)\*\*/g, '$1').replace(/(^|[^*])\*([^*\s][^*]*?)\*(?!\*)/g, '$1$2');
   return squash(s.replace(new RegExp(SLOT + '([0-9]+)' + SLOT, 'g'), (_, i) => codes[Number(i)]));
 }
 
