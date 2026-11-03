@@ -312,6 +312,14 @@ console.log('OK ' + cookieProblems([{ file: 'web/z.js', text: '[document.cookie,
   assert.equal(out, 'OK 1', 'the long target is reported as one line');
 });
 
+test('a cookie write whose long destructuring target holds a parenthesis is reported, not skipped', () => {
+  // The same forty names, with a parenthesis at the front of the target. The report must not depend on whether the target holds a parenthesis.
+  const out = inChild(`import { cookieProblems } from ${JSON.stringify(url(['scripts', 'lib', 'domain-seams.mjs']))};
+const names = Array.from({ length: 40 }, (_, i) => 'name' + i + 'x'.repeat(10)).join(',');
+console.log('OK ' + cookieProblems([{ file: 'web/p.js', text: '[document.cookie, (a), ' + names + '] = z;' }]).length);`);
+  assert.equal(out, 'OK 1', 'the long target with a parenthesis is reported as one line');
+});
+
 test('a bulk of for-loop cookie targets is checked in time linear in its length', () => {
   // The for-loop alternative reads its target to the next parenthesis, and restarts at each cookie name; with no parenthesis the base is quadratic.
   const out = inChild(`import { cookieProblems } from ${JSON.stringify(url(['scripts', 'lib', 'domain-seams.mjs']))};

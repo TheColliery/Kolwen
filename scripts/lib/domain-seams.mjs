@@ -242,7 +242,7 @@ const DOC_COOKIE_WRITE = new RegExp([
 // The fail-closed twin of the two bounded alternatives above: a destructuring target past the 200-character bound. It cannot be ruled out as a write, so it is
 // reported, once per file, and never passed over. Its own read is bounded too, so the check stays linear.
 const DOC_TARGET_LONG = new RegExp([
-  COOKIE_PROP + GAP + ',[^\\]}=;()]{201}',
+  COOKIE_PROP + GAP + ',[^\\]}=;]{201}',
   '\\bfor\\s*(?:await\\s*)?\\(\\s*[^;()]*?' + COOKIE_PROP + GAP + ',[^\\]}=;()]{201}',
 ].join('|'));
 const ASSIGN_COOKIE = /\bObject\s*\.\s*assign\s*\(\s*document\s*,[^)]*\bcookie\b/;
