@@ -235,9 +235,15 @@ const DOC_COOKIE_WRITE = new RegExp([
   // the destructuring target is read to at most 200 characters: a bulk of cookie names with no bracket would otherwise be read to the end of the text at each name (quadratic)
   COOKIE_PROP + GAP + '(?:,[^\\]}=;]{0,200})?[\\]}](?:' + GAP + '[\\]}])*' + GAP + ASSIGN_OP,
   // never two gaps side by side (the comments between them could be split in as many ways as there are comments): the closing delimiters, each with its own gap, are one optional group
-  '\\bfor\\s*(?:await\\s*)?\\(\\s*[^;()]*?' + COOKIE_PROP + GAP + '(?:(?:,[^\\]}=;()]*)?(?:[\\]}]' + GAP + ')+)?(?:of|in)\\b',
+  '\\bfor\\s*(?:await\\s*)?\\(\\s*[^;()]*?' + COOKIE_PROP + GAP + '(?:(?:,[^\\]}=;()]{0,200})?(?:[\\]}]' + GAP + ')+)?(?:of|in)\\b',
   COOKIE_PROP + GAP_SAME_LINE + UPDATE_OP,
   UPDATE_OP + GAP + '[\\w$.]*?' + COOKIE_PROP,
+].join('|'));
+// The fail-closed twin of the two bounded alternatives above: a destructuring target past the 200-character bound. It cannot be ruled out as a write, so it is
+// reported, once per file, and never passed over. Its own read is bounded too, so the check stays linear.
+const DOC_TARGET_LONG = new RegExp([
+  COOKIE_PROP + GAP + ',[^\\]}=;()]{201}',
+  '\\bfor\\s*(?:await\\s*)?\\(\\s*[^;()]*?' + COOKIE_PROP + GAP + ',[^\\]}=;()]{201}',
 ].join('|'));
 const ASSIGN_COOKIE = /\bObject\s*\.\s*assign\s*\(\s*document\s*,[^)]*\bcookie\b/;
 const COOKIE_CALLS = /\b(?:cookieStore\s*\.\s*set|cookies\s*\.\s*set|setCookie|serialize(?:Cookie)?)\s*\(/;
@@ -288,6 +294,7 @@ export function cookieProblems(files) {
         continue;
       }
       if (DOC_COOKIE_WRITE.test(text)) sets.push('writes document.cookie');
+      if (DOC_TARGET_LONG.test(text)) out.push(prob(file, 'a destructuring target after a cookie name runs past 200 characters, so it cannot be ruled out as a write; shorten it'));
       if (DOMAIN_ATTR.test(text)) domains.push(1);
       if (CODE_FILE.test(file)) codeCookieUses(text, sets, domains);
       if (/\.html?$/i.test(file)) {

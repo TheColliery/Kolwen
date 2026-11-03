@@ -308,7 +308,22 @@ test('a bulk of cookie property names before commas is checked in time linear in
 const bulk = cookieProblems([{ file: 'web/x.js', text: '.cookie,'.repeat(100000) }]).length;
 const control = cookieProblems([{ file: 'web/y.js', text: '[document.cookie, y] = z;' }]).length;
 console.log('OK ' + bulk + ' ' + control);`);
-  assert.equal(out, 'OK 0 1', 'the bulk has no write, and the control is one write');
+  assert.equal(out, 'OK 1 1', 'the bulk is one reported line, not skipped, and the control is one write');
+});
+
+test('a cookie write whose destructuring target is longer than the bound is reported, not skipped', () => {
+  // The target is forty names, about 630 characters: past the bound, so it cannot be read in full. It must be reported, not passed over.
+  const out = inChild(`import { cookieProblems } from ${JSON.stringify(url(['scripts', 'lib', 'domain-seams.mjs']))};
+const names = Array.from({ length: 40 }, (_, i) => 'name' + i + 'x'.repeat(10)).join(',');
+console.log('OK ' + cookieProblems([{ file: 'web/z.js', text: '[document.cookie, ' + names + '] = z;' }]).length);`);
+  assert.equal(out, 'OK 1', 'the long target is reported as one line');
+});
+
+test('a bulk of for-loop cookie targets is checked in time linear in its length', () => {
+  // The for-loop alternative reads its target to the next parenthesis, and restarts at each cookie name; with no parenthesis the base is quadratic.
+  const out = inChild(`import { cookieProblems } from ${JSON.stringify(url(['scripts', 'lib', 'domain-seams.mjs']))};
+console.log('OK ' + cookieProblems([{ file: 'web/f.js', text: 'for(' + '.cookie,'.repeat(100000) }]).length);`);
+  assert.equal(out, 'OK 1', 'the bulk is one reported line');
 });
 
 test('a font shorthand with no size and no missing name is still reported', () => {
