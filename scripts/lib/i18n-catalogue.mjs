@@ -118,10 +118,15 @@ export function valueJson(value) {
 
 // ── the files ───────────────────────────────────────────────────────────────────────────────────
 // Every string leaf of a catalogue object as { 'home.hero.title': value }. A leaf that is not a string, or a key that is not a key, is left to catalogueProblems.
-export function flatten(obj, prefix = '', out = {}) {
+// The bounds of one catalogue. Its key text (every key with its ancestor path) is bounded in total, so nested objects cannot make the keys quadratic in the file;
+// and the pairwise check compares at most MAX_TAGS files (its work is quadratic in the files).
+const KEY_TEXT_MAX = 1 << 20;
+const MAX_TAGS = 16;
+export function flatten(obj, prefix = '', out = {}, spent = { n: 0 }) {
   for (const [k, v] of Object.entries(obj)) {
     const key = prefix ? prefix + '.' + k : k;
-    if (v && typeof v === 'object' && !Array.isArray(v)) flatten(v, key, out); else if (typeof v === 'string') out[key] = v;
+    if ((spent.n += key.length) > KEY_TEXT_MAX) throw new Error(`the keys pass ${KEY_TEXT_MAX} characters of key text`);
+    if (v && typeof v === 'object' && !Array.isArray(v)) flatten(v, key, out, spent); else if (typeof v === 'string') out[key] = v;
   }
   return out;
 }
@@ -174,9 +179,15 @@ export function catalogueProblems(files) {
     if (!obj || typeof obj !== 'object' || Array.isArray(obj)) { problems.push(`${name}: the top level must be an object of pages`); continue; }
     for (const r of repeatedKeys(text)) problems.push(`${name}: repeats the key ${r.key} in one object (${r.path || 'top level'}); JSON keeps the last and hides the first`);
     const leaves = {};
+    const spent = { n: 0, stopped: false };
     const walk = (o, prefix) => {
       for (const [k, v] of Object.entries(o)) {
         const key = prefix ? prefix + '.' + k : k;
+        if ((spent.n += key.length) > KEY_TEXT_MAX) {
+          if (!spent.stopped) problems.push(`${name}: its keys pass ${KEY_TEXT_MAX} characters of key text, so the walk stopped; split the file`);
+          spent.stopped = true;
+          return;
+        }
         if (!/^[a-z][a-z0-9-]*$/.test(k)) problems.push(`${name}: key ${key} is not a lowercase ASCII key (letters, digits and hyphens, starting with a letter)`);
         if (v && typeof v === 'object' && !Array.isArray(v)) walk(v, key);
         else if (typeof v !== 'string') problems.push(`${name}: ${key} must be a string (found ${Array.isArray(v) ? 'an array' : v === null ? 'null' : typeof v})`);
@@ -197,7 +208,8 @@ export function catalogueProblems(files) {
     parsed[tag] = leaves;
   }
   const tags = Object.keys(parsed);
-  for (const a of tags) for (const b of tags) {
+  if (tags.length > MAX_TAGS) problems.push(`${tags.length} catalogue files: more than ${MAX_TAGS} is too many to check pair by pair, so the files are not compared; keep the languages the site ships`);
+  else for (const a of tags) for (const b of tags) {
     if (a === b) continue;
     for (const key of Object.keys(parsed[a])) if (!(key in parsed[b])) problems.push(`${b}.json: key ${key} is missing (it is in ${a}.json)`);
   }

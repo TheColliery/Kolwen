@@ -11,7 +11,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { patternMatches } from './lib/headers-file.mjs';
-import { fontSizeProblems } from './lib/type-lint.mjs';
+import { fontSizeProblems, pageTypeProblems } from './lib/type-lint.mjs';
+import { catalogueProblems } from './lib/i18n-catalogue.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const url = rel => pathToFileURL(join(ROOT, ...rel)).href;
@@ -184,6 +185,41 @@ const problems = fontSizeProblems([readFileSync(process.env.CSS_FILE, 'utf8')]);
 console.log('N ' + problems.length);`, { CSS_FILE: file }, 1024);
     assert.equal(out, 'N 1', 'one missing name is one problem');
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('a declaration with a long whitespace run inside its value is read in time linear in its length', () => {
+  const out = inChild(`import { fontSizeProblems } from ${JSON.stringify(url(['scripts', 'lib', 'type-lint.mjs']))};
+const css = 'p{font-size:1rem' + ' '.repeat(100000) + 'x}';
+const t0 = performance.now();
+fontSizeProblems([css]);
+console.log('OK ' + Math.round(performance.now() - t0));`);
+  const ms = Number(/^OK (\d+)$/.exec(out)?.[1]);
+  assert.ok(ms < 1000, `took ${ms} ms, over the 1000 ms bound (${out})`);
+});
+
+test('a declaration naming twenty thousand unresolved names reports them in output bounded by its length', () => {
+  const names = Array.from({ length: 20000 }, (_, i) => 'var(--u' + i + ')').join(' ');
+  const html = '<!doctype html><html><head><style>p{font-size:' + names + '}</style></head><body></body></html>';
+  const out = inChild(`import { pageTypeProblems } from ${JSON.stringify(url(['scripts', 'lib', 'type-lint.mjs']))};
+const problems = pageTypeProblems(process.env.HTML);
+console.log('OK ' + problems.join('\\n').length);`, { HTML: html });
+  assert.ok(Number(out.slice(3)) < 1000000, 'the problems\' text is ' + out.slice(3) + ' characters for a ' + names.length + '-character declaration');
+});
+
+test('a set of catalogue files larger than the pairwise check is refused before the pairs are compared', () => {
+  const out = inChild(`import { catalogueProblems } from ${JSON.stringify(url(['scripts', 'lib', 'i18n-catalogue.mjs']))};
+const files = { 'en.json': Buffer.from(JSON.stringify({ home: { hi: 'x' } })) };
+for (let i = 0; i < 60; i++) files[String.fromCharCode(97 + (i % 26)) + String.fromCharCode(97 + Math.floor(i / 26)) + '.json'] = Buffer.from(JSON.stringify({ home: Object.fromEntries(Array.from({ length: 2000 }, (_, j) => ['k' + i + 'x' + j, 'v'])) }));
+const problems = catalogueProblems(files);
+console.log('OK ' + problems.some(p => /pair by pair/.test(p)));`);
+  assert.equal(out, 'OK true', 'the catalogue files are not counted as one set and refused');
+});
+
+test('a catalogue whose keys nest past the key-text budget is refused, and its keys are not built', () => {
+  let obj = { v: 'x' };
+  for (let i = 0; i < 2000; i++) obj = { k: 'x', n: obj };
+  const problems = catalogueProblems({ 'en.json': Buffer.from(JSON.stringify(obj)) });
+  assert.ok(problems.some(p => /key text/.test(p)), 'no key-text budget problem: ' + problems.slice(0, 3).join(' | '));
 });
 
 test('a font shorthand with no size and no missing name is still reported', () => {
