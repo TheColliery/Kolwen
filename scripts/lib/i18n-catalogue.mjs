@@ -118,10 +118,14 @@ export function valueJson(value) {
 
 // ── the files ───────────────────────────────────────────────────────────────────────────────────
 // Every string leaf of a catalogue object as { 'home.hero.title': value }. A leaf that is not a string, or a key that is not a key, is left to catalogueProblems.
-export function flatten(obj, prefix = '', out = {}) {
+// The bound of one catalogue. Its key text (every key with its ancestor path) is bounded in total, so nested objects cannot make the keys quadratic in the file.
+const KEY_TEXT_MAX = 1 << 20;
+const LIST_MAX = 500; // the differing keys listed in all by the English comparison; the rest are counted per file
+export function flatten(obj, prefix = '', out = {}, spent = { n: 0 }) {
   for (const [k, v] of Object.entries(obj)) {
     const key = prefix ? prefix + '.' + k : k;
-    if (v && typeof v === 'object' && !Array.isArray(v)) flatten(v, key, out); else if (typeof v === 'string') out[key] = v;
+    if ((spent.n += key.length) > KEY_TEXT_MAX) throw new Error(`the keys pass ${KEY_TEXT_MAX} characters of key text`);
+    if (v && typeof v === 'object' && !Array.isArray(v)) flatten(v, key, out, spent); else if (typeof v === 'string') out[key] = v;
   }
   return out;
 }
@@ -174,9 +178,16 @@ export function catalogueProblems(files) {
     if (!obj || typeof obj !== 'object' || Array.isArray(obj)) { problems.push(`${name}: the top level must be an object of pages`); continue; }
     for (const r of repeatedKeys(text)) problems.push(`${name}: repeats the key ${r.key} in one object (${r.path || 'top level'}); JSON keeps the last and hides the first`);
     const leaves = {};
+    const spent = { n: 0, stopped: false };
     const walk = (o, prefix) => {
       for (const [k, v] of Object.entries(o)) {
+        if (spent.stopped) return; // past the budget the whole walk stops, not only this branch
         const key = prefix ? prefix + '.' + k : k;
+        if ((spent.n += key.length) > KEY_TEXT_MAX) {
+          if (!spent.stopped) problems.push(`${name}: its keys pass ${KEY_TEXT_MAX} characters of key text, so the walk stopped; split the file`);
+          spent.stopped = true;
+          return;
+        }
         if (!/^[a-z][a-z0-9-]*$/.test(k)) problems.push(`${name}: key ${key} is not a lowercase ASCII key (letters, digits and hyphens, starting with a letter)`);
         if (v && typeof v === 'object' && !Array.isArray(v)) walk(v, key);
         else if (typeof v !== 'string') problems.push(`${name}: ${key} must be a string (found ${Array.isArray(v) ? 'an array' : v === null ? 'null' : typeof v})`);
@@ -184,6 +195,7 @@ export function catalogueProblems(files) {
       }
     };
     walk(obj, '');
+    if (spent.stopped) continue; // an over-budget catalogue is refused whole: its partial keys are neither stored nor compared
     for (const [key, v] of Object.entries(leaves)) {
       const at = `${name}: ${key}`;
       if (v.includes(SPLIT_SARA_AM)) problems.push(`${at} has the split sara am U+0E4D U+0E32 (write the one character U+0E33)`);
@@ -197,9 +209,34 @@ export function catalogueProblems(files) {
     parsed[tag] = leaves;
   }
   const tags = Object.keys(parsed);
-  for (const a of tags) for (const b of tags) {
-    if (a === b) continue;
-    for (const key of Object.keys(parsed[a])) if (!(key in parsed[b])) problems.push(`${b}.json: key ${key} is missing (it is in ${a}.json)`);
+  // Each catalogue is compared with the default language in both directions. At most LIST_MAX differing keys are listed in all, across every file; the rest
+  // are counted, one line per file and direction. Messages therefore grow with the files, not with the keys times the files. A file that lacks no keys is never scanned.
+  const ref = parsed[DEFAULT_LANG];
+  if (ref) {
+    const refKeys = Object.keys(ref);
+    let listed = 0;
+    for (const tag of tags) {
+      if (tag === DEFAULT_LANG) continue;
+      const own = parsed[tag];
+      const extra = [];
+      let shared = 0;
+      for (const key of Object.keys(own)) { if (key in ref) shared++; else extra.push(key); }
+      const lacking = refKeys.length - shared; // the English keys this file lacks, counted without listing them
+      let missingListed = 0;
+      for (let i = 0; i < refKeys.length && lacking > 0 && listed < LIST_MAX; i++) {
+        if (refKeys[i] in own) continue;
+        problems.push(`${tag}.json: key ${refKeys[i]} is missing (it is in ${DEFAULT_LANG}.json)`);
+        listed++; missingListed++;
+      }
+      if (lacking > missingListed) problems.push(`${tag}.json: ${lacking - missingListed} more keys of ${DEFAULT_LANG}.json are missing`);
+      let extraListed = 0;
+      for (const key of extra) {
+        if (listed >= LIST_MAX) break;
+        problems.push(`${DEFAULT_LANG}.json: key ${key} is missing (it is in ${tag}.json)`);
+        listed++; extraListed++;
+      }
+      if (extra.length > extraListed) problems.push(`${DEFAULT_LANG}.json: ${extra.length - extraListed} more keys of ${tag}.json are missing`);
+    }
   }
   for (const key of Object.keys(parsed[tags[0]] ?? {})) {
     const have = tags.filter(t => key in parsed[t]);

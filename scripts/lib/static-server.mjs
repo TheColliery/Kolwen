@@ -7,9 +7,10 @@
 // server (a headless shell inside WSL, whose NAT cannot see the host's 127.0.0.1) is given the same answer through Fetch.fulfillRequest (scripts/lib/browser.mjs), so one piece of code decides what
 // every page is served as, whichever way it travels.
 import { createServer } from 'node:http';
-import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { readFileSync, realpathSync, statSync } from 'node:fs';
 import { extname, join, resolve, sep } from 'node:path';
 import { parseHeadersFile } from './headers-file.mjs';
+import { readContained } from './contained-read.mjs';
 
 const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2',
   '.json': 'application/json', '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml', '.ico': 'image/x-icon' };
@@ -22,7 +23,13 @@ export function makeResponder(webDir, { headers = true } = {}) {
   const root = resolve(webDir);
   // The real root, once. A candidate is contained by its real path as well as its spelling: a symlink inside the root that points outside it is not served.
   const realRoot = realpathSync.native(root);
-  const rules = headers && existsSync(join(root, '_headers')) ? parseHeadersFile(readFileSync(join(root, '_headers'), 'utf8')).filter(r => r.pattern === '/*') : [];
+  // The headers file is read through the containment check: a link that leads out of the root is refused loudly, never read; a missing file means no rules, as before.
+  let rules = [];
+  if (headers) {
+    const got = readContained(root, '_headers');
+    if (got.refused) throw new Error(`_headers ${got.refused}: the static server reads no headers from it`);
+    if (got.bytes !== undefined) rules = parseHeadersFile(got.bytes.toString('utf8')).filter(r => r.pattern === '/*');
+  }
   const extra = Object.fromEntries(rules.flatMap(r => r.headers.map(h => [h.name.toLowerCase(), h.value])));
   return target => {
     let file = null, name = null;

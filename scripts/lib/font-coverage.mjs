@@ -8,6 +8,7 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { renderedChars } from './rendered-text.mjs';
 import { woff2Cmap } from './woff2-cmap.mjs';
+import { readContained } from './contained-read.mjs';
 
 // One object per @font-face.
 export const facesOf = css => [...css.matchAll(/@font-face\s*\{([^}]*)\}/g)].map(m => {
@@ -44,7 +45,9 @@ export const charName = cp => 'U+' + cp.toString(16).toUpperCase().padStart(4, '
 export function coverageGaps(webDir) {
   const gaps = [];
   for (const file of glyphSets(webDir).values()) {
-    const cmap = woff2Cmap(readFileSync(join(webDir, file.url)));
+    const got = readContained(webDir, file.url); // a font link that leads out of the root is refused, never read
+    if (got.bytes === undefined) { gaps.push(`${file.url}: ${got.missing ? 'named by fonts.css but the file does not exist' : got.refused}`); continue; }
+    const cmap = woff2Cmap(got.bytes);
     const face = [...file.families].join('/') + ' ' + [...file.weights].join('/');
     for (const cp of file.cps) if (!cmap.has(cp)) gaps.push(`${charName(cp)} is not in ${face} (${file.url}); rendered by ${file.need.get(cp).join(', ')}`);
   }
@@ -69,9 +72,9 @@ export function fontNameProblems(webDir) {
   for (const url of urls) {
     const m = FONT_URL.exec(url);
     if (!m || !m[3]) { out.push(`${url}: not a versioned name, expected /fonts/<folder>/<base>.<${HASH_LEN} hex of the sha256>.woff2`); continue; }
-    let bytes;
-    try { bytes = readFileSync(join(webDir, url)); } catch { out.push(`${url}: named by fonts.css but the file does not exist`); continue; }
-    const real = hashOf(bytes);
+    const got = readContained(webDir, url); // the name is checked against the bytes of a contained file only
+    if (got.bytes === undefined) { out.push(`${url}: ${got.missing ? 'named by fonts.css but the file does not exist' : got.refused}`); continue; }
+    const real = hashOf(got.bytes);
     if (real !== m[3]) out.push(`${url}: the name says ${m[3]} but the bytes hash to ${real}; run scripts/font-subset.mjs, or rename the file`);
   }
   return out;

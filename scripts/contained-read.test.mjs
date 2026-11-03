@@ -11,6 +11,8 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { measurePage } from './page-weight.mjs';
 import { readContained, MAX_READ_BYTES } from './lib/contained-read.mjs';
+import { makeResponder } from './lib/static-server.mjs';
+import { coverageGaps, fontNameProblems } from './lib/font-coverage.mjs';
 import { check } from './sitemap-lastmod.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -95,4 +97,40 @@ test('a file that is not swapped between the check and the open reads as before'
   writeFileSync(join(d, 'web', 'page.txt'), 'original');
   const got = readContained(join(d, 'web'), 'page.txt', MAX_READ_BYTES, { afterLocate: () => {} });
   assert.equal(String(got.bytes), 'original');
+});
+
+// Two CI reads that were not contained: a link under the web root that leads out of it is refused before anything is read from it.
+const fileLink = (target, link) => { try { symlinkSync(target, link, 'file'); return true; } catch { return false; } };
+const SECRET_FONT = '0123456789';
+
+test('the static server refuses a _headers link that leads outside the web root, and reads none of it', t => {
+  const d = tree();
+  const outside = mkdtempSync(join(tmpdir(), 'contained-outside-')); roots.push(outside);
+  writeFileSync(join(outside, 'h.txt'), '/*\n  X-Outside: 1\n');
+  if (!fileLink(join(outside, 'h.txt'), join(d, 'web', '_headers'))) return t.skip('no file link (symlink) can be made here');
+  page(d, '');
+  assert.throws(() => makeResponder(join(d, 'web')), /_headers leads outside the root/);
+});
+
+test('a font file that leads outside the web root is refused, not read', t => {
+  const d = tree();
+  const outside = mkdtempSync(join(tmpdir(), 'contained-outside-')); roots.push(outside);
+  writeFileSync(join(outside, 'a.' + SECRET_FONT + '.woff2'), 'not a font');
+  mkdirSync(join(d, 'web', 'fonts'), { recursive: true });
+  if (!linkDir(outside, join(d, 'web', 'fonts', 'x'))) return t.skip('no directory link (junction or symlink) can be made here');
+  writeFileSync(join(d, 'web', 'fonts', 'fonts.css'), "@font-face{font-family:'A';src:url('/fonts/x/a." + SECRET_FONT + ".woff2') format('woff2');unicode-range:U+0041;}\n");
+  const problems = fontNameProblems(join(d, 'web'));
+  assert.ok(problems.some(p => /leads outside the root/.test(p)), 'the problems: ' + problems.join(' | '));
+});
+
+test('the coverage check refuses a font link that leads outside the web root, and reads none of it', t => {
+  const d = tree();
+  const outside = mkdtempSync(join(tmpdir(), 'contained-outside-')); roots.push(outside);
+  writeFileSync(join(outside, 'a.' + SECRET_FONT + '.woff2'), 'not a font');
+  mkdirSync(join(d, 'web', 'fonts'), { recursive: true });
+  if (!linkDir(outside, join(d, 'web', 'fonts', 'x'))) return t.skip('no directory link (junction or symlink) can be made here');
+  writeFileSync(join(d, 'web', 'fonts', 'fonts.css'), "@font-face{font-family:'A';src:url('/fonts/x/a." + SECRET_FONT + ".woff2') format('woff2');unicode-range:U+0041;}\n");
+  page(d, '');
+  const gaps = coverageGaps(join(d, 'web'));
+  assert.ok(gaps.some(g => /leads outside the root/.test(g)), 'the gaps: ' + gaps.join(' | '));
 });
