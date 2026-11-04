@@ -59,7 +59,7 @@ Advisories: as above, none is owed. No finding reaches the served site or a publ
 | 12 | super-linear matching (CWE-1333) | `scripts/surface-check.mjs`, SVG removal | new | DEFERRED (the open fix of row 2) | an opener with no closing tag makes the search rescan the rest; one forward pass replaces it |
 | 13 | inefficient algorithm (CWE-407) | `scripts/lib/type-lint.mjs`, nested function inspection | new | DEFERRED (the open fix of row 2) | overlapping bodies are scanned once per opener; each body is scanned once |
 | 14 | super-linear matching (CWE-1333) | `scripts/lib/legal-render.mjs`, the link pattern | same file and class | FIXED (b73409e, 5550d31) | a link label and its url cannot hold an opening bracket (the url also cannot hold a parenthesis), so an unclosed link is read once |
-| 15 | uncontrolled resource use (CWE-400) | `scripts/lib/font-coverage.mjs`, the glyph sets per stylesheet address | new | FIXED (7bf0395) | each font address is normalized before it keys the glyph-set map, so spellings of one file give one entry |
+| 15 | uncontrolled resource use (CWE-400) | `scripts/lib/font-coverage.mjs`, the glyph sets per stylesheet address | new | FIXED in part (7bf0395, 1b0f094) | a doubled slash, a dot segment and a percent-encoded dot or slash of one file give one entry in the glyph-set map, through one decode-then-normalize; a query, a fragment, a backslash, another escape or a relative url keeps its own entry, and CI's font-name check (`fontNameProblems`) refuses every spelling that is not `/fonts/<folder>/<base>.<hash>.woff2` |
 | 16 | uncontrolled resource use (CWE-400) | `scripts/lib/font-coverage.mjs`, the font file read | new | FIXED (8216038) | the font file is read through the contained reader, which refuses a link that leads outside the root |
 | 17 | inefficient algorithm (CWE-407) | `scripts/lib/headers-file.mjs`, the path-pattern match | new | FIXED (7bdd015) | a path pattern with more than 256 wildcards is refused with an error; each wildcard costs one sweep of the path |
 | 18 | super-linear matching (CWE-1333) | `scripts/coderabbit-config.test.mjs`, the glob translation | new | DEFERRED (the open fix of row 2) | runs of wildcards become ambiguous quantifiers; they are collapsed first |
@@ -88,4 +88,4 @@ Advisories: as above, none is owed. No finding reaches the served site or a publ
   - the browser's loopback reach (`scripts/lib/browser.mjs`, f168e05).
 - 7 were renamed, not fixed: listed again in this batch, reworded, as rows 4, 6, 10, 11, 19, 23 and 24.
 
-Count: FIXED 20, CONSIDERED 1, REJECTED 0, DEFERRED 14. Advisories owed: 0.
+Count: FIXED 20 (row 15 in part), CONSIDERED 1, REJECTED 0, DEFERRED 14. Advisories owed: 0.
