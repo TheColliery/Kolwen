@@ -353,6 +353,40 @@ console.log('OK ' + control + ' ' + bulk.length);`);
   assert.equal(out, 'OK true 960000', 'the control is an anchor, and the bulk is text unchanged');
 });
 
+// The inline svg pattern as it stood before this change, verbatim: the reference for the equivalence test.
+const legacySvgBlank = t => t.replace(/<(svg)\b[\s\S]*?<\/\1\b[^>]*>/gi, m => m.replace(/[^\n]/g, ' '));
+
+test('a bulk of inline svg openers with no closer is blanked inside its timer, and a closed svg is blanked as before', () => {
+  // Each opener would read the rest of the text for its closer; with no closer anywhere, the old pattern is quadratic and the child is killed at its timer.
+  const out = inChild(`import { blankSvgs } from ${JSON.stringify(url(['scripts', 'lib', 'svg-blank.mjs']))};
+const bulk = blankSvgs('<svg'.repeat(400000));
+const control = blankSvgs('a<svg>x</svg>b') === 'a' + ' '.repeat(12) + 'b';
+console.log('OK ' + control + ' ' + bulk.length + ' ' + JSON.stringify(blankSvgs('')));`);
+  assert.equal(out, 'OK true 1600000 ""', 'the control is blanked, the bulk keeps its length, and the empty text stays empty');
+});
+
+test('blankSvgs blanks exactly what the old inline svg pattern blanked, on a deterministic set of small mixed inputs', async () => {
+  const { blankSvgs } = await import('./lib/svg-blank.mjs');
+  const pieces = ['<', 'svg', 'SVG', '</', '>', ' ', '\n', 'x', '</svg>', '<svg>', '</svg ', '<svgx', '</svgx>', '<svg-a', '</svg\n>'];
+  let seed = 7;
+  const rnd = n => { seed = (Math.imul(seed, 1103515245) + 12345) & 0x7fffffff; return seed % n; };
+  for (let t = 0; t < 3000; t++) {
+    let s = '';
+    const len = 1 + rnd(14);
+    for (let k = 0; k < len; k++) s += pieces[rnd(pieces.length)];
+    assert.equal(blankSvgs(s), legacySvgBlank(s), JSON.stringify(s));
+  }
+});
+
+test('an inline svg opener followed by a run of closers that have no greater-than is blanked inside its timer, and the text keeps its length', () => {
+  // Each closer's search ran to the end of the text for its greater-than, so 100,000 closers with none took quadratic time and the child was killed.
+  const out = inChild(`import { blankSvgs } from ${JSON.stringify(url(['scripts', 'lib', 'svg-blank.mjs']))};
+const text = '<svg>' + '</svg '.repeat(100000);
+console.log('OK ' + blankSvgs(text).length + ' ' + text.length);`);
+  const [, got, want] = out.split(' ');
+  assert.equal(got, want, 'the text keeps its length');
+});
+
 test('a font shorthand with no size and no missing name is still reported', () => {
   const css = 'p.u{font:italic bold}';
   const dir = mkdtempSync(join(tmpdir(), 'pattern-bounds-unreadable-'));
