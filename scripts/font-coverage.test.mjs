@@ -145,6 +145,18 @@ test('a font url is read the way CSS reads it, unquoted, single-quoted or double
   assert.deepEqual(fontSubset.spellingProblems(`@font-face { src: url("${doubled}") format("woff2"); }`, managed), [doubled], 'a double-quoted doubled slash is refused');
 });
 
+test('a managed font url spelled with a percent-encoded dot or slash is decoded and refused, against the canonical managed name only, as the cut builds the set', () => {
+  const sheet = u => `@font-face { src: url('${u}') format('woff2'); }`;
+  const managed = new Set(['/fonts/thai/kw-sans-thai-400.7a93a32da9.woff2']);
+  const dot = '/fonts/thai/%2e/kw-sans-thai-400.7a93a32da9.woff2';
+  const upper = '/fonts/x/%2E%2E/thai/kw-sans-thai-400.7a93a32da9.woff2';
+  const slash = '/fonts/thai%2Fkw-sans-thai-400.7a93a32da9.woff2';
+  assert.deepEqual(fontSubset.spellingProblems(sheet(dot), managed), [dot], 'a percent-encoded dot segment is refused');
+  assert.deepEqual(fontSubset.spellingProblems(sheet(upper), managed), [upper], 'the upper-case form with a parent segment is refused');
+  assert.deepEqual(fontSubset.spellingProblems(sheet(slash), managed), [slash], 'a percent-encoded slash is refused');
+  assert.deepEqual(fontSubset.spellingProblems(sheet('/fonts/thai/kw-sans-thai-400.7a93a32da9.woff2'), managed), [], 'the canonical name is not refused');
+});
+
 test('a font re-cut keeps fonts.css in step with the file it renames: a stylesheet that names a managed font by a non-canonical spelling is refused, and nothing it names is deleted', () => {
   const canon = '/fonts/thai/kw-sans-thai-400.7a93a32da9.woff2';
   const next = '/fonts/thai/kw-sans-thai-400.0123456789.woff2';

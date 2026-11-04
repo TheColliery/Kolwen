@@ -82,10 +82,14 @@ const PY = [
 
 // The urls of fonts.css that name a managed file by a spelling other than its canonical one (a doubled slash, a dot segment). A re-cut renames the canonical name and deletes
 // the old file, so such a spelling would keep pointing at a file that is gone. The cut refuses before it writes or deletes anything; it does not rewrite the spelling.
-// `managed` holds the canonical urls of the files this cut renames.
+// `managed` holds the canonical urls of the files this cut renames. A percent-encoded dot or slash (%2e, %2f, any case) is decoded before the url is normalized, so the
+// managed name it spells is found and the spelling is refused.
 export function spellingProblems(css, managed) {
   const urls = facesOf(css.replace(/\r\n/g, '\n')).flatMap(f => f.urls);
-  return [...new Set(urls)].filter(u => posix.normalize(u) !== u && managed.has(posix.normalize(u)));
+  return [...new Set(urls)].filter(u => {
+    const canon = posix.normalize(u.replace(/%2e/gi, '.').replace(/%2f/gi, '/'));
+    return managed.has(canon) && canon !== u;
+  });
 }
 
 // The stylesheet with each renamed url replaced by its new one. Every non-canonical spelling was refused before the cut (spellingProblems), so the canonical name is the only one here.
