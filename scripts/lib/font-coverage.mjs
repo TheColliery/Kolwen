@@ -16,6 +16,11 @@ export const facesOf = css => [...css.matchAll(/@font-face\s*\{([^}]*)\}/g)].map
   return { family: (/font-family:\s*'([^']+)'/.exec(b) || [])[1], weight: Number((/font-weight:\s*(\d+)/.exec(b) || [])[1]), display: (/font-display:\s*(\w+)/.exec(b) || [])[1],
     urls: [...b.matchAll(/url\(\s*(?:'([^']*)'|"([^"]*)"|([^'")\s]+))\s*\)/g)].map(x => x[1] ?? x[2] ?? x[3]), range: (/unicode-range:\s*([^;]+);/.exec(b) || [])[1] };
 });
+// The one decode-then-normalize the glyph-set keys and the cut's comparisons go through. A browser resolves a percent-encoded dot or slash (%2e, %2f, any case) as a dot segment or a separator before it walks
+// the path, and posix.normalize does not, so the decode comes first. Only spellings of a url named in fonts.css go through it: an on-disk file name never does.
+export const canonicalName = u => posix.normalize(u.replace(/%2e/gi, '.').replace(/%2f/gi, '/'));
+// The distinct font urls of a stylesheet, each as its canonical name, in the order the stylesheet names them.
+export const fileUrlsOf = css => [...new Set(facesOf(css).flatMap(f => f.urls.map(canonicalName)))];
 export const inRange = (cp, range) => range.split(',').some(part => { const [a, b] = part.trim().replace(/^U\+/i, '').split('-'); return cp >= parseInt(a, 16) && cp <= parseInt(b || a, 16); });
 
 // What Thai shaping needs beyond the text: the dotted circle (a base for a lone mark) and the zero-width space, non-joiner and joiner.
@@ -27,7 +32,7 @@ export function glyphSets(webDir, rendered = renderedChars(webDir)) {
   const faces = facesOf(readFileSync(join(webDir, 'fonts/fonts.css'), 'utf8').replace(/\r\n/g, '\n'));
   const files = new Map();
   for (const f of faces) {
-    const url = posix.normalize(f.urls[0]); // one address, one entry: the spellings of one path (a doubled slash, a dot segment) are the same file
+    const url = canonicalName(f.urls[0]); // one address, one entry: these spellings of one path (a doubled slash, a dot segment, a percent-encoded dot or slash) are the same file
     const file = files.get(url) || files.set(url, { url, families: new Set(), weights: new Set(), ranges: [], need: new Map() }).get(url);
     file.families.add(f.family); file.weights.add(f.weight); file.ranges.push(f.range);
   }

@@ -19,9 +19,9 @@
 import { readFileSync, writeFileSync, readdirSync, mkdirSync, mkdtempSync, rmSync, existsSync, statSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
-import { join, dirname, resolve, sep, posix } from 'node:path';
+import { join, dirname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { glyphSets, hashOf, inRange, facesOf, FONT_URL } from './lib/font-coverage.mjs';
+import { glyphSets, hashOf, inRange, facesOf, canonicalName, FONT_URL } from './lib/font-coverage.mjs';
 import { isMainModule } from './lib/entry-guard.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -82,11 +82,6 @@ const PY = [
 
 // The urls of fonts.css that name a managed file by a spelling other than its canonical one (a doubled slash, a dot segment). A re-cut renames the canonical name and deletes
 // the old file, so such a spelling would keep pointing at a file that is gone. The cut refuses before it writes or deletes anything; it does not rewrite the spelling.
-// The name a url spells: a percent-encoded dot or slash (%2e, %2f, any case) is decoded, then the path is normalized. The refusal and its hint both use it.
-export function canonicalName(u) {
-  return posix.normalize(u.replace(/%2e/gi, '.').replace(/%2f/gi, '/'));
-}
-
 // The line a refused spelling prints: the spelling, and the canonical name it decodes to.
 export function refusalLine(u) {
   return `FAIL fonts.css names ${u} by a spelling that is not canonical (write it as ${canonicalName(u)}); nothing was cut, written or deleted`;
@@ -101,7 +96,7 @@ export function spellingProblems(css, managed) {
   });
 }
 
-// The stylesheet with each renamed url replaced by its new one. Every non-canonical spelling was refused before the cut (spellingProblems), so the canonical name is the only one here.
+// The stylesheet with each renamed url replaced by its new one. A doubled-slash, dot-segment or percent-encoded spelling of a managed file was refused before the cut (spellingProblems); any other spelling is left to CI's font-name check.
 export function restyle(css, renames) {
   for (const [oldUrl, newUrl] of renames) css = css.split(oldUrl).join(newUrl);
   return css;
