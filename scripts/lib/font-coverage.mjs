@@ -14,7 +14,7 @@ import { readContained } from './contained-read.mjs';
 export const facesOf = css => [...css.matchAll(/@font-face\s*\{([^}]*)\}/g)].map(m => {
   const b = m[1];
   return { family: (/font-family:\s*'([^']+)'/.exec(b) || [])[1], weight: Number((/font-weight:\s*(\d+)/.exec(b) || [])[1]), display: (/font-display:\s*(\w+)/.exec(b) || [])[1],
-    urls: [...b.matchAll(/url\(\s*'?([^')\s]+)'?\s*\)/g)].map(x => x[1]), range: (/unicode-range:\s*([^;]+);/.exec(b) || [])[1] };
+    urls: [...b.matchAll(/url\(\s*(?:'([^']*)'|"([^"]*)"|([^'")\s]+))\s*\)/g)].map(x => x[1] ?? x[2] ?? x[3]), range: (/unicode-range:\s*([^;]+);/.exec(b) || [])[1] };
 });
 export const inRange = (cp, range) => range.split(',').some(part => { const [a, b] = part.trim().replace(/^U\+/i, '').split('-'); return cp >= parseInt(a, 16) && cp <= parseInt(b || a, 16); });
 

@@ -137,6 +137,14 @@ test('RED PROOF: a "<!--" inside an attribute value, a <textarea>, a <title> or 
   assert.ok(textOf('a < b ' + THAI + ' > c').includes(THAI), 'a "<" that starts no tag is text');
 });
 
+test('a font url is read the way CSS reads it, unquoted, single-quoted or double-quoted alike, so a double-quoted spelling is compared and refused like the others', () => {
+  const sheet = `@font-face { font-family: 'KW Sans Thai'; src: url("/fonts/a/b.woff2") format("woff2"), url('/fonts/a/c.woff2') format('woff2'), url(/fonts/a/d.woff2) format('woff2'); }`;
+  assert.deepEqual(facesOf(sheet)[0].urls, ['/fonts/a/b.woff2', '/fonts/a/c.woff2', '/fonts/a/d.woff2'], 'the quotes are not part of the url');
+  const doubled = '/fonts/thai//kw-sans-thai-400.7a93a32da9.woff2';
+  const managed = new Set(['/fonts/thai/kw-sans-thai-400.7a93a32da9.woff2']);
+  assert.deepEqual(fontSubset.spellingProblems(`@font-face { src: url("${doubled}") format("woff2"); }`, managed), [doubled], 'a double-quoted doubled slash is refused');
+});
+
 test('a font re-cut keeps fonts.css in step with the file it renames: a stylesheet that names a managed font by a non-canonical spelling is refused, and nothing it names is deleted', () => {
   const canon = '/fonts/thai/kw-sans-thai-400.7a93a32da9.woff2';
   const next = '/fonts/thai/kw-sans-thai-400.0123456789.woff2';
