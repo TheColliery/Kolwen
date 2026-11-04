@@ -82,12 +82,21 @@ const PY = [
 
 // The urls of fonts.css that name a managed file by a spelling other than its canonical one (a doubled slash, a dot segment). A re-cut renames the canonical name and deletes
 // the old file, so such a spelling would keep pointing at a file that is gone. The cut refuses before it writes or deletes anything; it does not rewrite the spelling.
-// `managed` holds the canonical urls of the files this cut renames. A percent-encoded dot or slash (%2e, %2f, any case) is decoded before the url is normalized, so the
-// managed name it spells is found and the spelling is refused.
+// The name a url spells: a percent-encoded dot or slash (%2e, %2f, any case) is decoded, then the path is normalized. The refusal and its hint both use it.
+export function canonicalName(u) {
+  return posix.normalize(u.replace(/%2e/gi, '.').replace(/%2f/gi, '/'));
+}
+
+// The line a refused spelling prints: the spelling, and the canonical name it decodes to.
+export function refusalLine(u) {
+  return `FAIL fonts.css names ${u} by a spelling that is not canonical (write it as ${canonicalName(u)}); nothing was cut, written or deleted`;
+}
+
+// `managed` holds the canonical urls of the files this cut renames. A spelling is refused when the name it decodes to is managed and it is not that name.
 export function spellingProblems(css, managed) {
   const urls = facesOf(css.replace(/\r\n/g, '\n')).flatMap(f => f.urls);
   return [...new Set(urls)].filter(u => {
-    const canon = posix.normalize(u.replace(/%2e/gi, '.').replace(/%2f/gi, '/'));
+    const canon = canonicalName(u);
     return managed.has(canon) && canon !== u;
   });
 }
@@ -117,7 +126,7 @@ function main() {
   const managed = new Set([...sets.values()].map(f => f.url).filter(u => { const m = FONT_URL.exec(u); return Boolean(m && SOURCES[m[2]]); }));
   const refused = spellingProblems(readFileSync(cssPath, 'utf8'), managed);
   if (refused.length) {
-    for (const u of refused) console.error(`FAIL fonts.css names ${u} by a spelling that is not canonical (write it as ${posix.normalize(u)}); nothing was cut, written or deleted`);
+    for (const u of refused) console.error(refusalLine(u));
     summary(0, refused.length);
     process.exitCode = 1;
     return;

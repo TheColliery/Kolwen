@@ -3,11 +3,11 @@
 // Node builtins only. A test that needs a changed copy of the site works on a copy in a temp folder; the real tree is never written.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, cpSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, cpSync, existsSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { brotliCompressSync } from 'node:zlib';
 import { tmpdir } from 'node:os';
-import { join, dirname, resolve } from 'node:path';
+import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { decodeEntities, decodeAttribute, textOf, stripCssComments, cssContentOf, scriptStringsOf, renderedChars } from './lib/rendered-text.mjs';
 import { woff2Cmap, woff2Names } from './lib/woff2-cmap.mjs';
@@ -155,6 +155,7 @@ test('a managed font url spelled with a percent-encoded dot or slash is decoded 
   assert.deepEqual(fontSubset.spellingProblems(sheet(upper), managed), [upper], 'the upper-case form with a parent segment is refused');
   assert.deepEqual(fontSubset.spellingProblems(sheet(slash), managed), [slash], 'a percent-encoded slash is refused');
   assert.deepEqual(fontSubset.spellingProblems(sheet('/fonts/thai/kw-sans-thai-400.7a93a32da9.woff2'), managed), [], 'the canonical name is not refused');
+  assert.match(fontSubset.refusalLine(dot), /write it as \/fonts\/thai\/kw-sans-thai-400\.7a93a32da9\.woff2\)/, 'the hint names the decoded canonical file');
 });
 
 test('a font re-cut keeps fonts.css in step with the file it renames: a stylesheet that names a managed font by a non-canonical spelling is refused, and nothing it names is deleted', () => {
@@ -187,14 +188,22 @@ function siteCopy() {
   cpSync(join(ROOT, 'web'), join(dir, 'web'), { recursive: true });
   return dir;
 }
-// One hash for a folder's files and their names, so an unchanged folder compares equal and a changed, added or removed file does not.
+// One hash for a folder's files and their names, so an unchanged folder compares equal and a changed, added or removed file does not. Each file is read from the entry the walk
+// returned, with no stat before the read (CodeQL js/file-system-race): a file that vanishes mid-walk fails the read loudly rather than hashing a stale answer.
 function treeHash(dir) {
-  const parts = readdirSync(dir, { recursive: true }).sort().map(n => { const p = join(dir, n); return statSync(p).isFile() ? n + ':' + hashOf(readFileSync(p)) : n; });
-  return hashOf(Buffer.from(parts.join('\n')));
+  const files = readdirSync(dir, { recursive: true, withFileTypes: true }).filter(e => e.isFile()).map(e => join(e.parentPath, e.name)).sort();
+  return hashOf(Buffer.from(files.map(p => relative(dir, p) + ':' + hashOf(readFileSync(p))).join('\n')));
 }
-// The subsetter run on the copy with no real source and no real python: a run that reaches the cut fails on its first file, and that failure is what these witnesses look for.
+// The subsetter child: a heap cap, and a kill timeout that sends SIGKILL, as the other children of this file are. No real source and no real python: a run that reaches the cut fails on its first file.
+function subsetChild(dir) {
+  return {
+    args: ['--max-old-space-size=256', join(dir, 'scripts/font-subset.mjs'), '--src', join(dir, 'no-such-src'), '--python', join(dir, 'no-such-python')],
+    options: { encoding: 'utf8', timeout: 120000, killSignal: 'SIGKILL', maxBuffer: 1 << 24 },
+  };
+}
 function runSubset(dir) {
-  return spawnSync(process.execPath, [join(dir, 'scripts/font-subset.mjs'), '--src', join(dir, 'no-such-src'), '--python', join(dir, 'no-such-python')], { encoding: 'utf8', timeout: 120000, maxBuffer: 1 << 24 });
+  const { args, options } = subsetChild(dir);
+  return spawnSync(process.execPath, args, options);
 }
 
 test('a refused re-cut touches nothing and says so: the subsetter on a copy whose stylesheet doubles a slash exits 1, names the refusal, attempts no file and ends with its done line', () => {
@@ -225,6 +234,49 @@ test('a font the cut does not manage is not refused: an unmanaged font spelled w
     assert.match(r.stderr, /FAIL no source is known for \/fonts\/zz\/unmanaged\.woff2/, 'the loop reports the unmanaged font');
     assert.match(r.stderr, /FAIL missing uncut source/, 'the managed fonts reach the cut');
     assert.match(r.stdout, /^done: 0 cut, \d+ failed$/m, 'a run that reaches the cut ends with its done line');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('treeHash changes for a changed, added or removed file and keeps its value for an untouched tree', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'font-tree-'));
+  try {
+    mkdirSync(join(dir, 'sub'), { recursive: true });
+    writeFileSync(join(dir, 'a.txt'), 'one');
+    writeFileSync(join(dir, 'sub', 'b.txt'), 'two');
+    const h0 = treeHash(dir);
+    assert.equal(treeHash(dir), h0, 'an untouched tree keeps its hash');
+    writeFileSync(join(dir, 'a.txt'), 'changed');
+    const h1 = treeHash(dir);
+    assert.notEqual(h1, h0, 'a changed file changes it');
+    writeFileSync(join(dir, 'c.txt'), 'new');
+    assert.notEqual(treeHash(dir), h1, 'an added file changes it');
+    rmSync(join(dir, 'c.txt'));
+    assert.equal(treeHash(dir), h1, 'the tree without the added file has the value it had');
+    rmSync(join(dir, 'sub', 'b.txt'));
+    assert.notEqual(treeHash(dir), h1, 'a removed file changes it');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('the subsetter child has a heap cap and is killed with SIGKILL at its timeout, as the other children of this file are', () => {
+  const { args, options } = subsetChild('/x');
+  assert.ok(args.includes('--max-old-space-size=256'), 'a heap cap comes before the script');
+  assert.equal(options.killSignal, 'SIGKILL', 'the kill signal is SIGKILL');
+  assert.equal(typeof options.timeout, 'number', 'a kill timeout is set');
+});
+
+test('a percent-encoded spelling alone is not renamed: the cut loop reports it as unsourced and writes and deletes nothing', () => {
+  const dir = siteCopy();
+  try {
+    const cssPath = join(dir, 'web/fonts/fonts.css');
+    const css = readFileSync(cssPath, 'utf8');
+    const encoded = css.split("url('/fonts/thai/kw-sans-thai-400.").join("url('/fonts/thai/%2e/kw-sans-thai-400.");
+    assert.notEqual(encoded, css, 'the copy names the managed font with a percent-encoded dot');
+    writeFileSync(cssPath, encoded);
+    const before = treeHash(join(dir, 'web/fonts'));
+    const r = runSubset(dir);
+    assert.equal(r.status, 1, 'exit 1');
+    assert.match(r.stderr, /FAIL no source is known for \/fonts\/thai\/%2e\/kw-sans-thai-400\.7a93a32da9\.woff2/, 'the loop names it as unsourced: the managed set holds only FONT_URL names');
+    assert.equal(treeHash(join(dir, 'web/fonts')), before, 'nothing is written or deleted');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
