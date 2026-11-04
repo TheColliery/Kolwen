@@ -39,7 +39,6 @@ import * as fontCoverage from './lib/font-coverage.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const WEB = join(ROOT, 'web');
-const manifest = () => facesOf(readFileSync(join(WEB, 'fonts/fonts.css'), 'utf8').replace(/\r\n/g, '\n'));
 const fontFiles = () => fileUrlsOf(readFileSync(join(WEB, 'fonts/fonts.css'), 'utf8').replace(/\r\n/g, '\n'));
 const cp = s => s.codePointAt(0);
 

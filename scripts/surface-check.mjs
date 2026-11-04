@@ -12,6 +12,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { resolve, posix } from 'node:path';
+import { blankSvgs } from './lib/svg-blank.mjs';
 
 const fail = [];
 const note = (f, msg) => fail.push(`${f}: ${msg}`);
@@ -1048,7 +1049,7 @@ const NOINDEX_META_OK = new Set(['web/404.html', 'web/subprocessors.html', 'web/
     const blank = (text, a, b) => text.slice(0, a) + text.slice(a, b).replace(/[^\n]/g, ' ') + text.slice(b);
     let visible = s;
     if (pageClaims) for (const sp of pageClaims.dataSpansOf(s)) if (sp.kind === 'comment' || sp.kind === 'script' || sp.kind === 'style') visible = blank(visible, sp.start, sp.end);
-    visible = visible.replace(/<(svg)\b[\s\S]*?<\/\1\b[^>]*>/gi, m => m.replace(/[^\n]/g, ' '));
+    visible = blankSvgs(visible);
     const seenAt = new Set(); // "Free plan" matches two patterns at one place: one finding
     const pinned = pageClaims ? pageClaims.pinnedHitter(f, s, HISTORY_PINS) : () => false;
     for (const re of [/\b(?:Free|FREE)\b/g, /\bfree\s+(?:plan|tier|version)\b/gi, /ฟรี/g]) {
