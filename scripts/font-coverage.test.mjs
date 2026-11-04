@@ -3,22 +3,44 @@
 // Node builtins only. A test that needs a changed copy of the site works on a copy in a temp folder; the real tree is never written.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, cpSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, cpSync, existsSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { brotliCompressSync } from 'node:zlib';
 import { tmpdir } from 'node:os';
-import { join, dirname, resolve } from 'node:path';
+import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { decodeEntities, decodeAttribute, textOf, stripCssComments, cssContentOf, scriptStringsOf, renderedChars } from './lib/rendered-text.mjs';
 import { woff2Cmap, woff2Names } from './lib/woff2-cmap.mjs';
 import { htmlPages } from './lib/web-files.mjs';
-import { glyphSets, coverageGaps, facesOf, asksForLayoutFeature, THAI_SHAPING } from './lib/font-coverage.mjs';
+
+// Many doubled-slash spellings of one font address are one file on the disk: each must give one glyph-set entry, not one entry with its own copy of the needs.
+test('many spellings of one font address give one glyph-set entry, with the needs of that one address', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'glyph-spell-'));
+  try {
+    mkdirSync(join(dir, 'fonts'));
+    const rules = Array.from({ length: 3000 }, (_, i) => "@font-face{font-family:'A';font-weight:400;src:url('/fonts/x/" + '/'.repeat(i) + "a.0123456789.woff2') format('woff2');unicode-range:U+0000-FFFF;}").join('\n');
+    writeFileSync(join(dir, 'fonts', 'fonts.css'), rules);
+    const glyph = pathToFileURL(join(dirname(fileURLToPath(import.meta.url)), 'lib', 'font-coverage.mjs')).href;
+    const code = `import { glyphSets } from ${JSON.stringify(glyph)};
+const rendered = new Map(); for (let cp = 65; cp < 75; cp++) rendered.set(cp, new Set(['index.html']));
+const m = glyphSets(process.env.WEB, rendered);
+const needs = [...m.values()].reduce((n, f) => n + f.need.size, 0);
+const empty = glyphSets(process.env.WEB, new Map()).size;
+console.log('N ' + m.size + ' ' + needs + ' ' + empty);`;
+    const r = spawnSync(process.execPath, ['--max-old-space-size=256', '--input-type=module', '-e', code], { env: { ...process.env, WEB: dir }, encoding: 'utf8', timeout: 30000, killSignal: 'SIGKILL' });
+    assert.equal(r.signal, null, 'the child was killed');
+    assert.equal(r.stdout.trim(), 'N 1 14 1', 'one address, ten rendered needs plus the four Thai shaping characters (the range covers Thai), and one entry with no rendered text: ' + (r.stderr || '').slice(0, 200));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+import { glyphSets, coverageGaps, facesOf, fileUrlsOf, asksForLayoutFeature, THAI_SHAPING, hashOf } from './lib/font-coverage.mjs';
 import { cutSet, BASELINE } from './font-subset.mjs';
+import * as fontSubset from './font-subset.mjs';
+import * as fontCoverage from './lib/font-coverage.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const WEB = join(ROOT, 'web');
 const manifest = () => facesOf(readFileSync(join(WEB, 'fonts/fonts.css'), 'utf8').replace(/\r\n/g, '\n'));
-const fontFiles = () => [...new Set(manifest().map(f => f.urls[0]))];
+const fontFiles = () => fileUrlsOf(readFileSync(join(WEB, 'fonts/fonts.css'), 'utf8').replace(/\r\n/g, '\n'));
 const cp = s => s.codePointAt(0);
 
 test('Q-9: an attribute value decodes its character references as the attribute state does: a legacy name with no semicolon before = or a letter or digit stays as written', () => {
@@ -114,6 +136,225 @@ test('RED PROOF: a "<!--" inside an attribute value, a <textarea>, a <title> or 
   assert.ok(textOf('<textarea>' + THAI + '</textarea>').includes(THAI), 'but a textarea body is text the page draws');
   assert.ok(textOf('<textarea><!-- ' + THAI + ' --></textarea>x').includes(THAI), 'a comment-like text in a textarea is text too');
   assert.ok(textOf('a < b ' + THAI + ' > c').includes(THAI), 'a "<" that starts no tag is text');
+});
+
+test('a font url is read the way CSS reads it, unquoted, single-quoted or double-quoted alike, so a double-quoted spelling is compared and refused like the others', () => {
+  const sheet = `@font-face { font-family: 'KW Sans Thai'; src: url("/fonts/a/b.woff2") format("woff2"), url('/fonts/a/c.woff2') format('woff2'), url(/fonts/a/d.woff2) format('woff2'); }`;
+  assert.deepEqual(facesOf(sheet)[0].urls, ['/fonts/a/b.woff2', '/fonts/a/c.woff2', '/fonts/a/d.woff2'], 'the quotes are not part of the url');
+  const doubled = '/fonts/thai//kw-sans-thai-400.7a93a32da9.woff2';
+  const managed = new Set(['/fonts/thai/kw-sans-thai-400.7a93a32da9.woff2']);
+  assert.deepEqual(fontSubset.spellingProblems(`@font-face { src: url("${doubled}") format("woff2"); }`, managed), [doubled], 'a double-quoted doubled slash is refused');
+});
+
+test('a managed font url spelled with a percent-encoded dot or slash is decoded and refused, against the canonical managed name only, as the cut builds the set', () => {
+  const sheet = u => `@font-face { src: url('${u}') format('woff2'); }`;
+  const managed = new Set(['/fonts/thai/kw-sans-thai-400.7a93a32da9.woff2']);
+  const dot = '/fonts/thai/%2e/kw-sans-thai-400.7a93a32da9.woff2';
+  const upper = '/fonts/x/%2E%2E/thai/kw-sans-thai-400.7a93a32da9.woff2';
+  const slash = '/fonts/thai%2Fkw-sans-thai-400.7a93a32da9.woff2';
+  assert.deepEqual(fontSubset.spellingProblems(sheet(dot), managed), [dot], 'a percent-encoded dot segment is refused');
+  assert.deepEqual(fontSubset.spellingProblems(sheet(upper), managed), [upper], 'the upper-case form with a parent segment is refused');
+  assert.deepEqual(fontSubset.spellingProblems(sheet(slash), managed), [slash], 'a percent-encoded slash is refused');
+  assert.deepEqual(fontSubset.spellingProblems(sheet('/fonts/thai/kw-sans-thai-400.7a93a32da9.woff2'), managed), [], 'the canonical name is not refused');
+  assert.match(fontSubset.refusalLine(dot), /write it as \/fonts\/thai\/kw-sans-thai-400\.7a93a32da9\.woff2\)/, 'the hint names the decoded canonical file');
+});
+
+test('a font re-cut keeps fonts.css in step with the file it renames: a stylesheet that names a managed font by a non-canonical spelling is refused, and nothing it names is deleted', () => {
+  const canon = '/fonts/thai/kw-sans-thai-400.7a93a32da9.woff2';
+  const next = '/fonts/thai/kw-sans-thai-400.0123456789.woff2';
+  const sheet = u => `@font-face { src: url('${u}') format('woff2'); }`;
+  const managed = new Set([canon]);
+  const doubled = '/fonts/thai//kw-sans-thai-400.7a93a32da9.woff2';
+  const dotted = '/fonts/thai/./kw-sans-thai-400.7a93a32da9.woff2';
+  assert.deepEqual(fontSubset.spellingProblems(sheet(doubled), managed), [doubled], 'a doubled slash is refused');
+  assert.deepEqual(fontSubset.spellingProblems(sheet(dotted), managed), [dotted], 'a dot segment is refused');
+  assert.deepEqual(fontSubset.spellingProblems(sheet(canon), managed), [], 'the canonical spelling is not refused');
+  assert.deepEqual(fontSubset.spellingProblems(sheet('/fonts/other//x.woff2'), managed), [], 'a font the cut does not manage is not this rule');
+  assert.equal(fontSubset.restyle(sheet(canon), [[canon, next]]), sheet(next), 'the canonical name is restyled to the new file');
+  // The file half: a refused re-cut deletes nothing, so the spelling the stylesheet holds still resolves to a file on disk.
+  const dir = mkdtempSync(join(tmpdir(), 'font-css-'));
+  try {
+    mkdirSync(join(dir, 'fonts', 'thai'), { recursive: true });
+    writeFileSync(join(dir, canon), 'uncut bytes');
+    assert.ok(fontSubset.spellingProblems(sheet(doubled), managed).length > 0, 'refused before any file is touched');
+    assert.ok(existsSync(join(dir, canon)), 'the file the cut would have renamed is kept');
+    assert.ok(existsSync(join(dir, doubled)), 'the stylesheet spelling still resolves to a file');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// A copy of the scripts and web folders, so the subsetter can run on a stylesheet this test edits without touching the real web/.
+function siteCopy() {
+  const dir = mkdtempSync(join(tmpdir(), 'font-site-'));
+  cpSync(join(ROOT, 'scripts'), join(dir, 'scripts'), { recursive: true });
+  cpSync(join(ROOT, 'web'), join(dir, 'web'), { recursive: true });
+  return dir;
+}
+// One hash for a folder's files and their names, so an unchanged folder compares equal and a changed, added or removed file does not. Each file is read from the entry the walk
+// returned, with no stat before the read (CodeQL js/file-system-race): a file that vanishes mid-walk fails the read loudly rather than hashing a stale answer.
+function treeHash(dir) {
+  const files = readdirSync(dir, { recursive: true, withFileTypes: true }).filter(e => e.isFile()).map(e => join(e.parentPath, e.name)).sort();
+  return hashOf(Buffer.from(files.map(p => relative(dir, p) + ':' + hashOf(readFileSync(p))).join('\n')));
+}
+// The subsetter child: a heap cap, and a kill timeout that sends SIGKILL, as the other children of this file are. No real source and no real python: a run that reaches the cut fails on its first file.
+function subsetChild(dir) {
+  return {
+    args: ['--max-old-space-size=256', join(dir, 'scripts/font-subset.mjs'), '--src', join(dir, 'no-such-src'), '--python', join(dir, 'no-such-python')],
+    options: { encoding: 'utf8', timeout: 120000, killSignal: 'SIGKILL', maxBuffer: 1 << 24 },
+  };
+}
+function runSubset(dir) {
+  const { args, options } = subsetChild(dir);
+  return spawnSync(process.execPath, args, options);
+}
+
+test('a refused re-cut touches nothing and says so: the subsetter on a copy whose stylesheet doubles a slash exits 1, names the refusal, attempts no file and ends with its done line', () => {
+  const dir = siteCopy();
+  try {
+    const cssPath = join(dir, 'web/fonts/fonts.css');
+    const css = readFileSync(cssPath, 'utf8');
+    const doubled = css.split("url('/fonts/thai/kw-sans-thai-400.").join("url('/fonts/thai//kw-sans-thai-400.");
+    assert.notEqual(doubled, css, 'the copy names the managed font with a doubled slash');
+    writeFileSync(cssPath, doubled);
+    const before = treeHash(join(dir, 'web/fonts'));
+    const r = runSubset(dir);
+    assert.equal(r.status, 1, 'exit 1');
+    assert.match(r.stderr, /FAIL fonts\.css names \/fonts\/thai\/\/kw-sans-thai-400\.7a93a32da9\.woff2 by a spelling/, 'the refusal names the spelling');
+    assert.deepEqual(r.stderr.split('\n').filter(l => l.startsWith('FAIL ') && !l.startsWith('FAIL fonts.css names ')), [], 'no file was attempted');
+    assert.equal(treeHash(join(dir, 'web/fonts')), before, 'web/fonts is unchanged');
+    assert.match(r.stdout, /^done: 0 cut, 1 failed$/m, 'the refusal path ends with its done line');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('a font the cut does not manage is not refused: an unmanaged font spelled with a doubled slash is reported by the loop, and the managed fonts still reach the cut', () => {
+  const dir = siteCopy();
+  try {
+    const cssPath = join(dir, 'web/fonts/fonts.css');
+    writeFileSync(cssPath, readFileSync(cssPath, 'utf8') + "\n@font-face { font-family: 'Other'; src: url('/fonts/zz//unmanaged.woff2') format('woff2'); unicode-range: U+0041; }\n");
+    const r = runSubset(dir);
+    assert.doesNotMatch(r.stderr, /fonts\.css names/, 'the unmanaged spelling does not refuse the cut');
+    assert.match(r.stderr, /FAIL no source is known for \/fonts\/zz\/unmanaged\.woff2/, 'the loop reports the unmanaged font');
+    assert.match(r.stderr, /FAIL missing uncut source/, 'the managed fonts reach the cut');
+    assert.match(r.stdout, /^done: 0 cut, \d+ failed$/m, 'a run that reaches the cut ends with its done line');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('treeHash changes for a changed, added or removed file and keeps its value for an untouched tree', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'font-tree-'));
+  try {
+    mkdirSync(join(dir, 'sub'), { recursive: true });
+    writeFileSync(join(dir, 'a.txt'), 'one');
+    writeFileSync(join(dir, 'sub', 'b.txt'), 'two');
+    const h0 = treeHash(dir);
+    assert.equal(treeHash(dir), h0, 'an untouched tree keeps its hash');
+    writeFileSync(join(dir, 'a.txt'), 'changed');
+    const h1 = treeHash(dir);
+    assert.notEqual(h1, h0, 'a changed file changes it');
+    writeFileSync(join(dir, 'c.txt'), 'new');
+    assert.notEqual(treeHash(dir), h1, 'an added file changes it');
+    rmSync(join(dir, 'c.txt'));
+    assert.equal(treeHash(dir), h1, 'the tree without the added file has the value it had');
+    rmSync(join(dir, 'sub', 'b.txt'));
+    assert.notEqual(treeHash(dir), h1, 'a removed file changes it');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('the subsetter child has a heap cap and is killed with SIGKILL at its timeout, as the other children of this file are', () => {
+  const { args, options } = subsetChild('/x');
+  assert.ok(args.includes('--max-old-space-size=256'), 'a heap cap comes before the script');
+  assert.equal(options.killSignal, 'SIGKILL', 'the kill signal is SIGKILL');
+  assert.equal(typeof options.timeout, 'number', 'a kill timeout is set');
+});
+
+test('a percent-encoded spelling alone is refused, the decoded file is managed, and nothing is written or deleted', () => {
+  const dir = siteCopy();
+  try {
+    const cssPath = join(dir, 'web/fonts/fonts.css');
+    const css = readFileSync(cssPath, 'utf8');
+    const encoded = css.split("url('/fonts/thai/kw-sans-thai-400.").join("url('/fonts/thai/%2e/kw-sans-thai-400.");
+    assert.notEqual(encoded, css, 'the copy names the managed font with a percent-encoded dot');
+    writeFileSync(cssPath, encoded);
+    const before = treeHash(join(dir, 'web/fonts'));
+    const r = runSubset(dir);
+    assert.equal(r.status, 1, 'exit 1');
+    assert.match(r.stderr, /FAIL fonts\.css names \/fonts\/thai\/%2e\/kw-sans-thai-400\.7a93a32da9\.woff2 by a spelling that is not canonical \(write it as \/fonts\/thai\/kw-sans-thai-400\.7a93a32da9\.woff2\)/, 'the decoded file is managed, so its spelling is refused by name');
+    assert.equal(treeHash(join(dir, 'web/fonts')), before, 'nothing is written or deleted');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// encoded-spelling class: the percent-encoded dot and slash spellings of one managed file, each resolved to that file. Each is witnessed against each caller of the one decode-then-normalize.
+const DECODED_M = '/fonts/thai/kw-sans-thai-400.7a93a32da9.woff2';
+const ENCODED = [
+  ['%2e', '/fonts/thai/%2e/kw-sans-thai-400.7a93a32da9.woff2'],
+  ['%2E', '/fonts/thai/%2E/kw-sans-thai-400.7a93a32da9.woff2'],
+  ['%2e%2e', '/fonts/x/%2e%2e/thai/kw-sans-thai-400.7a93a32da9.woff2'],
+  ['%2f', '/fonts/thai%2fkw-sans-thai-400.7a93a32da9.woff2'],
+  ['%2F', '/fonts/thai%2Fkw-sans-thai-400.7a93a32da9.woff2'],
+];
+const faceCss = url => `@font-face{font-family:'KW Sans Thai';font-weight:400;src:url('${url}') format('woff2');unicode-range:U+0E01-0E5B;}\n`;
+
+test('encoded-spelling caller glyphSets: each encoded spelling of the managed font keys the one entry, by the decoded name', () => {
+  for (const [name, spelled] of ENCODED) {
+    const dir = mkdtempSync(join(tmpdir(), 'glyph-enc-'));
+    try {
+      mkdirSync(join(dir, 'fonts'));
+      writeFileSync(join(dir, 'fonts', 'fonts.css'), faceCss(spelled));
+      assert.deepEqual([...glyphSets(dir, new Map()).keys()], [DECODED_M], `${name}: one entry, keyed by the decoded name`);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }
+});
+
+test('encoded-spelling caller glyphSets, the 3,000-spelling bound: encoded spellings of one font give one entry with the needs of that one address', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'glyph-enc3000-'));
+  try {
+    mkdirSync(join(dir, 'fonts'));
+    const rules = Array.from({ length: 3000 }, (_, i) => "@font-face{font-family:'A';font-weight:400;src:url('/fonts/x/" + (i % 2 ? '%2e/' : '%2E/').repeat(i) + "a.0123456789.woff2') format('woff2');unicode-range:U+0000-FFFF;}").join('\n');
+    writeFileSync(join(dir, 'fonts', 'fonts.css'), rules);
+    const glyph = pathToFileURL(join(dirname(fileURLToPath(import.meta.url)), 'lib', 'font-coverage.mjs')).href;
+    const code = `import { glyphSets } from ${JSON.stringify(glyph)};
+const rendered = new Map(); for (let cp = 65; cp < 75; cp++) rendered.set(cp, new Set(['index.html']));
+const m = glyphSets(process.env.WEB, rendered);
+const needs = [...m.values()].reduce((n, f) => n + f.need.size, 0);
+const empty = glyphSets(process.env.WEB, new Map()).size;
+console.log('N ' + m.size + ' ' + needs + ' ' + empty);`;
+    const r = spawnSync(process.execPath, ['--max-old-space-size=256', '--input-type=module', '-e', code], { env: { ...process.env, WEB: dir }, encoding: 'utf8', timeout: 30000, killSignal: 'SIGKILL' });
+    assert.equal(r.signal, null, 'the child was killed');
+    assert.equal(r.stdout.trim(), 'N 1 14 1', 'one address for every encoded spelling, with the same fourteen needs: ' + (r.stderr || '').slice(0, 200));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('encoded-spelling caller fileUrlsOf (the test callers font-versions and font-coverage read through it): each encoded spelling names the one file by its decoded name', () => {
+  for (const [name, spelled] of ENCODED) {
+    const css = faceCss(spelled) + faceCss(DECODED_M);
+    assert.deepEqual(fontCoverage.fileUrlsOf(css), [DECODED_M], `${name}: one file, by its decoded name`);
+  }
+});
+
+test('encoded-spelling caller spellingProblems: each encoded spelling of the managed font is refused, against the canonical managed name only', () => {
+  for (const [name, spelled] of ENCODED) {
+    assert.deepEqual(fontSubset.spellingProblems(faceCss(spelled), new Set([DECODED_M])), [spelled], `${name}: refused`);
+  }
+});
+
+test('encoded-spelling caller refusalLine: each encoded spelling is refused with the decoded file in its hint', () => {
+  for (const [name, spelled] of ENCODED) {
+    assert.ok(fontSubset.refusalLine(spelled).endsWith(`(write it as ${DECODED_M}); nothing was cut, written or deleted`), `${name}: the hint names the decoded file`);
+  }
+});
+
+test('encoded-spelling caller main (the cut): an encoded spelling alone is refused before any file is attempted, and nothing is written or deleted', () => {
+  const dir = siteCopy();
+  try {
+    const cssPath = join(dir, 'web/fonts/fonts.css');
+    for (const [name, spelled] of ENCODED) {
+      writeFileSync(cssPath, faceCss(spelled));
+      const before = treeHash(join(dir, 'web/fonts'));
+      const r = runSubset(dir);
+      assert.equal(r.status, 1, `${name}: exit 1`);
+      assert.ok(r.stderr.includes(`FAIL fonts.css names ${spelled} by a spelling that is not canonical`), `${name}: refused`);
+      assert.ok(!r.stderr.includes('FAIL no source is known') && !r.stderr.includes('FAIL missing uncut source'), `${name}: no file attempted`);
+      assert.equal(treeHash(join(dir, 'web/fonts')), before, `${name}: nothing written or deleted`);
+    }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('the derived set: the pages render these characters, the Thai block among them, and every one is a code point at or above U+0020', () => {

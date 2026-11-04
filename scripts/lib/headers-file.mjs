@@ -191,6 +191,10 @@ export function patternMatches(pattern, path) {
   path = String(path);
   const n = path.length;
   const tokens = pattern.split(/(\*|:[A-Za-z]\w*)/).filter(part => part !== '').map(part => (part === '*' ? { run: 'splat' } : /^:[A-Za-z]/.test(part) ? { run: 'segment' } : { text: part }));
+  // Each wildcard costs one sweep over the path, so the work is the wildcards times the path length (measured on a path of 200 KB: a wildcard per two characters
+  // ran past the test's kill timer). A pattern past SPLAT_MAX wildcards is refused loudly rather than matched; a rule file has a handful.
+  const SPLAT_MAX = 256;
+  if (tokens.filter(t => t.run === 'splat').length > SPLAT_MAX) throw new Error(`a path pattern with more than ${SPLAT_MAX} wildcards is refused`);
   const stops = { splat: runStops(path, c => LINE_BREAK.has(c)), segment: runStops(path, c => c === '/') };
   let reached = new Uint8Array(n + 1);
   reached[0] = 1;

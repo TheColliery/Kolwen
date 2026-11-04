@@ -232,11 +232,18 @@ const ASSIGN_OP = /(?:\*\*|<<|>>>?|&&|\|\||\?\?|[+\-*/%|&^])?=(?![=>])/.source;
 const UPDATE_OP = '(?:\\+\\+|--)';
 const DOC_COOKIE_WRITE = new RegExp([
   COOKIE_PROP + GAP + ASSIGN_OP,
-  COOKIE_PROP + GAP + '(?:,[^\\]}=;]*)?[\\]}](?:' + GAP + '[\\]}])*' + GAP + ASSIGN_OP,
+  // the destructuring target is read to at most 200 characters: a bulk of cookie names with no bracket would otherwise be read to the end of the text at each name (quadratic)
+  COOKIE_PROP + GAP + '(?:,[^\\]}=;]{0,200})?[\\]}](?:' + GAP + '[\\]}])*' + GAP + ASSIGN_OP,
   // never two gaps side by side (the comments between them could be split in as many ways as there are comments): the closing delimiters, each with its own gap, are one optional group
-  '\\bfor\\s*(?:await\\s*)?\\(\\s*[^;()]*?' + COOKIE_PROP + GAP + '(?:(?:,[^\\]}=;()]*)?(?:[\\]}]' + GAP + ')+)?(?:of|in)\\b',
+  '\\bfor\\s*(?:await\\s*)?\\(\\s*[^;()]*?' + COOKIE_PROP + GAP + '(?:(?:,[^\\]}=;()]{0,200})?(?:[\\]}]' + GAP + ')+)?(?:of|in)\\b',
   COOKIE_PROP + GAP_SAME_LINE + UPDATE_OP,
   UPDATE_OP + GAP + '[\\w$.]*?' + COOKIE_PROP,
+].join('|'));
+// The fail-closed twin of the two bounded alternatives above: a destructuring target past the 200-character bound. It cannot be ruled out as a write, so it is
+// reported, once per file, and never passed over. Its own read is bounded too, so the check stays linear.
+const DOC_TARGET_LONG = new RegExp([
+  COOKIE_PROP + GAP + ',[^\\]}=;]{201}',
+  '\\bfor\\s*(?:await\\s*)?\\(\\s*[^;()]*?' + COOKIE_PROP + GAP + ',[^\\]}=;()]{201}',
 ].join('|'));
 const ASSIGN_COOKIE = /\bObject\s*\.\s*assign\s*\(\s*document\s*,[^)]*\bcookie\b/;
 const COOKIE_CALLS = /\b(?:cookieStore\s*\.\s*set|cookies\s*\.\s*set|setCookie|serialize(?:Cookie)?)\s*\(/;
@@ -287,6 +294,7 @@ export function cookieProblems(files) {
         continue;
       }
       if (DOC_COOKIE_WRITE.test(text)) sets.push('writes document.cookie');
+      if (DOC_TARGET_LONG.test(text)) out.push(prob(file, 'a destructuring target after a cookie name runs past 200 characters, so it cannot be ruled out as a write; shorten it'));
       if (DOMAIN_ATTR.test(text)) domains.push(1);
       if (CODE_FILE.test(file)) codeCookieUses(text, sets, domains);
       if (/\.html?$/i.test(file)) {
@@ -322,11 +330,14 @@ export function catalogueDomainProblems(files, templates) {
     try { cat = JSON.parse(files[file]); } catch (e) { out.push(prob(file, `is not valid JSON (${e.message.slice(0, 100)})`)); continue; }
     if (cat === null || typeof cat !== 'object' || Array.isArray(cat)) { out.push(prob(file, 'is not a JSON object')); continue; }
     for (const k of Object.keys(cat)) if (!pageKeys.has(k)) out.push(prob(file, `top-level key "${k}" is neither a template page nor shared; the catalogue is keyed by page, never by domain`));
+    // a path longer than 120 characters is quoted cut: its first 60 and its last 60 characters, so a report does not grow with the depth
+    const shownPath = p => (p.length > 120 ? p.slice(0, 60) + '...' + p.slice(-60) : p);
     const walk = (o, path) => {
       for (const [k, v] of Object.entries(o)) {
         const full = path ? path + '.' + k : k;
-        if (HOST_KEY.test(k)) out.push(prob(file, `key "${k}" names a host; the catalogue is keyed by page, so a page that moves host keeps its strings`));
-        else if (HOST_WORDS.has(k.toLowerCase())) out.push(prob(file, `key "${full}" names a domain or host; the catalogue is keyed by page, so a page that moves host keeps its strings`));
+        // a reserved key is reported once, and the walk does not go on below it: a reserved key nested under reserved keys would otherwise report every level, each with its full path
+        if (HOST_KEY.test(k)) { out.push(prob(file, `key "${k}" names a host; the catalogue is keyed by page, so a page that moves host keeps its strings`)); continue; }
+        if (HOST_WORDS.has(k.toLowerCase())) { out.push(prob(file, `key "${shownPath(full)}" names a domain or host; the catalogue is keyed by page, so a page that moves host keeps its strings`)); continue; }
         if (v !== null && typeof v === 'object') walk(v, full);
       }
     };

@@ -7,13 +7,13 @@ import { readFileSync, writeFileSync, mkdtempSync, rmSync, cpSync, renameSync, r
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { fontNameProblems, facesOf, hashOf, FONT_URL } from './lib/font-coverage.mjs';
+import { fontNameProblems, fileUrlsOf, hashOf, FONT_URL } from './lib/font-coverage.mjs';
 import { reEscape } from './lib/re-escape.mjs';
 import { parseHeadersFile, patternMatches, FONT_CACHE_CONTROL, fontCacheMiss, firstFontUrl, fontCacheMisses, declarations } from './lib/headers-file.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const WEB = join(ROOT, 'web');
-const manifestUrls = () => [...new Set(facesOf(readFileSync(join(WEB, 'fonts/fonts.css'), 'utf8')).flatMap(f => f.urls))];
+const manifestUrls = () => fileUrlsOf(readFileSync(join(WEB, 'fonts/fonts.css'), 'utf8'));
 const withCopy = (edit, fn) => { const dir = mkdtempSync(join(tmpdir(), 'font-versions-')); try { cpSync(WEB, join(dir, 'web'), { recursive: true }); edit(join(dir, 'web')); return fn(join(dir, 'web')); } finally { rmSync(dir, { recursive: true, force: true }); } };
 
 test('every font url in the manifest is a versioned name, resolves to a file, and names the first ten hex digits of the sha256 of that file', () => {

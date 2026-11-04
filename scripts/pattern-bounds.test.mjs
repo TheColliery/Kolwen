@@ -190,11 +190,12 @@ console.log('N ' + problems.length);`, { CSS_FILE: file }, 1024);
 test('a declaration with a long whitespace run inside its value is read to its end, not re-scanned at every character', () => {
   // The pathological input: three hundred thousand spaces inside one value. The lazy match this replaced re-scanned the run at each character, so the
   // child runs past the kill timer on the old code; the bound is the child's heap cap and that timer, not a clock read here.
-  const out = inChild(`import { fontSizeProblems } from ${JSON.stringify(url(['scripts', 'lib', 'type-lint.mjs']))};
+  const out = inChild(`import { fontSizeProblems, declarationsOf } from ${JSON.stringify(url(['scripts', 'lib', 'type-lint.mjs']))};
 const css = 'p{font-size:1rem' + ' '.repeat(300000) + 'x}';
+const value = declarationsOf(css)[0].value;
 fontSizeProblems([css]);
-console.log('OK');`);
-  assert.equal(out, 'OK', 'the declaration is read to its end');
+console.log('OK ' + value.slice(-1));`);
+  assert.equal(out, 'OK x', 'the declaration is read to its end, and its parsed value ends in the final character');
 });
 
 test('a declaration naming twenty thousand unresolved names reports them in output bounded by its length', () => {
@@ -204,8 +205,11 @@ const names = Array.from({ length: 20000 }, (_, i) => 'var(--u' + i + ')').join(
 const html = '<!doctype html><html><head><style>p{font-size:' + names + '}</style></head><body></body></html>';
 let chars = 0;
 for (const p of pageTypeProblems(html)) chars += p.length;
-console.log('OK ' + chars);`);
-  assert.ok(/^OK \d+$/.test(out) && Number(out.slice(3)) < 1000000, 'the problems\' text is ' + out + ' for a twenty-thousand-name declaration');
+let omitted = 0;
+for (const p of pageTypeProblems(html)) { chars += p.length; if (p.includes('19800 more unresolved names were not listed')) omitted++; }
+console.log('OK ' + chars + ' ' + omitted);`);
+  const m = /^OK (\d+) (\d+)$/.exec(out);
+  assert.ok(m && Number(m[1]) < 1000000 && Number(m[2]) === 1, 'the problems\' text and the count line are ' + out + ' for a twenty-thousand-name declaration');
 });
 
 test('sixty catalogues with disjoint keys are compared with the default language only, so no pair of them is compared', () => {
@@ -261,6 +265,92 @@ console.log(JSON.stringify({ n: problems.length, keys, lacks: problems.includes(
   const r = JSON.parse(out);
   assert.ok(r.n <= 2 * r.keys, 'the problems number ' + r.n + ', over twice the ' + r.keys + ' keys');
   assert.equal(r.lacks, true, 'a key that the third file lacks was not reported');
+});
+
+test('a Markdown passage of two hundred thousand open brackets is converted in one pass', () => {
+  const out = inChild(`import { inline } from ${JSON.stringify(url(['scripts', 'lib', 'legal-render.mjs']))};
+const md = '['.repeat(200000);
+console.log('OK ' + (inline(md) === md));`);
+  assert.equal(out, 'OK true', 'a bracket with no closing bracket is text, and the passage comes back as it went in');
+});
+
+test('a path pattern with a hundred thousand wildcards is refused loudly, not matched', () => {
+  const out = inChild(`import { patternMatches } from ${JSON.stringify(url(['scripts', 'lib', 'headers-file.mjs']))};
+let r;
+try { r = String(patternMatches('/' + '*/'.repeat(100000) + 'x', '/' + 'a/'.repeat(100000))); } catch { r = 'REFUSED'; }
+console.log('OK ' + r);`);
+  assert.equal(out, 'OK REFUSED', 'the matcher refuses a pattern past its wildcard bound');
+});
+
+test('a catalogue with a reserved key nested under reserved keys reports the first, in output bounded by its length', () => {
+  const out = inChild(`import { catalogueDomainProblems } from ${JSON.stringify(url(['scripts', 'lib', 'domain-seams.mjs']))};
+let inner = { v: 'x' };
+for (let i = 0; i < 2000; i++) inner = { domain: inner };
+const problems = catalogueDomainProblems({ 'en.json': JSON.stringify({ home: inner }) }, ['home']);
+let chars = 0;
+for (const p of problems) chars += JSON.stringify(p).length;
+console.log('OK ' + chars + ' ' + problems.length);`);
+  const m = /^OK (\d+) (\d+)$/.exec(out);
+  assert.ok(m && Number(m[1]) < 2000 && Number(m[2]) === 1, 'the report is ' + out + '; one reserved key is reported once, not at each level below it');
+});
+
+test('a bulk of cookie property names before commas is checked in time linear in its length', () => {
+  // A destructuring target is read up to its closing bracket, and the read starts again at every cookie name. A bulk with no bracket at all is quadratic on
+  // the base commit; the control checks that a real destructuring write is still reported.
+  const out = inChild(`import { cookieProblems } from ${JSON.stringify(url(['scripts', 'lib', 'domain-seams.mjs']))};
+const bulk = cookieProblems([{ file: 'web/x.js', text: '.cookie,'.repeat(100000) }]).length;
+const control = cookieProblems([{ file: 'web/y.js', text: '[document.cookie, y] = z;' }]).length;
+console.log('OK ' + bulk + ' ' + control);`);
+  assert.equal(out, 'OK 1 1', 'the bulk is one reported line, not skipped, and the control is one write');
+});
+
+test('a cookie write whose destructuring target is longer than the bound is reported, not skipped', () => {
+  // The target is forty names, about 630 characters: past the bound, so it cannot be read in full. It must be reported, not passed over.
+  const out = inChild(`import { cookieProblems } from ${JSON.stringify(url(['scripts', 'lib', 'domain-seams.mjs']))};
+const names = Array.from({ length: 40 }, (_, i) => 'name' + i + 'x'.repeat(10)).join(',');
+console.log('OK ' + cookieProblems([{ file: 'web/z.js', text: '[document.cookie, ' + names + '] = z;' }]).length);`);
+  assert.equal(out, 'OK 1', 'the long target is reported as one line');
+});
+
+test('a cookie write whose long destructuring target holds a parenthesis is reported, not skipped', () => {
+  // The same forty names, with a parenthesis at the front of the target. The report must not depend on whether the target holds a parenthesis.
+  const out = inChild(`import { cookieProblems } from ${JSON.stringify(url(['scripts', 'lib', 'domain-seams.mjs']))};
+const names = Array.from({ length: 40 }, (_, i) => 'name' + i + 'x'.repeat(10)).join(',');
+console.log('OK ' + cookieProblems([{ file: 'web/p.js', text: '[document.cookie, (a), ' + names + '] = z;' }]).length);`);
+  assert.equal(out, 'OK 1', 'the long target with a parenthesis is reported as one line');
+});
+
+test('a bulk of for-loop cookie targets is checked in time linear in its length', () => {
+  // The for-loop alternative reads its target to the next parenthesis, and restarts at each cookie name; with no parenthesis the base is quadratic.
+  const out = inChild(`import { cookieProblems } from ${JSON.stringify(url(['scripts', 'lib', 'domain-seams.mjs']))};
+console.log('OK ' + cookieProblems([{ file: 'web/f.js', text: 'for(' + '.cookie,'.repeat(100000) }]).length);`);
+  assert.equal(out, 'OK 1', 'the bulk is one reported line');
+});
+
+test('a reserved key under a deep chain of keys is reported in output bounded by the input', () => {
+  // A chain of a thousand keys ends in a thousand sibling objects, each with a reserved key. Each report quotes its full path, so the output grows with the
+  // depth times the leaves: the bound is twenty times the input.
+  const out = inChild(`import { catalogueDomainProblems } from ${JSON.stringify(url(['scripts', 'lib', 'domain-seams.mjs']))};
+let bottom = {};
+for (let j = 0; j < 1000; j++) bottom['x' + j] = { domain: 'x' };
+let obj = bottom;
+for (let i = 0; i < 1000; i++) obj = { k: obj };
+const text = JSON.stringify({ home: obj });
+let chars = 0;
+for (const p of catalogueDomainProblems({ 'en.json': text }, ['home'])) chars += JSON.stringify(p).length;
+console.log('OK ' + text.length + ' ' + chars);`);
+  const m = /^OK (\d+) (\d+)$/.exec(out);
+  assert.ok(m && Number(m[2]) < 20 * Number(m[1]), 'the report is ' + (m ? m[2] : out) + ' characters for ' + (m ? m[1] : '?') + ' of input');
+});
+
+test('a bulk of link openers with no closing parenthesis is converted in time linear in its length', () => {
+  // Each opener's url is read to the next parenthesis or space, and no parenthesis comes, so each opener reads to the end of the passage. The control is a
+  // closed link, which must still become an anchor.
+  const out = inChild(`import { inline } from ${JSON.stringify(url(['scripts', 'lib', 'legal-render.mjs']))};
+const bulk = inline('[a](https://'.repeat(80000));
+const control = inline('[a](https://x.y)') === '<a href="https://x.y">a</a>';
+console.log('OK ' + control + ' ' + bulk.length);`);
+  assert.equal(out, 'OK true 960000', 'the control is an anchor, and the bulk is text unchanged');
 });
 
 test('a font shorthand with no size and no missing name is still reported', () => {
