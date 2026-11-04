@@ -3,7 +3,7 @@
 // Node builtins only. A test that needs a changed copy of the site works on a copy in a temp folder; the real tree is never written.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, cpSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, cpSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { brotliCompressSync } from 'node:zlib';
 import { tmpdir } from 'node:os';
@@ -32,7 +32,7 @@ console.log('N ' + m.size + ' ' + needs + ' ' + empty);`;
     assert.equal(r.stdout.trim(), 'N 1 14 1', 'one address, ten rendered needs plus the four Thai shaping characters (the range covers Thai), and one entry with no rendered text: ' + (r.stderr || '').slice(0, 200));
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
-import { glyphSets, coverageGaps, facesOf, asksForLayoutFeature, THAI_SHAPING } from './lib/font-coverage.mjs';
+import { glyphSets, coverageGaps, facesOf, asksForLayoutFeature, THAI_SHAPING, hashOf } from './lib/font-coverage.mjs';
 import { cutSet, BASELINE } from './font-subset.mjs';
 import * as fontSubset from './font-subset.mjs';
 
@@ -177,6 +177,54 @@ test('a font re-cut keeps fonts.css in step with the file it renames: a styleshe
     assert.ok(fontSubset.spellingProblems(sheet(doubled), managed).length > 0, 'refused before any file is touched');
     assert.ok(existsSync(join(dir, canon)), 'the file the cut would have renamed is kept');
     assert.ok(existsSync(join(dir, doubled)), 'the stylesheet spelling still resolves to a file');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// A copy of the scripts and web folders, so the subsetter can run on a stylesheet this test edits without touching the real web/.
+function siteCopy() {
+  const dir = mkdtempSync(join(tmpdir(), 'font-site-'));
+  cpSync(join(ROOT, 'scripts'), join(dir, 'scripts'), { recursive: true });
+  cpSync(join(ROOT, 'web'), join(dir, 'web'), { recursive: true });
+  return dir;
+}
+// One hash for a folder's files and their names, so an unchanged folder compares equal and a changed, added or removed file does not.
+function treeHash(dir) {
+  const parts = readdirSync(dir, { recursive: true }).sort().map(n => { const p = join(dir, n); return statSync(p).isFile() ? n + ':' + hashOf(readFileSync(p)) : n; });
+  return hashOf(Buffer.from(parts.join('\n')));
+}
+// The subsetter run on the copy with no real source and no real python: a run that reaches the cut fails on its first file, and that failure is what these witnesses look for.
+function runSubset(dir) {
+  return spawnSync(process.execPath, [join(dir, 'scripts/font-subset.mjs'), '--src', join(dir, 'no-such-src'), '--python', join(dir, 'no-such-python')], { encoding: 'utf8', timeout: 120000, maxBuffer: 1 << 24 });
+}
+
+test('a refused re-cut touches nothing and says so: the subsetter on a copy whose stylesheet doubles a slash exits 1, names the refusal, attempts no file and ends with its done line', () => {
+  const dir = siteCopy();
+  try {
+    const cssPath = join(dir, 'web/fonts/fonts.css');
+    const css = readFileSync(cssPath, 'utf8');
+    const doubled = css.split("url('/fonts/thai/kw-sans-thai-400.").join("url('/fonts/thai//kw-sans-thai-400.");
+    assert.notEqual(doubled, css, 'the copy names the managed font with a doubled slash');
+    writeFileSync(cssPath, doubled);
+    const before = treeHash(join(dir, 'web/fonts'));
+    const r = runSubset(dir);
+    assert.equal(r.status, 1, 'exit 1');
+    assert.match(r.stderr, /FAIL fonts\.css names \/fonts\/thai\/\/kw-sans-thai-400\.7a93a32da9\.woff2 by a spelling/, 'the refusal names the spelling');
+    assert.deepEqual(r.stderr.split('\n').filter(l => l.startsWith('FAIL ') && !l.startsWith('FAIL fonts.css names ')), [], 'no file was attempted');
+    assert.equal(treeHash(join(dir, 'web/fonts')), before, 'web/fonts is unchanged');
+    assert.match(r.stdout, /^done: 0 cut, 1 failed$/m, 'the refusal path ends with its done line');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('a font the cut does not manage is not refused: an unmanaged font spelled with a doubled slash is reported by the loop, and the managed fonts still reach the cut', () => {
+  const dir = siteCopy();
+  try {
+    const cssPath = join(dir, 'web/fonts/fonts.css');
+    writeFileSync(cssPath, readFileSync(cssPath, 'utf8') + "\n@font-face { font-family: 'Other'; src: url('/fonts/zz//unmanaged.woff2') format('woff2'); unicode-range: U+0041; }\n");
+    const r = runSubset(dir);
+    assert.doesNotMatch(r.stderr, /fonts\.css names/, 'the unmanaged spelling does not refuse the cut');
+    assert.match(r.stderr, /FAIL no source is known for \/fonts\/zz\/unmanaged\.woff2/, 'the loop reports the unmanaged font');
+    assert.match(r.stderr, /FAIL missing uncut source/, 'the managed fonts reach the cut');
+    assert.match(r.stdout, /^done: 0 cut, \d+ failed$/m, 'a run that reaches the cut ends with its done line');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
