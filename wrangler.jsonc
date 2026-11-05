@@ -20,6 +20,9 @@
 	// Cloudflare's own guidance: "Keep at the top level, even with an ASSETS binding." Both
 	// apply to previews automatically because they are not per-environment settings.
 	"compatibility_date": "2026-08-01",
+	// Source maps are uploaded on every deploy, and a map that cannot be resolved fails the deploy instead of being skipped (the key is written out:
+	// Wrangler 4.150.0 and later upload by default, and skip an unresolved map unless this is true). developers.cloudflare.com/workers/observability/source-maps, read 2026-11-05.
+	"upload_source_maps": true,
 	"assets": {
 		"directory": "./web",
 		// The script reaches the pages through this binding (env.ASSETS in worker/index.mjs).

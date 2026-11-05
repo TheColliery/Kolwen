@@ -320,15 +320,21 @@ for (const f of SHIPPED) {
 }
 
 
+// The Wrangler key reader is loaded like the other libraries: a library that will not load is a finding, and block 8 skips only its own check.
+let wranglerJsonc = null;
+try { wranglerJsonc = await import(pathToFileURL(resolve('scripts/lib/wrangler-jsonc.mjs')).href); }
+catch (e) { note('scripts/lib/wrangler-jsonc.mjs', 'could not be loaded, so upload_source_maps is not checked (' + (e && e.code ? e.code : 'error') + ')'); }
+
 // ── 8. The wrangler values this checker depends on are CONFIRMED, not assumed ─────────────
 // Rule 7 governs `web/` because wrangler publishes it, and post-deploy-check reads the same
 // directory. Until now both facts lived only in a COMMENT: a one-word config change could
 // falsify three artefacts with every gate still green (the r17 finding). Now the file is read.
 {
   const w = read('wrangler.jsonc');
-  // JSONC: comments make JSON.parse unsafe here, so the two values are matched as TEXT. A
-  // duplicate key, or the same text inside a comment, would defeat this — stated rather than
-  // pretended away; this guards against silent drift, not against a hostile edit.
+  // JSONC: comments make JSON.parse unsafe for assets.directory and not_found_handling, so those two are matched as TEXT. A
+  // duplicate key, or the same text inside a comment, would defeat those two — stated rather than
+  // pretended away; this guards against silent drift, not against a hostile edit. upload_source_maps is read by
+  // scripts/lib/wrangler-jsonc.mjs, which strips comments and trailing commas, then parses.
   if (!/"directory"\s*:\s*"\.\/web"/.test(w)) {
     note('wrangler.jsonc', 'assets.directory is not "./web" — surface-check rule 7 and post-deploy-check both assume it is');
   }
@@ -338,6 +344,8 @@ for (const f of SHIPPED) {
   } else if (!['404-page', 'single-page-application'].includes(nf[1])) {
     note('wrangler.jsonc', `assets.not_found_handling is "${nf[1]}", which is not one of the two documented values`);
   }
+  const sourceMaps = wranglerJsonc ? wranglerJsonc.sourceMapsProblem(w) : null;
+  if (sourceMaps) note('wrangler.jsonc', sourceMaps);
 }
 
 // ── 9. Nothing retypes the IC label ──────────────────────────────────────────

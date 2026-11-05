@@ -175,6 +175,8 @@ the pointer to it.
   "without undue delay" with the information Kolwen needs; Kolwen's own 72 hours to the Office are
   unchanged, and 72 hours returns only if counsel reads the Office's notice as binding providers.
 
+- `wrangler.jsonc` sets `upload_source_maps: true`, so a source map that cannot be resolved fails the upload instead of being skipped. `surface-check` holds that key at the top level of the file.
+
 ### Fixed
 
 - Rules 13, 16 and 17 read the bodies of comments, `<script>`, `<style>`, `<title>`, `<textarea>` and the other raw-text and RCDATA elements as text, not as markup, through one shared reader. A tag written inside one of them is no longer read as an element or a control. This closes two fail-opens: rule 17 could miss a buy control written after an `<a>` inside such a body, and rule 13 could hash the wrong body after a `<script>` or `<style>` opener inside such data. The check for plan wording, which reads visible text, now also skips comment bodies; script and style bodies were already skipped.
