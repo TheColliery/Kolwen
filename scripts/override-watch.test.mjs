@@ -26,7 +26,7 @@ test('the real overrides are not met by the versions their dependent declares, a
   assert.deepEqual(unread, [], 'a pin the watch cannot read as an exact version: ' + JSON.stringify(unread));
 });
 
-// The rows below plant one undici pin; the real sharp override is named in every result, so each row reads the entries of the name it plants.
+// The rows below plant one undici pin against a fixture manifest that holds the undici override, so each row reads the entries of the name it plants.
 const named = (list, name) => list.filter(x => x.name === name);
 
 test('an undici override the dependent now meets is named: "remove the undici override"', () => {

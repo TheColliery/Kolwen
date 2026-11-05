@@ -45,7 +45,7 @@ published from outside this tree, so its code is not here.
 | Live check | `.github/workflows/deploy-check.yml` | Runs `post-deploy-check.mjs` against the live site when a push to `main` changes `web/`, `wrangler.jsonc` or the check itself, and on demand. |
 | Dependency updates | `.github/dependabot.yml`, `.github/workflows/dependabot-auto-merge.yml` | Version updates, and automatic merge of Dependabot patch and minor bumps once CI passes. |
 | Publishing | `.github/workflows/publish-pypi.yml`, `py/pyproject.toml` | Publishes the Python package on a `py-v*` tag or a manual run, with OIDC trusted publishing. No API token is stored. |
-| Build pins | `package.json`, `package-lock.json`, `py/requirements-build.in`, `py/requirements-build.txt` | Wrangler and its `undici` override on the npm side; hatchling, hash-pinned, on the Python side. |
+| Build pins | `package.json`, `package-lock.json`, `py/requirements-build.in`, `py/requirements-build.txt` | Wrangler on the npm side, with no `overrides` block; hatchling, hash-pinned, on the Python side. |
 | Brand images | `brand/make-brand.mjs` | Regenerates the brand images that `web/` serves. |
 
 **Not in this repository, or not shipped:**

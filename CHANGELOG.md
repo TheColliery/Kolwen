@@ -133,8 +133,8 @@ the pointer to it.
   measured from the repository. The home page footer no longer claims them, and counsel has not cleared the
   draft's wording. The sentences are unchanged. The draft's header, in both languages, now says four
   legal gaps plus these seven marked statements, and no longer lists the cookies as asserted facts.
-- The Worker's `workers.dev` production alias is switched off (`workers_dev: false` in `wrangler.jsonc`,
-  LWK-220); `kolwen.hetcreep.workers.dev` answered 404 when read on 2026-10-04. The post-deploy check now reads `kolwen.com` alone
+- The Worker's `workers.dev` production alias is switched off (`workers_dev: false` in `wrangler.jsonc`);
+  `kolwen.hetcreep.workers.dev` answered 404 when read on 2026-10-04. The post-deploy check now reads `kolwen.com` alone
   by default, so there is no fallback origin: if `kolwen.com` refuses a CI runner, `deploy-check` fails
   as unable to observe anything, and never passes. `--origin <url>` still checks one other host.
   `docs/DEPLOY.md`, `docs/TRUST.md`, `SECURITY.md` and `governance/risk-register.md` say the same.
@@ -165,6 +165,7 @@ the pointer to it.
 - A tracked file the script cannot read fails its own line, naming the file, and the rules that do not read that file keep running over the rest. A library the script cannot load fails the same way and names the rules that stop.
 - `scripts/lib/override-watch.mjs` reads the pin of each override's dependent in `package-lock.json` and reports the override as stale once that pin meets the override's version. A range, and a dependent or pin the lockfile does not name, is reported as unread. `scripts/override-watch.test.mjs` runs in CI.
 - The `sharp` override is removed from `package.json`. The Wrangler chain's `miniflare` now declares `sharp` 0.35.5 itself, so the override had no work left. The `undici` override stays.
+- The `undici` override is removed from `package.json`, and Wrangler is pinned at 4.156.0. The Wrangler chain's `miniflare` now declares `undici` 7.30.1 itself, the version the override held, so the override had no work left.
 - A `<script>` in an SVG under `web/`, at any depth, is a finding of rule 13, because the policy admits no script in an SVG. Rule 13 reads an SVG's `<style>` for the style check, as it reads a page's.
 - The structured-data check reads its `application/ld+json` elements through the shared reader, so a tag written inside a comment is not read as one.
 - On a wide screen the four pricing cards sit in one row, two on a tablet and one on a phone (the breaks are at 640 and 1024 CSS pixels). On a wide screen the compare table keeps its plan headers in view while the page scrolls down; on a narrow screen its table scrolls sideways inside its box and the feature names stay in view.

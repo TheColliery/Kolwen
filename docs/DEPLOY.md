@@ -2,8 +2,8 @@
 
 The site is a Cloudflare Worker that serves static assets and runs one small script. There is no build step and no bundler:
 `wrangler.jsonc` binds the `web/` directory, the script in `worker/index.mjs`, a Cron Trigger, the `send_email` binding and one variable, and that is the whole application. `package.json`
-exists to pin the Wrangler version and, for one advisory, to override a transitive
-`undici` version (see "Wrangler is pinned" below); it declares no runtime dependency.
+exists to pin the Wrangler version and, when an advisory needs one, to override a transitive
+dependency (see "Dependency overrides" below); it declares no runtime dependency.
 
 ## Production: Workers Builds, on push to main
 
@@ -169,17 +169,16 @@ only on a push touching `web/`, `wrangler.jsonc` or the checker, and a bump touc
 
 ### Dependency overrides
 
-`package.json` has an `overrides` block with one entry. The package reaches the Worker's build tooling
+`package.json` has no `overrides` block today. The `undici` override came out with Wrangler 4.156.0, because
+`miniflare` now declares `undici` 7.30.1 itself. The package reaches the Worker's build tooling
 only through Wrangler's `miniflare`, and it is a development dependency: the deployed code is static
-assets and `worker/index.mjs`, which imports nothing from the package, so nothing it deploys loads it. The entry comes out once the pin it works around is fixed.
-
-| Package | Overridden to | Advisories closed | Removal condition |
-|---|---|---|---|
-| `undici` | 7.30.1 | GHSA-4qv8-2p9j-2685, GHSA-f72v-6w45-q472, GHSA-xjj6-f33q-929c | once `miniflare`'s own pin carries 7.30.1 or later |
+assets and `worker/index.mjs`, which imports nothing from the package, so nothing it deploys loads it.
+An override is added only for an advisory the pinned tree cannot yet fix, and it comes out once the pin it works around is fixed.
+The table of overrides in force is empty, so none is listed here.
 
 `scripts/override-watch.test.mjs` runs in CI and fails it once a dependent's pin in `package-lock.json` meets an override, because that override is then due to come out.
 
-The override applies to an `npm ci` install, which reads the lockfile, and not to an `npx wrangler@<version>`
+An override, when one is present, applies to an `npm ci` install, which reads the lockfile, and not to an `npx wrangler@<version>`
 run (see "Local" below).
 
 ## Local: only for dev and dry runs, and only pinned
@@ -198,7 +197,7 @@ npx wrangler@"$V" deploy --dry-run   # compile without publishing
 day it runs, so two people on the same task get two different tools and neither can reproduce the
 other.
 
-The `overrides` entry in `package.json` applies to an `npm ci` install, which reads the lockfile.
+An `overrides` entry in `package.json`, when one is present, applies to an `npm ci` install, which reads the lockfile.
 It does not reach an `npx wrangler@<version>` run, which installs its own tree.
 
 **`wrangler deploy` from a laptop is not the production path** and should not be used as one. It
