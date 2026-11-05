@@ -5,8 +5,8 @@
 // the new code with the old algorithms, kept here verbatim, on grids and random inputs, so a kept result is checked, not assumed. Run: node --test scripts/pattern-bounds.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -404,6 +404,56 @@ test('the Wrangler source-map key named only in a comment fails, and a comment a
   const { sourceMapsProblem } = await import('./lib/wrangler-jsonc.mjs');
   assert.notEqual(sourceMapsProblem('{\n\t// "upload_source_maps": true,\n\t/* "upload_source_maps": true, */\n\t"name": "kolwen"\n}\n'), null, 'named only in comments');
   assert.equal(sourceMapsProblem('{\n\t"upload_source_maps": true, // a note\n\t"name": "kolwen"\n}\n'), null, 'a trailing comment on the key line');
+});
+
+test('the Wrangler source-map key is read at the top level: a key only inside previews or env fails', async () => {
+  const { sourceMapsProblem } = await import('./lib/wrangler-jsonc.mjs');
+  assert.notEqual(sourceMapsProblem('{\n\t"previews": {\n\t\t"upload_source_maps": true\n\t}\n}\n'), null, 'only in previews');
+  assert.notEqual(sourceMapsProblem('{\n\t"env": {\n\t\t"a": {\n\t\t\t"upload_source_maps": true\n\t\t}\n\t}\n}\n'), null, 'only in env');
+});
+
+test('a duplicate Wrangler source-map key takes its last value, as JSON.parse does', async () => {
+  const { sourceMapsProblem } = await import('./lib/wrangler-jsonc.mjs');
+  assert.notEqual(sourceMapsProblem('{\n\t"upload_source_maps": true,\n\t"upload_source_maps": false\n}\n'), null, 'true then false');
+  assert.equal(sourceMapsProblem('{\n\t"upload_source_maps": false,\n\t"upload_source_maps": true\n}\n'), null, 'false then true');
+});
+
+test('a double slash inside a string is not a comment, so a URL before the key does not hide it', async () => {
+  const { sourceMapsProblem } = await import('./lib/wrangler-jsonc.mjs');
+  assert.equal(sourceMapsProblem('{"route": "https://x.example/y", "upload_source_maps": true}'), null);
+});
+
+test('the Wrangler source-map key passes with a trailing comma, and the real wrangler.jsonc passes', async () => {
+  const { sourceMapsProblem } = await import('./lib/wrangler-jsonc.mjs');
+  assert.equal(sourceMapsProblem('{"upload_source_maps": true,}'), null);
+  assert.equal(sourceMapsProblem(readFileSync(join(ROOT, 'wrangler.jsonc'), 'utf8')), null, 'the real file');
+});
+
+test('a bulk of source-map keys is read inside its timer, and a text that does not parse is reported', () => {
+  const out = inChild(`import { sourceMapsProblem } from ${JSON.stringify(url(['scripts', 'lib', 'wrangler-jsonc.mjs']))};
+const bulk = '"upload_source_maps":'.repeat(50000);
+const broken = sourceMapsProblem('{"upload_source_maps": true');
+console.log('OK ' + typeof sourceMapsProblem(bulk) + ' ' + (broken === null ? 'passed' : 'reported'));`);
+  assert.equal(out, 'OK string reported');
+});
+
+test('surface-check fails on a wrangler.jsonc with no upload_source_maps line, and names the key', () => {
+  const copy = mkdtempSync(join(tmpdir(), 'pattern-bounds-surface-'));
+  const env = { ...process.env, ...sandboxEnv(copy) };
+  try {
+    for (const f of execFileSync('git', ['ls-files', '-z'], { cwd: ROOT, env, encoding: 'utf8', timeout: 30000 }).split('\0').filter(Boolean)) {
+      mkdirSync(dirname(join(copy, f)), { recursive: true });
+      copyFileSync(join(ROOT, f), join(copy, f));
+    }
+    const wrangler = join(copy, 'wrangler.jsonc');
+    writeFileSync(wrangler, readFileSync(wrangler, 'utf8').split('\n').filter(line => !line.includes('"upload_source_maps"')).join('\n'));
+    execFileSync('git', ['init', '-q'], { cwd: copy, env });
+    execFileSync('git', ['add', '-A'], { cwd: copy, env });
+    const r = spawnSync(process.execPath, [`--max-old-space-size=${HEAP_MB}`, join(ROOT, 'scripts', 'surface-check.mjs')], { cwd: copy, env, encoding: 'utf8', timeout: KILL_MS * 4, killSignal: 'SIGKILL' });
+    assert.equal(r.signal, null, 'surface-check was killed');
+    assert.equal(r.status, 1, 'surface-check passed a wrangler.jsonc with no key: ' + r.stdout.slice(0, 300));
+    assert.match(r.stdout + r.stderr, /upload_source_maps is absent/);
+  } finally { rmSync(copy, { recursive: true, force: true }); }
 });
 
 test('a font shorthand with no size and no missing name is still reported', () => {

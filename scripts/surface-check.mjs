@@ -327,9 +327,10 @@ for (const f of SHIPPED) {
 // falsify three artefacts with every gate still green (the r17 finding). Now the file is read.
 {
   const w = read('wrangler.jsonc');
-  // JSONC: comments make JSON.parse unsafe here, so the two values are matched as TEXT. A
-  // duplicate key, or the same text inside a comment, would defeat this — stated rather than
-  // pretended away; this guards against silent drift, not against a hostile edit.
+  // JSONC: comments make JSON.parse unsafe for assets.directory and not_found_handling, so those two are matched as TEXT. A
+  // duplicate key, or the same text inside a comment, would defeat those two — stated rather than
+  // pretended away; this guards against silent drift, not against a hostile edit. upload_source_maps is read by
+  // scripts/lib/wrangler-jsonc.mjs, which strips comments and trailing commas, then parses.
   if (!/"directory"\s*:\s*"\.\/web"/.test(w)) {
     note('wrangler.jsonc', 'assets.directory is not "./web" — surface-check rule 7 and post-deploy-check both assume it is');
   }
