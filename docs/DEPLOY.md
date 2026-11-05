@@ -174,7 +174,6 @@ only on a push touching `web/`, `wrangler.jsonc` or the checker, and a bump touc
 only through Wrangler's `miniflare`, and it is a development dependency: the deployed code is static
 assets and `worker/index.mjs`, which imports nothing from the package, so nothing it deploys loads it.
 An override is added only for an advisory the pinned tree cannot yet fix, and it comes out once the pin it works around is fixed.
-The table of overrides in force is empty, so none is listed here.
 
 `scripts/override-watch.test.mjs` runs in CI and fails it once a dependent's pin in `package-lock.json` meets an override, because that override is then due to come out.
 

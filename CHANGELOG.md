@@ -164,7 +164,7 @@ the pointer to it.
   disagree with itself.
 - A tracked file the script cannot read fails its own line, naming the file, and the rules that do not read that file keep running over the rest. A library the script cannot load fails the same way and names the rules that stop.
 - `scripts/lib/override-watch.mjs` reads the pin of each override's dependent in `package-lock.json` and reports the override as stale once that pin meets the override's version. A range, and a dependent or pin the lockfile does not name, is reported as unread. `scripts/override-watch.test.mjs` runs in CI.
-- The `sharp` override is removed from `package.json`. The Wrangler chain's `miniflare` now declares `sharp` 0.35.5 itself, so the override had no work left. The `undici` override stays.
+- The `sharp` override is removed from `package.json`. The Wrangler chain's `miniflare` now declares `sharp` 0.35.5 itself, so the override had no work left.
 - The `undici` override is removed from `package.json`, and Wrangler is pinned at 4.156.0. The Wrangler chain's `miniflare` now declares `undici` 7.30.1 itself, the version the override held, so the override had no work left.
 - A `<script>` in an SVG under `web/`, at any depth, is a finding of rule 13, because the policy admits no script in an SVG. Rule 13 reads an SVG's `<style>` for the style check, as it reads a page's.
 - The structured-data check reads its `application/ld+json` elements through the shared reader, so a tag written inside a comment is not read as one.
@@ -185,13 +185,7 @@ the pointer to it.
 
 ### Security
 
-- The `undici` dependency is pinned to 7.30.1 by an `overrides` entry in `package.json`. The
-  `wrangler` pin brings in `miniflare`, which pins `undici` 7.29.1 exactly, and no Wrangler release
-  carries the fix yet; the latest, 4.152.0, still pins 7.29.1. The override closes three advisories
-  that `npm audit` reported for `undici` 7.0.0 to 7.30.0 (GHSA-4qv8-2p9j-2685, GHSA-f72v-6w45-q472
-  and GHSA-xjj6-f33q-929c), and the moderate findings on `miniflare` and `wrangler` that come
-  through it. The override comes out once `miniflare`'s own pin carries 7.30.1 or later. Nothing in
-  the site changes: `undici` is a development dependency, and the site ships no code that uses it.
+- The `undici` dependency was pinned to 7.30.1 by an `overrides` entry in `package.json`, while the `wrangler` pin brought in `miniflare`, which pinned `undici` 7.29.1 exactly. The override closed three advisories that `npm audit` reported for `undici` 7.0.0 to 7.30.0 (GHSA-4qv8-2p9j-2685, GHSA-f72v-6w45-q472 and GHSA-xjj6-f33q-929c), and the moderate findings on `miniflare` and `wrangler` that came through it. It came out once `miniflare`'s own pin carried 7.30.1. Nothing in the site changed: `undici` is a development dependency, and the site ships no code that uses it.
 - A manual run of the PyPI publish workflow now always publishes to TestPyPI, as the workflow's
   own comment already said, whatever ref it starts on.
 - The reply-language and rendered checks escape the text a run did not write (a reply, a page's
