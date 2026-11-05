@@ -437,6 +437,30 @@ console.log('OK ' + typeof sourceMapsProblem(bulk) + ' ' + (broken === null ? 'p
   assert.equal(out, 'OK string reported');
 });
 
+test('the Wrangler source-map key is not read past a glued comment, and an unclosed block comment is a problem', async () => {
+  const { sourceMapsProblem } = await import('./lib/wrangler-jsonc.mjs');
+  assert.notEqual(sourceMapsProblem('{"upload_source_maps": tr/**/ue}'), null, 'a comment inside a value joins the words either side of it');
+  assert.notEqual(sourceMapsProblem('{"upload_source_maps": true} /* unfinished'), null, 'an unclosed block comment');
+});
+
+test('surface-check fails and names the Wrangler library when the library is removed', () => {
+  const copy = mkdtempSync(join(tmpdir(), 'pattern-bounds-library-'));
+  const env = { ...process.env, ...sandboxEnv(copy) };
+  try {
+    for (const f of execFileSync('git', ['ls-files', '-z'], { cwd: ROOT, env, encoding: 'utf8', timeout: 30000 }).split('\0').filter(Boolean)) {
+      mkdirSync(dirname(join(copy, f)), { recursive: true });
+      copyFileSync(join(ROOT, f), join(copy, f));
+    }
+    rmSync(join(copy, 'scripts', 'lib', 'wrangler-jsonc.mjs'));
+    execFileSync('git', ['init', '-q'], { cwd: copy, env });
+    execFileSync('git', ['add', '-A'], { cwd: copy, env });
+    const r = spawnSync(process.execPath, [`--max-old-space-size=${HEAP_MB}`, join(ROOT, 'scripts', 'surface-check.mjs')], { cwd: copy, env, encoding: 'utf8', timeout: KILL_MS * 4, killSignal: 'SIGKILL' });
+    assert.equal(r.signal, null, 'surface-check was killed');
+    assert.equal(r.status, 1, 'surface-check passed without the library: ' + r.stdout.slice(0, 300));
+    assert.ok((r.stdout + r.stderr).includes('could not be loaded'), 'the gate did not name the library that would not load');
+  } finally { rmSync(copy, { recursive: true, force: true }); }
+});
+
 test('surface-check fails on a wrangler.jsonc with no upload_source_maps line, and names the key', () => {
   const copy = mkdtempSync(join(tmpdir(), 'pattern-bounds-surface-'));
   const env = { ...process.env, ...sandboxEnv(copy) };

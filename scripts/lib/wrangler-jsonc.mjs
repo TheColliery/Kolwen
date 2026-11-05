@@ -16,10 +16,13 @@ export function jsoncWithoutComments(text) {
       i = j + 1;
     } else if (c === '/' && text[i + 1] === '/') {
       const e = text.indexOf('\n', i);
+      out += ' ';
       i = e < 0 ? n : e;
     } else if (c === '/' && text[i + 1] === '*') {
       const e = text.indexOf('*/', i + 2);
-      i = e < 0 ? n : e + 2;
+      if (e < 0) throw new Error('unterminated comment');
+      out += ' ';
+      i = e + 2;
     } else {
       out += c;
       i++;

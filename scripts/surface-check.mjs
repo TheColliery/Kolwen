@@ -13,7 +13,6 @@ import { execSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { resolve, posix } from 'node:path';
 import { blankSvgs } from './lib/svg-blank.mjs';
-import { sourceMapsProblem } from './lib/wrangler-jsonc.mjs';
 
 const fail = [];
 const note = (f, msg) => fail.push(`${f}: ${msg}`);
@@ -321,6 +320,11 @@ for (const f of SHIPPED) {
 }
 
 
+// The Wrangler key reader is loaded like the other libraries: a library that will not load is a finding, and block 8 skips only its own check.
+let wranglerJsonc = null;
+try { wranglerJsonc = await import(pathToFileURL(resolve('scripts/lib/wrangler-jsonc.mjs')).href); }
+catch (e) { note('scripts/lib/wrangler-jsonc.mjs', 'could not be loaded, so upload_source_maps is not checked (' + (e && e.code ? e.code : 'error') + ')'); }
+
 // ── 8. The wrangler values this checker depends on are CONFIRMED, not assumed ─────────────
 // Rule 7 governs `web/` because wrangler publishes it, and post-deploy-check reads the same
 // directory. Until now both facts lived only in a COMMENT: a one-word config change could
@@ -340,7 +344,7 @@ for (const f of SHIPPED) {
   } else if (!['404-page', 'single-page-application'].includes(nf[1])) {
     note('wrangler.jsonc', `assets.not_found_handling is "${nf[1]}", which is not one of the two documented values`);
   }
-  const sourceMaps = sourceMapsProblem(w);
+  const sourceMaps = wranglerJsonc ? wranglerJsonc.sourceMapsProblem(w) : null;
   if (sourceMaps) note('wrangler.jsonc', sourceMaps);
 }
 
