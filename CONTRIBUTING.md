@@ -33,7 +33,7 @@ Clone, install nothing, run them.
 
 Kolwen ships **no runtime dependency**—the scripts use Node.js built-ins only, Node 22+. There is
 no build step. `package.json` and `package-lock.json` exist to pin Wrangler, the deploy tool,
-and to override one transitive dependency for an advisory;
+and, when an advisory needs one, to override a transitive dependency;
 nothing here needs an `npm install` to run.
 
 ```bash
