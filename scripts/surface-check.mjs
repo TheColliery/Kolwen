@@ -13,6 +13,7 @@ import { execSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { resolve, posix } from 'node:path';
 import { blankSvgs } from './lib/svg-blank.mjs';
+import { sourceMapsProblem } from './lib/wrangler-jsonc.mjs';
 
 const fail = [];
 const note = (f, msg) => fail.push(`${f}: ${msg}`);
@@ -338,6 +339,8 @@ for (const f of SHIPPED) {
   } else if (!['404-page', 'single-page-application'].includes(nf[1])) {
     note('wrangler.jsonc', `assets.not_found_handling is "${nf[1]}", which is not one of the two documented values`);
   }
+  const sourceMaps = sourceMapsProblem(w);
+  if (sourceMaps) note('wrangler.jsonc', sourceMaps);
 }
 
 // ── 9. Nothing retypes the IC label ──────────────────────────────────────────

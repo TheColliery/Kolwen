@@ -387,6 +387,25 @@ console.log('OK ' + blankSvgs(text).length + ' ' + text.length);`);
   assert.equal(got, want, 'the text keeps its length');
 });
 
+// The Wrangler source-map key, read as the surface check reads wrangler.jsonc: comments are removed first, so a comment that names the key does not satisfy it.
+test('the Wrangler source-map key passes when it is true', async () => {
+  const { sourceMapsProblem } = await import('./lib/wrangler-jsonc.mjs');
+  assert.equal(sourceMapsProblem('{\n\t"name": "kolwen",\n\t"upload_source_maps": true,\n\t"main": "worker/index.mjs"\n}\n'), null);
+});
+
+test('the Wrangler source-map key fails when it is absent, false, or a string', async () => {
+  const { sourceMapsProblem } = await import('./lib/wrangler-jsonc.mjs');
+  assert.notEqual(sourceMapsProblem('{\n\t"name": "kolwen"\n}\n'), null, 'absent');
+  assert.notEqual(sourceMapsProblem('{\n\t"upload_source_maps": false\n}\n'), null, 'false');
+  assert.notEqual(sourceMapsProblem('{\n\t"upload_source_maps": "true"\n}\n'), null, 'a string is not the boolean');
+});
+
+test('the Wrangler source-map key named only in a comment fails, and a comment after the value does not hide it', async () => {
+  const { sourceMapsProblem } = await import('./lib/wrangler-jsonc.mjs');
+  assert.notEqual(sourceMapsProblem('{\n\t// "upload_source_maps": true,\n\t/* "upload_source_maps": true, */\n\t"name": "kolwen"\n}\n'), null, 'named only in comments');
+  assert.equal(sourceMapsProblem('{\n\t"upload_source_maps": true, // a note\n\t"name": "kolwen"\n}\n'), null, 'a trailing comment on the key line');
+});
+
 test('a font shorthand with no size and no missing name is still reported', () => {
   const css = 'p.u{font:italic bold}';
   const dir = mkdtempSync(join(tmpdir(), 'pattern-bounds-unreadable-'));
