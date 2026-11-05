@@ -447,32 +447,39 @@ test('surface-check fails and names the Wrangler library when the library is rem
   const copy = mkdtempSync(join(tmpdir(), 'pattern-bounds-library-'));
   const env = { ...process.env, ...sandboxEnv(copy) };
   try {
-    for (const f of execFileSync('git', ['ls-files', '-z'], { cwd: ROOT, env, encoding: 'utf8', timeout: 30000 }).split('\0').filter(Boolean)) {
+    for (const f of execFileSync('git', ['ls-files', '-z'], { cwd: ROOT, env, encoding: 'utf8', timeout: 30000, killSignal: 'SIGKILL' }).split('\0').filter(Boolean)) {
       mkdirSync(dirname(join(copy, f)), { recursive: true });
       copyFileSync(join(ROOT, f), join(copy, f));
     }
     rmSync(join(copy, 'scripts', 'lib', 'wrangler-jsonc.mjs'));
-    execFileSync('git', ['init', '-q'], { cwd: copy, env });
-    execFileSync('git', ['add', '-A'], { cwd: copy, env });
+    execFileSync('git', ['init', '-q'], { cwd: copy, env, timeout: 30000, killSignal: 'SIGKILL' });
+    execFileSync('git', ['add', '-A'], { cwd: copy, env, timeout: 30000, killSignal: 'SIGKILL' });
     const r = spawnSync(process.execPath, [`--max-old-space-size=${HEAP_MB}`, join(ROOT, 'scripts', 'surface-check.mjs')], { cwd: copy, env, encoding: 'utf8', timeout: KILL_MS * 4, killSignal: 'SIGKILL' });
     assert.equal(r.signal, null, 'surface-check was killed');
     assert.equal(r.status, 1, 'surface-check passed without the library: ' + r.stdout.slice(0, 300));
-    assert.ok((r.stdout + r.stderr).includes('could not be loaded'), 'the gate did not name the library that would not load');
+    assert.ok((r.stdout + r.stderr).includes('scripts/lib/wrangler-jsonc.mjs: could not be loaded'), 'the gate did not name the library that would not load');
   } finally { rmSync(copy, { recursive: true, force: true }); }
+});
+
+test('a value nested 100,000 levels deep is reported without a throw', () => {
+  const out = inChild(`import { sourceMapsProblem } from ${JSON.stringify(url(['scripts', 'lib', 'wrangler-jsonc.mjs']))};
+const deep = '{"upload_source_maps": ' + '['.repeat(100000) + ']'.repeat(100000) + '}';
+console.log('OK ' + typeof sourceMapsProblem(deep));`);
+  assert.equal(out, 'OK string');
 });
 
 test('surface-check fails on a wrangler.jsonc with no upload_source_maps line, and names the key', () => {
   const copy = mkdtempSync(join(tmpdir(), 'pattern-bounds-surface-'));
   const env = { ...process.env, ...sandboxEnv(copy) };
   try {
-    for (const f of execFileSync('git', ['ls-files', '-z'], { cwd: ROOT, env, encoding: 'utf8', timeout: 30000 }).split('\0').filter(Boolean)) {
+    for (const f of execFileSync('git', ['ls-files', '-z'], { cwd: ROOT, env, encoding: 'utf8', timeout: 30000, killSignal: 'SIGKILL' }).split('\0').filter(Boolean)) {
       mkdirSync(dirname(join(copy, f)), { recursive: true });
       copyFileSync(join(ROOT, f), join(copy, f));
     }
     const wrangler = join(copy, 'wrangler.jsonc');
     writeFileSync(wrangler, readFileSync(wrangler, 'utf8').split('\n').filter(line => !line.includes('"upload_source_maps"')).join('\n'));
-    execFileSync('git', ['init', '-q'], { cwd: copy, env });
-    execFileSync('git', ['add', '-A'], { cwd: copy, env });
+    execFileSync('git', ['init', '-q'], { cwd: copy, env, timeout: 30000, killSignal: 'SIGKILL' });
+    execFileSync('git', ['add', '-A'], { cwd: copy, env, timeout: 30000, killSignal: 'SIGKILL' });
     const r = spawnSync(process.execPath, [`--max-old-space-size=${HEAP_MB}`, join(ROOT, 'scripts', 'surface-check.mjs')], { cwd: copy, env, encoding: 'utf8', timeout: KILL_MS * 4, killSignal: 'SIGKILL' });
     assert.equal(r.signal, null, 'surface-check was killed');
     assert.equal(r.status, 1, 'surface-check passed a wrangler.jsonc with no key: ' + r.stdout.slice(0, 300));

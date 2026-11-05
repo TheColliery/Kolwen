@@ -74,5 +74,5 @@ export function sourceMapsProblem(text) {
   const value = cfg.upload_source_maps;
   if (value === true) return null;
   if (value === false) return 'upload_source_maps is false at the top level: no source map is uploaded';
-  return `upload_source_maps is ${JSON.stringify(value)} at the top level, not true: a source map that cannot be resolved is skipped at deploy`;
+  return `upload_source_maps is ${value !== null && typeof value === 'object' ? (Array.isArray(value) ? 'an array' : 'an object') : JSON.stringify(value)} at the top level, not true: a source map that cannot be resolved is skipped at deploy`;
 }
