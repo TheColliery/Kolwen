@@ -25,7 +25,7 @@ readers at `/.well-known/security.txt`, per RFC 9116.
 is unavailable there is no backup route—that is a real limitation, not an oversight, and it is
 stated so nobody plans around a responsiveness this project cannot guarantee.
 
-Published and draft security advisories for this repository are listed on its [Security Advisories tab](https://github.com/TheColliery/Kolwen/security/advisories).
+Published security advisories for this repository are listed on its [Security Advisories tab](https://github.com/TheColliery/Kolwen/security/advisories).
 
 ## Scope
 
