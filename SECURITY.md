@@ -25,6 +25,8 @@ readers at `/.well-known/security.txt`, per RFC 9116.
 is unavailable there is no backup route—that is a real limitation, not an oversight, and it is
 stated so nobody plans around a responsiveness this project cannot guarantee.
 
+Published and draft security advisories for this repository are listed on its [Security Advisories tab](https://github.com/TheColliery/Kolwen/security/advisories).
+
 ## Scope
 
 This repository is the public face of Kolwen. What ships from it:
@@ -84,6 +86,10 @@ checkable rather than asserted:
   `all-green` and `analyze (javascript)` checks and blocks deletion and force-push—**and the
   maintainer's admin role can bypass it, and does**, because this is a one-person repository
   that pushes directly. The ruleset's real job is gating Dependabot's automatic merges.
+
+## Independent Scanning—NVIDIA SkillSpector
+
+Not applicable: this repository ships no skill and runs no SkillSpector scan, so this file carries no scan result.
 
 ## A note on what is NOT claimed
 
