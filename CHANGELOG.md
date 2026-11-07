@@ -176,6 +176,7 @@ the pointer to it.
   unchanged, and 72 hours returns only if counsel reads the Office's notice as binding providers.
 
 - `wrangler.jsonc` sets `upload_source_maps: true`, so a source map that cannot be resolved fails the upload instead of being skipped. `surface-check` holds that key at the top level of the file.
+- The home page shows four small decorative icons: beside the main heading, at the start of the "in development" line in place of its dot, at the "Official channels" heading and at the impersonator warning. They are inline SVG, hidden from screen readers and coloured by two class rules with no inline style; the content security policy changes only in the hash of the home page's style block.
 
 ### Fixed
 
