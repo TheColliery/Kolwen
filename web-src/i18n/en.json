@@ -179,7 +179,7 @@
       "data": "Requests made to the site, as Cloudflare handles them to serve it.",
       "where": "Cloudflare's network, and sub-processors outside the European Economic Area, Switzerland and the United Kingdom, in countries the agreement does not name.",
       "basis": "EU Standard Contractual Clauses (Module Two and Module Three); the UK Addendum; the Swiss addendum; the EU-U.S. Data Privacy Framework where Cloudflare is certified under it.",
-      "retention": "Kept until the main agreement ends or the processing is no longer needed. After that, Cloudflare deletes or returns the data at the customer's choice, except where the law requires it to keep it. The agreement states no fixed number of days.",
+      "retention": "Kept until the main agreement ends or the processing is no longer needed. After that, Cloudflare deletes or returns the data at the customer's choice, except where the law requires it to keep it. The agreement states no fixed number of days. Workers Logs, the Worker's own log lines, are kept 3 days on the Workers plan Kolwen uses at present (7 days on the paid Workers plan) until 30 November 2026, per Cloudflare's Workers pricing page, read 2026-11-08; from 1 December 2026 Workers Logs move to Cloudflare Observability pricing, and which retention applies after that date is not stated here.",
       "dpa": "Customer DPA, Version 6.4, effective 3 April 2026.",
       "from": "from the day it first holds customer data."
     },
