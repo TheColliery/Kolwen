@@ -4,11 +4,11 @@
 
 ## What this is
 
-The reply Kolwen sends when a customer in Japan asks for the seller details that the Act on Specified Commercial Transactions (特定商取引に関する法律, "the Act") lets an online seller leave off its page. The Act allows that only where the page states that the details are given on request without delay (Act Art. 11, proviso); the ordinance (Arts. 23 and 25) sets which details may be left off. This file is the only place the wording of the reply lives. Nothing else in the repository repeats it.
+The reply Kolwen will send, once it sells to customers in Japan, when someone asks for the seller details that the Act on Specified Commercial Transactions (特定商取引に関する法律, "the Act") lets an online seller leave off its page. The Act allows that only where the page states that the details are given on request without delay (Act Art. 11, proviso); the ordinance lists the details (Art. 23) and sets which of them may be left off (Art. 25). This file is the only place the wording of the reply lives. Nothing else in the repository repeats it.
 
 ## The request route
 
-- A customer asks by e-mail to `info@kolwen.com`.
+- Anyone will be able to ask by e-mail to `info@kolwen.com`; the Act names no requester, and no proof of purchase is asked.
 - The seller page, when one exists, states that the details are given on request without delay.
 - No fee and no login are required.
 
