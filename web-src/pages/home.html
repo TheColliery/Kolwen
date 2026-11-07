@@ -53,7 +53,6 @@
   .sub{color:var(--txt2);font-size:var(--kw-font-size-6);margin-top:10px}
   .origin{color:var(--quiet);font-size:var(--kw-font-size-4);margin-top:10px}
   .disclosure{display:flex;align-items:center;gap:8px;font-size:var(--kw-font-size-2);color:var(--quiet);border:1px solid var(--line);border-radius:10px;padding:9px 14px;background:var(--bg2)}
-  .disclosure .d{width:7px;height:7px;border-radius:50%;background:radial-gradient(circle at 35% 30%,var(--accent2),var(--accent) 60%,#a85a26);flex:none}
   .card{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:18px 20px;display:flex;flex-direction:column;gap:10px}
   .card h2{font-size:var(--kw-font-size-3);font-weight:600;color:var(--quiet);letter-spacing:.04em;text-transform:uppercase;font-family:'KW Mono',monospace}
   .ch{display:flex;flex-wrap:wrap;gap:8px}
@@ -65,6 +64,12 @@
   #doc-en > * + *,#doc-th > * + *{margin-top:var(--kw-space-section)}
   [hidden]{display:none !important}
   .band{display:block;width:100%;height:auto;margin-block:1rem}
+  .ka{fill:var(--accent)}.ks{stroke:var(--accent)}
+  .spot-h1{display:block;width:96px;height:96px;margin:0 0 12px;color:var(--txt2)}
+  @media (min-width:640px){.spot-h1{float:right;margin:0 0 8px 20px}}
+  .spot-h2{display:block;width:24px;height:24px;flex:none;color:var(--quiet)}
+  .spot-h3{display:block;width:40px;height:40px;color:var(--txt2)}
+  .spot-h4{display:inline-block;width:24px;height:24px;vertical-align:-6px;margin-right:6px;color:var(--txt2)}
 {{block:site-header-css}}
 {{block:site-footer-css}}
 </style>
@@ -89,14 +94,16 @@
   <div id="doc-en" lang="en">
 {{lang en}}
     <div>
+      <span class="spot-h1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"><path d="M35 41.3C26.3 36 15.8 36 7 39.5V76.3C15.8 72.8 26.3 72.8 35 78C43.8 72.8 54.3 72.8 63 76.3V39.5C54.3 36 43.8 36 35 41.3V78"/><path d="M7 81.5C15.8 78 26.3 78 35 83.3C43.8 78 54.3 78 63 81.5"/><path class="ks" stroke="#e8833a" d="M13.1 51.8C17.5 48.3 21 55.3 28.9 50.9M13.1 61.4C17.5 57.9 21 64.9 28.9 60.5"/></g><path class="ka" fill="#e8833a" d="M33.3 81.5V90.3L35 87.8 36.8 90.3V81.5Z"/><circle cx="62" cy="30" r="17" fill="none" stroke="currentColor" stroke-width="3.4"/><path class="ka" fill="#e8833a" d="M47.5 33C56 26 65 37 76.6 30C75 39 52 45 47.5 33Z"/><path d="M73.7 44.3L84.1 56.9" stroke="currentColor" stroke-width="6.5" stroke-linecap="round"/></svg></span>
       <h1>{{home.hero.title}}</h1>
       <p class="sub">{{home.hero.sub}}</p>
       <p class="origin">{{home.origin}}</p>
     </div>
 
-    <div class="disclosure"><span class="d" aria-hidden="true"></span>{{home.disclosure}}</div>
+    <div class="disclosure"><span class="spot-h2"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path class="ka" fill="#e8833a" transform="translate(11.5 17.2)rotate(-32)" d="M5.8 0C1.2 3.8 -5.7 3.5 -5.7 0S1.2 -3.8 5.8 0Z"/><path class="ka" fill="#e8833a" transform="translate(18.2 9)rotate(-58)" d="M4.1 0C.8 2.9 -4.1 2.6 -4.1 0S.8 -2.9 4.1 0Z"/><path class="ka" fill="#e8833a" transform="translate(7 6.2)rotate(-48)" d="M3.6 0C.7 2.5 -3.6 2.2 -3.6 0S.7 -2.5 3.6 0Z"/></svg></span>{{home.disclosure}}</div>
 
     <div class="card">
+      <span class="spot-h3"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M20 11C15 8 9 8 4 10V31C9 29 15 29 20 32C25 29 31 29 36 31V10C31 8 25 8 20 11V32"/><path d="M4 34C9 32 15 32 20 35C25 32 31 32 36 34"/><path class="ks" stroke="#e8833a" d="M7.5 17C10 15 12 19 16.5 16.5M7.5 22.5C10 20.5 12 24.5 16.5 22"/></g><path class="ka" fill="#e8833a" d="M19 34V39L20 37.6 21 39V34Z"/></svg></span>
       <h2>{{home.channels.title}}</h2>
       <div class="ch">
         <a href="https://github.com/TheColliery/Kolwen" rel="me">{{shared.names.github}}</a>
@@ -104,7 +111,7 @@
         <a href="https://www.npmjs.com/package/kolwen" rel="me">{{shared.names.npm}}</a>
         <a href="mailto:info@kolwen.com">{{home.channels.email}}</a>
       </div>
-      <p class="warn">{{home.warn}}</p>
+      <p class="warn"><span class="spot-h4"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 2 1 15.5h15z"/><path d="M8.5 6.6v4.2m0 2.2v.1"/><circle cx="17.4" cy="17.4" r="3.4" stroke-width="1.6"/><path d="m19.9 19.9 2.6 2.6" stroke-width="2.2"/></g><path class="ka" fill="#e8833a" d="M15 18c1-.9 2.6.3 4.7-.4-.4 1.5-1.6 2.3-2.8 2.2-.8-.3-1.5-1-1.9-1.8z"/></svg></span>{{home.warn}}</p>
     </div>
 
     <p class="fine">{{shared.page.note}}</p>
@@ -114,13 +121,15 @@
   <div id="doc-th" lang="th" hidden>
 {{lang th}}
     <div>
+      <span class="spot-h1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"><path d="M35 41.3C26.3 36 15.8 36 7 39.5V76.3C15.8 72.8 26.3 72.8 35 78C43.8 72.8 54.3 72.8 63 76.3V39.5C54.3 36 43.8 36 35 41.3V78"/><path d="M7 81.5C15.8 78 26.3 78 35 83.3C43.8 78 54.3 78 63 81.5"/><path class="ks" stroke="#e8833a" d="M13.1 51.8C17.5 48.3 21 55.3 28.9 50.9M13.1 61.4C17.5 57.9 21 64.9 28.9 60.5"/></g><path class="ka" fill="#e8833a" d="M33.3 81.5V90.3L35 87.8 36.8 90.3V81.5Z"/><circle cx="62" cy="30" r="17" fill="none" stroke="currentColor" stroke-width="3.4"/><path class="ka" fill="#e8833a" d="M47.5 33C56 26 65 37 76.6 30C75 39 52 45 47.5 33Z"/><path d="M73.7 44.3L84.1 56.9" stroke="currentColor" stroke-width="6.5" stroke-linecap="round"/></svg></span>
       <h1>{{home.hero.title}}</h1>
       <p class="origin">{{home.origin}}</p>
     </div>
 
-    <div class="disclosure"><span class="d" aria-hidden="true"></span>{{home.disclosure}}</div>
+    <div class="disclosure"><span class="spot-h2"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path class="ka" fill="#e8833a" transform="translate(11.5 17.2)rotate(-32)" d="M5.8 0C1.2 3.8 -5.7 3.5 -5.7 0S1.2 -3.8 5.8 0Z"/><path class="ka" fill="#e8833a" transform="translate(18.2 9)rotate(-58)" d="M4.1 0C.8 2.9 -4.1 2.6 -4.1 0S.8 -2.9 4.1 0Z"/><path class="ka" fill="#e8833a" transform="translate(7 6.2)rotate(-48)" d="M3.6 0C.7 2.5 -3.6 2.2 -3.6 0S.7 -2.5 3.6 0Z"/></svg></span>{{home.disclosure}}</div>
 
     <div class="card">
+      <span class="spot-h3"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M20 11C15 8 9 8 4 10V31C9 29 15 29 20 32C25 29 31 29 36 31V10C31 8 25 8 20 11V32"/><path d="M4 34C9 32 15 32 20 35C25 32 31 32 36 34"/><path class="ks" stroke="#e8833a" d="M7.5 17C10 15 12 19 16.5 16.5M7.5 22.5C10 20.5 12 24.5 16.5 22"/></g><path class="ka" fill="#e8833a" d="M19 34V39L20 37.6 21 39V34Z"/></svg></span>
       <h2>{{home.channels.title}}</h2>
       <div class="ch">
         <a href="https://github.com/TheColliery/Kolwen" rel="me">{{shared.names.github}}</a>
@@ -128,7 +137,7 @@
         <a href="https://www.npmjs.com/package/kolwen" rel="me">{{shared.names.npm}}</a>
         <a href="mailto:info@kolwen.com">{{home.channels.email}}</a>
       </div>
-      <p class="warn">{{home.warn}}</p>
+      <p class="warn"><span class="spot-h4"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 2 1 15.5h15z"/><path d="M8.5 6.6v4.2m0 2.2v.1"/><circle cx="17.4" cy="17.4" r="3.4" stroke-width="1.6"/><path d="m19.9 19.9 2.6 2.6" stroke-width="2.2"/></g><path class="ka" fill="#e8833a" d="M15 18c1-.9 2.6.3 4.7-.4-.4 1.5-1.6 2.3-2.8 2.2-.8-.3-1.5-1-1.9-1.8z"/></svg></span>{{home.warn}}</p>
     </div>
 
     <p class="fine">{{shared.page.note}}</p>
