@@ -176,7 +176,6 @@ the pointer to it.
   unchanged, and 72 hours returns only if counsel reads the Office's notice as binding providers.
 
 - `wrangler.jsonc` sets `upload_source_maps: true`, so a source map that cannot be resolved fails the upload instead of being skipped. `surface-check` holds that key at the top level of the file.
-- The home page shows four small decorative icons: beside the main heading, at the start of the "in development" line in place of its dot, at the "Official channels" heading and at the impersonator warning. They are inline SVG, hidden from screen readers and coloured by two class rules with no inline style; the content security policy changes only in the hash of the home page's style block.
 
 ### Fixed
 
@@ -205,6 +204,7 @@ the pointer to it.
 - The plan adds playbooks and drill scenarios for AI-enabled attacks, drawn from final published guidance only; it marks the rows that a newer ISO standard on AI security threats may change, and it stays preliminary.
 - The incident-response plan adds a ransomware and destructive-event playbook, the backup copy rule and the separation of the backup plane, a backup inventory and recovery catalog with retention set against erasure, a timed restore drill, an out-of-band channel plan, and a preliminary reading of an encrypted-then-restored store; all of it stays preliminary until counsel signs.
 - The plan asks for two factors on every backup-plane administrator, adds the severity assessment and a clean-data check to the exemption file for restored data, and records that ISO/IEC 27090 is bought when a real-world AI attack needs tracing against it, with MITRE ATLAS and OWASP carrying the patterns until then; all of it stays preliminary until counsel signs. Preview builds bind the status record to a separate namespace, so a preview never reads or writes production's record.
+- The home page shows four small decorative icons: beside the main heading, at the start of the "in development" line in place of its dot, at the "Official channels" heading and at the impersonator warning. They are inline SVG, hidden from screen readers and coloured by two class rules with no inline style; the content security policy changes only in the hash of the home page's style block.
 - The incident-response plan adds a playbook for a tampered build of Kolwen's own product reaching users, with the Cyber Resilience Act's reporting clocks marked for counsel, and the access-control record states the CI rules for jobs that hold a publish credential and the plan for customer keys; the playbook stays preliminary until counsel signs.
 - Health checks of the site's six sitemap pages every 15 minutes, with alert mail to the maintainer
   that stays switched off until a verified address is set; visitor requests are not logged.
