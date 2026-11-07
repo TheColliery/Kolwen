@@ -67,7 +67,9 @@ An event becomes an incident when the maintainer, after the first check below, h
 
 *Sources: PDPC notice B.E. 2565 (Royal Gazette vol. 139, special part 292 ง, 15 December B.E. 2565) ข้อ 5; PDPA B.E. 2562 s 37(4); EDPB Guidelines 9/2022 v2.0 paras 31, 34, 44; NIST SP 800-61 Rev. 3 DE.AE-08; PDPC notice B.E. 2565 ข้อ 4(3).*
 
-### A4. Severity
+### A4. Data-breach level (1 to 4; personal data)
+
+This is the data scale. The service-impact scale is A4a, and the two are kept apart.
 
 Not first come, first served: triage by risk (NIST SP 800-61 Rev. 3 RS.MA R1, R2). The factors are NIST's (asset criticality, functional impact, data impact, stage of the activity, recoverability) and the PDPC notice's (ข้อ 12: type of breach; kind of data; volume; who the people are, including children and vulnerable people; severity of effects and what mitigates them; wide impact on Kolwen or the public; the storage system and its measures; Kolwen's status and size).
 
@@ -79,6 +81,30 @@ Not first come, first served: triage by risk (NIST SP 800-61 Rev. 3 RS.MA R1, R2
 | 4 | A breach likely to be a high risk to people | level 3, and the people told without delay, with what they can do (clock 4) |
 
 The incident lead sets the level, records the reason and revises it as facts arrive.
+
+### A4a. Service impact: SEV-1 to SEV-5
+
+A separate scale from A4. A4 grades what happened to people's personal data; this section grades what visitors and customers can still do. One incident can carry both: a data level and a SEV are set together, each with its own reason, and neither sets the other. The incident lead sets both (A2).
+
+**What it grades now.** The static site at `kolwen.com`, served by one Worker, and the published mail addresses. Nothing is sold today. The customer, payment and metering rows apply the day a paid service exists; until then they are written and not graded.
+
+**The metric.** The share of probes of the live site that fail, and for how long. Until a monitor reports it, the maintainer's own check of the live site (`post-deploy-check.mjs`) sets the reading and the time is written down. The thresholds are Kolwen's own. The idea of a metric threshold based on the share of users affected, and the rule to assume the worst, come from PagerDuty's severity-levels page (read 2026-11-07, <https://response.pagerduty.com/before/severity_levels/>). PagerDuty gives no numbers, and none of ours is copied from it.
+
+| SEV | Metric (ours) | Kolwen now | Kolwen once a paid service exists | Why the number |
+|---|---|---|---|---|
+| 1 | every probe fails for 30 minutes or more; or a confirmed compromise of the deploy path or of customer data | the whole site is down for every visitor; a confirmed compromise | every payment or access path is down for 30 minutes or more | 30 minutes is our choice: a short blip is noise, and a rollback should have run by then |
+| 2 | half or more of probes fail for 1 hour or more; or a served page states a wrong legal, price or safety fact | half the visitors cannot load pages for an hour; a wrong legal or price statement stays up | any customer blocked from paying or from a paid function for 1 hour or more; any metering or billing error (below) | half is the majority cut; a wrong statement harms a reader even while the site works |
+| 3 | 5 to 49% of probes fail for 30 minutes or more; or one page or one language fails | one page or one language broken; the standing no-redundancy grade (below) | a paid feature degraded for a minority of customers | 5% is a repeated fault, not noise |
+| 4 | a check fails and no visitor's page is affected: a stale sitemap date, a missed scheduled check, a delayed alert | the same | the same, for the service's own tooling | no visitor sees it |
+| 5 | a wording or cosmetic error with no effect on use | the same | the same | no effect on use |
+
+**Rules that bind every grade:**
+
+- **Assume the worst.** When unsure between two levels, take the higher. Lower it as facts arrive, and write each change with its reason. A severity debate waits for the postmortem and is not held during the incident.
+- **Roll back first.** When an incident follows a deploy, roll the deploy back (Today, Rollback) before investigating. The investigation runs on the restored site.
+- **Running without redundancy.** Kolwen holds no hot standby, by the owner's choice: one serving path and one maintainer. This is graded SEV-3 as a standing condition, as PagerDuty grades a service with no redundancy (its SEV-3 row). This section is the record that the condition is known. It is not yet on a public page; that disclosure is owed in a later unit, with the status notice. Until then no customer statement claims redundancy.
+- **Metering and billing errors.** Any error where the unit advertised differs from the unit billed is graded at least SEV-2. This applies once a paid service exists.
+- **No availability figure and no round-the-clock response promise.** Kolwen states no availability figure of any kind and no round-the-clock response-time promise, anywhere. Response-time statements are best effort, as CONTRIBUTING states. A figure the maintainer cannot keep is not published.
 
 ### A5. Providers: what each is bound to tell Kolwen, and whom to call
 
@@ -125,7 +151,7 @@ Each is a numbered checklist; in the register entry each step carries who did it
 2. Open the register entry; start the clock sheet (A6); take the provider's own term from A5.
 3. Verify: is the notice genuine (a known contact, a known channel, not a link in a message)? Do not act on a message that asks for a credential or a click.
 4. Ask the provider for what it knows: what data, how many people, when, what it has done, what it needs from Kolwen. Record the answers as they arrive, in phases.
-5. Work out what Kolwen data is in the affected system (the inventory) and set the severity (A4).
+5. Work out what Kolwen data is in the affected system (the inventory) and set the data-breach level (A4).
 6. Contain on Kolwen's side: rotate the credentials and keys the provider held or could see; revoke sessions; pause the affected feature if needed.
 7. Decide clocks 1, 3, 4 from the facts and write the decision and its reason in the register.
 8. Prepare the notices (A8); the maintainer sends.
@@ -163,7 +189,7 @@ Each is a numbered checklist; in the register entry each step carries who did it
 
 **Playbook 5: a critical vulnerability with a short exploit window (a dependency, a provider, the platform).**
 1. Write down the time the advisory was read, the component and its version, and who read it.
-2. Triage: is it critical, does Kolwen run it, is it being exploited, and can it be reached from outside? Set the severity (A4).
+2. Triage: is it critical, does Kolwen run it, is it being exploited, and can it be reached from outside? Set the data-breach level (A4).
 3. Read the advisory and any provider patch notice. Do not run published exploit code unless an expert has assessed that it contains no backdoor or other malicious behaviour.
 4. Where no fix exists yet, isolate the component or disable it.
 5. Update external-facing systems first, then internal ones; within each, update the systems that are not business-critical first, through accelerated rings.
@@ -188,7 +214,7 @@ Each is a numbered checklist; in the register entry each step carries who did it
 3. Preserve the logs before changing anything. Prompts may hold personal data, so handle them as sensitive.
 4. Contain: disable the tool or the agent, narrow its permissions, rotate the keys it used, and tighten the rate limits.
 5. Scope what the output exposed: which users, which records, which kinds of data.
-6. Set the severity (A4). Clock 1 starts at the moment there are grounds to believe that personal data was breached (A3), at whatever step that comes; record that time. Each other clock in A6 starts from its own trigger there.
+6. Set the data-breach level (A4). Clock 1 starts at the moment there are grounds to believe that personal data was breached (A3), at whatever step that comes; record that time. Each other clock in A6 starts from its own trigger there.
 7. Tell the downstream stakeholders who rely on the service, as the GOVERN 2.1 line of NIST AI 600-1 asks.
 8. Recover, then review the response after the fact, as the MANAGE 4.3 line of NIST AI 600-1 asks: was each step followed, and was it effective?
 *Sources: NIST AI 100-2 E2025, "Adversarial Machine Learning: A Taxonomy and Terminology of Attacks and Mitigations" (March 2025); NIST AI 600-1, "Generative Artificial Intelligence Profile" (26 July 2024); OWASP Top 10 for LLM Applications 2025; OWASP Top 10 for Agentic Applications 2026 (Version 2026, December 2025); NCSC (UK) and partners, "Guidelines for secure AI system development" (27 November 2023); CISA and partners, "Careful Adoption of Agentic Artificial Intelligence (AI) Services" (1 May 2026).*
@@ -215,7 +241,7 @@ Each is a numbered checklist; in the register entry each step carries who did it
 4. Rotate every credential the build and publishing pipeline held, from a trusted system, and treat anything the pipeline's environment could read as exposed.
 5. Publish the bad versions' hashes, a check script users can run, and the indicators of compromise.
 6. Tell users plainly that uninstalling the bad version may not be enough where it left something running, and what to look for and remove.
-7. Set the severity (A4). Clock 1 starts at the moment there are grounds to believe that personal data was breached (A3), at whatever step that comes; record that time. Each other clock in A6 starts from its own trigger there. Where the piece is a product with digital elements made available in the European Union, a build that "has led or is capable of leading to the introduction or execution of malicious code" is a severe incident under the Cyber Resilience Act (Regulation (EU) 2024/2847, Art. 14(5)(b)): an early warning "without undue delay and in any event within 24 hours", an incident notification within 72 hours and a final report "within one month", sent to the CSIRT designated as coordinator and to ENISA (Art. 14(3), (4)). Whether a Kolwen piece is such a product is [to be confirmed with counsel before this plan is final].
+7. Set the data-breach level (A4). Clock 1 starts at the moment there are grounds to believe that personal data was breached (A3), at whatever step that comes; record that time. Each other clock in A6 starts from its own trigger there. Where the piece is a product with digital elements made available in the European Union, a build that "has led or is capable of leading to the introduction or execution of malicious code" is a severe incident under the Cyber Resilience Act (Regulation (EU) 2024/2847, Art. 14(5)(b)): an early warning "without undue delay and in any event within 24 hours", an incident notification within 72 hours and a final report "within one month", sent to the CSIRT designated as coordinator and to ENISA (Art. 14(3), (4)). Whether a Kolwen piece is such a product is [to be confirmed with counsel before this plan is final].
 8. Record each decision and its time, and write the after-action report (A10).
 
 *Sources: Cursor, "Security notice — malicious version of Anthropic.claude-code (2.1.312 and 2.1.313) identified in the Cursor VS Code Extension Marketplace" (29 October 2026, updated 30 October 2026); Codecov's security update on its Bash Uploader (15 April 2021); CISA's alert on the supply chain compromise of the npm ecosystem (23 September 2025); Regulation (EU) 2024/2847 (Cyber Resilience Act), Art. 14.*
