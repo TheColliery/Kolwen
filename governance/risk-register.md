@@ -20,7 +20,7 @@
 | A code defect reaches main | CodeQL and OpenSSF Scorecard on every push | `.github/workflows/` |
 | History is rewritten or a tag altered | rulesets forbid it | `main-guard`, `tag-immutable` |
 | Private material leaks into the public repo | the kitchen rule, machine-checked | `surface-check.mjs` |
-| The hosting provider has an outage and Kolwen is owed nothing | Cloudflare hosting is recorded as a dependency with no service-level agreement: its 100% uptime commitment covers only Business-plan customers, and kolwen.com is on the Free plan (SLA §1.1 and §2.5, read 2026-11-08). No hot standby, by the owner's choice (see "Running without redundancy"). The site is static files in `web/`, but its `_headers`, `_redirects` and Worker files are Cloudflare-specific, so an exit to another host is not yet written | `https://www.cloudflare.com/business-sla/`; `governance/incident-response.md`, A4, "Running without redundancy" |
+| The hosting provider has an outage, and no service-level agreement covers Kolwen | Cloudflare hosting is recorded as a dependency with no service-level agreement: its 100% uptime commitment covers only Business-plan customers, and kolwen.com is on the Free plan (SLA §1.1 and §2.5, read 2026-11-08). No hot standby, by the owner's choice (see "Running without redundancy"). The site is static files in `web/`, but its `_headers` and `_redirects` files must be read by whatever host replaces it, and its Worker files (`worker/index.mjs`, `wrangler.jsonc`) are Cloudflare's, so an exit to another host is not yet written | `https://www.cloudflare.com/business-sla/`; `governance/incident-response.md`, A4, "Running without redundancy" |
 
 ## Planned
 
