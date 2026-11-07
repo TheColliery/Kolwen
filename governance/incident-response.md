@@ -94,7 +94,7 @@ A separate scale from A4. A4 grades what happened to people's personal data; thi
 |---|---|---|---|---|
 | 1 | every probe fails for 30 minutes or more; or a confirmed compromise of the deploy path or of customer data | the whole site is down for every visitor; a confirmed compromise | every payment or access path is down for 30 minutes or more | 30 minutes is our choice: a short blip is noise, and a rollback should have run by then |
 | 2 | half or more of probes fail for 1 hour or more; or a served page states a wrong legal, price or safety fact | half the visitors cannot load pages for an hour; a wrong legal or price statement stays up | any customer blocked from paying or from a paid function for 1 hour or more; any metering or billing error (below) | half is the majority cut; a wrong statement harms a reader even while the site works |
-| 3 | 5 to 49% of probes fail for 30 minutes or more; or one page or one language fails | one page or one language broken; the standing no-redundancy grade (below) | a paid feature degraded for a minority of customers | 5% is a repeated fault, not noise |
+| 3 | 5% or more of probes fail for 30 minutes or more, where no higher row applies; or one page or one language fails | one page or one language broken; the standing no-redundancy grade (below) | a paid feature degraded for a minority of customers | 5% is a repeated fault, not noise |
 | 4 | a check fails and no visitor's page is affected: a stale sitemap date, a missed scheduled check, a delayed alert | the same | the same, for the service's own tooling | no visitor sees it |
 | 5 | a wording or cosmetic error with no effect on use | the same | the same | no effect on use |
 
@@ -102,9 +102,9 @@ A separate scale from A4. A4 grades what happened to people's personal data; thi
 
 - **Assume the worst.** When unsure between two levels, take the higher. Lower it as facts arrive, and write each change with its reason. A severity debate waits for the postmortem and is not held during the incident.
 - **Roll back first.** When an incident follows a deploy, roll the deploy back (Today, Rollback) before investigating. The investigation runs on the restored site.
-- **Running without redundancy.** Kolwen holds no hot standby, by the owner's choice: one serving path and one maintainer. This is graded SEV-3 as a standing condition, as PagerDuty grades a service with no redundancy (its SEV-3 row). This section is the record that the condition is known. It is not yet on a public page; that disclosure is owed in a later unit, with the status notice. Until then no customer statement claims redundancy.
+- **Running without redundancy.** Kolwen holds no hot standby, by the owner's choice: one serving path and one maintainer. This is graded SEV-3 as a standing condition, as PagerDuty grades a service with no redundancy (its SEV-3 row). This section, in this public repository, is how the condition is disclosed today. A plain notice on the site itself follows with the status notice, in a later unit. Until then no customer statement claims redundancy.
 - **Metering and billing errors.** Any error where the unit advertised differs from the unit billed is graded at least SEV-2. This applies once a paid service exists.
-- **No availability figure and no round-the-clock response promise.** Kolwen states no availability figure of any kind and no round-the-clock response-time promise, anywhere. Response-time statements are best effort, as CONTRIBUTING states. A figure the maintainer cannot keep is not published.
+- **No availability figure and no round-the-clock response promise.** Kolwen states no availability figure of any kind and no round-the-clock response-time promise, anywhere. Response to contributions is best effort, as CONTRIBUTING states. The security-report times in SECURITY.md are counted in days, never round the clock, and this rule does not weaken them. A figure the maintainer cannot keep is not published.
 
 ### A5. Providers: what each is bound to tell Kolwen, and whom to call
 
@@ -165,7 +165,7 @@ Each is a numbered checklist; in the register entry each step carries who did it
 4. If the breach touches mail Kolwen sends through an e-mail-sending provider (the sending credentials, the list of addresses, or the content of mail sent or queued), tell that provider at once through its security contact and ask it, as the case needs, to stop misuse of Kolwen's sending account, stop affected sends still queued, preserve its logs for the incident, and help contain exposed addresses or content; record the time Kolwen told it in the register (A9). Kolwen owes this step from its own duty to contain a breach across every provider that holds customer data (A1, A5), whatever that provider's own terms say.
 5. Declare the incident and start the clock sheet at the grounds-to-believe time.
 6. Scope: which people, which records, which kinds of data (confidentiality, integrity, availability); look beyond the first target for the same activity elsewhere.
-7. Set the severity; decide clocks 1, 3, 4; draft and send notices (A8).
+7. Set the data-breach level (A4) and, where the service is affected, the SEV (A4a); decide clocks 1, 3, 4; draft and send notices (A8).
 8. Eradicate: remove the cause and the entry points; fix the flaw.
 9. Recover: restore from a tested backup; check it for compromise; verify; declare the end of recovery on stated criteria.
 10. Conclude with the after-action report.
@@ -399,12 +399,12 @@ Backups: restore a backup to a test system on a schedule the maintainer sets, ch
 
 **Injects (all invented):**
 - *T+0:* an e-mail arrives from the provider's security contact: it has found unauthorized access to a database in the project's region; the data may include account identifiers and password hashes of Kolwen's users; it is investigating and will write again in 24 hours. Questions: who reads it; is it genuine; is Kolwen "aware" now; which clocks start; what does Kolwen do in the first hour?
-- *T+6 hours:* the provider confirms that hashes of a number of accounts were copied, names the hashing method, and says no plaintext passwords were stored. Questions: what severity now; does the method change the risk to people (the exemption file, A8(vi)); what is rotated?
+- *T+6 hours:* the provider confirms that hashes of a number of accounts were copied, names the hashing method, and says no plaintext passwords were stored. Questions: what data-breach level now; does the method change the risk to people (the exemption file, A8(vi)); what is rotated?
 - *T+20 hours:* a user writes to the published address that they received a phishing e-mail using the address they signed up with. Questions: is that a second incident or evidence for this one; does it change the severity; is the user's channel safe to answer on?
 - *T+30 hours:* the provider says it has already told its own authority and asks Kolwen to coordinate any public statement. Questions: what does Kolwen say, and who says it?
 - *T+60 hours:* the facts are still incomplete and clock 1 ends in 12 hours. Questions: what goes to the Office now, in phases; what reasons are given for what is missing?
 
-**Criteria (set in advance, scored by the evaluator):** the awareness time is written; the clock sheet is started and correct for each clock; the severity is set with a reason; the Office notice is complete as to what is known and marked as phase 1; the notice to people is in plain language, names what to do, and avoids the compromised channel; the register entry is complete; the decisions not to notify, if any, carry reasons.
+**Criteria (set in advance, scored by the evaluator):** the awareness time is written; the clock sheet is started and correct for each clock; the data-breach level and the SEV are each set with a reason; the Office notice is complete as to what is known and marked as phase 1; the notice to people is in plain language, names what to do, and avoids the compromised channel; the register entry is complete; the decisions not to notify, if any, carry reasons.
 
 **Queue after the first drill.** Each scenario runs on a B1 event.
 - a1: a critical vulnerability in a component Kolwen runs is exploited in the wild within hours of disclosure (Playbook 5).
