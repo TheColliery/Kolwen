@@ -34,7 +34,7 @@ PAGES.changelog = {
   titleEn: 'Changelog', titleTh: 'บันทึกการเปลี่ยนแปลง',
   // The log is kept in English; the Thai view says so (a status statement, no obligation).
   noteTh: 'บันทึกการเปลี่ยนแปลงนี้เขียนเป็นภาษาอังกฤษ',
-  descEn: "Kolwen's changelog, rendered from the repository's CHANGELOG.md. Nothing has been released yet.",
+  descEn: "Kolwen's changelog, rendered from the repository's CHANGELOG.md. No product has shipped yet.",
 };
 
 export const BANNER = {
