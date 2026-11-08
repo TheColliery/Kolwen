@@ -13,6 +13,7 @@ import { createHash } from 'node:crypto';
 import { stripEdge } from './lib/injected-strip.mjs';
 import { parseRedirectsFile, isDynamic, redirectMiss } from './lib/redirects-file.mjs';
 import { servedFiles } from './lib/web-files.mjs';
+import { fetchBounded, missPath } from './lib/served-probe.mjs';
 import { parseHeadersFile, declaredSecurityHeaders, servedHeaderMisses, robotsRailMisses, notFoundVerdict, robotsVerdict, fontCacheMisses } from './lib/headers-file.mjs';
 
 async function main() {
@@ -107,20 +108,8 @@ async function main() {
   // Every request is bounded by min(what is left of ITS ORIGIN'S share, the ceiling), and is not
   // started once none is left. An abort throws out of probe() into the round's own catch, so it is
   // reported as an origin that did not answer -- the reachability message -- never read as a pass.
-  const REQUEST_CEILING_MS = 15_000;
-  async function get(url, until, init = {}) {
-    const left = until - Date.now();
-    if (left <= 0) throw new Error(`this origin's share of the --wait budget was used up before this request started`);
-    // AbortSignal.timeout takes an INTEGER of milliseconds: a share divided by two is routinely
-    // fractional, and a fractional value throws a RangeError before any request is made.
-    const ms = Math.max(1, Math.floor(Math.min(left, REQUEST_CEILING_MS)));
-    try {
-      return await fetch(url, { headers: { 'Cache-Control': 'no-cache' }, signal: AbortSignal.timeout(ms), ...init });
-    } catch (e) {
-      if (e?.name === 'TimeoutError') throw new Error(`no answer within ${(ms / 1000).toFixed(1)}s`);
-      throw e;
-    }
-  }
+  // The request is scripts/lib/served-probe.mjs's fetchBounded, shared with scripts/availability-log.mjs: same ceiling, same integer floor, same messages.
+  const get = (url, until, init = {}) => fetchBounded(url, until, init);
 
   async function probe(origin, until) {
     const misses = [];
@@ -131,7 +120,7 @@ async function main() {
     // page. Measured 2026-09-03: it used to answer 200, so crawlers indexed pages that do not
     // exist. A cache-buster keeps this off any edge copy.
     {
-      const miss = `no-such-page-${Date.now()}`;
+      const miss = missPath();
       const r404 = await get(origin + miss, until);
       if (r404.status !== 404) {
         misses.push(`/${miss}: served HTTP ${r404.status}, expected 404 (assets.not_found_handling is 404-page)`);

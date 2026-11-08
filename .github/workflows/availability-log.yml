@@ -1,0 +1,33 @@
+name: availability-log
+
+# The availability record of the public site, probed from GitHub's runners: outside Cloudflare's network, which the site itself runs on. Hourly, and on demand.
+# It writes what the site answered, one line per URL, to the run's log and to its step summary. It publishes nothing: no file is committed, so the record is the
+# run history GitHub keeps for this repository. A runner the site refuses is recorded as that refusal; the job passes. Only a probe that cannot run fails.
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+# cancel-in-progress: TRUE -- the job writes nothing to the repository and no external state, so a superseded run has nothing to leave half-done.
+concurrency:
+  group: availability-log
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: probe kolwen.com
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # persist-credentials: false -- the script needs no git operation and reads no credential.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - run: node scripts/availability-log.mjs
