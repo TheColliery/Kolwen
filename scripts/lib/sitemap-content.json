@@ -26,8 +26,8 @@
   },
   "https://kolwen.com/changelog": {
     "page": "web/changelog.html",
-    "sha256": "0f3974a4d0f94760d780a32a7e151bc33d64e9b59e5b38321ba20d19cbe54d68",
-    "lastmod": "2026-11-07"
+    "sha256": "fc48c83787e3f1d49aaa3d1106890ab202b54a9e7fe1fa474c4a2dd801a254ab",
+    "lastmod": "2026-11-08"
   },
   "https://kolwen.com/accessibility": {
     "page": "web/accessibility.html",
