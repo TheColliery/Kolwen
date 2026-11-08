@@ -3,8 +3,8 @@
 All notable changes to Kolwen are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer.
 
-**No product has shipped.** Two packages were published as name reservations, `kolwen` 0.0.1 on
-PyPI and `kolwen` 0.0.2 on npm; their entries are below. Neither contains a product. The first
+**No product has shipped.** Two packages were published as name reservations; the versions released from this
+repository, `kolwen` 0.0.1 on PyPI and `kolwen` 0.0.2 on npm, have entries below. Neither contains a product. The first
 entry below is the Unreleased section, and it stays that way until something ships.
 
 <!--
@@ -438,16 +438,6 @@ the pointer to it.
 - The contributor spine: contributing guide, code of conduct, this changelog, issue templates.
 - `THREAT_MODEL.md` says what the repository is, what it protects, and what a scanner finding about it covers.
 
-## [py 0.0.1] - 2026-11-02
-
-Reserves the kolwen name on PyPI; the package contains no product.
-
-### Added
-
-- The `kolwen` package on PyPI, version 0.0.1: a name reservation. Its only code is `__version__ = "0.0.1"` and `__all__`, and its README says it "reserves the name on PyPI".
-- Licence: `license = { file = "LICENSE" }` with the classifier "License :: Other/Proprietary License". The LICENSE file reserves all rights, and says no model weights have been released.
-- Python: `requires-python = ">=3.9"`.
-
 ## [npm 0.0.2] - 2026-11-03
 
 Reserves the kolwen name on npm; the package prints a notice, no product.
@@ -457,3 +447,13 @@ Reserves the kolwen name on npm; the package prints a notice, no product.
 - The `kolwen` package on npm, version 0.0.2: a name reservation. Its `index.js` prints "Kolwen — verifiable AI assistant. Nothing is released yet; see kolwen.com." and nothing else.
 - Licence: `"license": "UNLICENSED"` in `package.json`.
 - Node: no `engines` field is declared.
+
+## [py 0.0.1] - 2026-11-02
+
+Reserves the kolwen name on PyPI; the package contains no product.
+
+### Added
+
+- The `kolwen` package on PyPI, version 0.0.1: a name reservation. Its only code is `__version__ = "0.0.1"` and `__all__`, and its README says it "reserves the name on PyPI".
+- Licence: `license = { file = "LICENSE" }` with the classifier "License :: Other/Proprietary License". The LICENSE file reserves all rights, and says no model weights have been released.
+- Python: `requires-python = ">=3.9"`.
