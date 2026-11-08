@@ -48,7 +48,7 @@ function runCli(args, env = {}) {
 test('a 200, a 500 and the 404 on the missing path are each recorded with their status, and the run returns', async () => {
   const srv = await serve();
   try {
-    const recs = await runAvailability({ origin: originOf(srv), timeoutMs: 5000, write: () => {} });
+    const recs = await runAvailability({ origin: originOf(srv), paths: PATHS, timeoutMs: 5000, write: () => {} });
     const byPath = Object.fromEntries(recs.map(r => [new URL(r.url).pathname.startsWith('/no-such-page-') ? '/no-such-page' : new URL(r.url).pathname, r]));
     assert.equal(byPath['/'].status, 200);
     assert.equal(byPath['/terms'].status, 500, 'a 5xx is a recorded result, not a failure');
@@ -61,7 +61,7 @@ test('a 200, a 500 and the 404 on the missing path are each recorded with their 
 test('the probed set is every worker PATH, the cache-busted missing path and /status.json, and nothing else', async () => {
   const srv = await serve();
   try {
-    const recs = await runAvailability({ origin: originOf(srv), timeoutMs: 5000, write: () => {} });
+    const recs = await runAvailability({ origin: originOf(srv), paths: PATHS, timeoutMs: 5000, write: () => {} });
     assert.equal(recs.length, PATHS.length + 2);
     const paths = recs.map(r => new URL(r.url).pathname);
     for (const p of PATHS) assert.ok(paths.includes(p), `missing ${p}`);
@@ -100,7 +100,7 @@ test('every line is one JSON record with a UTC time ending in Z, and no line car
   const srv = await serve();
   const lines = [];
   try {
-    await runAvailability({ origin: originOf(srv), timeoutMs: 5000, write: l => lines.push(l) });
+    await runAvailability({ origin: originOf(srv), paths: PATHS, timeoutMs: 5000, write: l => lines.push(l) });
   } finally { await closeSrv(srv); }
   assert.equal(lines.length, PATHS.length + 2);
   for (const l of lines) {

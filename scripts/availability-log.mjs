@@ -16,7 +16,6 @@
 // site's answer and is recorded as such, not as a probe failure. A run from this machine or another host is a different vantage point, and the record says
 // only what that host saw. Zero dependencies: Node builtins only.
 import { appendFileSync } from 'node:fs';
-import { PATHS } from '../worker/index.mjs';
 import { missPath } from './lib/served-probe.mjs';
 import { isMainModule } from './lib/entry-guard.mjs';
 
@@ -39,7 +38,7 @@ export function classify(e) {
 }
 
 // The paths to probe, in order: every given path, then the cache-busted missing path, then the status endpoint.
-export function targetsFor(paths = PATHS) {
+export function targetsFor(paths) {
   // missPath has no leading slash (post-deploy-check joins it to an origin that ends in one); here the origin has none, so the slash is added.
   return [...paths, '/' + missPath(), STATUS_PATH];
 }
@@ -59,7 +58,7 @@ export async function probeOne(origin, path, { fetchImpl = fetch, timeoutMs = DE
 }
 
 // Probes every target once, in order, and hands each record to write as one line. Returns the records.
-export async function runAvailability({ origin = DEFAULT_ORIGIN, paths = PATHS, timeoutMs = DEFAULT_TIMEOUT_MS, fetchImpl = fetch, write = line => process.stdout.write(line + '\n') } = {}) {
+export async function runAvailability({ origin = DEFAULT_ORIGIN, paths, timeoutMs = DEFAULT_TIMEOUT_MS, fetchImpl = fetch, write = line => process.stdout.write(line + '\n') } = {}) {
   const records = [];
   for (const path of targetsFor(paths)) {
     const r = await probeOne(origin, path, { fetchImpl, timeoutMs });
@@ -112,7 +111,9 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
   }
   if (opts.help) { process.stdout.write(USAGE); process.exitCode = 0; return; }
   try {
-    const records = await runAvailability({ origin: opts.origin, timeoutMs: opts.timeoutMs });
+    // The worker's list is read here, after the guard: a bare copy of scripts/ has no worker/ and must run nothing on an import.
+    const { PATHS: paths } = await import(new URL('../worker/index.mjs', import.meta.url).href);
+    const records = await runAvailability({ origin: opts.origin, paths, timeoutMs: opts.timeoutMs });
     if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, summaryTable(records));
     process.exitCode = 0;
   } catch (e) {

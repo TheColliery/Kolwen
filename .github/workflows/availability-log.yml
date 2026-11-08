@@ -9,10 +9,12 @@ on:
     - cron: '17 * * * *'
   workflow_dispatch:
 
-# cancel-in-progress: TRUE -- the job writes nothing to the repository and no external state, so a superseded run has nothing to leave half-done.
+# cancel-in-progress: FALSE, with queue: max -- the record is the product: a cancelled run loses an observation, so a manual run waits behind a running probe instead of stopping it.
+# queue: max is GitHub's own bound on the runs that may wait (100, GitHub docs read 2026-11-08), and it is invalid together with cancel-in-progress: true.
 concurrency:
   group: availability-log
-  cancel-in-progress: true
+  cancel-in-progress: false
+  queue: max
 
 permissions:
   contents: read
