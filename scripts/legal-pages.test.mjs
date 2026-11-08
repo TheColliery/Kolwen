@@ -375,7 +375,7 @@ test('--check fails when a template page loses its footer or its footer rules', 
 test('--check fails, naming web/changelog.html, when CHANGELOG.md changes by one word; --write puts it right', () => {
   const dir = copyTree();
   try {
-    edit(dir, 'CHANGELOG.md', x => { assert.ok(x.includes('Nothing has been released.'), 'anchor'); return x.replace('Nothing has been released.', 'Nothing was released.'); });
+    edit(dir, 'CHANGELOG.md', x => { assert.ok(x.includes('No product has shipped.'), 'anchor'); return x.replace('No product has shipped.', 'No product has been shipped.'); });
     const r = check(dir);
     assert.equal(r.status, 1, r.stdout + r.stderr);
     assert.match(r.stdout, /FAIL web\/changelog\.html differs from the render of its sources, line \d+/);
