@@ -457,7 +457,7 @@ const gapNote = gapNotes.length ? ' · ' + gapNotes.join(' · ') : '';
     note(WF_DIR, 'has no tracked *.yml or *.yaml workflow, so rule 11 (job-level permissions) checked nothing');
   } else {
     for (const f of wfFiles) {
-      const lines = read(f).split('\n');
+      const lines = read(f).split(/\r?\n/);
       let inJobs = false, cur = null, blockIndent = -1; // blockIndent: the indent of the key whose block scalar's body the reader is in, -1 outside one
       const jobs = [];
       const flush = () => { if (cur) jobs.push(cur); };
