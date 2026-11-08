@@ -225,3 +225,15 @@ test('rule 11 reads a clean job at 6 spaces: a permissions block that states con
     assert.deepEqual(probeLines(out), [], out);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+// CRLF line endings (a Windows checkout with core.autocrlf, where git writes a working copy with CR LF; the committed workflows are LF): a line ends in a carriage return, which the reader's line patterns cannot cross.
+// The job must still be found, and a job that does not state contents must still be a finding.
+test('rule 11 reads a CRLF workflow: a clean job passes, and a job that does not state contents is still a finding', () => {
+  const dir = surfaceCopy();
+  try {
+    const clean = gateWith(dir, ['name: probe', 'on: push', 'jobs:', '  probe:', '    runs-on: ubuntu-latest', '    permissions:', '      contents: read', '    steps:', '      - uses: actions/checkout@v4', ''].join('\r\n'));
+    assert.deepEqual(probeLines(clean.out), [], clean.out);
+    const bad = gateWith(dir, ['name: probe', 'on: push', 'jobs:', '  build:', '    runs-on: ubuntu-latest', '    permissions:', '      pull-requests: write', '    steps:', '      - uses: actions/checkout@v4', ''].join('\r\n'));
+    assert.equal(bad.status, 1, bad.out);
+    assert.ok(probeLines(bad.out).some(l => /job "build" declares its own permissions/.test(l)), bad.out);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
