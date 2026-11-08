@@ -7,12 +7,12 @@
 // The request is a fixed GET with a generic user agent and no identifier. When GITHUB_STEP_SUMMARY is set, the same records are appended to that file as a
 // Markdown table.
 //
-// Usage: node scripts/availability-log.mjs [--origin <url>] [--timeout <ms>]     (--help prints this text)
+// Usage: node scripts/availability-log.mjs [--origin <url>] [--timeout <ms>]     (--help prints the usage line)
 // Exit 0 = the probe ran and observed every URL. A down page, a 5xx, a refused connection or a timeout is a RECORDED result, never a failure.
 // Exit 2 = a bad argument (an origin that is not http(s), a timeout that is not a positive whole number, an unknown flag). Nothing is probed.
 // Exit 1 = the probe itself could not run, or could not append its summary (a script error, or a summary file that cannot be written).
 //
-// Limits: kolwen.com refused every attempt from a GitHub runner until 2026-10-02 (scripts/post-deploy-check.mjs, lines 36 to 37). A refusal from a runner is the
+// Limits: kolwen.com refused every attempt from a GitHub runner until 2026-10-02 (the R1 comment in scripts/post-deploy-check.mjs). A refusal from a runner is the
 // site's answer and is recorded as such, not as a probe failure. A run from this machine or another host is a different vantage point, and the record says
 // only what that host saw. Zero dependencies: Node builtins only.
 import { appendFileSync } from 'node:fs';

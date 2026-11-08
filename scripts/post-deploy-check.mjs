@@ -108,7 +108,7 @@ async function main() {
   // Every request is bounded by min(what is left of ITS ORIGIN'S share, the ceiling), and is not
   // started once none is left. An abort throws out of probe() into the round's own catch, so it is
   // reported as an origin that did not answer -- the reachability message -- never read as a pass.
-  // The request is scripts/lib/served-probe.mjs's fetchBounded, shared with scripts/availability-log.mjs: same ceiling, same integer floor, same messages.
+  // The request is scripts/lib/served-probe.mjs's fetchBounded: the same ceiling, integer floor and messages as before the move. scripts/availability-log.mjs makes its own request, because it records the error class that fetchBounded turns into a message.
   const get = (url, until, init = {}) => fetchBounded(url, until, init);
 
   async function probe(origin, until) {

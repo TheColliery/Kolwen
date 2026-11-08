@@ -1,4 +1,4 @@
-// The bounded request and the unmatched-path name that scripts/post-deploy-check.mjs and scripts/availability-log.mjs share. Node builtins only.
+// The bounded request of scripts/post-deploy-check.mjs, and the unmatched-path name it shares with scripts/availability-log.mjs. Node builtins only.
 //
 // fetchBounded is the request scripts/post-deploy-check.mjs has always made: one GET with its share of a deadline, so no request outlasts the --wait budget.
 // The share arithmetic stays with the caller (it knows its origins); this file holds only the per-request ceiling and the integer-millisecond floor.

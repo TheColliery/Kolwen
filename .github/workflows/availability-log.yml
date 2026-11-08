@@ -1,8 +1,8 @@
 name: availability-log
 
 # The availability record of the public site, probed from GitHub's runners: outside Cloudflare's network, which the site itself runs on. Hourly, and on demand.
-# It writes what the site answered, one line per URL, to the run's log and to its step summary. It publishes nothing: no file is committed, so the record is the
-# run history GitHub keeps for this repository. A runner the site refuses is recorded as that refusal; the job passes. Only a probe that cannot run fails.
+# It commits nothing: the record is the run history GitHub keeps for this repository, and in this public repository that log and its step summary are readable by anyone.
+# A runner the site refuses is recorded as that refusal; the job passes. Only a probe that cannot run fails.
 
 on:
   schedule:
