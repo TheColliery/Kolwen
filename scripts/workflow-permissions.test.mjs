@@ -225,7 +225,7 @@ test('rule 11 reads a clean job at 6 spaces: a permissions block that states con
     assert.deepEqual(probeLines(out), [], out);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
-// CRLF line endings (the canon's own copy of create-release.yml, and any Windows checkout): a line ends in a carriage return, which the reader's line patterns cannot cross.
+// CRLF line endings (a Windows checkout with core.autocrlf, where git writes a working copy with CR LF; the committed workflows are LF): a line ends in a carriage return, which the reader's line patterns cannot cross.
 // The job must still be found, and a job that does not state contents must still be a finding.
 test('rule 11 reads a CRLF workflow: a clean job passes, and a job that does not state contents is still a finding', () => {
   const dir = surfaceCopy();
