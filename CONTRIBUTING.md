@@ -80,7 +80,7 @@ here.
 
 | Path | Purpose |
 |---|---|
-| `web/` | Everything served at kolwen.com. Every path under it is a live URL |
+| `web/` | The static files served at kolwen.com (the Worker's own answers and the zone's security.txt are listed in `docs/DEPLOY.md` § What is served). Every path under it is a live URL |
 | `web-src/` | What the home, pricing and not-found pages are generated from (the templates and the language catalogue), and `seams.json`, the map of which group each page belongs to |
 | `brand/` | The identity kit and the generator that is the source of the mark's geometry |
 | `py/` | The PyPI name reservation. No runtime code yet |
