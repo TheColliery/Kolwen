@@ -987,6 +987,8 @@ test('the WSL route starts only the System32 wsl.exe: KOLWEN_WSL_EXE no longer e
 // junction or a symlink it does what a direct run does, and an import runs nothing. The scripts run in a bare copy of scripts/ (no web/, no git), where each one ends in its own failure line and a
 // code other than 0: so a silent 0 is the guard's doing and nothing else. A script is added to this list when it starts itself, or the first test below fails.
 const SELF_RUNNING = ['address-check', 'availability-log', 'decap-battery', 'font-subset', 'npm-release-guard', 'page-weight', 'rendered-check', 'reply-language-check', 'sitemap-lastmod'];
+// The canon's copies, byte for byte: TheColliery/.github owns their entry guard, so the self-start checks below skip exactly these and no other script.
+const CANON_COPIES = ['release-notes.mjs', 'verify-release-shape.mjs', 'lib/release-shape.mjs'];
 
 // The bare copy and a way to run a script of it: the folder is made here, and nothing outside it is touched.
 function bareCopy() {
@@ -1082,11 +1084,12 @@ test('the scan helpers finish on bulk input that gives their patterns nothing to
 // No link here: these hold wherever the test runs, so a system that cannot make a link still checks them (CodeRabbit 4309062056, 4309062060).
 test('the self-running scripts of scripts/ are exactly the list this test checks, none compares its path lexically, each says something and fails in a bare copy, and an import of each runs nothing', () => {
   const scripts = readdirSync(join(ROOT, 'scripts')).filter(f => /\.mjs$/.test(f) && !/\.test\.mjs$/.test(f)), source = f => readFileSync(join(ROOT, 'scripts', f), 'utf8');
-  const found = scripts.filter(f => startsItself(source(f))).map(f => f.replace(/\.mjs$/, '')).sort();
+  const own = scripts.filter(f => !CANON_COPIES.includes(f));
+  const found = own.filter(f => startsItself(source(f))).map(f => f.replace(/\.mjs$/, '')).sort();
   assert.deepEqual(found, [...SELF_RUNNING].sort(), 'a script that starts itself is in SELF_RUNNING, or it does not start itself: the list is what the link test below walks');
-  const lexical = scripts.filter(f => readsOwnPath(source(f)));
+  const lexical = own.filter(f => readsOwnPath(source(f)));
   assert.deepEqual(lexical, [], 'no script reads its own path or asks "am I the main module" in its own words: a junction or a symlink would make it exit 0 having done nothing, and a file name test runs on an import');
-  const unguarded = SELF_RUNNING.filter(name => !/isMainModule\(import\.meta\.url\)/.test(stripComments(source(name + '.mjs'))));
+  const unguarded = SELF_RUNNING.filter(name => !CANON_COPIES.includes(name + '.mjs') && !/isMainModule\(import\.meta\.url\)/.test(stripComments(source(name + '.mjs'))));
   assert.deepEqual(unguarded, [], 'every self-running script starts through isMainModule(import.meta.url) of scripts/lib/entry-guard.mjs');
   const { real, run } = bareCopy();
   for (const name of SELF_RUNNING) {
