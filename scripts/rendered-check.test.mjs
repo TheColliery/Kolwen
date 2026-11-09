@@ -987,7 +987,7 @@ test('the WSL route starts only the System32 wsl.exe: KOLWEN_WSL_EXE no longer e
 // junction or a symlink it does what a direct run does, and an import runs nothing. The scripts run in a bare copy of scripts/ (no web/, no git), where each one ends in its own failure line and a
 // code other than 0: so a silent 0 is the guard's doing and nothing else. A script is added to this list when it starts itself, or the first test below fails.
 const SELF_RUNNING = ['address-check', 'availability-log', 'decap-battery', 'font-subset', 'npm-release-guard', 'page-weight', 'rendered-check', 'reply-language-check', 'sitemap-lastmod'];
-// The canon's copies, byte for byte: TheColliery/.github owns their entry guard, so the self-start checks below skip exactly these and no other script.
+// The canon's copies, byte for byte: TheColliery/.github owns them, including their entry guard (release-notes.mjs has one; verify-release-shape.mjs calls main() unguarded, a canon fix tracked in #158), so the self-start checks below skip exactly these and no other script.
 const CANON_COPIES = ['release-notes.mjs', 'verify-release-shape.mjs', 'lib/release-shape.mjs'];
 
 // The bare copy and a way to run a script of it: the folder is made here, and nothing outside it is touched.
