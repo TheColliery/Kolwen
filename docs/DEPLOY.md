@@ -188,9 +188,11 @@ the number exists to drift:
 
 ```bash
 V="$(node -p "require('./package.json').devDependencies.wrangler")"
-npx wrangler@"$V" dev                # serve web/ locally
+npx wrangler@"$V" dev --local        # serve web/ locally, no Cloudflare login
 npx wrangler@"$V" deploy --dry-run   # compile without publishing
 ```
+
+`dev --local` is the local start. The `send_email` binding in `wrangler.jsonc` is marked `remote: true`, so a plain `dev` opens a remote proxy for it and needs a Cloudflare login. `--local` is Cloudflare's documented switch, from its Local development page (developers.cloudflare.com/workers/development-testing/): "When using wrangler dev , you can temporarily disable all remote bindings (and connect only to local resources) by providing the --local flag (i.e. wrangler dev --local )". A local run serves `web/` with `web/_redirects` and `web/_headers` applied, and the 404 page. It loses the one remote binding: the alert mail (`EMAIL` is simulated locally, and the cron does not fire on its own). `STATUS` is not a remote binding, so any local run, `--local` or not, uses a local store in `.wrangler/state`, which starts empty and is kept between runs (Cloudflare's "Adding local data" page). Only the scheduled handler writes it, and a local run never fires that on its own, so `/status.json` answers from an empty store unless the handler was triggered by hand; deleting `.wrangler/state` resets the store. `wrangler.jsonc` is unchanged by this, so what production deploys stays the same. `wrangler pages dev` is not the command: this is a Worker with static assets, not a Pages project.
 
 **Always pin the version.** An unpinned `npx wrangler` silently takes whatever is newest on the
 day it runs, so two people on the same task get two different tools and neither can reproduce the
@@ -210,6 +212,8 @@ that workflow's own header.
 Everything under `web/`, and nothing else. `scripts/surface-check.mjs` holds an allowlist of the
 files we ship and fails if anything else is tracked there, because every path under `web/` is a
 live URL.
+
+The exceptions are the Worker's own answers, `/status.json` and `/subscribe` (which answers 404 while subscriptions are off; see `worker/index.mjs`), and `/.well-known/security.txt` (RFC 9116). Cloudflare's security.txt setting for the kolwen.com zone serves the last of these, not this repository or the Worker, so it is not under `web/`, and a local run answers that path with the 404 page, while a Workers Preview answers it with the platform's own "Not found" (see "The 404 page" above). The setting is its one source. Its fields, as read by curl on 2026-11-10 (UTC+7; 2026-11-09 UTC), are `Canonical: https://kolwen.com/.well-known/security.txt`, `Contact: mailto:security@kolwen.com`, `Expires: 2027-08-29T17:07:00Z` and `Preferred-Languages: th, en`; they are recorded here so that a move off the provider can re-create the file. A change to the setting updates this record in the same week, and `Expires` is renewed before that date.
 
 The production pages are the home page, `/pricing`, the three legal pages (`/terms`, `/privacy`, `/refund`) and
 `/changelog`. They are listed in `web/sitemap.xml` and `web/robots.txt` allows them, so they are indexable on purpose,
