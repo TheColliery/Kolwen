@@ -11,7 +11,7 @@ const SAME_AS_SITE = ['referrer-policy', 'permissions-policy', 'cross-origin-ope
 
 // The `/*` rule of web/_headers: the header lines that follow the line `/*`, up to the first line that is not indented.
 const SITE_RULE = (() => {
-  const lines = readFileSync(new URL('../web/_headers', import.meta.url), 'utf8').split('\n');
+  const lines = readFileSync(new URL('../web/_headers', import.meta.url), 'utf8').split(/\r?\n/);
   const at = lines.indexOf('/*');
   assert.ok(at >= 0, 'web/_headers has the /* rule');
   const rule = {};
