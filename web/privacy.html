@@ -383,12 +383,17 @@
   var en = document.getElementById('doc-en');
   var th = document.getElementById('doc-th');
   var buttons = document.querySelectorAll('[data-lang-set]');
+  // The title follows the language: a page with a Thai title carries it in a meta tag written on its Thai line only, and a page without one keeps its English title.
+  // The meta description is not switched: crawlers read it from the served page, and a reader never sees a change made here, so it would reach no one.
+  var titleEn = document.title;
+  var titleTh = document.querySelector('meta[name="kolwen-title-th"]');
 
   function apply(lang, persist) {
     var thai = lang === 'th';
     th.hidden = !thai;
     en.hidden = thai;
     document.documentElement.lang = thai ? 'th' : 'en';
+    document.title = thai && titleTh ? titleTh.getAttribute('content') : titleEn;
     for (var i = 0; i < buttons.length; i++) {
       buttons[i].setAttribute('aria-pressed', String(buttons[i].getAttribute('data-lang-set') === lang));
     }
