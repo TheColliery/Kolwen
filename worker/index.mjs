@@ -13,6 +13,16 @@ const ORIGIN = 'https://kolwen.com';
 const TIMEOUT_MS = 10_000;
 const HTML = 'text/html';
 const STATE_KEY = 'state';
+// The site's security headers on every response the Worker builds itself: web/_headers sets them on asset responses only. The four shared values are the /* rule's
+// (scripts/worker-headers.test.mjs reads that rule and compares), and the CSP is the Worker's own: nothing to load, nothing to frame.
+const SITE_HEADERS = {
+  'content-security-policy': "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+  'referrer-policy': 'strict-origin-when-cross-origin',
+  'permissions-policy': 'accelerometer=(), autoplay=(), bluetooth=(), camera=(), display-capture=(), encrypted-media=(), fullscreen=(), geolocation=(), gyroscope=(), hid=(), idle-detection=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), serial=(), sync-xhr=(), usb=(), web-share=(), xr-spatial-tracking=()',
+  'cross-origin-opener-policy': 'same-origin',
+  'cross-origin-resource-policy': 'same-origin',
+};
+const secured = res => { for (const [name, value] of Object.entries(SITE_HEADERS)) res.headers.set(name, value); return res; };
 
 // One probe: the path, the status, the time taken, whether the content type is text/html, and ok (200 and text/html). A timeout or a network failure is named
 // by its class only, never by its message.
@@ -102,10 +112,10 @@ export async function monitor(env, { fetchImpl = fetch, now = new Date() } = {})
 // GET /status.json: the stored state, or a plain line when no stored check result is available yet.
 export async function statusResponse(env) {
   const state = (await readState(env)) ?? { checked: null, message: 'No stored check result is available yet.' };
-  return new Response(JSON.stringify(state), { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex' } });
+  return secured(new Response(JSON.stringify(state), { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex' } }));
 }
 
-const text = (body, status = 200) => new Response(body, { status, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
+const text = (body, status = 200) => secured(new Response(body, { status, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } }));
 // The shape a subscription address must have: at most 254 characters (RFC 5321's path limit), no whitespace, one "@" with a
 // non-empty local part, and a dot in the domain that is neither its first nor its last character. The length check runs
 // first, so no long input reaches a scan, and every step after it is a single linear pass.
@@ -124,7 +134,7 @@ export async function handleSubscription(request, env) {
   const url = new URL(request.url);
   if (url.pathname !== '/subscribe') return null;
   const off = env.SUBSCRIBE !== 'on' || !env.SUBSCRIBERS;
-  if (off) return new Response('not found', { status: 404 });
+  if (off) return secured(new Response('not found', { status: 404 }));
   if (request.method === 'POST') {
     const email = String((await request.formData().catch(() => null))?.get('email') ?? '').trim();
     if (!emailShape(email)) return text('enter an email address', 400);
@@ -138,7 +148,7 @@ export async function handleSubscription(request, env) {
     await env.SUBSCRIBERS.delete(token);
     return text('removed');
   }
-  return new Response('not found', { status: 404 });
+  return secured(new Response('not found', { status: 404 }));
 }
 
 export default {

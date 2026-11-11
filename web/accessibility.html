@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Kolwen accessibility: how the site is checked and its limits</title>
+<meta name="kolwen-title-th" content="การเข้าถึงได้ของ Kolwen: วิธีตรวจเว็บไซต์และข้อจำกัด">
 <meta name="description" content="How Kolwen&#39;s website is built and checked for accessibility, what it does not yet cover, and how to report a problem.">
 <link rel="canonical" href="https://kolwen.com/accessibility">
 <meta property="og:type" content="website">
@@ -233,12 +234,17 @@ a{color:var(--amber)}
   var en = document.getElementById('doc-en');
   var th = document.getElementById('doc-th');
   var buttons = document.querySelectorAll('[data-lang-set]');
+  // The title follows the language: a page with a Thai title carries it in a meta tag written on its Thai line only, and a page without one keeps its English title.
+  // The meta description is not switched: crawlers read it from the served page, and a reader never sees a change made here, so it would reach no one.
+  var titleEn = document.title;
+  var titleTh = document.querySelector('meta[name="kolwen-title-th"]');
 
   function apply(lang, persist) {
     var thai = lang === 'th';
     th.hidden = !thai;
     en.hidden = thai;
     document.documentElement.lang = thai ? 'th' : 'en';
+    document.title = thai && titleTh ? titleTh.getAttribute('content') : titleEn;
     for (var i = 0; i < buttons.length; i++) {
       buttons[i].setAttribute('aria-pressed', String(buttons[i].getAttribute('data-lang-set') === lang));
     }

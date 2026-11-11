@@ -138,7 +138,8 @@
     "body": "Nothing is hidden here and nothing was moved — the address simply has no page behind it.",
     "home": "Go to the Kolwen home page",
     "meta": {
-      "title": "Not found — Kolwen"
+      "title": "Not found — Kolwen",
+      "description": "The page you asked for is not on kolwen.com. The links below lead to the pages that are."
     }
   },
   "status": {
@@ -159,7 +160,8 @@
   },
   "subprocessors": {
     "meta": {
-      "title": "Subprocessors — Kolwen"
+      "title": "Subprocessors — Kolwen",
+      "description": "The providers that process data for Kolwen, what each one does and where."
     },
     "title": "Subprocessors",
     "intro": "These are the providers that process personal data of Kolwen's customers on Kolwen's behalf: what each one does, where it processes the data, the basis for any transfer abroad, and the data processing agreement it is under. Paddle is listed for transparency: it acts as its own controller for purchase data. Each row takes effect on the day that row's provider first holds a customer's data. Until then the row says so.",

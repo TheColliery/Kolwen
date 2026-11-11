@@ -246,8 +246,7 @@ each static line without following it and reports a miss when the status or the 
 edge answers a trailing-slash or `.html` source as the file says is proven only by that first live probe.
 
 Cloudflare's redirects page says that redirects in `_redirects` are not applied to requests that Worker code
-serves. This project has no Worker script (`wrangler.jsonc` has no `main`), so the three `/plans` redirects
-apply. A Worker script added later would not apply them to the requests its code serves; any of these redirects such a script takes over would then have to be written into that code.
+serves. `wrangler.jsonc` has a Worker script (`main`: `worker/index.mjs`) and sets no `run_worker_first`, so the assets pipeline answers first: Cloudflare's Worker-script routing page says it "will first attempt to serve static assets if one matches the incoming request" and invokes the script only when none does. The three `/plans` redirects are therefore applied before the script runs. The script runs only for requests no asset matches: it answers `/status.json` and `/subscribe` itself and hands every other one back to the assets binding, which serves the 404 page. A redirect for `/status.json` or `/subscribe` would have to be written into its code, and setting `run_worker_first` would move every redirect into the same position.
 
 The legal paths `/terms`, `/privacy` and `/refund` are served pages, and none has a redirect. What still waits on the
 lawyer is the parts a page holds, on any of three routes: a counsel-pending marker (on the passage, or on the head of the

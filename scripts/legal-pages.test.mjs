@@ -832,6 +832,18 @@ test("the switch keeps its storage key and its behaviour: one key 'kolwen-lang',
   assert.match(read('PRIVACY.md'), /one key/, "PRIVACY.md's one-key sentence is still there");
 });
 
+test('the switch also changes the page title: each templated page carries its English title and a Thai one in a meta tag, both from the catalogue; the generated pages carry none and keep theirs', () => {
+  const en = JSON.parse(read('web-src/i18n/en.json')), th = JSON.parse(read('web-src/i18n/th.json'));
+  assert.ok(lib.SCRIPT.includes("document.title = thai && titleTh ? titleTh.getAttribute('content') : titleEn;"), 'the switch sets the title, and keeps the English one where no Thai title exists');
+  const TEMPLATED = { 'index.html': 'home', 'pricing.html': 'pricing', '404.html': 'notfound', 'status.html': 'status', 'subprocessors.html': 'subprocessors', 'legal.html': 'legal', 'accessibility.html': 'accessibility' };
+  for (const [file, group] of Object.entries(TEMPLATED)) {
+    const html = read('web/' + file);
+    assert.ok(html.includes('<title>' + escText(en[group].meta.title) + '</title>'), file + ' carries its English title');
+    assert.equal(count(html, '<meta name="kolwen-title-th" content="' + escAttr(th[group].meta.title) + '">'), 1, file + ' carries its Thai title, from the catalogue, once');
+  }
+  for (const file of ['terms.html', 'privacy.html', 'refund.html', 'changelog.html']) assert.equal(count(read('web/' + file), '<meta name="kolwen-title-th"'), 0, file + ' has no Thai title, so the switch keeps its English one');
+});
+
 test('a reader without script gets no switch and sees the Thai document, header and footer too; one with script sees the language that matches <html lang>', () => {
   assert.match(lib.NOSCRIPT_STYLE, /\.lswitch\{display:none\}/);
   assert.match(lib.NOSCRIPT_STYLE, /#doc-th\{display:block !important/);
