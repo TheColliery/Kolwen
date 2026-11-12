@@ -1,5 +1,6 @@
-// Kolwen's Worker. fetch hands every request to the ASSETS binding unchanged, with three exceptions: GET /status.json answers from the stored state (binding STATUS,
-// when it exists), and /subscribe answers 404 unless SUBSCRIBE is "on" (binding SUBSCRIBERS). Only unmatched paths reach this function (run_worker_first stays off).
+// Kolwen's Worker. fetch hands every request to the ASSETS binding unchanged, with two exceptions: GET /status.json answers from the stored state (binding STATUS,
+// when it exists), and /subscribe answers 404 unless SUBSCRIBE is "on" (binding SUBSCRIBERS). The two are WORKER_ROUTES; wrangler.jsonc's assets.run_worker_first
+// lists the same paths, so a browser's navigation to them reaches this function too (scripts/worker-routes.test.mjs holds the two lists equal).
 // scheduled runs every 15 minutes (triggers.crons in wrangler.jsonc): it probes the sitemap pages on kolwen.com, writes ONE state object to STATUS (96 a day
 // against Free's 1,000 writes), and mails an alert only when the result changes: all-OK to failing, and one recovery note from failing back to all-OK.
 // Rules kept here: a probe reads no response body; the state, the alert and the log lines hold only paths, status codes, timings, ok flags and the UTC time (never a body,
@@ -151,9 +152,14 @@ export async function handleSubscription(request, env) {
   return secured(new Response('not found', { status: 404 }));
 }
 
+// The paths the Worker answers itself. Every other path goes to the assets; a navigation to one of these reaches the Worker only through run_worker_first (wrangler.jsonc).
+export const WORKER_ROUTES = ['/status.json', '/subscribe'];
+
 export default {
   fetch: async (request, env) => {
-    if (request.method === 'GET' && new URL(request.url).pathname === '/status.json') return statusResponse(env);
+    const { pathname } = new URL(request.url);
+    if (!WORKER_ROUTES.includes(pathname)) return env.ASSETS.fetch(request);
+    if (request.method === 'GET' && pathname === '/status.json') return statusResponse(env);
     return (await handleSubscription(request, env)) ?? env.ASSETS.fetch(request);
   },
   scheduled: (_event, env, ctx) => ctx.waitUntil(monitor(env)),
