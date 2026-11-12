@@ -30,7 +30,12 @@
 		// 404-page (LWK-134a, owner-approved AM-6): an unmatched path returns 404 with web/404.html.
 		// It used to be single-page-application, which answered 200 with the home page for every
 		// wrong URL -- measured 2026-09-03 -- so crawlers indexed nonexistent pages as real ones.
-		"not_found_handling": "404-page"
+		"not_found_handling": "404-page",
+		// A browser's navigation to a path no asset matches is answered with the 404 page, and the Worker script is not invoked (Cloudflare's single-page-application
+		// routing page, read 2026-11-12: with a Worker script, not_found_handling and a compatibility date of 2025-04-01 or later, "navigation requests will not invoke
+		// the Worker script"). These two paths run the Worker first, so opening /status.json or /subscribe in a browser gets the Worker's answer. Must equal
+		// WORKER_ROUTES in worker/index.mjs; scripts/worker-routes.test.mjs holds the two equal.
+		"run_worker_first": ["/status.json", "/subscribe"]
 	},
 	// Every 15 minutes the script probes the sitemap pages. Cron Triggers allowed per account: 5 on Workers Free
 	// (https://developers.cloudflare.com/workers/platform/limits/). This file uses one.
