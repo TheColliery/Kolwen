@@ -104,8 +104,7 @@ which have that shape. **Production `kolwen.com` never carries it**: `kolwen.com
 
 ## Security headers
 
-`web/_headers` carries one rule, on `/*`, that sets a Content-Security-Policy, a Referrer-Policy and a
-Permissions-Policy on every response the assets serve. The Worker's own responses (`/status.json`, `/subscribe`
+`web/_headers` carries one rule, on `/*`, that sets a Content-Security-Policy, a Referrer-Policy, a Cross-Origin-Opener-Policy, a Cross-Origin-Resource-Policy and a Permissions-Policy on every response the assets serve. The Worker's own responses (`/status.json`, `/subscribe`
 and the 404 it answers while subscriptions are off) carry the same Referrer-Policy, Permissions-Policy,
 Cross-Origin-Opener-Policy and Cross-Origin-Resource-Policy, and a Content-Security-Policy of their own. The
 Worker's policy differs from the pages' on purpose: a JSON or plain-text answer loads nothing, so it is
@@ -270,7 +269,7 @@ the live site: `/wp-admin` and `/en/pricing` answer 404, and `/` answers 200.
 **This section describes the 404 handling, which the script's `fetch` hands back to the assets
 unchanged, except `/status.json` and `/subscribe`; it does not describe the script's scheduled health checks or the status record.**
 
-Navigation requests need one more rule. Cloudflare's Worker routing page says that in single-page-application mode its default routing "automatically serves your /index.html file for navigation requests (those with Sec-Fetch-Mode: navigate headers) which don't match any other asset", and that advanced routing control gives "more control over which paths invoke your Worker script". This site is not in single-page-application mode (`not_found_handling` is `404-page`), so that sentence is quoted for the rule it states, not for this configuration. The behaviour was measured locally: before `run_worker_first` listed them, a browser navigation to `/status.json` or `/subscribe` got the 404 page, while a script fetch reached the Worker. A navigation to any path the Worker does not run first is answered from the assets without the Worker, which is why those two paths are listed. The 2026-09-21 measurement
+Navigation requests need one more rule. Cloudflare's single-page-application routing page, § Navigation requests, says: "If you have a Worker script (main), have configured assets.not_found_handling, and use the assets_navigation_prefers_asset_serving compatibility flag (or set a compatibility date of 2025-04-01 or greater), navigation requests will not invoke the Worker script." All three hold here: `main` is `worker/index.mjs`, `not_found_handling` is `404-page`, and `compatibility_date` is `2026-08-01`. So a browser's navigation (a request with `Sec-Fetch-Mode: navigate`) to a path no asset matches is answered from the assets with the 404 page, without the Worker, while a script's fetch of the same path reaches it. The same page names `assets.run_worker_first` as the way to run the Worker ahead of the assets; it lists the Worker's two routes, so a navigation to `/status.json` or `/subscribe` gets the Worker's answer, and every other navigation is answered as before. The behaviour was measured locally: before `run_worker_first` listed them, a browser navigation to `/status.json` or `/subscribe` got the 404 page, while a script fetch reached the Worker. The 2026-09-21 measurement
 predates `worker/index.mjs`, so the pass-through is not yet measured on the live site. Whoever
 changes the script's `fetch` handler re-reads this section and Cloudflare's current
 `not_found_handling` documentation rather than trusting it.
