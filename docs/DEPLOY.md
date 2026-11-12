@@ -105,7 +105,12 @@ which have that shape. **Production `kolwen.com` never carries it**: `kolwen.com
 ## Security headers
 
 `web/_headers` carries one rule, on `/*`, that sets a Content-Security-Policy, a Referrer-Policy and a
-Permissions-Policy on every response. The policy has no `'unsafe-inline'`: the page's inline script
+Permissions-Policy on every response the assets serve. The Worker's own responses (`/status.json`, `/subscribe`
+and the 404 it answers while subscriptions are off) carry the same Referrer-Policy, Permissions-Policy,
+Cross-Origin-Opener-Policy and Cross-Origin-Resource-Policy, and a Content-Security-Policy of their own. The
+Worker's policy differs from the pages' on purpose: a JSON or plain-text answer loads nothing, so it is
+`default-src 'none'; frame-ancestors 'none'; base-uri 'none'`, which allows nothing. The pages' policy admits
+their own scripts and styles, and the Worker's answers have none. The page policy has no `'unsafe-inline'`: the page's inline script
 and inline styles are admitted by `sha256-` hash, and so is the `<style>` of each SVG image under `web/`, which the policy governs as a document too, so an edit to any of them changes its hash and the
 policy must change with it. `scripts/surface-check.mjs` recomputes those hashes from the served
 HTML and fails the build if the two disagree. One origin is named in the policy because it
@@ -246,7 +251,7 @@ each static line without following it and reports a miss when the status or the 
 edge answers a trailing-slash or `.html` source as the file says is proven only by that first live probe.
 
 Cloudflare's redirects page says that redirects in `_redirects` are not applied to requests that Worker code
-serves. `wrangler.jsonc` has a Worker script (`main`: `worker/index.mjs`) and sets no `run_worker_first`, so the assets pipeline answers first: Cloudflare's Worker-script routing page says it "will first attempt to serve static assets if one matches the incoming request" and invokes the script only when none does. The three `/plans` redirects are therefore applied before the script runs. The script runs only for requests no asset matches: it answers `/status.json` and `/subscribe` itself and hands every other one back to the assets binding, which serves the 404 page. A redirect for `/status.json` or `/subscribe` would have to be written into its code, and setting `run_worker_first` would move every redirect into the same position.
+serves. `wrangler.jsonc` has a Worker script (`main`: `worker/index.mjs`) and sets `assets.run_worker_first` to the Worker's own two routes, `/status.json` and `/subscribe`. Cloudflare's Worker-script routing page says the assets are tried first "if one matches the incoming request" and that the script is invoked only when none does; `run_worker_first` is the setting that makes a listed path run the script first. For every other path the assets pipeline answers first, so the three `/plans` redirects are applied before the script runs. The list equals `WORKER_ROUTES` in `worker/index.mjs`, and `scripts/worker-routes.test.mjs` holds the two equal. The Worker answers its two routes itself and hands every other request back to the assets binding, which serves the 404 page. A redirect for `/status.json` or `/subscribe` would have to be written into the Worker's code, since the Worker answers those paths first. Adding any other path to `run_worker_first` would move its redirect behind the script, so the list stays at the two Worker routes.
 
 The legal paths `/terms`, `/privacy` and `/refund` are served pages, and none has a redirect. What still waits on the
 lawyer is the parts a page holds, on any of three routes: a counsel-pending marker (on the passage, or on the head of the
@@ -263,7 +268,9 @@ both did—and crawlers indexed nonexistent pages as real ones. Measured again 2
 the live site: `/wp-admin` and `/en/pricing` answer 404, and `/` answers 200.
 
 **This section describes the 404 handling, which the script's `fetch` hands back to the assets
-unchanged, except `/status.json` and `/subscribe`; it does not describe the script's scheduled health checks or the status record.** The 2026-09-21 measurement
+unchanged, except `/status.json` and `/subscribe`; it does not describe the script's scheduled health checks or the status record.**
+
+Navigation requests need one more rule. Cloudflare's Worker routing page says that in single-page-application mode its default routing "automatically serves your /index.html file for navigation requests (those with Sec-Fetch-Mode: navigate headers) which don't match any other asset", and that advanced routing control gives "more control over which paths invoke your Worker script". This site is not in single-page-application mode (`not_found_handling` is `404-page`), so that sentence is quoted for the rule it states, not for this configuration. The behaviour was measured locally: before `run_worker_first` listed them, a browser navigation to `/status.json` or `/subscribe` got the 404 page, while a script fetch reached the Worker. A navigation to any path the Worker does not run first is answered from the assets without the Worker, which is why those two paths are listed. The 2026-09-21 measurement
 predates `worker/index.mjs`, so the pass-through is not yet measured on the live site. Whoever
 changes the script's `fetch` handler re-reads this section and Cloudflare's current
 `not_found_handling` documentation rather than trusting it.
