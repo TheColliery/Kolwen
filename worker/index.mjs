@@ -25,7 +25,10 @@ const SITE_HEADERS = {
   'cross-origin-opener-policy': 'same-origin',
   'cross-origin-resource-policy': 'same-origin',
 };
-const secured = res => { for (const [name, value] of Object.entries(SITE_HEADERS)) res.headers.set(name, value); return res; };
+// K-192: the preview host (a host ending in .previews.kolwen.com) answers noindex on every response the Worker builds itself. web/_headers reaches
+// only the static assets, so the Worker sets it here, in secured(), the one place every such response passes through. kolwen.com gets nothing added.
+export const isPreviewHost = host => String(host ?? '').toLowerCase().endsWith('.previews.kolwen.com');
+const secured = (res, host = '') => { for (const [name, value] of Object.entries(SITE_HEADERS)) res.headers.set(name, value); if (isPreviewHost(host)) res.headers.set('x-robots-tag', 'noindex'); return res; };
 
 // One probe: the path, the status, the time taken, whether the content type is text/html, and ok (200 and text/html). A timeout or a network failure is named
 // by its class only, never by its message.
@@ -113,15 +116,15 @@ export async function monitor(env, { fetchImpl = fetch, now = new Date() } = {})
 }
 
 // GET /status.json: the stored state, or a plain line when no stored check result is available yet.
-export async function statusResponse(env) {
+export async function statusResponse(env, host = '') {
   const state = (await readState(env)) ?? { checked: null, message: 'No stored check result is available yet.' };
   const body = JSON.stringify(state);
   // The byte length of THIS body, computed here, never a constant: HEAD copies these headers and sends no body (K-173).
   const length = String(new TextEncoder().encode(body).length);
-  return secured(new Response(body, { headers: { 'content-type': 'application/json; charset=utf-8', 'content-length': length, 'cache-control': 'no-store', 'x-robots-tag': 'noindex' } }));
+  return secured(new Response(body, { headers: { 'content-type': 'application/json; charset=utf-8', 'content-length': length, 'cache-control': 'no-store', 'x-robots-tag': 'noindex' } }), host);
 }
 
-const text = (body, status = 200) => secured(new Response(body, { status, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } }));
+const text = (body, status = 200, host = '') => secured(new Response(body, { status, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } }), host);
 // The shape a subscription address must have: at most 254 characters (RFC 5321's path limit), no whitespace, one "@" with a
 // non-empty local part, and a dot in the domain that is neither its first nor its last character. The length check runs
 // first, so no long input reaches a scan, and every step after it is a single linear pass.
@@ -140,26 +143,26 @@ export async function handleSubscription(request, env) {
   const url = new URL(request.url);
   if (url.pathname !== '/subscribe') return null;
   const off = env.SUBSCRIBE !== 'on' || !env.SUBSCRIBERS;
-  if (off) return secured(new Response('not found', { status: 404 }));
+  if (off) return secured(new Response('not found', { status: 404 }), url.hostname);
   if (request.method === 'POST') {
     const email = String((await request.formData().catch(() => null))?.get('email') ?? '').trim();
-    if (!emailShape(email)) return text('enter an email address', 400);
+    if (!emailShape(email)) return text('enter an email address', 400, url.hostname);
     const token = [...crypto.getRandomValues(new Uint8Array(24))].map(b => b.toString(16).padStart(2, '0')).join('');
     await env.SUBSCRIBERS.put(token, JSON.stringify({ email, verified: false, created: new Date().toISOString() }));
-    return text('subscribed; no confirmation mail is sent in this build');
+    return text('subscribed; no confirmation mail is sent in this build', 200, url.hostname);
   }
   if (request.method === 'DELETE') {
     const token = url.searchParams.get('token') ?? '';
-    if (!TOKEN_SHAPE.test(token)) return text('bad token', 400);
+    if (!TOKEN_SHAPE.test(token)) return text('bad token', 400, url.hostname);
     await env.SUBSCRIBERS.delete(token);
-    return text('removed');
+    return text('removed', 200, url.hostname);
   }
-  return secured(new Response('not found', { status: 404 }));
+  return secured(new Response('not found', { status: 404 }), url.hostname);
 }
 
 // The paths the Worker answers itself. Every other path goes to the assets; a navigation to one of these reaches the Worker only through run_worker_first (wrangler.jsonc).
 // RFC 8461 policy for mta-sts.kolwen.com: testing mode, served on that host only (LWK-220 item 1; dark until its DNS record exists). The body is the design's, CRLF line endings.
-const mtaStsResponse = method => secured(new Response(method === 'HEAD' ? null : MTA_STS_POLICY, { headers: { 'content-type': 'text/plain; charset=utf-8', 'content-length': String(new TextEncoder().encode(MTA_STS_POLICY).length), 'cache-control': 'no-store' } }));
+const mtaStsResponse = (method, host = '') => secured(new Response(method === 'HEAD' ? null : MTA_STS_POLICY, { headers: { 'content-type': 'text/plain; charset=utf-8', 'content-length': String(new TextEncoder().encode(MTA_STS_POLICY).length), 'cache-control': 'no-store' } }), host);
 export const WORKER_ROUTES = ['/status.json', '/subscribe', MTA_STS_PATH];
 
 export default {
@@ -168,12 +171,12 @@ export default {
     if (!WORKER_ROUTES.includes(pathname)) return env.ASSETS.fetch(request);
     if (pathname === MTA_STS_PATH) {
       if (hostname !== MTA_STS_HOST || (request.method !== 'GET' && request.method !== 'HEAD')) return env.ASSETS.fetch(request);
-      return mtaStsResponse(request.method);
+      return mtaStsResponse(request.method, hostname);
     }
     // RFC 9110 §9.3.2: HEAD answers as GET does, with the same status and headers and no body (K-168).
     if ((request.method === 'GET' || request.method === 'HEAD') && pathname === '/status.json') {
-      const res = await statusResponse(env);
-      return request.method === 'HEAD' ? secured(new Response(null, { status: res.status, headers: res.headers })) : res;
+      const res = await statusResponse(env, hostname);
+      return request.method === 'HEAD' ? secured(new Response(null, { status: res.status, headers: res.headers }), hostname) : res;
     }
     return (await handleSubscription(request, env)) ?? env.ASSETS.fetch(request);
   },

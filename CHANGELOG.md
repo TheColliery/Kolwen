@@ -121,6 +121,7 @@ the pointer to it.
 - **Previews move to `previews.kolwen.com`, and the workers.dev preview and Version URLs are off** (AW-35 (1), BB-535). `wrangler.jsonc` sets
   `preview_urls: false`, which also switches off Version URLs and aliased Version URLs (Cloudflare's Version URLs page). `web/_headers` gives the preview host `X-Robots-Tag: noindex` and no longer carries the workers.dev rule; production
   `kolwen.com` carries no noindex. The preview hostname is attached to this Worker through the Cloudflare API on 2026-11-21 (the owner signed card BB-535; main pressed it). The host is attached. On 2026-11-21 a live read of `https://feat-previews-host.previews.kolwen.com` answered 200 with `x-robots-tag: noindex`, accepted TLS 1.2 and TLS 1.3, and refused TLS 1.0 and 1.1 with alert 70 (`protocol_version`); `kolwen.com` carries no `x-robots-tag`.
+- The preview host's `X-Robots-Tag: noindex` also covers every response the Worker builds itself (K-192), and the surface check's rule 16 exempts only one label or one placeholder before `.previews.kolwen.com` (K-191).
 
 - The index says answers will ship with their sources and a confidence level, since nothing ships yet. The English and Thai catalogue entries for the title, the description and the structured data are in the future tense, including that answers which cannot be verified will be flagged, never hidden; the built pages follow from them.
 - CONTRIBUTING.md names the launch-form Release a first pre-release version gets, by pointer to the series release pattern.

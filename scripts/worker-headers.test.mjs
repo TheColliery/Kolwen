@@ -71,3 +71,46 @@ test('every new Response in worker/index.mjs is passed through secured()', () =>
   assert.ok(built.length >= 4, 'the test sees the Worker\'s responses');
   assert.equal(passed.length, built.length, `${built.length - passed.length} response constructor(s) bypass secured()`);
 });
+
+// K-192: on a preview host (a host ending in .previews.kolwen.com) every response the Worker builds itself carries X-Robots-Tag: noindex, because
+// web/_headers reaches only the static assets. On kolwen.com and www.kolwen.com nothing is added.
+const PREVIEW = 'https://pr-12.previews.kolwen.com';
+test('K-192: a preview-host /subscribe answer and a preview-host malformed-token answer carry X-Robots-Tag noindex', async () => {
+  const off = await worker.fetch(new Request(PREVIEW + '/subscribe', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ email: 'reader@example.com' }) }), { SUBSCRIBE: 'off', SUBSCRIBERS: kv() });
+  assert.equal(off.status, 404);
+  assert.equal(off.headers.get('x-robots-tag'), 'noindex');
+  const bad = await worker.fetch(new Request(PREVIEW + '/subscribe?token=x', { method: 'DELETE' }), { SUBSCRIBE: 'on', SUBSCRIBERS: kv() });
+  assert.equal(bad.status, 400);
+  assert.equal(bad.headers.get('x-robots-tag'), 'noindex');
+  // C185b-1: the three other Worker answers on a preview host, each with the switch on.
+  const post = email => new Request(PREVIEW + '/subscribe', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ email }) });
+  const on = { SUBSCRIBE: 'on', SUBSCRIBERS: kv() };
+  const subscribed = await worker.fetch(post('reader@example.com'), on);
+  assert.equal(subscribed.status, 200);
+  assert.equal(await subscribed.text(), 'subscribed; no confirmation mail is sent in this build');
+  assert.equal(subscribed.headers.get('x-robots-tag'), 'noindex');
+  const shape = await worker.fetch(post('not-an-email'), on);
+  assert.equal(shape.status, 400);
+  assert.equal(shape.headers.get('x-robots-tag'), 'noindex');
+  const removed = await worker.fetch(new Request(PREVIEW + '/subscribe?token=' + TOKEN, { method: 'DELETE' }), { SUBSCRIBE: 'on', SUBSCRIBERS: kv({ [TOKEN]: '{}' }) });
+  assert.equal(removed.status, 200);
+  assert.equal(await removed.text(), 'removed');
+  assert.equal(removed.headers.get('x-robots-tag'), 'noindex');
+});
+
+test('K-192: a preview-host /status.json keeps noindex on GET and on HEAD', async () => {
+  const get = await worker.fetch(new Request(PREVIEW + '/status.json'), { STATUS: kv({ state: STATE }) });
+  assert.equal(get.headers.get('x-robots-tag'), 'noindex');
+  const head = await worker.fetch(new Request(PREVIEW + '/status.json', { method: 'HEAD' }), { STATUS: kv({ state: STATE }) });
+  assert.equal(head.headers.get('x-robots-tag'), 'noindex');
+});
+
+test('K-192: on kolwen.com and www.kolwen.com the Worker adds no X-Robots-Tag, and a host that only ends with the word previews is not a preview host', async () => {
+  for (const origin of ['https://kolwen.com', 'https://www.kolwen.com']) {
+    const off = await worker.fetch(new Request(origin + '/subscribe'), { SUBSCRIBE: 'off', SUBSCRIBERS: kv() });
+    assert.equal(off.status, 404);
+    assert.equal(off.headers.get('x-robots-tag'), null, origin);
+  }
+  const lookalike = await worker.fetch(new Request('https://notpreviews.kolwen.com/subscribe'), { SUBSCRIBE: 'off', SUBSCRIBERS: kv() });
+  assert.equal(lookalike.headers.get('x-robots-tag'), null);
+});

@@ -958,7 +958,7 @@ const lineOf = (s, i) => s.slice(0, i).split('\n').length;
 //
 // What counts: a `<meta>` whose `name` is `robots` and whose `content` holds `noindex` or `none` (robots `none` means
 // noindex plus nofollow), in any attribute order, any case, double, single or no quotes. In `_headers`, an
-// X-Robots-Tag value holding `noindex` or `none` on any rule whose pattern is not an absolute `*.previews.kolwen.com` URL.
+// X-Robots-Tag value holding `noindex` or `none` on any rule whose pattern is not an absolute URL whose host is one label, or one placeholder, before `.previews.kolwen.com`.
 // SCOPE: PRODUCTION_PAGES, every tracked page except those in PREVIEW_EXEMPT (rule 15 names why that set exists).
 // NON-VACUITY: rule 15's empty-scope finding covers the page list, and a list that is empty only because every page
 // is exempt is a finding here; a `_headers` that cannot be read is rule 13's finding.
@@ -1002,8 +1002,8 @@ const NOINDEX_META_OK = new Set(['web/404.html', 'web/subprocessors.html', 'web/
     for (const r of headersLib.parseHeadersFile(read('web/_headers'))) {
       for (const h of r.headers) {
         if (h.name.toLowerCase() !== 'x-robots-tag' || !/\b(?:noindex|none)\b/i.test(h.value)) continue;
-        if (/^https?:\/\/[^/]*\.previews\.kolwen\.com(?:\/|$)/i.test(r.pattern)) continue;
-        note('web/_headers', `line ${h.line}: sets X-Robots-Tag "${h.value}" on "${r.pattern}", a production path; noindex belongs only to the preview-host rule (an absolute *.previews.kolwen.com URL)`);
+        if (/^https:\/\/(?::[A-Za-z]\w*|[a-z0-9-]+)\.previews\.kolwen\.com(?:\/|$)/i.test(r.pattern)) continue;
+        note('web/_headers', `line ${h.line}: sets X-Robots-Tag "${h.value}" on "${r.pattern}", a production path; noindex belongs only to the preview-host rule (an absolute URL whose host is ONE label, or one placeholder, before \`.previews.kolwen.com\`)`);
       }
     }
   }
