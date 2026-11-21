@@ -163,7 +163,10 @@ jobs:
   secret-scan:
     name: secret scan (LWK-239)
     runs-on: ubuntu-latest
-    timeout-minutes: 10 # LWK-216: max 9 s over 3 runs
+    # Bounds, stated as arithmetic: each scanner test step is capped at 6 minutes (its file's outer bound, 360 s); two of them are
+    # 12 minutes, and the checkout, setup and gate steps are allowed the remaining 3, so 15 minutes. (The earlier 10-minute bound,
+    # sized on a 9 s basis, could not hold two 6-minute steps.)
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -175,7 +178,20 @@ jobs:
       # on Node 24) and the gate's spawn tests run first; then the gate itself in tree mode, the only mode a CI
       # checkout can run (it has no pushed range, and the gate says so in its PASS line). The push-time scan of
       # added lines, commit messages and tags runs in .githooks/pre-push on the pusher's box.
-      - run: node --test scripts/secret-scan.test.mjs scripts/secret-gate.test.mjs
+      # Two bounds, and what each one does. `timeout-minutes` on a step bounds that whole file: it is the outer bound, and nothing else
+      # bounds a file, because Node 24's --test-timeout applies to each test inside the file and the file's own wrapper has none (measured
+      # by CodeRabbit on #207). --test-timeout (360000 ms) bounds each single test inside its file. Each file has its own step, so a
+      # missing file fails its own step: Node 24 runs the other file and passes when one of two listed paths is missing.
+      # The 360 s figure is sized from the canon's measurement: secret-gate.test.mjs runs 88 tests in about 168 s on a Windows runner,
+      # its slowest single test about 8 s (THE CANON COPY ROUND OF 2026-11-21; ci-evidence chose 360 s per file). This job runs on
+      # ubuntu, a different machine, so the margin (about 2.1 times the Windows figure) is the stated allowance, not a measurement here.
+      # The heap cap is the one the rendered job uses for the same kind of test run.
+      - name: scanner tests (secret-scan.test.mjs)
+        timeout-minutes: 6
+        run: node --max-old-space-size=1024 --test --test-timeout=360000 scripts/secret-scan.test.mjs
+      - name: gate tests (secret-gate.test.mjs)
+        timeout-minutes: 6
+        run: node --max-old-space-size=1024 --test --test-timeout=360000 scripts/secret-gate.test.mjs
       - run: node scripts/secret-gate.mjs
   # A single STABLE required-check context (job names drift; this does not).
   # Rulesets require `all-green`, never the per-job names.
